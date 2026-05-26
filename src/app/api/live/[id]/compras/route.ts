@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const live_id = parseInt(id)
   const body = await req.json()
-  const { cliente_id, nome_cliente, whatsapp, data_compra, cor_sacola, numero_sacola, quantidade_itens, valor_total, desconto, observacoes, itens } = body
+  const { cliente_id, nome_cliente, whatsapp, data_compra, cor_sacola, numero_sacola, quantidade_itens, quantidade_volumes, valor_total, desconto, observacao, link_pagamento, itens } = body
 
   let nomeCliente = nome_cliente
   let whatsappCliente = whatsapp
@@ -27,7 +27,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     live_id, cliente_id: cliente_id ?? null, nome_cliente: nomeCliente, whatsapp: whatsappCliente,
     data_compra: data_compra ?? new Date().toISOString().split("T")[0],
     cor_sacola, numero_sacola, quantidade_itens: quantidade_itens ?? 1,
-    valor_total: valor_total ?? 0, desconto: desconto ?? 0, observacoes,
+    quantidade_volumes: quantidade_volumes ?? 1,
+    valor_total: valor_total ?? 0, desconto: desconto ?? 0,
+    observacao: observacao ?? null,
+    link_pagamento: link_pagamento ?? null,
   }).select().single()
 
   if (error) return NextResponse.json({ erro: "Erro ao registrar compra." }, { status: 500 })

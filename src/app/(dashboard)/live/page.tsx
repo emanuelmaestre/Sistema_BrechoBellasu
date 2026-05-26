@@ -60,6 +60,7 @@ interface CompraForm {
   cor_sacola: string; numero_sacola: string
   quantidade_itens: string; quantidade_volumes: string
   valor_total: string; desconto: string; observacao: string
+  link_pagamento: string
 }
 
 const hoje = new Date().toISOString().split("T")[0]
@@ -69,6 +70,7 @@ const EMPTY_COMPRA: CompraForm = {
   cor_sacola: "", numero_sacola: "",
   quantidade_itens: "1", quantidade_volumes: "1",
   valor_total: "", desconto: "", observacao: "",
+  link_pagamento: "",
 }
 
 const CORES_SACOLA = ["Amarela","Azul","Bege","Branca","Cinza","Laranja","Lilás","Marrom","Preta","Rosa","Roxa","Verde","Vermelha"]
@@ -392,6 +394,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
         valor_total:       parseFloat(form.valor_total.replace(",", ".")) || 0,
         desconto:          parseFloat(form.desconto.replace(",", ".")) || 0,
         observacao:        form.observacao || undefined,
+        link_pagamento:    form.link_pagamento || undefined,
         status_compra:     "cadastrada",
       })
       onSalvo(); onClose()
@@ -579,6 +582,12 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                       <span className="font-medium" style={{ color: "var(--text-primary)" }}>{r.v}</span>
                     </div>
                   ))}
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>LINK DE PAGAMENTO ASAAS (opcional)</p>
+                  <input value={form.link_pagamento} onChange={e => set("link_pagamento", e.target.value)}
+                    placeholder="https://www.asaas.com/c/..." className={iBase} style={iSt}/>
                 </div>
 
                 <div className="mt-6 flex gap-3">
