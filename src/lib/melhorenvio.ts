@@ -43,7 +43,13 @@ async function meRequest<T>(
     throw new Error(`Melhor Envio ${method} ${path} → ${res.status}: ${text.slice(0, 300)}`)
   }
 
-  return res.json() as Promise<T>
+  const text = await res.text()
+  if (!text || text.trim() === "") return {} as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(`Melhor Envio resposta inválida: ${text.slice(0, 200)}`)
+  }
 }
 
 // ── Tipos ───────────────────────────────────────

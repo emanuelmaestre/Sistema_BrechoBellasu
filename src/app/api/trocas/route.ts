@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const to     = from + limit - 1
 
   const sb = createServerClient()
-  let q = sb.from("v_trocas").select("*", { count: "exact" })
+  let q = sb.from("trocas").select("*, clientes(nome)", { count: "exact" })
   if (tipo)   q = q.eq("tipo", tipo)
   if (status) q = q.eq("status", status)
   if (de)     q = q.gte("created_at", `${de}T00:00:00`)
