@@ -1359,11 +1359,11 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             )}
           </motion.div>
 
-          {/* Lista */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {/* Tabela */}
+          <div className="flex-1 overflow-y-auto">
             {compras.length === 0 ? (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="h-full flex flex-col items-center justify-center gap-3 rounded-2xl"
+                className="h-full flex flex-col items-center justify-center gap-3 m-3 rounded-2xl"
                 style={{ border: "2px dashed var(--border)" }}>
                 <ShoppingBag size={32} className="opacity-20" style={{ color: "var(--text-muted)" }}/>
                 <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>NENHUMA COMPRA</p>
@@ -1376,101 +1376,117 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 )}
               </motion.div>
             ) : (
-              <AnimatePresence>
-                {compras.map((c, idx) => {
-                  const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
-                  const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
-                  const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "finalizada"
+              <table className="w-full">
+                <thead className="sticky top-0 z-10" style={{ background: "var(--bg-base)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                    {["CLIENTE","SACOLA","ITENS","VALOR","MSG","STATUS","AÇÃO"].map((h, i) => (
+                      <th key={h} className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
+                        style={{ color: "var(--text-muted)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                    {compras.map((c, idx) => {
+                      const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
+                      const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
+                      const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "finalizada"
 
-                  return (
-                    <motion.div key={c.id}
-                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20, height: 0 }}
-                      transition={{ delay: idx * 0.03, type: "spring", stiffness: 300, damping: 25 }}
-                      layout
-                      whileHover={{ x: 2 }}
-                      className="rounded-xl overflow-hidden"
-                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                      return (
+                        <motion.tr key={c.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -10 }}
+                          transition={{ delay: idx * 0.03, type: "spring", stiffness: 300, damping: 25 }}
+                          className="group transition-colors"
+                          style={{ borderBottom: "1px solid var(--border)" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-hover)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
 
-                      <div className="px-3 py-2.5 flex items-center gap-3">
-                        {/* Avatar */}
-                        <motion.div whileHover={{ scale: 1.1 }}
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
-                          style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
-                          {c.nome_cliente[0].toUpperCase()}
-                        </motion.div>
+                          {/* CLIENTE */}
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+                                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                                {c.nome_cliente[0].toUpperCase()}
+                              </div>
+                              <p className="text-xs font-black uppercase tracking-wide truncate max-w-[160px]"
+                                style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
+                            </div>
+                          </td>
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>
-                            {c.nome_cliente}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--text-muted)" }}>
-                              {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "SEM SACOLA"}
+                          {/* SACOLA */}
+                          <td className="px-3 py-3">
+                            <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-secondary)" }}>
+                              {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "—"}
                             </p>
-                            <span style={{ color: "var(--border)" }}>·</span>
-                            <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--text-muted)" }}>
-                              {c.quantidade_itens ?? 1} ITEM{(c.quantidade_itens ?? 1) !== 1 ? "S" : ""}
-                            </p>
-                            <span style={{ color: "var(--border)" }}>·</span>
-                            <p className="text-[9px] font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(c.valor_total)}</p>
-                          </div>
-                        </div>
+                          </td>
 
-                        {/* Badges direita */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {/* msg status */}
-                          <span className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
-                            style={{ background: c.msg_status === "enviada" ? "rgba(59,130,246,0.12)" : "rgba(245,158,11,0.1)", color: c.msg_status === "enviada" ? "#60a5fa" : "#f59e0b" }}>
-                            {c.msg_status === "enviada" ? <MessageSquare size={8}/> : <Clock size={8}/>}
-                            {c.msg_status === "enviada" ? "ENVIADA" : "PENDENTE"}
-                          </span>
+                          {/* ITENS */}
+                          <td className="px-3 py-3 text-center">
+                            {(c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial" || c.status_compra === "vinculada") ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <p className="text-[10px] font-black" style={{ color: "var(--text-primary)" }}>
+                                  {c.total_produtos_vinculados ?? 0}/{c.quantidade_itens ?? 0}
+                                </p>
+                                <div className="w-14 h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.6 }}
+                                    className="h-full rounded-full" style={{ background: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}/>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] font-black" style={{ color: "var(--text-secondary)" }}>
+                                {c.quantidade_itens ?? 1}
+                              </p>
+                            )}
+                          </td>
 
-                          {/* compra status */}
-                          <span className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
-                            style={{ background: sc.bg, color: sc.cor }}>
-                            {sc.icon} {sc.label.toUpperCase()}
-                          </span>
+                          {/* VALOR */}
+                          <td className="px-3 py-3 text-center">
+                            <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(c.valor_total)}</p>
+                          </td>
 
-                          {/* Ação vincular */}
-                          {live.status !== "encerrada" && podeVincular && (
-                            <motion.button onClick={() => setModalVinculo(c)}
-                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                              className="flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg"
-                              style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
-                              <Link2 size={9}/> VINCULAR
-                            </motion.button>
-                          )}
-                          {c.status_compra === "finalizada" && (
-                            <span className="flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg"
-                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                              <CheckCircle2 size={9}/> OK
+                          {/* MSG */}
+                          <td className="px-3 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full"
+                              style={{ background: c.msg_status === "enviada" ? "rgba(59,130,246,0.12)" : "rgba(245,158,11,0.1)", color: c.msg_status === "enviada" ? "#60a5fa" : "#f59e0b" }}>
+                              {c.msg_status === "enviada" ? <MessageSquare size={8}/> : <Clock size={8}/>}
+                              {c.msg_status === "enviada" ? "ENVIADA" : "PENDENTE"}
                             </span>
-                          )}
-                        </div>
-                      </div>
+                          </td>
 
-                      {/* Barra vínculo */}
-                      {(c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial" || c.status_compra === "vinculada") && (
-                        <div className="px-3 pb-2">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-[8px] font-black uppercase" style={{ color: "var(--text-muted)" }}>
-                              VÍNCULO {c.total_produtos_vinculados ?? 0}/{c.quantidade_itens ?? 0}
-                            </p>
-                            <p className="text-[8px] font-black" style={{ color: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}>
-                              {Math.round(progVinculo)}%
-                            </p>
-                          </div>
-                          <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
-                              className="h-full rounded-full" style={{ background: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}/>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
+                          {/* STATUS */}
+                          <td className="px-3 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full"
+                              style={{ background: sc.bg, color: sc.cor }}>
+                              {sc.icon} {sc.label.toUpperCase()}
+                            </span>
+                          </td>
+
+                          {/* AÇÃO */}
+                          <td className="px-3 py-3 text-center">
+                            {live.status !== "encerrada" && podeVincular && (
+                              <motion.button onClick={() => setModalVinculo(c)}
+                                whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                                className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg"
+                                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                                <Link2 size={9}/> VINCULAR
+                              </motion.button>
+                            )}
+                            {c.status_compra === "finalizada" && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg"
+                                style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                                <CheckCircle2 size={9}/> OK
+                              </span>
+                            )}
+                            {live.status !== "encerrada" && !podeVincular && c.status_compra !== "finalizada" && (
+                              <span className="text-[9px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>—</span>
+                            )}
+                          </td>
+                        </motion.tr>
+                      )
+                    })}
+                  </AnimatePresence>
+                </tbody>
+              </table>
             )}
           </div>
         </div>
