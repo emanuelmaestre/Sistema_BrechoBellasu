@@ -32,16 +32,21 @@ export async function POST(req: NextRequest) {
   const sb = createServerClient()
   const nomeDefault = titulo || `Live ${new Date(data_live + "T12:00:00").toLocaleDateString("pt-BR")}`
 
-  const { data, error } = await sb.from("lives")
-    .insert({
-      titulo: nomeDefault,
-      data_live,
-      plataforma: plataforma || null,
-      tipo: tipo || "novidades",
-      status: "aberta",
-      observacoes: observacoes || null,
-    })
+  // Tenta inserir com campo tipo; se coluna não existir ainda, insere sem ela
+  let data, error
+  const withTipo = await sb.from("lives")
+    .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, tipo: tipo || "novidades", status: "aberta", observacoes: observacoes || null })
     .select().single()
+
+  if (withTipo.error?.message?.includes("tipo")) {
+    // Coluna tipo ainda não existe no banco — insere sem ela
+    const sem = await sb.from("lives")
+      .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, status: "aberta", observacoes: observacoes || null })
+      .select().single()
+    data = sem.data; error = sem.error
+  } else {
+    data = withTipo.data; error = withTipo.error
+  }
 
   if (error) return NextResponse.json({ erro: "Erro ao criar live.", detalhe: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })

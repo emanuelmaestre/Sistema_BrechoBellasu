@@ -18,9 +18,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const sb = createServerClient()
 
-  // Busca tipo da live
+  // Busca tipo da live (coluna pode não existir ainda)
   const { data: liveRow } = await sb.from("lives").select("tipo").eq("id", live_id).single()
-  const tipoLive = (liveRow?.tipo ?? "novidades") as "novidades" | "promocional"
+  const tipoLive = ((liveRow as Record<string,unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
 
   if (cliente_id) {
     const { data: cli } = await sb.from("clientes").select("nome, celular, cpf_cnpj").eq("id", cliente_id).single()
