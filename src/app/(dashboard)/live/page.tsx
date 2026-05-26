@@ -1149,317 +1149,338 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
   const podeEncerrar = live.status !== "encerrada" && compras.length > 0 && compras.every(c => c.status_compra === "finalizada")
 
+  const METRICAS = [
+    { icon: <Users size={14}/>,        label: "CLIENTES",      val: totalClientes,           cor: "#6366f1" },
+    { icon: <TrendingUp size={14}/>,   label: "TOTAL",         val: fmtBRL(totalArrecadado), cor: "#10b981" },
+    { icon: <MessageSquare size={14}/>,label: "MSGS ENVIADAS", val: msgEnviadas,             cor: "#3b82f6" },
+    { icon: <Clock size={14}/>,        label: "MSG PENDENTES", val: msgPendentes,            cor: "#f59e0b" },
+    { icon: <Link2 size={14}/>,        label: "AG. VÍNCULO",   val: aguardVinculo,           cor: "#8b5cf6" },
+    { icon: <CheckCircle2 size={14}/>, label: "FINALIZADAS",   val: finalizadas,             cor: "#10b981" },
+  ]
+
   return (
-    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-      {/* ── Barra topo ── */}
-      <div className="sticky top-0 z-10 px-6 py-3 flex items-center justify-between shrink-0"
-        style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border)" }}>
-        <button onClick={onVoltar} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-          <ChevronLeft size={15}/> Lives
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: statusCfg.cor }}/>
-          <span className="text-xs font-semibold" style={{ color: statusCfg.cor }}>{statusCfg.label}</span>
+    <div className="flex flex-col overflow-hidden" style={{ height: "100%", background: "var(--bg-base)" }}>
+
+      {/* ══ TOP BAR ══ */}
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+        className="shrink-0 flex items-center gap-4 px-5 py-2.5"
+        style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
+
+        {/* Voltar */}
+        <motion.button onClick={onVoltar} whileHover={{ x: -2 }} whileTap={{ scale: 0.95 }}
+          className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider shrink-0"
+          style={{ color: "var(--text-muted)" }}>
+          <ChevronLeft size={14}/> LIVES
+        </motion.button>
+
+        <span style={{ color: "var(--border)" }}>|</span>
+
+        {/* Plataforma + título */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="shrink-0 scale-[0.6] -mx-2">{plataformaIcon ?? <Radio size={20} style={{ color: COR_LIVE }}/>}</div>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>
+              {live.titulo ?? "LIVE"} — {fmtData(live.data_live ?? "")}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 pb-24 pt-6 space-y-6">
-
-        {/* ═══ Sessão 1 — Dados da Live ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-          className="rounded-3xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                style={{ background: "var(--bg-surface)" }}>
-                {plataformaIcon ?? <Radio size={22} style={{ color: COR_LIVE }}/>}
-              </div>
-              <div>
-                <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>
-                  {live.titulo ? `Live ${live.titulo}` : "Live"} — {fmtData(live.data_live ?? "")}
-                </p>
-                <p className="text-sm capitalize mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {live.plataforma ?? "Instagram"} · {live.titulo ?? "Sem tipo"}
-                </p>
-              </div>
-            </div>
-            <span className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold"
-              style={{ background: statusCfg.bg, color: statusCfg.cor }}>
-              {statusCfg.label}
-            </span>
-          </div>
-
-          {/* Barra de progresso */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-3">
-              {ETAPAS_LIVE.map((e, i) => {
-                const done    = e.id < etapa
-                const current = e.id === etapa
-                const locked  = e.id > etapa
-                return (
-                  <div key={e.id} className="flex flex-col items-center gap-1.5 flex-1">
-                    <div className="relative flex items-center w-full justify-center">
-                      {i > 0 && (
-                        <div className="absolute right-[50%] top-1/2 -translate-y-1/2 h-0.5 w-full"
-                          style={{ background: done ? "var(--accent)" : "var(--border)" }}/>
-                      )}
-                      <motion.div animate={{ scale: current ? [1, 1.15, 1] : 1 }} transition={{ repeat: current ? Infinity : 0, duration: 1.5 }}
-                        className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
-                        style={{
-                          background: done ? "var(--accent)" : current ? "var(--accent)" : "var(--bg-surface)",
-                          border: `2px solid ${done || current ? "var(--accent)" : "var(--border)"}`,
-                          color: done || current ? "#fff" : "var(--text-muted)",
-                        }}>
-                        {done ? <Check size={12}/> : e.id}
-                      </motion.div>
-                    </div>
-                    <p className="text-[9px] font-medium text-center leading-tight"
-                      style={{ color: done || current ? "var(--text-primary)" : "var(--text-muted)" }}>
-                      {e.label}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* ═══ Sessão 2 — Resumo ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
-          <p className="text-xs font-bold uppercase tracking-wider mb-3 px-1" style={{ color: "var(--text-muted)" }}>Resumo</p>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { icon: <Users size={16}/>,       label: "Clientes",     val: totalClientes,    cor: "#6366f1" },
-              { icon: <TrendingUp size={16}/>,  label: "Total",        val: fmtBRL(totalArrecadado), cor: "#10b981" },
-              { icon: <MessageSquare size={16}/>,label: "Msgs enviadas",val: msgEnviadas,       cor: "#3b82f6" },
-              { icon: <Clock size={16}/>,       label: "Msgs pendentes",val: msgPendentes,      cor: "#f59e0b" },
-              { icon: <Link2 size={16}/>,       label: "Ag. vínculo",  val: aguardVinculo,     cor: "#8b5cf6" },
-              { icon: <CheckCircle2 size={16}/>,label: "Finalizadas",  val: finalizadas,        cor: "#10b981" },
-            ].map(c => (
-              <motion.div key={c.label} whileHover={{ scale: 1.02 }}
-                className="rounded-2xl p-4 flex flex-col gap-1"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-2">
-                  <span style={{ color: c.cor }}>{c.icon}</span>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{c.label}</p>
+        {/* Etapas compactas */}
+        <div className="flex-1 flex items-center justify-center gap-0">
+          {ETAPAS_LIVE.map((e, i) => {
+            const done    = e.id < etapa
+            const current = e.id === etapa
+            return (
+              <div key={e.id} className="flex items-center">
+                {i > 0 && (
+                  <motion.div className="h-px w-6"
+                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                    transition={{ delay: i * 0.05, duration: 0.3 }}
+                    style={{ background: done ? "var(--accent)" : "var(--border)", transformOrigin: "left" }}/>
+                )}
+                <div className="flex flex-col items-center gap-0.5">
+                  <motion.div
+                    animate={current ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                    transition={{ repeat: current ? Infinity : 0, duration: 1.8, ease: "easeInOut" }}
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black"
+                    style={{
+                      background: done ? "var(--accent)" : current ? COR_LIVE : "var(--bg-surface)",
+                      border: `1.5px solid ${done ? "var(--accent)" : current ? COR_LIVE : "var(--border)"}`,
+                      color: done || current ? "#fff" : "var(--text-muted)",
+                      boxShadow: current ? `0 0 8px ${COR_LIVE}60` : "none",
+                    }}>
+                    {done ? <Check size={9}/> : e.id}
+                  </motion.div>
+                  <p className="text-[7px] font-bold uppercase tracking-wide"
+                    style={{ color: done || current ? "var(--text-secondary)" : "var(--text-muted)" }}>
+                    {e.label}
+                  </p>
                 </div>
-                <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{c.val}</p>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Status */}
+        <motion.span
+          animate={{ opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 2 }}
+          className="shrink-0 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full"
+          style={{ background: statusCfg.bg, color: statusCfg.cor }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusCfg.cor }}/>
+          {statusCfg.label}
+        </motion.span>
+      </motion.div>
+
+      {/* ══ BODY 2 COLUNAS ══ */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* ── COLUNA ESQUERDA — painel fixo ── */}
+        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
+          className="w-72 shrink-0 flex flex-col overflow-hidden"
+          style={{ borderRight: "1px solid var(--border)" }}>
+
+          {/* Métricas */}
+          <div className="p-3 grid grid-cols-2 gap-2">
+            {METRICAS.map((m, i) => (
+              <motion.div key={m.label}
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.08 + i * 0.04, type: "spring", stiffness: 300, damping: 20 }}
+                whileHover={{ scale: 1.03, y: -1 }}
+                className="rounded-xl p-3 flex flex-col gap-1"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: m.cor }}>{m.icon}</span>
+                  <p className="text-[8px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
+                </div>
+                <p className="text-lg font-black leading-none" style={{ color: "var(--text-primary)" }}>{m.val}</p>
               </motion.div>
             ))}
           </div>
-        </motion.div>
 
-        {/* ═══ Guia contextual ═══ */}
-        <AnimatePresence>
-          <motion.div key={g.msg} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-2xl px-4 py-3 flex items-start gap-3"
-            style={{ background: "var(--accent-bg)", border: "1px solid var(--accent)" }}>
-            <Zap size={15} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }}/>
-            <p className="text-sm" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* ═══ Sessão 3 — Compras ═══ */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Compras ({compras.length})
-            </p>
-            {live.status !== "encerrada" && (
-              <motion.button onClick={() => setModalCompra(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-md"
-                style={{ background: COR_LIVE }}>
-                <Plus size={14}/> Adicionar Compra
-              </motion.button>
-            )}
+          {/* Guia */}
+          <div className="px-3 pb-2">
+            <AnimatePresence mode="wait">
+              <motion.div key={g.msg}
+                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+                style={{ background: "var(--accent-bg)", border: `1px solid var(--accent)` }}>
+                <Zap size={12} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }}/>
+                <p className="text-[10px] font-semibold uppercase leading-relaxed" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {compras.length === 0 ? (
-            <div className="rounded-3xl py-12 flex flex-col items-center gap-3" style={{ background: "var(--bg-card)", border: "2px dashed var(--border)" }}>
-              <ShoppingBag size={36} className="opacity-30" style={{ color: "var(--text-muted)" }}/>
-              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Nenhuma compra ainda</p>
-              {live.status !== "encerrada" && (
-                <motion.button onClick={() => setModalCompra(true)} whileTap={{ scale: 0.97 }}
-                  className="mt-2 flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-                  style={{ background: COR_LIVE }}>
-                  <Plus size={14}/> Adicionar primeira compra
+          {/* Ações */}
+          {live.status !== "encerrada" && (
+            <div className="px-3 pb-3 flex flex-col gap-2 mt-auto">
+              <p className="text-[8px] font-black uppercase tracking-widest px-1" style={{ color: "var(--text-muted)" }}>AÇÕES</p>
+
+              {msgPendentes > 0 && (
+                <motion.button onClick={() => setModalDisp(true)}
+                  whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.97 }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide text-white shadow-lg"
+                  style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
+                  <div className="flex items-center gap-2">
+                    <Send size={13}/>
+                    <div className="text-left">
+                      <p>DISPARAR MSGS</p>
+                      <p className="text-[9px] font-semibold opacity-80 normal-case">{msgPendentes} pendente{msgPendentes !== 1 ? "s" : ""}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={13} className="opacity-60"/>
                 </motion.button>
               )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <AnimatePresence>
-                {compras.map((c, idx) => {
-                  const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
-                  const msgSt = c.msg_status === "enviada" ? STATUS_COMPRA.msg_enviada : c.msg_status === "erro" ? STATUS_COMPRA.msg_enviada : STATUS_COMPRA.msg_pendente
-                  const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
 
-                  return (
-                    <motion.div key={c.id}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
-                      transition={{ delay: idx * 0.04 }}
-                      layout
-                      className="rounded-2xl overflow-hidden"
-                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          {/* Avatar + Nome */}
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                              style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
-                              {c.nome_cliente[0]}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
-                              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                                {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "Sem sacola"}
-                                {" · "}{c.quantidade_itens ?? 1} item(ns) · {fmtBRL(c.valor_total)}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Status badge */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                              style={{ background: sc.bg, color: sc.cor }}>
-                              {sc.icon} {sc.label}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progresso vínculo */}
-                        {(c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial" || c.status_compra === "vinculada") && (
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                                {c.total_produtos_vinculados ?? 0} / {c.quantidade_itens ?? 0} produtos
-                              </p>
-                              <p className="text-[10px] font-semibold" style={{ color: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}>
-                                {Math.round(progVinculo)}%
-                              </p>
-                            </div>
-                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-                              <motion.div animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.5 }}
-                                className="h-full rounded-full" style={{ background: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}/>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Ações */}
-                        {live.status !== "encerrada" && (
-                          <div className="mt-3 flex items-center gap-2 justify-end">
-                            {/* Vincular produtos — disponível após msgs disparadas */}
-                            {(live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) &&
-                              c.status_compra !== "finalizada" && (
-                              <motion.button onClick={() => setModalVinculo(c)} whileTap={{ scale: 0.96 }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
-                                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
-                                <Link2 size={11}/> Vincular Produtos
-                              </motion.button>
-                            )}
-                            {c.status_compra === "finalizada" && (
-                              <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl"
-                                style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
-                                <CheckCircle2 size={11}/> Finalizada
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Barra de msg status */}
-                      <div className="px-4 pb-3 flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
-                          style={{ background: c.msg_status === "enviada" ? "rgba(59,130,246,0.1)" : "rgba(245,158,11,0.08)", color: c.msg_status === "enviada" ? "#60a5fa" : "#f59e0b" }}>
-                          {c.msg_status === "enviada" ? <MessageSquare size={9}/> : <Clock size={9}/>}
-                          {c.msg_status === "enviada" ? "Msg enviada" : "Msg pendente"}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-            </div>
-          )}
-        </motion.div>
-
-        {/* ═══ Sessão 4 — Ações principais ═══ */}
-        {live.status !== "encerrada" && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.15 }}
-            className="rounded-3xl p-5 space-y-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Ações</p>
-
-            {/* Disparar mensagens */}
-            {msgPendentes > 0 && (
-              <motion.button onClick={() => setModalDisp(true)} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-sm font-semibold text-white shadow-lg"
-                style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
-                <div className="flex items-center gap-3">
-                  <Send size={16}/>
-                  <div className="text-left">
-                    <p>Disparar Mensagens</p>
-                    <p className="text-xs font-normal opacity-80">{msgPendentes} cliente{msgPendentes !== 1 ? "s" : ""} aguardando</p>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="opacity-60"/>
-              </motion.button>
-            )}
-
-            {/* Encerrar live */}
-            <div>
-              <motion.button onClick={podeEncerrar ? encerrar : undefined} disabled={encerrando}
-                whileTap={podeEncerrar ? { scale: 0.97 } : { x: [0, -4, 4, -4, 0] }}
-                transition={podeEncerrar ? {} : { duration: 0.3 }}
-                className={cn("w-full flex items-center justify-between px-5 py-4 rounded-2xl text-sm font-semibold transition-all",
+              <motion.button
+                onClick={podeEncerrar ? encerrar : undefined}
+                disabled={encerrando}
+                whileHover={podeEncerrar ? { scale: 1.02, y: -1 } : {}}
+                whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3, 3, -3, 0] }}
+                transition={podeEncerrar ? {} : { duration: 0.25 }}
+                className={cn("w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
                   podeEncerrar ? "text-white shadow-lg" : "cursor-not-allowed")}
                 style={{
                   background: podeEncerrar ? "linear-gradient(135deg, #ef4444, #b91c1c)" : "var(--bg-surface)",
                   border: podeEncerrar ? "none" : "1px solid var(--border)",
                   color: podeEncerrar ? "white" : "var(--text-muted)",
                 }}>
-                <div className="flex items-center gap-3">
-                  {podeEncerrar
-                    ? <CheckCircle2 size={16}/>
-                    : <Lock size={16} className="opacity-50"/>}
+                <div className="flex items-center gap-2">
+                  {podeEncerrar ? <CheckCircle2 size={13}/> : <Lock size={13} className="opacity-50"/>}
                   <div className="text-left">
-                    <p>{encerrando ? "Encerrando..." : "Encerrar Live"}</p>
+                    <p>{encerrando ? "ENCERRANDO..." : "ENCERRAR LIVE"}</p>
                     {!podeEncerrar && (
-                      <p className="text-xs font-normal opacity-60">
-                        {compras.length === 0 ? "Sem compras cadastradas" : `${compras.length - finalizadas} compra(s) pendente(s)`}
+                      <p className="text-[9px] font-semibold opacity-50 normal-case">
+                        {compras.length === 0 ? "sem compras" : `${compras.length - finalizadas} pendente(s)`}
                       </p>
                     )}
                   </div>
                 </div>
-                {podeEncerrar ? <ChevronRight size={16} className="opacity-60"/> : <Ban size={14} className="opacity-30"/>}
+                {podeEncerrar ? <ChevronRight size={13} className="opacity-60"/> : <Ban size={12} className="opacity-30"/>}
               </motion.button>
 
               <AnimatePresence>
                 {erroEnc && (
-                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="mt-2 px-4 py-3 rounded-xl flex items-start gap-2"
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                    className="px-3 py-2 rounded-lg flex items-start gap-1.5 overflow-hidden"
                     style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5" style={{ color: "#f87171" }}/>
-                    <p className="text-xs" style={{ color: "#f87171" }}>{erroEnc}</p>
+                    <AlertTriangle size={11} className="shrink-0 mt-0.5" style={{ color: "#f87171" }}/>
+                    <p className="text-[10px] uppercase font-semibold" style={{ color: "#f87171" }}>{erroEnc}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
 
-            {/* Excluir */}
-            <button onClick={excluir} disabled={excluindo}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-medium opacity-40 hover:opacity-70 transition-opacity"
-              style={{ color: "var(--text-muted)", border: "1px dashed var(--border)" }}>
-              <Trash2 size={13}/> {excluindo ? "Excluindo..." : "Excluir live"}
-            </button>
+              <button onClick={excluir} disabled={excluindo}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity"
+                style={{ color: "var(--text-muted)", border: "1px dashed var(--border)" }}>
+                <Trash2 size={11}/> {excluindo ? "EXCLUINDO..." : "EXCLUIR LIVE"}
+              </button>
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── COLUNA DIREITA — lista de compras ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Header compras */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+            className="shrink-0 flex items-center justify-between px-4 py-2.5"
+            style={{ borderBottom: "1px solid var(--border)" }}>
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              COMPRAS <span style={{ color: "var(--accent)" }}>({compras.length})</span>
+            </p>
+            {live.status !== "encerrada" && (
+              <motion.button onClick={() => setModalCompra(true)}
+                whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide text-white shadow-md"
+                style={{ background: COR_LIVE }}>
+                <Plus size={11}/> ADICIONAR
+              </motion.button>
+            )}
           </motion.div>
-        )}
+
+          {/* Lista */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {compras.length === 0 ? (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className="h-full flex flex-col items-center justify-center gap-3 rounded-2xl"
+                style={{ border: "2px dashed var(--border)" }}>
+                <ShoppingBag size={32} className="opacity-20" style={{ color: "var(--text-muted)" }}/>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>NENHUMA COMPRA</p>
+                {live.status !== "encerrada" && (
+                  <motion.button onClick={() => setModalCompra(true)} whileTap={{ scale: 0.97 }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide text-white"
+                    style={{ background: COR_LIVE }}>
+                    <Plus size={11}/> ADICIONAR COMPRA
+                  </motion.button>
+                )}
+              </motion.div>
+            ) : (
+              <AnimatePresence>
+                {compras.map((c, idx) => {
+                  const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
+                  const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
+                  const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "finalizada"
+
+                  return (
+                    <motion.div key={c.id}
+                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20, height: 0 }}
+                      transition={{ delay: idx * 0.03, type: "spring", stiffness: 300, damping: 25 }}
+                      layout
+                      whileHover={{ x: 2 }}
+                      className="rounded-xl overflow-hidden"
+                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+
+                      <div className="px-3 py-2.5 flex items-center gap-3">
+                        {/* Avatar */}
+                        <motion.div whileHover={{ scale: 1.1 }}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+                          style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                          {c.nome_cliente[0].toUpperCase()}
+                        </motion.div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>
+                            {c.nome_cliente}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--text-muted)" }}>
+                              {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "SEM SACOLA"}
+                            </p>
+                            <span style={{ color: "var(--border)" }}>·</span>
+                            <p className="text-[9px] uppercase font-semibold" style={{ color: "var(--text-muted)" }}>
+                              {c.quantidade_itens ?? 1} ITEM{(c.quantidade_itens ?? 1) !== 1 ? "S" : ""}
+                            </p>
+                            <span style={{ color: "var(--border)" }}>·</span>
+                            <p className="text-[9px] font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(c.valor_total)}</p>
+                          </div>
+                        </div>
+
+                        {/* Badges direita */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* msg status */}
+                          <span className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
+                            style={{ background: c.msg_status === "enviada" ? "rgba(59,130,246,0.12)" : "rgba(245,158,11,0.1)", color: c.msg_status === "enviada" ? "#60a5fa" : "#f59e0b" }}>
+                            {c.msg_status === "enviada" ? <MessageSquare size={8}/> : <Clock size={8}/>}
+                            {c.msg_status === "enviada" ? "ENVIADA" : "PENDENTE"}
+                          </span>
+
+                          {/* compra status */}
+                          <span className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full"
+                            style={{ background: sc.bg, color: sc.cor }}>
+                            {sc.icon} {sc.label.toUpperCase()}
+                          </span>
+
+                          {/* Ação vincular */}
+                          {live.status !== "encerrada" && podeVincular && (
+                            <motion.button onClick={() => setModalVinculo(c)}
+                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                              className="flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg"
+                              style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                              <Link2 size={9}/> VINCULAR
+                            </motion.button>
+                          )}
+                          {c.status_compra === "finalizada" && (
+                            <span className="flex items-center gap-1 text-[8px] font-black uppercase px-2 py-1 rounded-lg"
+                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                              <CheckCircle2 size={9}/> OK
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Barra vínculo */}
+                      {(c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial" || c.status_compra === "vinculada") && (
+                        <div className="px-3 pb-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[8px] font-black uppercase" style={{ color: "var(--text-muted)" }}>
+                              VÍNCULO {c.total_produtos_vinculados ?? 0}/{c.quantidade_itens ?? 0}
+                            </p>
+                            <p className="text-[8px] font-black" style={{ color: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}>
+                              {Math.round(progVinculo)}%
+                            </p>
+                          </div>
+                          <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="h-full rounded-full" style={{ background: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}/>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Modais */}
       <AnimatePresence>
-        {modalCompra  && <WizardCompra   liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); refetch() }}/>}
-        {modalVinculo && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
       </AnimatePresence>
     </div>
   )
