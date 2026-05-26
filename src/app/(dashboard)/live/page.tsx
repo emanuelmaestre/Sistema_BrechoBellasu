@@ -584,12 +584,6 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   ))}
                 </div>
 
-                <div className="mt-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>LINK DE PAGAMENTO ASAAS (opcional)</p>
-                  <input value={form.link_pagamento} onChange={e => set("link_pagamento", e.target.value)}
-                    placeholder="https://www.asaas.com/c/..." className={iBase} style={iSt}/>
-                </div>
-
                 <div className="mt-6 flex gap-3">
                   <motion.button onClick={salvar} disabled={saving} whileTap={{ scale: 0.97 }}
                     className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-60"
