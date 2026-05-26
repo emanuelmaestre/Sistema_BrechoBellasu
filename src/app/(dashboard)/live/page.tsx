@@ -705,148 +705,210 @@ function ModalVinculo({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
-      <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      className="fixed inset-0 z-[70] flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
+      <motion.div initial={{ y: 24, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 24, opacity: 0, scale: 0.97 }}
+        transition={{ type: "spring", damping: 28, stiffness: 320 }}
+        className="w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border)", height: "85vh" }}>
 
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{compra.nome_cliente}</p>
-            <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {[compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ") || "Sem sacola"} · {fmtBRL(compra.valor_total)}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}><X size={18}/></button>
-        </div>
-
-        {/* Progresso */}
-        <div className="px-6 pt-4 shrink-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              {totalVinculado} de {qtdEsperada} itens vinculados
-            </p>
-            <p className="text-xs font-bold" style={{ color: progresso >= 100 ? "#10b981" : "var(--accent)" }}>
-              {Math.round(progresso)}%
-            </p>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-            <motion.div animate={{ width: `${progresso}%` }} transition={{ duration: 0.4, ease: "easeOut" }}
-              className="h-full rounded-full" style={{ background: progresso >= 100 ? "#10b981" : "var(--accent)" }}/>
-          </div>
-        </div>
-
-        {/* Produtos vinculados */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          <AnimatePresence>
-            {(produtos ?? []).map(p => (
-              <motion.div key={p.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: p.estoque_baixado ? "rgba(16,185,129,0.12)" : "var(--accent-bg)" }}>
-                  {p.estoque_baixado ? <CheckCircle2 size={14} style={{ color: "#10b981" }}/> : <Package size={14} style={{ color: "var(--accent)" }}/>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{p.nome_produto}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {p.quantidade}x · Live: {fmtBRL(p.preco_live)}
-                    {p.preco_original !== p.preco_live && <span style={{ color: "#10b981" }}> ({fmtBRL(p.preco_original - p.preco_live)} off)</span>}
-                  </p>
-                </div>
-                {p.estoque_baixado && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>Estoque ✓</span>}
-                <button onClick={() => remover(p.id)} className="p-1.5 rounded-lg opacity-40 hover:opacity-100 transition-opacity" style={{ color: "var(--text-muted)" }}>
-                  <Trash2 size={13}/>
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {(produtos ?? []).length === 0 && (
-            <div className="py-8 text-center">
-              <Package size={32} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }}/>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhum produto vinculado ainda</p>
+        {/* ── Header ── */}
+        <div className="shrink-0 flex items-center justify-between px-8 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black"
+              style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+              {compra.nome_cliente[0].toUpperCase()}
             </div>
-          )}
+            <div>
+              <p className="font-black text-lg uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>{compra.nome_cliente}</p>
+              <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+                {[compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ") || "Sem sacola"} · {fmtBRL(compra.valor_total)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Progresso circular inline */}
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>VÍNCULO</p>
+                <p className="text-2xl font-black leading-none" style={{ color: progresso >= 100 ? "#10b981" : "var(--accent)" }}>
+                  {Math.round(progresso)}%
+                </p>
+              </div>
+              <div className="w-36 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+                <motion.div animate={{ width: `${progresso}%` }} transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="h-full rounded-full" style={{ background: progresso >= 100 ? "#10b981" : "var(--accent)" }}/>
+              </div>
+              <p className="text-sm font-black" style={{ color: "var(--text-secondary)" }}>
+                {totalVinculado}/{qtdEsperada}
+              </p>
+            </div>
+            <button onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-muted)" }}>
+              <X size={18}/>
+            </button>
+          </div>
         </div>
 
-        {/* Formulário vincular */}
-        <div className="px-6 pb-4 shrink-0 space-y-3" style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Vincular produto</p>
+        {/* ── Body: 2 colunas ── */}
+        <div className="flex-1 flex overflow-hidden">
 
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}/>
-            <input value={busca} onChange={e => buscarProdutos(e.target.value)}
-              placeholder="Buscar produto..."
-              className="w-full pl-9 pr-4 py-3 text-sm rounded-xl outline-none border"
-              style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-            {prodRes.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-lg z-10 overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                {prodRes.map(p => (
-                  <button key={p.id} onClick={() => selecionarProd(p)}
-                    className="w-full px-4 py-2.5 text-left text-sm flex items-center justify-between hover:bg-[var(--bg-hover)] transition-colors">
-                    <span style={{ color: "var(--text-primary)" }}>{p.nome}</span>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco ?? 0)} · est:{p.estoque ?? 0}</span>
-                  </button>
+          {/* Esquerda: lista de produtos vinculados */}
+          <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: "1px solid var(--border)" }}>
+            <div className="px-8 py-4 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                PRODUTOS VINCULADOS <span style={{ color: "var(--accent)" }}>({(produtos ?? []).length})</span>
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-8 py-4 space-y-2">
+              <AnimatePresence>
+                {(produtos ?? []).map((p, i) => (
+                  <motion.div key={p.id}
+                    initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+                    transition={{ delay: i * 0.04, type: "spring", stiffness: 320, damping: 26 }}
+                    whileHover={{ x: 3 }}
+                    className="flex items-center gap-4 px-5 py-4 rounded-2xl"
+                    style={{ background: "var(--bg-surface)", border: `1px solid ${p.estoque_baixado ? "rgba(16,185,129,0.25)" : "var(--border)"}` }}>
+                    <motion.div animate={p.estoque_baixado ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.4 }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: p.estoque_baixado ? "rgba(16,185,129,0.15)" : "var(--accent-bg)" }}>
+                      {p.estoque_baixado
+                        ? <CheckCircle2 size={18} style={{ color: "#10b981" }}/>
+                        : <Package size={18} style={{ color: "var(--accent)" }}/>}
+                    </motion.div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>{p.nome_produto}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{p.quantidade}x</span>
+                        <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>{fmtBRL(p.preco_live)}</span>
+                        {p.preco_original !== p.preco_live && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
+                            -{fmtBRL(p.preco_original - p.preco_live)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {p.estoque_baixado && (
+                      <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wide" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                        ESTOQUE ✓
+                      </span>
+                    )}
+                    <motion.button onClick={() => remover(p.id)}
+                      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center opacity-30 hover:opacity-80 transition-opacity"
+                      style={{ color: "#f87171" }}>
+                      <Trash2 size={14}/>
+                    </motion.button>
+                  </motion.div>
                 ))}
+              </AnimatePresence>
+
+              {(produtos ?? []).length === 0 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="h-48 flex flex-col items-center justify-center gap-3 rounded-2xl"
+                  style={{ border: "2px dashed var(--border)" }}>
+                  <Package size={36} className="opacity-20" style={{ color: "var(--text-muted)" }}/>
+                  <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>NENHUM PRODUTO VINCULADO</p>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Botão finalizar */}
+            {podeFinalizar && (
+              <div className="px-8 pb-5 shrink-0">
+                <motion.button onClick={finalizar} disabled={finalizando}
+                  whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }}
+                  animate={{ boxShadow: ["0 0 0px #10b98100","0 0 20px #10b98155","0 0 0px #10b98100"] }}
+                  transition={{ boxShadow: { repeat: Infinity, duration: 2 }, scale: {}, y: {} }}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-wide text-white"
+                  style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}>
+                  {finalizando ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle2 size={16}/>}
+                  FINALIZAR COMPRA
+                </motion.button>
               </div>
             )}
           </div>
 
-          {form.nome_produto && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-3 gap-2">
-              <div>
-                <p className="text-[10px] font-bold uppercase mb-1" style={{ color: "var(--text-muted)" }}>Qtd</p>
-                <input type="number" min="1" value={form.quantidade}
-                  onChange={e => setForm(f => ({ ...f, quantidade: parseInt(e.target.value) || 1 }))}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none border"
-                  style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase mb-1" style={{ color: "var(--text-muted)" }}>Preço original</p>
-                <input type="number" step="0.01" value={form.preco_original}
-                  onChange={e => setForm(f => ({ ...f, preco_original: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none border"
-                  style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase mb-1" style={{ color: "var(--text-muted)" }}>Preço live</p>
-                <input type="number" step="0.01" value={form.preco_live}
-                  onChange={e => setForm(f => ({ ...f, preco_live: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none border"
-                  style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-              </div>
-            </motion.div>
-          )}
+          {/* Direita: formulário de vínculo */}
+          <div className="w-96 shrink-0 flex flex-col overflow-hidden">
+            <div className="px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>VINCULAR PRODUTO</p>
+            </div>
 
-          <AnimatePresence>
-            {erro && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="text-xs flex items-center gap-1.5" style={{ color: "#f87171" }}>
-              <AlertTriangle size={12}/> {erro}
-            </motion.p>}
-          </AnimatePresence>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {/* Busca */}
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}/>
+                <input value={busca} onChange={e => buscarProdutos(e.target.value)}
+                  placeholder="BUSCAR PRODUTO..."
+                  className="w-full pl-10 pr-4 py-3.5 text-sm font-semibold rounded-xl outline-none border-2 uppercase tracking-wide transition-all focus:border-[color:var(--accent)]"
+                  style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+                {prodRes.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-xl z-10 overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                    {prodRes.map(p => (
+                      <button key={p.id} onClick={() => selecionarProd(p)}
+                        className="w-full px-4 py-3 text-left flex items-center justify-between transition-colors hover:bg-[var(--bg-hover)]"
+                        style={{ borderBottom: "1px solid var(--border)" }}>
+                        <span className="text-sm font-semibold uppercase" style={{ color: "var(--text-primary)" }}>{p.nome}</span>
+                        <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco ?? 0)} · est:{p.estoque ?? 0}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-          <div className="flex gap-2">
-            {form.nome_produto && (
-              <motion.button onClick={vincular} disabled={saving} whileTap={{ scale: 0.97 }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+              {/* Produto selecionado */}
+              <AnimatePresence>
+                {form.nome_produto && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    className="rounded-2xl p-4 space-y-3"
+                    style={{ background: "var(--accent-bg)", border: "1px solid var(--accent)" }}>
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                      {form.nome_produto}
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: "QTD", key: "quantidade" as const, type: "number", step: "1" },
+                        { label: "PREÇO ORIGINAL", key: "preco_original" as const, type: "number", step: "0.01" },
+                        { label: "PREÇO LIVE", key: "preco_live" as const, type: "number", step: "0.01" },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>{f.label}</p>
+                          <input type={f.type} step={f.step} min="0"
+                            value={form[f.key]}
+                            onChange={e => setForm(prev => ({ ...prev, [f.key]: f.key === "quantidade" ? parseInt(e.target.value)||1 : parseFloat(e.target.value)||0 }))}
+                            className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
+                            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {erro && (
+                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <AlertTriangle size={13} style={{ color: "#f87171" }}/>
+                    <p className="text-xs font-semibold" style={{ color: "#f87171" }}>{erro}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Botão vincular */}
+            <div className="px-6 pb-6 shrink-0">
+              <motion.button onClick={vincular} disabled={saving || !form.nome_produto}
+                whileHover={form.nome_produto ? { scale: 1.02, y: -2 } : {}}
+                whileTap={form.nome_produto ? { scale: 0.98 } : {}}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-wide text-white transition-all disabled:opacity-40"
                 style={{ background: "var(--accent)" }}>
-                {saving ? <Loader2 size={14} className="animate-spin"/> : <Link2 size={14}/>}
-                Vincular
+                {saving ? <Loader2 size={16} className="animate-spin"/> : <Link2 size={16}/>}
+                VINCULAR PRODUTO
               </motion.button>
-            )}
-            {podeFinalizar && (
-              <motion.button onClick={finalizar} disabled={finalizando} whileTap={{ scale: 0.97 }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-                style={{ background: "#10b981" }}>
-                {finalizando ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>}
-                Finalizar Compra
-              </motion.button>
-            )}
+            </div>
           </div>
         </div>
       </motion.div>
