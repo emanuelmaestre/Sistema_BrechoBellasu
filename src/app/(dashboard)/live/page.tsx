@@ -705,15 +705,15 @@ function ModalVinculo({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex items-center justify-center p-6"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
-      <motion.div initial={{ y: 24, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 24, opacity: 0, scale: 0.97 }}
+      className="fixed inset-0 z-[70] flex"
+      style={{ background: "var(--bg-base)" }}>
+      <motion.div initial={{ y: 32, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 32, opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
-        className="w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border)", height: "85vh" }}>
+        className="w-full flex flex-col overflow-hidden"
+        style={{ background: "var(--bg-base)" }}>
 
         {/* ── Header ── */}
-        <div className="shrink-0 flex items-center justify-between px-8 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="shrink-0 flex items-center justify-between px-10 py-6" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black"
               style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
@@ -754,13 +754,13 @@ function ModalVinculo({
 
           {/* Esquerda: lista de produtos vinculados */}
           <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: "1px solid var(--border)" }}>
-            <div className="px-8 py-4 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
+            <div className="px-10 py-5 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
               <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
                 PRODUTOS VINCULADOS <span style={{ color: "var(--accent)" }}>({(produtos ?? []).length})</span>
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-8 py-4 space-y-2">
+            <div className="flex-1 overflow-y-auto px-10 py-6 space-y-3">
               <AnimatePresence>
                 {(produtos ?? []).map((p, i) => (
                   <motion.div key={p.id}
@@ -815,7 +815,7 @@ function ModalVinculo({
 
             {/* Botão finalizar */}
             {podeFinalizar && (
-              <div className="px-8 pb-5 shrink-0">
+              <div className="px-10 pb-8 shrink-0">
                 <motion.button onClick={finalizar} disabled={finalizando}
                   whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }}
                   animate={{ boxShadow: ["0 0 0px #10b98100","0 0 20px #10b98155","0 0 0px #10b98100"] }}
@@ -830,12 +830,12 @@ function ModalVinculo({
           </div>
 
           {/* Direita: formulário de vínculo */}
-          <div className="w-96 shrink-0 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="w-[520px] shrink-0 flex flex-col overflow-hidden" style={{ background: "var(--bg-card)" }}>
+            <div className="px-10 py-5 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
               <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>VINCULAR PRODUTO</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-10 py-6 space-y-5">
               {/* Busca */}
               <div className="relative">
                 <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}/>
@@ -899,7 +899,7 @@ function ModalVinculo({
             </div>
 
             {/* Botão vincular */}
-            <div className="px-6 pb-6 shrink-0">
+            <div className="px-10 pb-8 shrink-0">
               <motion.button onClick={vincular} disabled={saving || !form.nome_produto}
                 whileHover={form.nome_produto ? { scale: 1.02, y: -2 } : {}}
                 whileTap={form.nome_produto ? { scale: 0.98 } : {}}
