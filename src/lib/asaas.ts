@@ -69,11 +69,6 @@ export async function gerarLinkAsaas(params: {
         value: params.valor,
         dueDate,
         description: descricaoFinal,
-        // Para NOVIDADES: parcelamento sem juros (até 12x sem acréscimo)
-        // Para PROMOCIONAL: sem installment — cliente paga à vista + juros do cartão pela operadora
-        ...(ehPromocional ? {} : {
-          installmentCount: 1,
-        }),
       }),
     })
 
