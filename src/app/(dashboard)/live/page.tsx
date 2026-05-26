@@ -1236,11 +1236,11 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
         {/* ── COLUNA ESQUERDA — painel fixo ── */}
         <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
-          className="w-72 shrink-0 flex flex-col overflow-hidden"
+          className="w-96 shrink-0 flex flex-col overflow-hidden"
           style={{ borderRight: "1px solid var(--border)" }}>
 
           {/* Métricas */}
-          <div className="p-3 grid grid-cols-2 gap-2">
+          <div className="p-3 grid grid-cols-3 gap-2">
             {METRICAS.map((m, i) => (
               <motion.div key={m.label}
                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
