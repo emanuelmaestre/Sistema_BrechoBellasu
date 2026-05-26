@@ -18,6 +18,73 @@ function prazo48h() {
   return dias[d.getDay()]
 }
 
+// ─── Gera ou reutiliza link Asaas ─────────────────────────
+async function gerarLinkAsaas(params: {
+  nome: string
+  cpf?: string | null
+  valor: number
+  descricao: string
+}): Promise<string | null> {
+  const token = process.env.ASAAS_TOKEN
+  if (!token) return null
+  const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
+
+  try {
+    // 1. Busca ou cria cliente no Asaas
+    let asaasCustomerId: string | null = null
+
+    if (params.cpf) {
+      const busca = await fetch(`${base}/customers?cpfCnpj=${params.cpf.replace(/\D/g, "")}`, {
+        headers: { access_token: token, "Content-Type": "application/json" },
+      })
+      if (busca.ok) {
+        const bd = await busca.json()
+        if (bd.data?.length > 0) asaasCustomerId = bd.data[0].id
+      }
+    }
+
+    if (!asaasCustomerId) {
+      const criar = await fetch(`${base}/customers`, {
+        method: "POST",
+        headers: { access_token: token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: params.nome,
+          cpfCnpj: params.cpf?.replace(/\D/g, "") || undefined,
+        }),
+      })
+      if (criar.ok) {
+        const cd = await criar.json()
+        asaasCustomerId = cd.id
+      }
+    }
+
+    if (!asaasCustomerId) return null
+
+    // 2. Cria cobrança com vencimento em 2 dias (48h)
+    const vencimento = new Date()
+    vencimento.setDate(vencimento.getDate() + 2)
+    const dueDate = vencimento.toISOString().split("T")[0]
+
+    const cobranca = await fetch(`${base}/payments`, {
+      method: "POST",
+      headers: { access_token: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customer: asaasCustomerId,
+        billingType: "UNDEFINED", // PIX ou Cartão — cliente escolhe
+        value: params.valor,
+        dueDate,
+        description: params.descricao,
+      }),
+    })
+
+    if (!cobranca.ok) return null
+    const pd = await cobranca.json()
+    return pd.invoiceUrl ?? pd.bankSlipUrl ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -26,7 +93,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  // Busca dados da live (data) para incluir na mensagem
   const { data: liveData } = await sb.from("lives").select("data_live").eq("id", live_id).single()
 
   const { data: compras, error } = await sb
@@ -34,6 +100,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ erro: "Erro ao buscar compras." }, { status: 500 })
   if (!compras?.length) return NextResponse.json({ ok: true, enviadas: 0, mensagem: "Nenhuma compra pendente." })
+
+  // Busca CPFs dos clientes de uma vez
+  const clienteIds = compras.map(c => c.cliente_id).filter(Boolean)
+  const cpfMap: Record<number, string | null> = {}
+  if (clienteIds.length > 0) {
+    const { data: clientes } = await sb.from("clientes").select("id, cpf_cnpj").in("id", clienteIds)
+    clientes?.forEach(c => { cpfMap[c.id] = c.cpf_cnpj ?? null })
+  }
 
   const zapiInstance    = process.env.ZAPI_INSTANCE_ID
   const zapiToken       = process.env.ZAPI_TOKEN
@@ -48,7 +122,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       continue
     }
 
-    const linkPagamento = compra.link_pagamento || ""
+    // ── Garante que sempre há link Asaas ──
+    let linkPagamento: string = compra.link_pagamento || ""
+    if (!linkPagamento) {
+      const valorFinal = parseFloat(String(compra.valor_total ?? 0)) - parseFloat(String(compra.desconto ?? 0))
+      if (valorFinal > 0) {
+        const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
+        const cpf = compra.cliente_id ? (cpfMap[compra.cliente_id] ?? null) : null
+        const link = await gerarLinkAsaas({
+          nome: compra.nome_cliente,
+          cpf,
+          valor: valorFinal,
+          descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
+        })
+        if (link) {
+          linkPagamento = link
+          await sb.from("live_compras").update({ link_pagamento: link }).eq("id", compra.id)
+        }
+      }
+    }
+
     const diaPrazo = prazo48h()
     const mensagem = `Olá! 💖
 
@@ -68,7 +161,7 @@ Obrigada pela sua participação em nossa live. Suas peças foram separadas com 
 O pagamento deve ser realizado até ${diaPrazo} às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
 
 💳 Link para pagamento:
-${linkPagamento || "[link será gerado em breve]"}
+${linkPagamento || "[link indisponível — entre em contato]"}
 
 *Endereço para retirada:*
 
