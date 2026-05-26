@@ -11,6 +11,13 @@ function fmtVal(v: unknown) {
   return "R$ " + parseFloat(String(v ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
 }
 
+function prazo48h() {
+  const dias = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"]
+  const d = new Date()
+  d.setHours(d.getHours() + 48)
+  return dias[d.getDay()]
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -42,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const linkPagamento = compra.link_pagamento || ""
+    const diaPrazo = prazo48h()
     const mensagem = `Olá! 💖
 
 Obrigada pela sua participação em nossa live. Suas peças foram separadas com carinho. 🛍️
@@ -57,7 +65,7 @@ Obrigada pela sua participação em nossa live. Suas peças foram separadas com 
 
 *Pagamento:*
 
-O pagamento deve ser realizado até segunda-feira às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
+O pagamento deve ser realizado até ${diaPrazo} às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
 
 💳 Link para pagamento:
 ${linkPagamento || "[link será gerado em breve]"}

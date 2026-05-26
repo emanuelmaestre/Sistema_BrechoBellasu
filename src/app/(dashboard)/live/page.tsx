@@ -938,9 +938,17 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   function fmtVal(v: number) { return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) }
   function fmtD(d?: string) { return d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : new Date().toLocaleDateString("pt-BR") }
 
+  function prazo48h() {
+    const dias = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"]
+    const d = new Date()
+    d.setHours(d.getHours() + 48)
+    return dias[d.getDay()]
+  }
+
   function msgPreview(c: typeof ex) {
     if (!c) return ""
     const linkPagamento = c.link_pagamento || ""
+    const diaPrazo = prazo48h()
     return (
 `Olá! 💖
 
@@ -957,7 +965,7 @@ Obrigada pela sua participação em nossa live. Suas peças foram separadas com 
 
 *Pagamento:*
 
-O pagamento deve ser realizado até segunda-feira às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
+O pagamento deve ser realizado até ${diaPrazo} às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
 
 💳 Link para pagamento:
 ${linkPagamento || "[link será gerado em breve]"}
