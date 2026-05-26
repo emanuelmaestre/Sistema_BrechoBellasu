@@ -1236,7 +1236,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
         {/* ── COLUNA ESQUERDA — painel fixo ── */}
         <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
-          className="w-96 shrink-0 flex flex-col overflow-hidden"
+          className="w-[440px] shrink-0 flex flex-col overflow-hidden"
           style={{ borderRight: "1px solid var(--border)" }}>
 
           {/* Métricas */}
@@ -1250,9 +1250,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
                 <div className="flex items-center gap-1.5">
                   <span style={{ color: m.cor }}>{m.icon}</span>
-                  <p className="text-[8px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
                 </div>
-                <p className="text-lg font-black leading-none" style={{ color: "var(--text-primary)" }}>{m.val}</p>
+                <p className="text-2xl font-black leading-none" style={{ color: "var(--text-primary)" }}>{m.val}</p>
               </motion.div>
             ))}
           </div>
@@ -1265,8 +1265,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 transition={{ duration: 0.2 }}
                 className="rounded-xl px-3 py-2.5 flex items-start gap-2"
                 style={{ background: "var(--accent-bg)", border: `1px solid var(--accent)` }}>
-                <Zap size={12} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }}/>
-                <p className="text-[10px] font-semibold uppercase leading-relaxed" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
+                <Zap size={14} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }}/>
+                <p className="text-xs font-semibold uppercase leading-relaxed" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1274,21 +1274,21 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           {/* Ações */}
           {live.status !== "encerrada" && (
             <div className="px-3 pb-3 flex flex-col gap-2 mt-auto">
-              <p className="text-[8px] font-black uppercase tracking-widest px-1" style={{ color: "var(--text-muted)" }}>AÇÕES</p>
+              <p className="text-[10px] font-black uppercase tracking-widest px-1" style={{ color: "var(--text-muted)" }}>AÇÕES</p>
 
               {msgPendentes > 0 && (
                 <motion.button onClick={() => setModalDisp(true)}
                   whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.97 }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide text-white shadow-lg"
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-black uppercase tracking-wide text-white shadow-lg"
                   style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
-                  <div className="flex items-center gap-2">
-                    <Send size={13}/>
+                  <div className="flex items-center gap-2.5">
+                    <Send size={15}/>
                     <div className="text-left">
                       <p>DISPARAR MSGS</p>
-                      <p className="text-[9px] font-semibold opacity-80 normal-case">{msgPendentes} pendente{msgPendentes !== 1 ? "s" : ""}</p>
+                      <p className="text-[10px] font-semibold opacity-80 normal-case">{msgPendentes} pendente{msgPendentes !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
-                  <ChevronRight size={13} className="opacity-60"/>
+                  <ChevronRight size={15} className="opacity-60"/>
                 </motion.button>
               )}
 
@@ -1298,25 +1298,25 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 whileHover={podeEncerrar ? { scale: 1.02, y: -1 } : {}}
                 whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3, 3, -3, 0] }}
                 transition={podeEncerrar ? {} : { duration: 0.25 }}
-                className={cn("w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
+                className={cn("w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-black uppercase tracking-wide transition-all",
                   podeEncerrar ? "text-white shadow-lg" : "cursor-not-allowed")}
                 style={{
                   background: podeEncerrar ? "linear-gradient(135deg, #ef4444, #b91c1c)" : "var(--bg-surface)",
                   border: podeEncerrar ? "none" : "1px solid var(--border)",
                   color: podeEncerrar ? "white" : "var(--text-muted)",
                 }}>
-                <div className="flex items-center gap-2">
-                  {podeEncerrar ? <CheckCircle2 size={13}/> : <Lock size={13} className="opacity-50"/>}
+                <div className="flex items-center gap-2.5">
+                  {podeEncerrar ? <CheckCircle2 size={15}/> : <Lock size={15} className="opacity-50"/>}
                   <div className="text-left">
                     <p>{encerrando ? "ENCERRANDO..." : "ENCERRAR LIVE"}</p>
                     {!podeEncerrar && (
-                      <p className="text-[9px] font-semibold opacity-50 normal-case">
+                      <p className="text-[10px] font-semibold opacity-50 normal-case">
                         {compras.length === 0 ? "sem compras" : `${compras.length - finalizadas} pendente(s)`}
                       </p>
                     )}
                   </div>
                 </div>
-                {podeEncerrar ? <ChevronRight size={13} className="opacity-60"/> : <Ban size={12} className="opacity-30"/>}
+                {podeEncerrar ? <ChevronRight size={15} className="opacity-60"/> : <Ban size={13} className="opacity-30"/>}
               </motion.button>
 
               <AnimatePresence>
@@ -1331,7 +1331,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
               </AnimatePresence>
 
               <button onClick={excluir} disabled={excluindo}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity"
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity"
                 style={{ color: "var(--text-muted)", border: "1px dashed var(--border)" }}>
                 <Trash2 size={11}/> {excluindo ? "EXCLUINDO..." : "EXCLUIR LIVE"}
               </button>
