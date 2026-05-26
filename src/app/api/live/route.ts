@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { titulo, data_live, plataforma, observacoes } = await req.json()
+  const { titulo, data_live, plataforma, tipo, observacoes } = await req.json()
   if (!data_live) return NextResponse.json({ erro: "Data da live é obrigatória." }, { status: 400 })
 
   const sb = createServerClient()
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       titulo: nomeDefault,
       data_live,
       plataforma: plataforma || null,
+      tipo: tipo || "novidades",
       status: "aberta",
       observacoes: observacoes || null,
     })

@@ -54,7 +54,7 @@ interface ProdutoVinculo {
   estoque_baixado: boolean
 }
 
-interface LiveForm { data_live: string; titulo: string; plataforma: string }
+interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo: "novidades" | "promocional" }
 interface CompraForm {
   cliente_id: number | null; nome_cliente: string; whatsapp: string
   cor_sacola: string; numero_sacola: string
@@ -64,7 +64,7 @@ interface CompraForm {
 }
 
 const hoje = new Date().toISOString().split("T")[0]
-const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram" }
+const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram", tipo: "novidades" }
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
   cor_sacola: "", numero_sacola: "",
@@ -204,7 +204,7 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
-      const nova = await apiPost<{ id: number }>("/live", { data_live: form.data_live, titulo: form.titulo || null, plataforma: form.plataforma || null })
+      const nova = await apiPost<{ id: number }>("/live", { data_live: form.data_live, titulo: form.titulo || null, plataforma: form.plataforma || null, tipo: form.tipo })
       qc.invalidateQueries({ queryKey: ["lives"] }); onSalvo(nova.id)
     } catch { setErro("Erro ao criar live.") } finally { setSaving(false) }
   }
@@ -283,18 +283,18 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 
               {step === 3 && <>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Tipo da live?</h1>
-                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Identifica o conteúdo nos relatórios.</p>
+                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Define como o cartão de crédito será cobrado.</p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   {[
-                    { value: "PROMOCIONAL", emoji: "🏷️", desc: "Ofertas, descontos e promoções" },
-                    { value: "NOVIDADES",   emoji: "✨", desc: "Lançamentos e novas peças" },
+                    { value: "novidades" as const,   emoji: "✨", label: "NOVIDADES",   desc: "Lançamentos — cartão de crédito sem juros (loja absorve)" },
+                    { value: "promocional" as const, emoji: "🏷️", label: "PROMOCIONAL", desc: "Promoções — cartão de crédito com juros por conta do cliente" },
                   ].map(op => (
-                    <motion.button key={op.value} onClick={() => { set("titulo", op.value); advance() }}
+                    <motion.button key={op.value} onClick={() => { set("tipo", op.value); advance() }}
                       whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                       className="flex-1 p-6 rounded-2xl text-left border-2"
-                      style={{ background: form.titulo === op.value ? "var(--accent-bg)" : "var(--bg-surface)", borderColor: form.titulo === op.value ? COR_LIVE : "var(--border)", color: "var(--text-primary)" }}>
+                      style={{ background: form.tipo === op.value ? "var(--accent-bg)" : "var(--bg-surface)", borderColor: form.tipo === op.value ? COR_LIVE : "var(--border)", color: "var(--text-primary)" }}>
                       <div className="text-4xl mb-3">{op.emoji}</div>
-                      <p className="font-bold text-base uppercase">{op.value}</p>
+                      <p className="font-bold text-base uppercase">{op.label}</p>
                       <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>{op.desc}</p>
                     </motion.button>
                   ))}

@@ -116,6 +116,7 @@ export interface Live {
   titulo: string
   data_live: string
   status: "aberta" | "encerrada" | "disparada"
+  tipo?: "novidades" | "promocional"
   plataforma?: string
   descricao?: string
   created_at: string
