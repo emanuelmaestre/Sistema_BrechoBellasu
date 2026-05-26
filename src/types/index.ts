@@ -13,16 +13,21 @@ export interface Usuario {
 export interface Cliente {
   id: number
   nome: string
-  email?: string
-  cpf?: string
-  celular?: string
-  telefone?: string
-  endereco?: string
-  cidade?: string
-  estado?: string
-  nascimento?: string
-  status: "ativo" | "inativo"
-  created_at: string
+  email?: string | null
+  cpf_cnpj?: string | null
+  celular?: string | null
+  data_nasc?: string | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  estado?: string | null
+  instagram?: string | null
+  apelido?: string | null
+  ativo: boolean
+  created_at?: string
 }
 
 export interface Categoria {
@@ -111,6 +116,7 @@ export interface Live {
   titulo: string
   data_live: string
   status: "aberta" | "encerrada" | "disparada"
+  plataforma?: string
   descricao?: string
   created_at: string
 }

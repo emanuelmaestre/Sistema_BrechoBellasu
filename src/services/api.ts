@@ -1,9 +1,13 @@
 // ══════════════════════════════════════
-// API client — aponta para o backend atual
+// API client — rotas internas do Next.js (/api/*)
 // ══════════════════════════════════════
 import axios from "axios"
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://sistema-brecho-bellasu.vercel.app/api"
+// Em produção usa NEXT_PUBLIC_APP_URL; em dev usa URL relativa
+const BASE_URL =
+  typeof window !== "undefined"
+    ? "/api"
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001") + "/api"
 
 export const apiClient = axios.create({ baseURL: BASE_URL })
 

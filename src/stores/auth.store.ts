@@ -1,3 +1,5 @@
+"use client"
+
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { Usuario } from "@/types"
@@ -15,8 +17,15 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       usuario: null,
-      setAuth: (token, usuario) => set({ token, usuario }),
-      logout: () => set({ token: null, usuario: null }),
+      setAuth: (token, usuario) => {
+        set({ token, usuario })
+        // Salva cookie para o middleware SSR conseguir ler
+        document.cookie = `brecho-token=${token};path=/;max-age=${60 * 60 * 24 * 7}`
+      },
+      logout: () => {
+        set({ token: null, usuario: null })
+        document.cookie = "brecho-token=;path=/;max-age=0"
+      },
       isAuthenticated: () => !!get().token,
     }),
     { name: "brecho-auth" }
