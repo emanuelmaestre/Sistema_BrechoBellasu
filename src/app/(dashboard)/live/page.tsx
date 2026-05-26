@@ -1162,7 +1162,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
     <div className="flex flex-col overflow-hidden" style={{ height: "100%", background: "var(--bg-base)" }}>
 
       {/* ══ TOP BAR ══ */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
         className="shrink-0 flex items-center gap-4 px-5 py-2.5"
         style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
 
@@ -1231,124 +1231,47 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         </motion.span>
       </motion.div>
 
-      {/* ══ BODY 2 COLUNAS ══ */}
+      {/* ══ MÉTRICAS STRIP ══ */}
+      <div className="shrink-0 grid grid-cols-6" style={{ borderBottom: "1px solid var(--border)" }}>
+        {METRICAS.map((m, i) => (
+          <motion.div key={m.label}
+            initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 + i * 0.05, type: "spring", stiffness: 400, damping: 28 }}
+            whileHover={{ y: -2, background: "var(--bg-hover)" }}
+            className="relative flex flex-col gap-1 px-4 py-3 cursor-default transition-colors"
+            style={{ borderRight: i < 5 ? "1px solid var(--border)" : "none" }}>
+            {/* Barra colorida topo */}
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
+              className="absolute top-0 left-0 right-0 h-0.5 rounded-b origin-left"
+              style={{ background: m.cor }}/>
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
+              <span style={{ color: m.cor, opacity: 0.7 }}>{m.icon}</span>
+            </div>
+            <p className="text-2xl font-black leading-none" style={{ color: "var(--text-primary)" }}>{m.val}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* ══ CORPO PRINCIPAL ══ */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── COLUNA ESQUERDA — painel fixo ── */}
-        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
-          className="w-[440px] shrink-0 flex flex-col overflow-hidden"
-          style={{ borderRight: "1px solid var(--border)" }}>
-
-          {/* Métricas */}
-          <div className="p-3 grid grid-cols-3 gap-2">
-            {METRICAS.map((m, i) => (
-              <motion.div key={m.label}
-                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.08 + i * 0.04, type: "spring", stiffness: 300, damping: 20 }}
-                whileHover={{ scale: 1.03, y: -1 }}
-                className="rounded-xl p-3 flex flex-col gap-1"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: m.cor }}>{m.icon}</span>
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
-                </div>
-                <p className="text-2xl font-black leading-none" style={{ color: "var(--text-primary)" }}>{m.val}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Guia */}
-          <div className="px-3 pb-2">
-            <AnimatePresence mode="wait">
-              <motion.div key={g.msg}
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2 }}
-                className="rounded-xl px-3 py-2.5 flex items-start gap-2"
-                style={{ background: "var(--accent-bg)", border: `1px solid var(--accent)` }}>
-                <Zap size={14} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }}/>
-                <p className="text-xs font-semibold uppercase leading-relaxed" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Ações */}
-          {live.status !== "encerrada" && (
-            <div className="px-3 pb-3 flex flex-col gap-2 mt-auto">
-              <p className="text-[10px] font-black uppercase tracking-widest px-1" style={{ color: "var(--text-muted)" }}>AÇÕES</p>
-
-              {msgPendentes > 0 && (
-                <motion.button onClick={() => setModalDisp(true)}
-                  whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.97 }}
-                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-black uppercase tracking-wide text-white shadow-lg"
-                  style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
-                  <div className="flex items-center gap-2.5">
-                    <Send size={15}/>
-                    <div className="text-left">
-                      <p>DISPARAR MSGS</p>
-                      <p className="text-[10px] font-semibold opacity-80 normal-case">{msgPendentes} pendente{msgPendentes !== 1 ? "s" : ""}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={15} className="opacity-60"/>
-                </motion.button>
-              )}
-
-              <motion.button
-                onClick={podeEncerrar ? encerrar : undefined}
-                disabled={encerrando}
-                whileHover={podeEncerrar ? { scale: 1.02, y: -1 } : {}}
-                whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3, 3, -3, 0] }}
-                transition={podeEncerrar ? {} : { duration: 0.25 }}
-                className={cn("w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-black uppercase tracking-wide transition-all",
-                  podeEncerrar ? "text-white shadow-lg" : "cursor-not-allowed")}
-                style={{
-                  background: podeEncerrar ? "linear-gradient(135deg, #ef4444, #b91c1c)" : "var(--bg-surface)",
-                  border: podeEncerrar ? "none" : "1px solid var(--border)",
-                  color: podeEncerrar ? "white" : "var(--text-muted)",
-                }}>
-                <div className="flex items-center gap-2.5">
-                  {podeEncerrar ? <CheckCircle2 size={15}/> : <Lock size={15} className="opacity-50"/>}
-                  <div className="text-left">
-                    <p>{encerrando ? "ENCERRANDO..." : "ENCERRAR LIVE"}</p>
-                    {!podeEncerrar && (
-                      <p className="text-[10px] font-semibold opacity-50 normal-case">
-                        {compras.length === 0 ? "sem compras" : `${compras.length - finalizadas} pendente(s)`}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {podeEncerrar ? <ChevronRight size={15} className="opacity-60"/> : <Ban size={13} className="opacity-30"/>}
-              </motion.button>
-
-              <AnimatePresence>
-                {erroEnc && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                    className="px-3 py-2 rounded-lg flex items-start gap-1.5 overflow-hidden"
-                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <AlertTriangle size={11} className="shrink-0 mt-0.5" style={{ color: "#f87171" }}/>
-                    <p className="text-[10px] uppercase font-semibold" style={{ color: "#f87171" }}>{erroEnc}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <button onClick={excluir} disabled={excluindo}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity"
-                style={{ color: "var(--text-muted)", border: "1px dashed var(--border)" }}>
-                <Trash2 size={11}/> {excluindo ? "EXCLUINDO..." : "EXCLUIR LIVE"}
-              </button>
-            </div>
-          )}
-        </motion.div>
-
-        {/* ── COLUNA DIREITA — lista de compras ── */}
+        {/* ── TABELA DE COMPRAS ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* Header compras */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-            className="shrink-0 flex items-center justify-between px-4 py-2.5"
+          {/* Header */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+            className="shrink-0 flex items-center justify-between px-5 py-2.5"
             style={{ borderBottom: "1px solid var(--border)" }}>
-            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-              COMPRAS <span style={{ color: "var(--accent)" }}>({compras.length})</span>
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>COMPRAS</p>
+              <motion.span key={compras.length}
+                initial={{ scale: 1.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+                style={{ background: COR_LIVE }}>
+                {compras.length}
+              </motion.span>
+            </div>
             {live.status !== "encerrada" && (
               <motion.button onClick={() => setModalCompra(true)}
                 whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
@@ -1363,7 +1286,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           <div className="flex-1 overflow-y-auto">
             {compras.length === 0 ? (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="h-full flex flex-col items-center justify-center gap-3 m-3 rounded-2xl"
+                className="h-full flex flex-col items-center justify-center gap-3 m-4 rounded-2xl"
                 style={{ border: "2px dashed var(--border)" }}>
                 <ShoppingBag size={32} className="opacity-20" style={{ color: "var(--text-muted)" }}/>
                 <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>NENHUMA COMPRA</p>
@@ -1380,7 +1303,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 <thead className="sticky top-0 z-10" style={{ background: "var(--bg-base)" }}>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
                     {["CLIENTE","SACOLA","ITENS","VALOR","MSG","STATUS","AÇÃO"].map((h, i) => (
-                      <th key={h} className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
+                      <th key={h} className={`px-4 py-2.5 text-[9px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
                         style={{ color: "var(--text-muted)" }}>{h}</th>
                     ))}
                   </tr>
@@ -1394,91 +1317,84 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
                       return (
                         <motion.tr key={c.id}
-                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -10 }}
-                          transition={{ delay: idx * 0.03, type: "spring", stiffness: 300, damping: 25 }}
-                          className="group transition-colors"
+                          initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
+                          transition={{ delay: idx * 0.04, type: "spring", stiffness: 300, damping: 28 }}
+                          className="group relative transition-all"
                           style={{ borderBottom: "1px solid var(--border)" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-hover)")}
-                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)" }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "transparent" }}>
 
-                          {/* CLIENTE */}
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0"
-                                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                          {/* Indicador lateral colorido no hover */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <motion.div whileHover={{ scale: 1.15 }}
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0 shadow-sm"
+                                style={{ background: `${sc.cor}20`, color: sc.cor, border: `1.5px solid ${sc.cor}40` }}>
                                 {c.nome_cliente[0].toUpperCase()}
-                              </div>
-                              <p className="text-xs font-black uppercase tracking-wide truncate max-w-[160px]"
+                              </motion.div>
+                              <p className="text-xs font-black uppercase tracking-wide"
                                 style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
                             </div>
                           </td>
 
-                          {/* SACOLA */}
-                          <td className="px-3 py-3">
-                            <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-secondary)" }}>
+                          <td className="px-4 py-3.5">
+                            <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-secondary)" }}>
                               {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "—"}
                             </p>
                           </td>
 
-                          {/* ITENS */}
-                          <td className="px-3 py-3 text-center">
+                          <td className="px-4 py-3.5 text-center">
                             {(c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial" || c.status_compra === "vinculada") ? (
-                              <div className="flex flex-col items-center gap-1">
-                                <p className="text-[10px] font-black" style={{ color: "var(--text-primary)" }}>
-                                  {c.total_produtos_vinculados ?? 0}/{c.quantidade_itens ?? 0}
+                              <div className="flex flex-col items-center gap-1.5">
+                                <p className="text-[11px] font-black" style={{ color: "var(--text-primary)" }}>
+                                  {c.total_produtos_vinculados ?? 0}<span style={{ color: "var(--text-muted)" }}>/{c.quantidade_itens ?? 0}</span>
                                 </p>
-                                <div className="w-14 h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-                                  <motion.div initial={{ width: 0 }} animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.6 }}
+                                <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${progVinculo}%` }} transition={{ duration: 0.7, ease: "easeOut" }}
                                     className="h-full rounded-full" style={{ background: progVinculo >= 100 ? "#10b981" : "var(--accent)" }}/>
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-[10px] font-black" style={{ color: "var(--text-secondary)" }}>
-                                {c.quantidade_itens ?? 1}
-                              </p>
+                              <p className="text-[11px] font-black" style={{ color: "var(--text-secondary)" }}>{c.quantidade_itens ?? 1}</p>
                             )}
                           </td>
 
-                          {/* VALOR */}
-                          <td className="px-3 py-3 text-center">
+                          <td className="px-4 py-3.5 text-center">
                             <p className="text-xs font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(c.valor_total)}</p>
                           </td>
 
-                          {/* MSG */}
-                          <td className="px-3 py-3 text-center">
-                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full"
+                          <td className="px-4 py-3.5 text-center">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-full"
                               style={{ background: c.msg_status === "enviada" ? "rgba(59,130,246,0.12)" : "rgba(245,158,11,0.1)", color: c.msg_status === "enviada" ? "#60a5fa" : "#f59e0b" }}>
                               {c.msg_status === "enviada" ? <MessageSquare size={8}/> : <Clock size={8}/>}
                               {c.msg_status === "enviada" ? "ENVIADA" : "PENDENTE"}
                             </span>
                           </td>
 
-                          {/* STATUS */}
-                          <td className="px-3 py-3 text-center">
-                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full"
+                          <td className="px-4 py-3.5 text-center">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-full"
                               style={{ background: sc.bg, color: sc.cor }}>
                               {sc.icon} {sc.label.toUpperCase()}
                             </span>
                           </td>
 
-                          {/* AÇÃO */}
-                          <td className="px-3 py-3 text-center">
+                          <td className="px-4 py-3.5 text-center">
                             {live.status !== "encerrada" && podeVincular && (
                               <motion.button onClick={() => setModalVinculo(c)}
-                                whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                                className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg"
+                                whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.93 }}
+                                className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1.5 rounded-lg shadow-sm"
                                 style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
                                 <Link2 size={9}/> VINCULAR
                               </motion.button>
                             )}
                             {c.status_compra === "finalizada" && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg"
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1.5 rounded-lg"
                                 style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
                                 <CheckCircle2 size={9}/> OK
                               </span>
                             )}
                             {live.status !== "encerrada" && !podeVincular && c.status_compra !== "finalizada" && (
-                              <span className="text-[9px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>—</span>
+                              <span className="text-[10px] font-bold" style={{ color: "var(--text-muted)" }}>—</span>
                             )}
                           </td>
                         </motion.tr>
@@ -1490,6 +1406,93 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             )}
           </div>
         </div>
+
+        {/* ── PAINEL DIREITO — ações ── */}
+        {live.status !== "encerrada" && (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.3 }}
+            className="w-52 shrink-0 flex flex-col gap-3 p-3 overflow-y-auto"
+            style={{ borderLeft: "1px solid var(--border)" }}>
+
+            {/* Guia */}
+            <AnimatePresence mode="wait">
+              <motion.div key={g.msg}
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="rounded-xl p-3 flex flex-col gap-1.5"
+                style={{ background: "var(--accent-bg)", border: "1px solid var(--accent)" }}>
+                <div className="flex items-center gap-1.5">
+                  <Zap size={11} style={{ color: "var(--accent)" }}/>
+                  <p className="text-[8px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>PRÓXIMO PASSO</p>
+                </div>
+                <p className="text-[10px] font-semibold leading-relaxed" style={{ color: "var(--text-primary)" }}>{g.msg}</p>
+              </motion.div>
+            </AnimatePresence>
+
+            <p className="text-[8px] font-black uppercase tracking-widest px-1" style={{ color: "var(--text-muted)" }}>AÇÕES</p>
+
+            {/* Disparar */}
+            {msgPendentes > 0 && (
+              <motion.button onClick={() => setModalDisp(true)}
+                whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }}
+                animate={{ boxShadow: ["0 0 0px #25d36600", "0 0 16px #25d36650", "0 0 0px #25d36600"] }}
+                transition={{ boxShadow: { repeat: Infinity, duration: 2.5 }, scale: {}, y: {} }}
+                className="w-full flex flex-col items-start px-4 py-3.5 rounded-xl text-white"
+                style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
+                <div className="flex items-center justify-between w-full mb-1">
+                  <Send size={14}/>
+                  <ChevronRight size={13} className="opacity-60"/>
+                </div>
+                <p className="text-xs font-black uppercase tracking-wide">DISPARAR MSGS</p>
+                <p className="text-[9px] font-semibold opacity-75 mt-0.5">{msgPendentes} pendente{msgPendentes !== 1 ? "s" : ""}</p>
+              </motion.button>
+            )}
+
+            {/* Encerrar */}
+            <motion.button
+              onClick={podeEncerrar ? encerrar : undefined}
+              disabled={encerrando}
+              whileHover={podeEncerrar ? { scale: 1.02, y: -2 } : {}}
+              whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3, 3, -3, 0] }}
+              transition={podeEncerrar ? {} : { duration: 0.25 }}
+              className={cn("w-full flex flex-col items-start px-4 py-3.5 rounded-xl transition-all",
+                podeEncerrar ? "text-white" : "cursor-not-allowed")}
+              style={{
+                background: podeEncerrar ? "linear-gradient(135deg, #ef4444, #b91c1c)" : "var(--bg-surface)",
+                border: podeEncerrar ? "none" : "1px solid var(--border)",
+                color: podeEncerrar ? "white" : "var(--text-muted)",
+              }}>
+              <div className="flex items-center justify-between w-full mb-1">
+                {podeEncerrar ? <CheckCircle2 size={14}/> : <Lock size={14} className="opacity-40"/>}
+                {podeEncerrar && <ChevronRight size={13} className="opacity-60"/>}
+              </div>
+              <p className="text-xs font-black uppercase tracking-wide">{encerrando ? "ENCERRANDO..." : "ENCERRAR LIVE"}</p>
+              {!podeEncerrar && (
+                <p className="text-[9px] font-semibold opacity-50 mt-0.5 normal-case">
+                  {compras.length === 0 ? "sem compras" : `${compras.length - finalizadas} pendente(s)`}
+                </p>
+              )}
+            </motion.button>
+
+            <AnimatePresence>
+              {erroEnc && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="rounded-lg p-2.5 flex gap-1.5 overflow-hidden"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                  <AlertTriangle size={10} className="shrink-0 mt-0.5" style={{ color: "#f87171" }}/>
+                  <p className="text-[9px] font-semibold uppercase leading-relaxed" style={{ color: "#f87171" }}>{erroEnc}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="mt-auto pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <button onClick={excluir} disabled={excluindo}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest opacity-25 hover:opacity-60 transition-opacity"
+                style={{ color: "var(--text-muted)" }}>
+                <Trash2 size={10}/> {excluindo ? "EXCLUINDO..." : "EXCLUIR LIVE"}
+              </button>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Modais */}
