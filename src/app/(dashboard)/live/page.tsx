@@ -74,6 +74,13 @@ const EMPTY_COMPRA: CompraForm = {
 const CORES_SACOLA = ["Amarela","Azul","Bege","Branca","Cinza","Laranja","Lilás","Marrom","Preta","Rosa","Roxa","Verde","Vermelha"]
 const COR_LIVE = "#e11d48"
 
+// ─── Status colors (lista) ────────────────────────────────
+const STATUS_COLORS: Record<string, string> = {
+  aberta:    "bg-emerald-500/10 text-emerald-400",
+  encerrada: "bg-slate-500/15 text-slate-400",
+  disparada: "bg-blue-500/10 text-blue-400",
+}
+
 // ─── Status configs ────────────────────────────────────────
 const STATUS_LIVE: Record<string, { label: string; cor: string; bg: string }> = {
   aberta:      { label: "Aberta",       cor: "#10b981", bg: "rgba(16,185,129,0.12)" },
@@ -1462,105 +1469,119 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 // PÁGINA PRINCIPAL — Lista de Lives
 // ══════════════════════════════════════════════════════════
 export default function LivePage() {
-  const qc = useQueryClient()
-  const [criando, setCriando]   = useState(false)
-  const [liveAberta, setAberta] = useState<number | null>(null)
+  const [wizard, setWizard]       = useState(false)
+  const [liveAberta, setAberta]   = useState<number | null>(null)
+  const [statusFiltro, setStatus] = useState("")
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["lives"],
-    queryFn: () => apiGet<{ data: Live[] }>("/live"),
-    select: d => d.data ?? [],
+  const { data, isLoading } = useQuery<{ data: Live[]; total: number }>({
+    queryKey: ["lives", statusFiltro],
+    queryFn: () => {
+      const qs = new URLSearchParams({ limit: "50", ...(statusFiltro && { status: statusFiltro }) }).toString()
+      return apiGet(`/live?${qs}`)
+    },
+    staleTime: 30_000,
   })
 
-  if (liveAberta) {
+  const lives = data?.data ?? []
+
+  if (liveAberta !== null) {
     return <TelaLive liveId={liveAberta} onVoltar={() => setAberta(null)}/>
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--bg-base)" }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"/>
-          <h1 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Lives</h1>
+    <div className="space-y-5">
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Live Commerce</h2>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} lives</p>
         </div>
-        <motion.button onClick={() => setCriando(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md"
+        <motion.button onClick={() => setWizard(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg"
           style={{ background: COR_LIVE }}>
-          <Plus size={15}/> Nova Live
+          <Radio size={15}/> Nova Live
         </motion.button>
       </div>
 
-      {/* Lista */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 size={28} className="animate-spin" style={{ color: "var(--accent)" }}/>
-          </div>
-        ) : !data?.length ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-surface)" }}>
-              <Radio size={28} style={{ color: COR_LIVE }}/>
-            </div>
-            <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Nenhuma live criada</p>
-            <p className="text-sm text-center max-w-xs" style={{ color: "var(--text-muted)" }}>
-              Crie sua primeira live para começar a registrar compras e disparar mensagens.
-            </p>
-            <motion.button onClick={() => setCriando(true)} whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white"
-              style={{ background: COR_LIVE }}>
-              <Plus size={14}/> Criar primeira live
-            </motion.button>
-          </motion.div>
-        ) : (
-          <div className="max-w-2xl mx-auto space-y-3">
-            <AnimatePresence>
-              {data.map((live, idx) => {
-                const sc = STATUS_LIVE[live.status ?? "aberta"] ?? STATUS_LIVE.aberta
-                const plat = PLATAFORMAS.find(p => p.value === live.plataforma)
-                return (
-                  <motion.button key={live.id}
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
-                    transition={{ delay: idx * 0.04 }}
-                    onClick={() => setAberta(live.id)}
-                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-                    className="w-full rounded-2xl p-5 text-left transition-all"
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: "var(--bg-surface)" }}>
-                          {plat?.icon ?? <Radio size={18} style={{ color: COR_LIVE }}/>}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                            {live.titulo ? `Live ${live.titulo}` : "Live"} — {fmtData(live.data_live ?? "")}
-                          </p>
-                          <p className="text-xs capitalize mt-0.5" style={{ color: "var(--text-muted)" }}>
-                            {live.plataforma ?? "Instagram"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
-                          style={{ background: sc.bg, color: sc.cor }}>
-                          {sc.label}
-                        </span>
-                        <ChevronRight size={15} style={{ color: "var(--text-muted)" }}/>
-                      </div>
-                    </div>
-                  </motion.button>
-                )
-              })}
-            </AnimatePresence>
-          </div>
-        )}
+      {/* Filtros */}
+      <div className="rounded-2xl px-4 py-3 flex gap-1.5"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {["","aberta","encerrada","disparada"].map(s => (
+          <button key={s} onClick={() => setStatus(s)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all"
+            style={{
+              background: statusFiltro === s ? "var(--accent)" : "transparent",
+              color: statusFiltro === s ? "#fff" : "var(--text-secondary)",
+            }}>
+            {s || "Todas"}
+          </button>
+        ))}
       </div>
 
-      {/* Wizard nova live */}
+      {/* Tabela */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["","Título","Data","Plataforma","Status","Criada em"].map((h, i) => (
+                  <th key={h} className={`px-4 py-3 text-[10px] font-semibold uppercase tracking-wider ${i >= 2 ? "text-center" : "text-left"}`}
+                    style={{ color: "var(--text-muted)" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} className="px-4 py-12 text-center">
+                  <Loader2 size={24} className="animate-spin mx-auto" style={{ color: "var(--accent)" }}/>
+                </td></tr>
+              ) : lives.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-12 text-center">
+                  <Radio size={32} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }}/>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma live encontrada.</p>
+                </td></tr>
+              ) : lives.map(l => {
+                const plat = PLATAFORMAS.find(p => p.value === l.plataforma)
+                return (
+                  <tr key={l.id} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid var(--border)" }}
+                    onClick={() => setAberta(l.id)}
+                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = "var(--bg-hover)" }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
+                    <td className="px-4 py-3">
+                      <ChevronRight size={15} style={{ color: "var(--text-muted)" }}/>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>
+                      {l.titulo || "SEM TÍTULO"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+                      {fmtData(l.data_live ?? "")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {plat ? (
+                        <span className="scale-75 inline-block">{plat.icon}</span>
+                      ) : (
+                        <span className="text-sm" style={{ color: "var(--text-muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full uppercase",
+                        STATUS_COLORS[l.status ?? "aberta"] ?? "bg-slate-500/15 text-slate-400")}>
+                        {l.status ?? "aberta"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "var(--text-muted)" }}>
+                      {fmtData((l as Live & { created_at?: string }).created_at ?? l.data_live ?? "")}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <AnimatePresence>
-        {criando && <WizardLive onClose={() => setCriando(false)} onSalvo={id => { setCriando(false); setAberta(id) }}/>}
+        {wizard && <WizardLive onClose={() => setWizard(false)} onSalvo={id => { setWizard(false); setAberta(id) }}/>}
       </AnimatePresence>
     </div>
   )
