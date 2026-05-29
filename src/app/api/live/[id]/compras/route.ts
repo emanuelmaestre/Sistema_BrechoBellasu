@@ -31,18 +31,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // ── Insere a compra ──
-  const { data: compra, error } = await sb.from("live_compras").insert({
+  // ── Insere a compra (fallback progressivo para colunas que podem não existir) ──
+  const baseCols: Record<string, unknown> = {
     live_id, cliente_id: cliente_id ?? null, nome_cliente: nomeCliente, whatsapp: whatsappCliente,
     data_compra: data_compra ?? new Date().toISOString().split("T")[0],
-    cor_sacola, numero_sacola, quantidade_itens: quantidade_itens ?? 1,
-    quantidade_volumes: quantidade_volumes ?? 1,
+    cor_sacola: cor_sacola ?? null, numero_sacola: numero_sacola ?? null,
+    quantidade_itens: quantidade_itens ?? 1,
     valor_total: valor_total ?? 0, desconto: desconto ?? 0,
+  }
+
+  // Colunas opcionais que podem não existir na tabela ainda
+  const extraCols: Record<string, unknown> = {
+    quantidade_volumes: quantidade_volumes ?? 1,
     observacao: observacao ?? null,
     link_pagamento: null,
-  }).select().single()
+  }
 
-  if (error) return NextResponse.json({ erro: "Erro ao registrar compra." }, { status: 500 })
+  let result = await sb.from("live_compras").insert({ ...baseCols, ...extraCols }).select().single()
+
+  // Se falhou com coluna inexistente (42703), tenta só com as colunas base
+  if (result.error?.code === "42703" || result.error?.message?.includes("column")) {
+    console.warn("[POST /api/live/compras] fallback sem colunas extras:", result.error.message)
+    result = await sb.from("live_compras").insert(baseCols).select().single()
+  }
+
+  const { data: compra, error } = result
+  if (error) {
+    console.error("[POST /api/live/compras]", error)
+    return NextResponse.json({ erro: error.message ?? "Erro ao registrar compra." }, { status: 500 })
+  }
 
   // ── Gera link Asaas automaticamente ──
   const valorFinal = parseFloat(String(valor_total ?? 0)) - parseFloat(String(desconto ?? 0))

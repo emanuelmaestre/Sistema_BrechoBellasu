@@ -58,7 +58,7 @@ interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo
 interface CompraForm {
   cliente_id: number | null; nome_cliente: string; whatsapp: string
   cor_sacola: string; numero_sacola: string
-  quantidade_itens: string; quantidade_volumes: string
+  quantidade_itens: string
   valor_total: string; desconto: string; observacao: string
   link_pagamento: string
 }
@@ -68,7 +68,7 @@ const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagr
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
   cor_sacola: "", numero_sacola: "",
-  quantidade_itens: "1", quantidade_volumes: "1",
+  quantidade_itens: "1",
   valor_total: "", desconto: "", observacao: "",
   link_pagamento: "",
 }
@@ -390,9 +390,8 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
         cor_sacola:        form.cor_sacola || undefined,
         numero_sacola:     form.numero_sacola || undefined,
         quantidade_itens:  parseInt(form.quantidade_itens) || 1,
-        quantidade_volumes: parseInt(form.quantidade_volumes) || 1,
-        valor_total:       parseFloat(form.valor_total.replace(",", ".")) || 0,
-        desconto:          parseFloat(form.desconto.replace(",", ".")) || 0,
+        valor_total:       parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0,
+        desconto:          parseFloat(form.desconto.replace(/\./g, "").replace(",", ".")) || 0,
         observacao:        form.observacao || undefined,
         link_pagamento:    form.link_pagamento || undefined,
         status_compra:     "cadastrada",
@@ -524,28 +523,20 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                 </div>
               </>}
 
-              {/* Step 3 — Qtd e Volumes */}
+              {/* Step 3 — Qtd e Observação */}
               {step === 3 && <>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Quantidades</h1>
-                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Itens e volumes separados para entrega.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>QTD DE ITENS</p>
-                    <input ref={inputRef} type="number" min="1" value={form.quantidade_itens}
-                      onChange={e => set("quantidade_itens", e.target.value)}
-                      className={iBase} style={iSt}/>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>QTD DE VOLUMES</p>
-                    <input type="number" min="1" value={form.quantidade_volumes}
-                      onChange={e => set("quantidade_volumes", e.target.value)}
-                      className={iBase} style={iSt}/>
-                  </div>
+                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Quantidade de itens nesta sacola.</p>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>QTD DE ITENS</p>
+                  <input ref={inputRef} type="number" min="1" value={form.quantidade_itens}
+                    onChange={e => set("quantidade_itens", e.target.value)}
+                    className={iBase} style={iSt}/>
                 </div>
                 <div className="mt-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>OBSERVAÇÃO (opcional)</p>
                   <textarea value={form.observacao} onChange={e => set("observacao", e.target.value)}
-                    placeholder="Alguma observação sobre esta compra..."
+                    placeholder=""
                     rows={2} className="w-full px-4 py-3 text-base rounded-2xl outline-none transition-all border-2 resize-none"
                     style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
                 </div>
@@ -558,13 +549,21 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
-                    <input ref={inputRef} value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
-                      placeholder="0,00" className={iBase} style={iSt}/>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                      <input ref={inputRef} value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
+                        onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
+                        placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
+                    </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>DESCONTO</p>
-                    <input value={form.desconto} onChange={e => set("desconto", e.target.value)}
-                      placeholder="0,00" className={iBase} style={iSt}/>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                      <input value={form.desconto} onChange={e => set("desconto", e.target.value)}
+                        onBlur={() => { const n = parseFloat(form.desconto.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("desconto", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
+                        placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
+                    </div>
                   </div>
                 </div>
 
@@ -574,7 +573,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   {[
                     { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
                     { l: "Sacola",    v: [form.cor_sacola, form.numero_sacola ? `#${form.numero_sacola}` : ""].filter(Boolean).join(" ") || "—" },
-                    { l: "Itens",     v: `${form.quantidade_itens} item(ns) · ${form.quantidade_volumes} volume(s)` },
+                    { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
                     { l: "Total",     v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(",","."))) : "—" },
                   ].map(r => (
                     <div key={r.l} className="flex justify-between text-sm">

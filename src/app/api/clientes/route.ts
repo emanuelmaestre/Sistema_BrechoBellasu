@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const to      = from + limit - 1
 
   const sb = createServerClient()
-  let q = sb.from("v_clientes").select("*", { count: "exact" })
+  let q = sb.from("clientes").select("*", { count: "exact" })
 
   if (busca) q = q.or(`nome.ilike.%${busca}%,cpf_cnpj.ilike.%${busca}%,celular.ilike.%${busca}%`)
   if (status === "inativo") q = q.eq("ativo", false)
@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = result
-  if (error) return NextResponse.json({ erro: "Erro ao criar cliente." }, { status: 500 })
+  if (error) {
+    console.error("[POST /api/clientes]", error)
+    return NextResponse.json({ erro: error.message ?? "Erro ao criar cliente." }, { status: 500 })
+  }
   return NextResponse.json(data, { status: 201 })
 }
