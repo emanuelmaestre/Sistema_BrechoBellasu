@@ -616,7 +616,7 @@ function ModalVinculo({
   liveId, compra, onClose, onAtualizado,
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
   const [busca,   setBusca]   = useState("")
-  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; preco?: number; estoque?: number }>>([])
+  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; preco_venda?: number; estoque_atual?: number }>>([])
   const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: "", preco_original: "", preco_live: "" })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
@@ -643,7 +643,8 @@ function ModalVinculo({
   }, [])
 
   function selecionarProd(p: typeof prodRes[0]) {
-    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: "", preco_original: "", preco_live: "" })
+    const preco = p.preco_venda ? p.preco_venda.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
+    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: "1", preco_original: preco, preco_live: "" })
     setBusca(p.nome); setProdRes([])
   }
 
@@ -835,7 +836,7 @@ function ModalVinculo({
                         className="w-full px-4 py-3 text-left flex items-center justify-between transition-colors hover:bg-[var(--bg-hover)]"
                         style={{ borderBottom: "1px solid var(--border)" }}>
                         <span className="text-sm font-semibold uppercase" style={{ color: "var(--text-primary)" }}>{p.nome}</span>
-                        <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco ?? 0)} · est:{p.estoque ?? 0}</span>
+                        <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda ?? 0)} · est:{p.estoque_atual ?? 0}</span>
                       </button>
                     ))}
                   </div>

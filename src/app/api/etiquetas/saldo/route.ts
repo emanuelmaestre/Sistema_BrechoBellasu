@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { meSaldo, meRecarregar } from "@/lib/melhorenvio"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/etiquetas/saldo
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)

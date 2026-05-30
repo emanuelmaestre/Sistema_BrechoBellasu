@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 
+export const dynamic = "force-dynamic"
+
 // ─── Tipos Z-API ──────────────────────────────────────────
 interface ZAPIMessageEvent {
   instanceId?: string

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 
+export const dynamic = "force-dynamic"
+
 type Params = { params: Promise<{ id: string; compraId: string }> }
 
 export async function PATCH(req: NextRequest, { params }: Params) {

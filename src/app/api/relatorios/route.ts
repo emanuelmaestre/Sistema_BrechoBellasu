@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 
+export const dynamic = "force-dynamic"
+
 type RpcFn = "fn_vendas_periodo" | "fn_produtos_mais_vendidos" | "fn_ticket_medio" | "fn_formas_pagamento" | "fn_trocas_motivos" | "fn_fluxo_caixa"
 
 async function rpcRelatorio(req: NextRequest, fn: RpcFn) {

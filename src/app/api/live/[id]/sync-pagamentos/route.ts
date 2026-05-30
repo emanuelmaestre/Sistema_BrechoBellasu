@@ -3,6 +3,8 @@ import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { consultarPagamentoAsaas } from "@/lib/asaas"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })

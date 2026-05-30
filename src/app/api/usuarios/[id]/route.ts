@@ -3,6 +3,8 @@ import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 
+export const dynamic = "force-dynamic"
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth || auth.perfil !== "admin") return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { calcularFrete, cepOrigem, defaultVolume } from "@/lib/melhorenvio"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })

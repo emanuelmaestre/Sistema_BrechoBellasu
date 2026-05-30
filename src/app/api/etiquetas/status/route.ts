@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { meUsuario } from "@/lib/melhorenvio"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/etiquetas/status — verifica se o token está configurado e válido
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)

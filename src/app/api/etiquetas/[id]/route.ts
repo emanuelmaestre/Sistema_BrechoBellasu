@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { checkoutEtiquetas, gerarEtiquetas, cancelarEtiqueta } from "@/lib/melhorenvio"
 
+export const dynamic = "force-dynamic"
+
 // POST /api/etiquetas/[id]/checkout  — paga e gera a etiqueta
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)

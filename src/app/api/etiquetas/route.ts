@@ -11,6 +11,8 @@ import {
 } from "@/lib/melhorenvio"
 import { createServerClient } from "@/lib/supabase"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/etiquetas — lista etiquetas do Melhor Envio
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
