@@ -1064,13 +1064,18 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
           </div>
           <div className="w-full max-w-md space-y-2">
             {resultado.resultados.map(r => (
-              <div key={r.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+              <div key={r.id} className="px-4 py-2.5 rounded-xl"
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{r.cliente}</span>
-                <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
-                  r.status === "enviada" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
-                  {r.status}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: "var(--text-primary)" }}>{r.cliente}</span>
+                  <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                    r.status === "enviada" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+                    {r.status}
+                  </span>
+                </div>
+                {"detalhe" in r && r.detalhe && (
+                  <p className="text-[10px] mt-1 font-mono" style={{ color: "var(--text-muted)" }}>{r.detalhe}</p>
+                )}
               </div>
             ))}
           </div>
