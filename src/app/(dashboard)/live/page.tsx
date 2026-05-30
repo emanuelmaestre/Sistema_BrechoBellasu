@@ -927,7 +927,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 }) {
   type Fase = "preview" | "disparando" | "resultado"
   const [fase, setFase] = useState<Fase>("preview")
-  const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string }> } | null>(null)
+  const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> } | null>(null)
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase !== "disparando") onClose() }
@@ -994,7 +994,7 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
   async function disparar() {
     setFase("disparando")
     try {
-      const res = await apiPost<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string }> }>(`/live/${liveId}/disparar`, {})
+      const res = await apiPost<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> }>(`/live/${liveId}/disparar`, {})
       setResultado(res); setFase("resultado"); onSuccess()
     } catch { setFase("preview") }
   }
@@ -1073,7 +1073,7 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
                     {r.status}
                   </span>
                 </div>
-                {"detalhe" in r && r.detalhe && (
+                {r.detalhe && (
                   <p className="text-[10px] mt-1 font-mono" style={{ color: "var(--text-muted)" }}>{r.detalhe}</p>
                 )}
               </div>
