@@ -58,7 +58,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   for (const compra of compras) {
     const numero = (compra.whatsapp || "").replace(/\D/g, "")
     if (!numero) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
+      const { error: e1 } = await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
+      if (e1) console.error(`[LIVE] Erro update sem-whatsapp compra #${compra.id}:`, e1.message)
       resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
       continue
     }
@@ -144,15 +145,31 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
         if (!resp.ok) {
           statusEnvio = "erro"
           resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro" })
-          await sb.from("live_compras").update({ msg_status: "erro", msg_texto: mensagem }).eq("id", compra.id)
+          const { error: e2 } = await sb.from("live_compras").update({ msg_status: "erro", msg_texto: mensagem }).eq("id", compra.id)
+          if (e2) console.error(`[LIVE] Erro update Z-API falhou compra #${compra.id}:`, e2.message)
           continue
         }
       }
     } catch { statusEnvio = "erro" }
 
-    await sb.from("live_compras").update({
-      msg_status: statusEnvio, msg_enviada_em: new Date().toISOString(), msg_texto: mensagem,
-    }).eq("id", compra.id)
+    const campos: Record<string, unknown> = { msg_status: statusEnvio }
+    try { campos.msg_enviada_em = new Date().toISOString(); campos.msg_texto = mensagem } catch {}
+
+    const { data: updated, error: updErr } = await sb
+      .from("live_compras").update(campos).eq("id", compra.id).select("id, msg_status")
+
+    if (updErr) {
+      console.error(`[LIVE] ERRO update compra #${compra.id}:`, updErr.message, updErr.details ?? "")
+      const { error: fallbackErr } = await sb
+        .from("live_compras").update({ msg_status: statusEnvio }).eq("id", compra.id)
+      if (fallbackErr) {
+        console.error(`[LIVE] FALLBACK também falhou compra #${compra.id}:`, fallbackErr.message)
+        statusEnvio = "erro"
+      }
+    } else if (!updated?.length) {
+      console.error(`[LIVE] UPDATE retornou 0 linhas para compra #${compra.id}. Nenhuma linha matched.`)
+      statusEnvio = "erro"
+    }
 
     resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: statusEnvio })
   }
