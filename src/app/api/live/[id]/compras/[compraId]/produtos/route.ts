@@ -4,16 +4,22 @@ import { verifyAuth } from "@/lib/auth"
 
 type Params = { params: Promise<{ id: string; compraId: string }> }
 
-// GET — lista produtos vinculados
+// GET — lista produtos vinculados (tenta ambas as tabelas)
 export async function GET(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
   const { compraId } = await params
   const sb = createServerClient()
-  const { data, error } = await sb.from("live_compra_produtos").select("*").eq("compra_id", parseInt(compraId)).order("id")
-  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  const cid = parseInt(compraId)
+
+  const r1 = await sb.from("live_compra_produtos").select("*").eq("compra_id", cid).order("id")
+  if (!r1.error) return NextResponse.json(r1.data ?? [])
+
+  const r2 = await sb.from("live_compra_itens").select("*").eq("compra_id", cid).order("id")
+  if (!r2.error) return NextResponse.json(r2.data ?? [])
+
+  return NextResponse.json({ erro: `produtos: ${r1.error.message} | itens: ${r2.error.message}` }, { status: 500 })
 }
 
 // POST — vincular produto à compra
@@ -67,58 +73,72 @@ export async function POST(req: NextRequest, { params }: Params) {
   const qtd = quantidade ?? 1
   const precoOrig = preco_original ?? 0
   const precoLv = preco_live ?? preco_original ?? 0
-  const errors: string[] = []
+  // ── INSERT com fallback em 2 tabelas ──
+  const tabelas = ["live_compra_produtos", "live_compra_itens"] as const
+  const tentativas: Array<{ tabela: string; cols: string; erro: string }> = []
+  let item: Record<string, unknown> | null = null
+  let tabelaUsada = ""
 
-  // Tentativa 1: live_compra_itens com todas as colunas
-  let result = await sb.from("live_compra_itens").insert({
-    compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
-    preco_unitario: precoOrig, desconto_item: 0,
-  }).select().single()
+  for (const tabela of tabelas) {
+    // Colunas específicas por tabela
+    const payload: Record<string, unknown> = {
+      compra_id: compraIdNum,
+      produto_id: produto_id ?? null,
+      nome_produto,
+      quantidade: qtd,
+    }
 
-  if (result.error) {
-    errors.push(`itens_full: ${result.error.message}`)
-    // Tentativa 2: live_compra_itens sem colunas de preço
-    result = await sb.from("live_compra_itens").insert({
-      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
+    if (tabela === "live_compra_produtos") {
+      payload.preco_original = precoOrig
+      payload.preco_live = precoLv
+    } else {
+      payload.preco_unitario = precoOrig
+      payload.desconto_item = 0
+    }
+
+    const r1 = await sb.from(tabela).insert(payload).select().single()
+    if (!r1.error) {
+      item = r1.data
+      tabelaUsada = tabela
+      break
+    }
+    tentativas.push({ tabela, cols: "full", erro: r1.error.message })
+
+    // Tenta com colunas mínimas
+    const r2 = await sb.from(tabela).insert({
+      compra_id: compraIdNum,
+      produto_id: produto_id ?? null,
+      nome_produto,
+      quantidade: qtd,
     }).select().single()
+    if (!r2.error) {
+      item = r2.data
+      tabelaUsada = tabela
+      break
+    }
+    tentativas.push({ tabela, cols: "base", erro: r2.error.message })
   }
 
-  if (result.error) {
-    errors.push(`itens_base: ${result.error.message}`)
-    // Tentativa 3: live_compra_produtos
-    result = await sb.from("live_compra_produtos").insert({
-      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
-      preco_original: precoOrig, preco_live: precoLv,
-    }).select().single()
-  }
-
-  if (result.error) {
-    errors.push(`produtos_full: ${result.error.message}`)
-    // Tentativa 4: live_compra_produtos só base
-    result = await sb.from("live_compra_produtos").insert({
-      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
-    }).select().single()
-  }
-
-  const { data: item, error } = result
-  if (error) {
-    console.error("[POST produtos] todas tentativas falharam:", errors.join(" | "))
-    return NextResponse.json({ erro: `Erro ao vincular: ${errors[0]}` }, { status: 500 })
+  if (!item) {
+    const detalhe = tentativas.map(t => `${t.tabela}(${t.cols}): ${t.erro}`).join(" | ")
+    console.error("[POST vincular] TODAS tentativas falharam:", detalhe)
+    return NextResponse.json({ erro: detalhe }, { status: 500 })
   }
 
   // Baixa no estoque
   if (produto_id) {
-    const rpcResult = sb.rpc("decrementar_estoque", { p_produto_id: produto_id, p_qtd: quantidade ?? 1 })
     try {
-      await rpcResult
+      await sb.rpc("decrementar_estoque", { p_produto_id: produto_id, p_qtd: qtd })
     } catch {
-      // fallback manual se a função não existir
-      const { data: prod } = await sb.from("produtos").select("estoque").eq("id", produto_id).single()
+      // fallback: busca estoque por nome de coluna possível
+      const { data: prod } = await sb.from("produtos").select("*").eq("id", produto_id).single()
       if (prod) {
-        await sb.from("produtos").update({ estoque: Math.max(0, (prod.estoque ?? 0) - (quantidade ?? 1)) }).eq("id", produto_id)
+        const estoqueAtual = (prod as Record<string,unknown>).estoque_atual ?? (prod as Record<string,unknown>).estoque ?? 0
+        await sb.from("produtos").update({ estoque_atual: Math.max(0, Number(estoqueAtual) - qtd) }).eq("id", produto_id)
       }
     }
-    await sb.from("live_compra_produtos").update({ estoque_baixado: true }).eq("id", item.id)
+    // Marca estoque baixado na tabela usada
+    await sb.from(tabelaUsada).update({ estoque_baixado: true }).eq("id", item.id).then(() => {})
   }
 
   // Atualiza status_compra da compra
@@ -158,10 +178,18 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 // ─── Helper: recalcula status_compra ──────────────────────
 async function atualizarStatusCompra(compraId: number, sb: ReturnType<typeof import("@/lib/supabase").createServerClient>) {
   const { data: compra } = await sb.from("live_compras").select("quantidade_itens").eq("id", compraId).single()
-  const { data: prods }  = await sb.from("live_compra_produtos").select("quantidade, estoque_baixado").eq("compra_id", compraId)
 
-  const totalVinculado = (prods ?? []).reduce((s, p) => s + (p.quantidade ?? 1), 0)
-  const totalBaixado   = (prods ?? []).filter(p => p.estoque_baixado).reduce((s, p) => s + (p.quantidade ?? 1), 0)
+  // Tenta ambas as tabelas
+  let prods: Array<{ quantidade?: number; estoque_baixado?: boolean }> = []
+  const r1 = await sb.from("live_compra_produtos").select("quantidade, estoque_baixado").eq("compra_id", compraId)
+  if (!r1.error && r1.data?.length) prods = r1.data
+  else {
+    const r2 = await sb.from("live_compra_itens").select("quantidade").eq("compra_id", compraId)
+    if (!r2.error) prods = (r2.data ?? []).map(p => ({ ...p, estoque_baixado: false }))
+  }
+
+  const totalVinculado = prods.reduce((s, p) => s + (p.quantidade ?? 1), 0)
+  const totalBaixado   = prods.filter(p => p.estoque_baixado).reduce((s, p) => s + (p.quantidade ?? 1), 0)
   const qtdEsperada    = compra?.quantidade_itens ?? 0
 
   let status = "cadastrada"
@@ -170,5 +198,7 @@ async function atualizarStatusCompra(compraId: number, sb: ReturnType<typeof imp
   else if (totalVinculado >= qtdEsperada && totalBaixado >= qtdEsperada) status = "vinculada"
   else status = "vinculo_parcial"
 
-  await sb.from("live_compras").update({ status_compra: status }).eq("id", compraId)
+  try {
+    await sb.from("live_compras").update({ status_compra: status }).eq("id", compraId)
+  } catch { /* coluna status_compra pode não existir */ }
 }

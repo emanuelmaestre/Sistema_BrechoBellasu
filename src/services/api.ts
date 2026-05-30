@@ -23,6 +23,15 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Extrai mensagem real do erro da API em vez do genérico Axios
+apiClient.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    const msg = error?.response?.data?.erro || error?.response?.data?.message || error?.message
+    return Promise.reject(new Error(msg || "Erro desconhecido"))
+  }
+)
+
 // Helpers tipados
 export async function apiGet<T>(path: string, params?: Record<string, unknown>): Promise<T> {
   const { data } = await apiClient.get<T>(path, { params })
