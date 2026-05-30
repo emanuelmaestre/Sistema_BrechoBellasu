@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { rateLimit, getClientIp } from "@/lib/rateLimit"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: máx 10 tentativas por IP a cada 5 min (anti brute-force)
+    const ip = getClientIp(req)
+    const rl = rateLimit(`login:${ip}`, 10, 5 * 60_000)
+    if (!rl.ok) {
+      return NextResponse.json(
+        { erro: `Muitas tentativas. Tente novamente em ${rl.retryAfter}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+      )
+    }
+
     const { email, senha } = await req.json()
 
     if (!email || !senha) {
@@ -32,7 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ erro: "E-mail ou senha incorretos." }, { status: 401 })
     }
 
-    const secret = process.env.JWT_SECRET ?? "brecho-secret-dev"
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+      console.error("[POST /api/auth/login] JWT_SECRET não configurado")
+      return NextResponse.json({ erro: "Erro de configuração do servidor." }, { status: 500 })
+    }
     const token = jwt.sign(
       { id: usuario.id, perfil: usuario.perfil },
       secret,

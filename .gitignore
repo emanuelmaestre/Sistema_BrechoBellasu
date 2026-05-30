@@ -43,3 +43,10 @@ next-env.d.ts
 .env*.local
 
 .vercel
+
+# Word temp/lock files
+~$*
+
+# Documentos gerados (analise)
+*.docx
+~$*.docx

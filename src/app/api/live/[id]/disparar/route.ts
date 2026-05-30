@@ -32,6 +32,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: liveRow } = await sb.from("lives").select("data_live, tipo").eq("id", live_id).single()
   const tipoLive = ((liveRow as Record<string,unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
 
+  // Busca endereço de retirada das configurações da empresa
+  const { data: configEmpresa } = await sb.from("configuracoes").select("valor").eq("chave", "empresa").maybeSingle()
+  const empresa = (configEmpresa?.valor ?? {}) as Record<string, string>
+  const enderecoRetirada = [
+    empresa.logradouro,
+    empresa.numero,
+    empresa.bairro,
+    empresa.cidade,
+    empresa.estado,
+  ].filter(Boolean).join(", ") || "Rua Barão do Amazonas, 1035 - Centro - Rib. Preto - SP"
+  const taxaEntrega = empresa.taxa_entrega || "15,00"
+
   // Busca todas as compras da live e filtra em JS (evita problema com NULL no PostgREST)
   const { data: todasCompras } = await sb
     .from("live_compras").select("*").eq("live_id", live_id)
@@ -114,12 +126,12 @@ ${linkPagamento || "[link indisponível — entre em contato]"}
 
 *Endereço para retirada:*
 
-📍 Rua Barão do Amazonas, 1035 - Centro - Rib. Preto - SP
+📍 ${enderecoRetirada}
 
 *Entrega:*
 
 Caso queira receber por entrega, envie seu endereço completo e CEP.
-O valor fixo da entrega é de R$ 15,00. 🛵
+O valor fixo da entrega é de R$ ${taxaEntrega}. 🛵
 
 ⚠️ *ATENÇÃO*
 É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER O PEDIDO. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA PARA RETORNO. SE PREFERIR, VOCÊ PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.

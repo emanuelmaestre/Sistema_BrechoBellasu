@@ -12,7 +12,11 @@ export function verifyAuth(req: NextRequest): JwtPayload | null {
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : null
     if (!token) return null
 
-    const secret = process.env.JWT_SECRET ?? "brecho-secret-dev"
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+      console.error("[auth] JWT_SECRET não configurado")
+      return null
+    }
     const payload = jwt.verify(token, secret) as JwtPayload
     return payload
   } catch {

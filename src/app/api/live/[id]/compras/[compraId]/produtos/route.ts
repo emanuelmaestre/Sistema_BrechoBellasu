@@ -60,85 +60,41 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   }
 
-  // Verifica estoque disponível
+  // Verifica estoque disponível (apenas se o produto controla estoque)
   if (produto_id) {
-    const { data: prod } = await sb.from("produtos").select("estoque, nome").eq("id", produto_id).single()
-    if (prod && (prod.estoque ?? 0) < (quantidade ?? 1)) {
-      return NextResponse.json({ erro: `Estoque insuficiente para "${prod.nome}". Disponível: ${prod.estoque ?? 0}` }, { status: 422 })
+    const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", produto_id).single()
+    if (prod && prod.controlar_estoque !== false && (prod.estoque_atual ?? 0) < (quantidade ?? 1)) {
+      return NextResponse.json({ erro: `Estoque insuficiente para "${prod.nome}". Disponível: ${prod.estoque_atual ?? 0}` }, { status: 422 })
     }
   }
 
-  // Tenta inserir nas possíveis tabelas com fallback progressivo
+  // Insere na tabela dedicada live_compra_produtos
   const compraIdNum = parseInt(compraId)
   const qtd = quantidade ?? 1
   const precoOrig = preco_original ?? 0
   const precoLv = preco_live ?? preco_original ?? 0
-  // ── INSERT com fallback em 2 tabelas ──
-  const tabelas = ["live_compra_produtos", "live_compra_itens"] as const
-  const tentativas: Array<{ tabela: string; cols: string; erro: string }> = []
-  let item: Record<string, unknown> | null = null
-  let tabelaUsada = ""
+  const { data: item, error } = await sb.from("live_compra_produtos").insert({
+    compra_id: compraIdNum,
+    produto_id: produto_id ?? null,
+    nome_produto,
+    quantidade: qtd,
+    preco_original: precoOrig,
+    preco_live: precoLv,
+  }).select().single()
 
-  for (const tabela of tabelas) {
-    // Colunas específicas por tabela
-    const payload: Record<string, unknown> = {
-      compra_id: compraIdNum,
-      produto_id: produto_id ?? null,
-      nome_produto,
-      quantidade: qtd,
-    }
-
-    if (tabela === "live_compra_produtos") {
-      payload.preco_original = precoOrig
-      payload.preco_live = precoLv
-    } else {
-      payload.preco_unitario = precoOrig
-      payload.desconto_item = 0
-    }
-
-    const r1 = await sb.from(tabela).insert(payload).select().single()
-    if (!r1.error) {
-      item = r1.data
-      tabelaUsada = tabela
-      break
-    }
-    tentativas.push({ tabela, cols: "full", erro: r1.error.message })
-
-    // Tenta com colunas mínimas
-    const r2 = await sb.from(tabela).insert({
-      compra_id: compraIdNum,
-      produto_id: produto_id ?? null,
-      nome_produto,
-      quantidade: qtd,
-    }).select().single()
-    if (!r2.error) {
-      item = r2.data
-      tabelaUsada = tabela
-      break
-    }
-    tentativas.push({ tabela, cols: "base", erro: r2.error.message })
+  if (error) {
+    console.error("[POST produtos]", error.message)
+    return NextResponse.json({ erro: `Erro ao vincular produto: ${error.message}` }, { status: 500 })
   }
 
-  if (!item) {
-    const detalhe = tentativas.map(t => `${t.tabela}(${t.cols}): ${t.erro}`).join(" | ")
-    console.error("[POST vincular] TODAS tentativas falharam:", detalhe)
-    return NextResponse.json({ erro: detalhe }, { status: 500 })
-  }
-
-  // Baixa no estoque
+  // Baixa no estoque (atualização manual em estoque_atual)
   if (produto_id) {
-    try {
-      await sb.rpc("decrementar_estoque", { p_produto_id: produto_id, p_qtd: qtd })
-    } catch {
-      // fallback: busca estoque por nome de coluna possível
-      const { data: prod } = await sb.from("produtos").select("*").eq("id", produto_id).single()
-      if (prod) {
-        const estoqueAtual = (prod as Record<string,unknown>).estoque_atual ?? (prod as Record<string,unknown>).estoque ?? 0
-        await sb.from("produtos").update({ estoque_atual: Math.max(0, Number(estoqueAtual) - qtd) }).eq("id", produto_id)
-      }
+    const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque").eq("id", produto_id).single()
+    if (prod && prod.controlar_estoque !== false) {
+      await sb.from("produtos").update({ estoque_atual: Math.max(0, (prod.estoque_atual ?? 0) - (quantidade ?? 1)) }).eq("id", produto_id)
     }
-    // Marca estoque baixado na tabela usada
-    await sb.from(tabelaUsada).update({ estoque_baixado: true }).eq("id", item.id).then(() => {})
+    // Marca estoque baixado
+    await sb.from("live_compra_produtos").update({ estoque_baixado: true }).eq("id", item.id)
   }
 
   // Atualiza status_compra da compra
@@ -162,9 +118,9 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   // Reverte estoque
   const { data: item } = await sb.from("live_compra_produtos").select("*").eq("id", parseInt(produtoItemId)).single()
   if (item?.produto_id && item.estoque_baixado) {
-    const { data: prod } = await sb.from("produtos").select("estoque").eq("id", item.produto_id).single()
+    const { data: prod } = await sb.from("produtos").select("estoque_atual").eq("id", item.produto_id).single()
     if (prod) {
-      await sb.from("produtos").update({ estoque: (prod.estoque ?? 0) + (item.quantidade ?? 1) }).eq("id", item.produto_id)
+      await sb.from("produtos").update({ estoque_atual: (prod.estoque_atual ?? 0) + (item.quantidade ?? 1) }).eq("id", item.produto_id)
     }
   }
 
