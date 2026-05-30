@@ -8,7 +8,7 @@ import {
   Check, Search, ShoppingBag, User, ChevronDown, Package,
   AlertTriangle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock,
+  MessageSquare, PackageCheck, Lock, Pencil, Save,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
@@ -30,6 +30,7 @@ export interface Compra {
   msg_status?: string
   data_compra?: string
   link_pagamento?: string
+  pagamento_status?: string
   status_compra?: string
   observacao?: string
   total_produtos_vinculados?: number
@@ -533,37 +534,19 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                     onChange={e => set("quantidade_itens", e.target.value)}
                     className={iBase} style={iSt}/>
                 </div>
-                <div className="mt-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>OBSERVAÇÃO (opcional)</p>
-                  <textarea value={form.observacao} onChange={e => set("observacao", e.target.value)}
-                    placeholder=""
-                    rows={2} className="w-full px-4 py-3 text-base rounded-2xl outline-none transition-all border-2 resize-none"
-                    style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-                </div>
               </>}
 
               {/* Step 4 — Valor */}
               {step === 4 && <>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
                 <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Valor total cobrado nesta sacola.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                      <input ref={inputRef} value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
-                        onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
-                        placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>DESCONTO</p>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                      <input value={form.desconto} onChange={e => set("desconto", e.target.value)}
-                        onBlur={() => { const n = parseFloat(form.desconto.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("desconto", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
-                        placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
-                    </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                    <input ref={inputRef} value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
+                      onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
+                      placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
                   </div>
                 </div>
 
@@ -634,7 +617,7 @@ function ModalVinculo({
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
   const [busca,   setBusca]   = useState("")
   const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; preco?: number; estoque?: number }>>([])
-  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: 0, preco_live: 0 })
+  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: "", preco_live: "" })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
   const [finalizando, setFin] = useState(false)
@@ -660,7 +643,7 @@ function ModalVinculo({
   }, [])
 
   function selecionarProd(p: typeof prodRes[0]) {
-    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_original: p.preco ?? 0, preco_live: p.preco ?? 0 })
+    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_original: "", preco_live: "" })
     setBusca(p.nome); setProdRes([])
   }
 
@@ -672,11 +655,11 @@ function ModalVinculo({
         produto_id: form.produto_id || undefined,
         nome_produto: form.nome_produto,
         quantidade: form.quantidade,
-        preco_original: form.preco_original,
-        preco_live: form.preco_live,
+        preco_original: parseFloat(String(form.preco_original).replace(/\./g, "").replace(",", ".")) || 0,
+        preco_live: parseFloat(String(form.preco_live).replace(/\./g, "").replace(",", ".")) || 0,
       })
       setBusca(""); setProdRes([])
-      setForm({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: 0, preco_live: 0 })
+      setForm({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: "", preco_live: "" })
       refetch(); onAtualizado()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao vincular produto.")
@@ -869,20 +852,37 @@ function ModalVinculo({
                       {form.nome_produto}
                     </p>
                     <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { label: "QTD", key: "quantidade" as const, type: "number", step: "1" },
-                        { label: "PREÇO ORIGINAL", key: "preco_original" as const, type: "number", step: "0.01" },
-                        { label: "PREÇO LIVE", key: "preco_live" as const, type: "number", step: "0.01" },
-                      ].map(f => (
-                        <div key={f.key}>
-                          <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>{f.label}</p>
-                          <input type={f.type} step={f.step} min="0"
-                            value={form[f.key]}
-                            onChange={e => setForm(prev => ({ ...prev, [f.key]: f.key === "quantidade" ? parseInt(e.target.value)||1 : parseFloat(e.target.value)||0 }))}
-                            className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>QTD</p>
+                        <input type="number" step="1" min="1" value={form.quantidade}
+                          onChange={e => setForm(prev => ({ ...prev, quantidade: parseInt(e.target.value)||1 }))}
+                          className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
+                          style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>PREÇO ORIGINAL</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                          <input value={form.preco_original}
+                            onChange={e => setForm(prev => ({ ...prev, preco_original: e.target.value }))}
+                            onBlur={() => { const n = parseFloat(String(form.preco_original).replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) setForm(prev => ({ ...prev, preco_original: n.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) })) }}
+                            placeholder="0,00"
+                            className="w-full pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
                             style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
                         </div>
-                      ))}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>PREÇO LIVE</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                          <input value={form.preco_live}
+                            onChange={e => setForm(prev => ({ ...prev, preco_live: e.target.value }))}
+                            onBlur={() => { const n = parseFloat(String(form.preco_live).replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) setForm(prev => ({ ...prev, preco_live: n.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) })) }}
+                            placeholder="0,00"
+                            className="w-full pl-9 pr-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
+                            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1150,6 +1150,114 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
 }
 
 // ══════════════════════════════════════════════════════════
+// MODAL EDITAR COMPRA
+// ══════════════════════════════════════════════════════════
+function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: number; compra: Compra; onClose: () => void; onSalvo: () => void }) {
+  const [form, setForm] = useState({
+    nome_cliente: compra.nome_cliente ?? "",
+    whatsapp: compra.whatsapp ?? "",
+    cor_sacola: compra.cor_sacola ?? "",
+    numero_sacola: compra.numero_sacola ?? "",
+    quantidade_itens: String(compra.quantidade_itens ?? 1),
+    valor_total: (compra.valor_total ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+    desconto: (compra.desconto ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+  })
+  const [saving, setSaving] = useState(false)
+  const [erro, setErro] = useState("")
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  async function salvar() {
+    setSaving(true); setErro("")
+    try {
+      await apiPatch(`/live/${liveId}/compras/${compra.id}`, {
+        nome_cliente: form.nome_cliente,
+        whatsapp: form.whatsapp || null,
+        cor_sacola: form.cor_sacola || null,
+        numero_sacola: form.numero_sacola || null,
+        quantidade_itens: parseInt(form.quantidade_itens) || 1,
+        valor_total: parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0,
+        desconto: parseFloat(form.desconto.replace(/\./g, "").replace(",", ".")) || 0,
+      })
+      onSalvo()
+    } catch { setErro("Erro ao salvar alterações.") } finally { setSaving(false) }
+  }
+
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const iCls = "w-full px-4 py-3 text-sm rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-lg rounded-2xl p-6 space-y-4" style={{ background: "var(--bg-base)", border: "1px solid var(--border)" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-black uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>Editar Compra</h2>
+          <button onClick={onClose}><X size={18} style={{ color: "var(--text-muted)" }}/></button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>CLIENTE</p>
+            <input value={form.nome_cliente} onChange={e => set("nome_cliente", e.target.value)} className={iCls} style={iSt}/>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>WHATSAPP</p>
+            <input value={form.whatsapp} onChange={e => set("whatsapp", e.target.value)} className={iCls} style={iSt}/>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>QTD DE ITENS</p>
+            <input type="number" min="1" value={form.quantidade_itens} onChange={e => set("quantidade_itens", e.target.value)} className={iCls} style={iSt}/>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>COR DA SACOLA</p>
+            <select value={form.cor_sacola} onChange={e => set("cor_sacola", e.target.value)} className={iCls} style={iSt}>
+              <option value="">Selecione</option>
+              {CORES_SACOLA.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>N. SACOLA</p>
+            <input value={form.numero_sacola} onChange={e => set("numero_sacola", e.target.value)} className={iCls} style={iSt}/>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+              <input value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
+                onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
+                className={iCls + " pl-10"} style={iSt}/>
+            </div>
+          </div>
+
+        </div>
+
+        {erro && <p className="text-xs font-semibold" style={{ color: "#f87171" }}>{erro}</p>}
+
+        <div className="flex gap-3 pt-2">
+          <motion.button onClick={salvar} disabled={saving} whileTap={{ scale: 0.97 }}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+            style={{ background: COR_LIVE }}>
+            {saving ? <><Loader2 size={14} className="animate-spin"/>Salvando...</> : <><Save size={14}/>Salvar Alterações</>}
+          </motion.button>
+          <button onClick={onClose} className="px-5 py-3 rounded-xl text-sm font-bold" style={{ background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+            Cancelar
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════
 // TELA DETALHE DA LIVE
 // ══════════════════════════════════════════════════════════
 function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }) {
@@ -1160,10 +1268,18 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [erroEnc, setErroEnc] = useState("")
   const [encerrando, setEnc]  = useState(false)
   const [excluindo, setExc]   = useState(false)
+  const [editCompra, setEditCompra] = useState<Compra | null>(null)
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["live-detalhe", liveId],
-    queryFn: () => apiGet<LiveDetalhe>(`/live/${liveId}`),
+    queryFn: async () => {
+      const live = await apiGet<LiveDetalhe>(`/live/${liveId}`)
+      // Sincroniza pagamentos em background (silencioso)
+      if (live?.compras?.some((c: Compra) => c.link_pagamento && c.pagamento_status !== "PAGO")) {
+        apiPost(`/live/${liveId}/sync-pagamentos`, {}).catch(() => {})
+      }
+      return live
+    },
     refetchInterval: 30_000,
   })
 
@@ -1393,7 +1509,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             <table className="w-full">
               <thead className="sticky top-0 z-10" style={{ background: "var(--bg-surface)" }}>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["CLIENTE","SACOLA","ITENS","VALOR","WHATSAPP","STATUS MSG","STATUS","AÇÃO"].map((h, i) => (
+                  {["CLIENTE","SACOLA","ITENS","VALOR","WHATSAPP","STATUS MSG","PAGAMENTO","STATUS","AÇÃO"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
                       style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
@@ -1458,6 +1574,23 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                           </span>
                         </td>
 
+                        {/* PAGAMENTO */}
+                        <td className="px-4 py-3.5 text-center">
+                          {c.pagamento_status === "PAGO" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
+                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                              <CheckCircle2 size={9}/> PAGO
+                            </span>
+                          ) : c.link_pagamento ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
+                              style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
+                              <Clock size={9}/> EM ABERTO
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>—</span>
+                          )}
+                        </td>
+
                         <td className="px-4 py-3.5 text-center">
                           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
                             style={{ background: sc.bg, color: sc.cor }}>
@@ -1466,23 +1599,30 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                         </td>
 
                         <td className="px-4 py-3.5 text-center">
-                          {live.status !== "encerrada" && podeVincular && (
-                            <motion.button onClick={() => setModalVinculo(c)}
-                              whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
-                              className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
-                              style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
-                              <Link2 size={10}/> VINCULAR
-                            </motion.button>
-                          )}
-                          {c.status_compra === "finalizada" && (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
-                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                              <CheckCircle2 size={10}/> OK
-                            </span>
-                          )}
-                          {live.status !== "encerrada" && !podeVincular && c.status_compra !== "finalizada" && (
-                            <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>—</span>
-                          )}
+                          <div className="flex items-center justify-center gap-2">
+                            {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
+                              <motion.button onClick={() => setEditCompra(c)}
+                                whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.25)" }}>
+                                <Pencil size={10}/> EDITAR
+                              </motion.button>
+                            )}
+                            {live.status !== "encerrada" && podeVincular && (
+                              <motion.button onClick={() => setModalVinculo(c)}
+                                whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                                <Link2 size={10}/> VINCULAR
+                              </motion.button>
+                            )}
+                            {c.status_compra === "finalizada" && (
+                              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
+                                <CheckCircle2 size={10}/> OK
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </motion.tr>
                     )
@@ -1510,6 +1650,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); refetch() }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
       </AnimatePresence>
     </div>
   )

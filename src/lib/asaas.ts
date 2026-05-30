@@ -9,7 +9,7 @@ export async function gerarLinkAsaas(params: {
   valor: number
   descricao: string
   tipoLive?: "novidades" | "promocional"
-}): Promise<string | null> {
+}): Promise<{ url: string; paymentId: string } | null> {
   const token = process.env.ASAAS_TOKEN
   if (!token) return null
   const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
@@ -74,7 +74,28 @@ export async function gerarLinkAsaas(params: {
 
     if (!cobranca.ok) return null
     const pd = await cobranca.json()
-    return pd.invoiceUrl ?? pd.bankSlipUrl ?? null
+    const url = pd.invoiceUrl ?? pd.bankSlipUrl ?? null
+    if (!url || !pd.id) return null
+    return { url, paymentId: pd.id }
+  } catch {
+    return null
+  }
+}
+
+/** Consulta status de um pagamento Asaas pelo ID */
+export async function consultarPagamentoAsaas(paymentId: string): Promise<"PAGO" | "EM_ABERTO" | null> {
+  const token = process.env.ASAAS_TOKEN
+  if (!token || !paymentId) return null
+  const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
+  try {
+    const res = await fetch(`${base}/payments/${paymentId}`, {
+      headers: { access_token: token, "Content-Type": "application/json" },
+    })
+    if (!res.ok) return null
+    const pd = await res.json()
+    // Status Asaas: CONFIRMED, RECEIVED = pago; PENDING, OVERDUE = em aberto
+    if (["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(pd.status)) return "PAGO"
+    return "EM_ABERTO"
   } catch {
     return null
   }

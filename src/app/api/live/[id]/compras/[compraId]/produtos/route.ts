@@ -62,16 +62,40 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   }
 
-  const { data: item, error } = await sb.from("live_compra_produtos").insert({
+  // Insert com fallback progressivo para colunas que podem não existir
+  const baseCols: Record<string, unknown> = {
     compra_id: parseInt(compraId),
     produto_id: produto_id ?? null,
     nome_produto,
     quantidade: quantidade ?? 1,
+  }
+  const extraCols: Record<string, unknown> = {
     preco_original: preco_original ?? 0,
     preco_live: preco_live ?? preco_original ?? 0,
-  }).select().single()
+  }
 
-  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+  let result = await sb.from("live_compra_produtos").insert({ ...baseCols, ...extraCols }).select().single()
+
+  if (result.error?.code === "42703" || result.error?.message?.includes("column")) {
+    console.warn("[POST produtos] fallback sem extras:", result.error.message)
+    // Tenta com nomes alternativos (preco_unitario / desconto_item)
+    const altCols: Record<string, unknown> = {
+      preco_unitario: preco_original ?? 0,
+      desconto_item: 0,
+    }
+    result = await sb.from("live_compra_produtos").insert({ ...baseCols, ...altCols }).select().single()
+  }
+
+  if (result.error?.code === "42703" || result.error?.message?.includes("column")) {
+    console.warn("[POST produtos] fallback só base:", result.error?.message)
+    result = await sb.from("live_compra_produtos").insert(baseCols).select().single()
+  }
+
+  const { data: item, error } = result
+  if (error) {
+    console.error("[POST produtos]", error)
+    return NextResponse.json({ erro: error.message }, { status: 500 })
+  }
 
   // Baixa no estoque
   if (produto_id) {

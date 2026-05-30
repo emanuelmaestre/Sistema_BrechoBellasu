@@ -65,16 +65,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const valorFinal = parseFloat(String(valor_total ?? 0)) - parseFloat(String(desconto ?? 0))
   if (valorFinal > 0) {
     const sacola = [cor_sacola, numero_sacola ? `#${numero_sacola}` : ""].filter(Boolean).join(" ")
-    const link = await gerarLinkAsaas({
+    const resultado = await gerarLinkAsaas({
       nome: nomeCliente,
       cpf: cpfCliente,
       valor: valorFinal,
       descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
       tipoLive,
     })
-    if (link) {
-      await sb.from("live_compras").update({ link_pagamento: link }).eq("id", compra.id)
-      compra.link_pagamento = link
+    if (resultado) {
+      const update: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
+      try { await sb.from("live_compras").update({ ...update, asaas_payment_id: resultado.paymentId }).eq("id", compra.id) }
+      catch { await sb.from("live_compras").update(update).eq("id", compra.id) }
+      compra.link_pagamento = resultado.url
     }
   }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { gerarLinkAsaas } from "@/lib/asaas"
+// consultarPagamentoAsaas importado mas não usado no disparo — usado no sync
 
 function fmtData(d: string | null) {
   if (!d) return "—"
@@ -65,16 +66,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (valorFinal > 0) {
         const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
         const cpf = compra.cliente_id ? (cpfMap[compra.cliente_id] ?? null) : null
-        const link = await gerarLinkAsaas({
+        const resultado = await gerarLinkAsaas({
           nome: compra.nome_cliente,
           cpf,
           valor: valorFinal,
           descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
           tipoLive,
         })
-        if (link) {
-          linkPagamento = link
-          await sb.from("live_compras").update({ link_pagamento: link }).eq("id", compra.id)
+        if (resultado) {
+          linkPagamento = resultado.url
+          const upd: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
+          try { await sb.from("live_compras").update({ ...upd, asaas_payment_id: resultado.paymentId }).eq("id", compra.id) }
+          catch { await sb.from("live_compras").update(upd).eq("id", compra.id) }
         }
       }
     }
