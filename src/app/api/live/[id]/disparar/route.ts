@@ -144,34 +144,84 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
         )
         if (!resp.ok) {
           statusEnvio = "erro"
-          resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro" })
-          const { error: e2 } = await sb.from("live_compras").update({ msg_status: "erro", msg_texto: mensagem }).eq("id", compra.id)
-          if (e2) console.error(`[LIVE] Erro update Z-API falhou compra #${compra.id}:`, e2.message)
+          resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: `Z-API ${resp.status}` })
+          await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id).then(({ error: e2 }) => {
+            if (e2) console.error(`[LIVE] Erro update Z-API falhou compra #${compra.id}:`, e2.message)
+          })
           continue
         }
       }
     } catch { statusEnvio = "erro" }
 
-    const campos: Record<string, unknown> = { msg_status: statusEnvio }
-    try { campos.msg_enviada_em = new Date().toISOString(); campos.msg_texto = mensagem } catch {}
+    // ── UPDATE msg_status — múltiplas tentativas ──
+    let updateOk = false
+    let debugInfo = ""
 
-    const { data: updated, error: updErr } = await sb
-      .from("live_compras").update(campos).eq("id", compra.id).select("id, msg_status")
-
-    if (updErr) {
-      console.error(`[LIVE] ERRO update compra #${compra.id}:`, updErr.message, updErr.details ?? "")
-      const { error: fallbackErr } = await sb
-        .from("live_compras").update({ msg_status: statusEnvio }).eq("id", compra.id)
-      if (fallbackErr) {
-        console.error(`[LIVE] FALLBACK também falhou compra #${compra.id}:`, fallbackErr.message)
-        statusEnvio = "erro"
-      }
-    } else if (!updated?.length) {
-      console.error(`[LIVE] UPDATE retornou 0 linhas para compra #${compra.id}. Nenhuma linha matched.`)
-      statusEnvio = "erro"
+    // Tentativa 1: update simples só msg_status (campo crítico)
+    const { data: upd1, error: err1 } = await sb
+      .from("live_compras").update({ msg_status: statusEnvio }).eq("id", compra.id).select("id, msg_status")
+    if (err1) {
+      debugInfo += `T1 err: ${err1.message}. `
+      console.error(`[LIVE] T1 falhou compra #${compra.id}:`, err1.message, err1.details ?? "")
+    } else if (upd1?.length && upd1[0].msg_status === statusEnvio) {
+      updateOk = true
+      debugInfo += `T1 ok. `
+    } else {
+      debugInfo += `T1 retornou ${JSON.stringify(upd1)}. `
+      console.error(`[LIVE] T1 não persistiu compra #${compra.id}:`, upd1)
     }
 
-    resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: statusEnvio })
+    // Tentativa 2: REST direto ao PostgREST (bypassa qualquer cache do client)
+    if (!updateOk) {
+      try {
+        const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const restResp = await fetch(
+          `${supaUrl}/rest/v1/live_compras?id=eq.${compra.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": supaKey!,
+              "Authorization": `Bearer ${supaKey}`,
+              "Prefer": "return=representation",
+            },
+            body: JSON.stringify({ msg_status: statusEnvio }),
+          }
+        )
+        const restBody = await restResp.text()
+        if (restResp.ok) {
+          updateOk = true
+          debugInfo += `T2-REST ok (${restResp.status}). `
+        } else {
+          debugInfo += `T2-REST falhou: ${restResp.status} ${restBody.substring(0, 200)}. `
+          console.error(`[LIVE] T2-REST falhou compra #${compra.id}: ${restResp.status}`, restBody.substring(0, 300))
+        }
+      } catch (restErr: unknown) {
+        debugInfo += `T2-REST exc: ${restErr instanceof Error ? restErr.message : String(restErr)}. `
+      }
+    }
+
+    // Campos extras (não-críticos) — tenta separado, ignora falha
+    if (updateOk) {
+      try {
+        await sb.from("live_compras").update({ msg_enviada_em: new Date().toISOString(), msg_texto: mensagem }).eq("id", compra.id)
+      } catch { /* ignora — campos opcionais */ }
+    }
+
+    // Verificação final: lê o registro pra confirmar
+    if (updateOk) {
+      const { data: check } = await sb.from("live_compras").select("msg_status").eq("id", compra.id).single()
+      if (check?.msg_status !== statusEnvio) {
+        updateOk = false
+        debugInfo += `VERIFY falhou: lido=${check?.msg_status}. `
+        console.error(`[LIVE] VERIFY falhou compra #${compra.id}: esperado=${statusEnvio}, lido=${check?.msg_status}`)
+      }
+    }
+
+    if (!updateOk) statusEnvio = "erro"
+
+    resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: statusEnvio, detalhe: debugInfo || undefined })
   }
 
   const todosOk = resultados.every(r => r.status === "enviada")
