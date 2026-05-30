@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: live, error } = await sb.from("lives").select("*").eq("id", id).single()
   if (error || !live) return NextResponse.json({ erro: "Live não encontrada." }, { status: 404 })
 
-  const { data: compras } = await sb.from("v_live_compras").select("*").eq("live_id", id).order("created_at")
+  const { data: compras } = await sb.from("live_compras").select("*").eq("live_id", id).order("created_at")
   const ids = (compras ?? []).map(c => c.id)
 
   let itens: unknown[] = []

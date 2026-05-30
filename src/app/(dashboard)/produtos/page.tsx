@@ -5,9 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, Pencil, Loader2, Package,
-  X, ChevronLeft, ArrowRight, Check,
+  X, ChevronLeft, ArrowRight, Check, Trash2,
 } from "lucide-react"
-import { apiGet, apiPost, apiPut } from "@/services/api"
+import { apiGet, apiPost, apiPut, apiDelete } from "@/services/api"
 import { fmtBRL, cn } from "@/lib/utils"
 import type { Produto, Categoria } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
@@ -545,6 +545,16 @@ export default function ProdutosPage() {
   const [editForm, setEditForm]   = useState<ProdutoForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
   const [editInitStep, setEditInitStep] = useState<number>(1)
+  const [excluindoId, setExcluindoId] = useState<number | null>(null)
+
+  async function excluirProduto(id: number) {
+    if (!confirm("Confirma exclusão deste produto? Esta ação não pode ser desfeita.")) return
+    setExcluindoId(id)
+    try {
+      await apiDelete(`/produtos/${id}`)
+      qc.invalidateQueries({ queryKey: ["produtos"] })
+    } catch { alert("Erro ao excluir produto.") } finally { setExcluindoId(null) }
+  }
 
   const { data, isLoading } = useQuery<{ data: Produto[]; total: number }>({
     queryKey: ["produtos", busca, catFiltro],
@@ -668,12 +678,20 @@ export default function ProdutosPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => abrirEdicao(p)}
-                      className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                      <Pencil size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => abrirEdicao(p)}
+                        className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => excluirProduto(p.id)} disabled={excluindoId === p.id}
+                        className="p-1.5 rounded-lg transition-colors disabled:opacity-40" style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                        {excluindoId === p.id ? <Loader2 size={14} className="animate-spin"/> : <Trash2 size={14} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

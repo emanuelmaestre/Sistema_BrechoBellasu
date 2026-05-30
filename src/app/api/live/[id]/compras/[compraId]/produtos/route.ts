@@ -62,39 +62,48 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   }
 
-  // Insert com fallback progressivo para colunas que podem não existir
-  const baseCols: Record<string, unknown> = {
-    compra_id: parseInt(compraId),
-    produto_id: produto_id ?? null,
-    nome_produto,
-    quantidade: quantidade ?? 1,
-  }
-  const extraCols: Record<string, unknown> = {
-    preco_original: preco_original ?? 0,
-    preco_live: preco_live ?? preco_original ?? 0,
-  }
+  // Tenta inserir nas possíveis tabelas com fallback progressivo
+  const compraIdNum = parseInt(compraId)
+  const qtd = quantidade ?? 1
+  const precoOrig = preco_original ?? 0
+  const precoLv = preco_live ?? preco_original ?? 0
+  const errors: string[] = []
 
-  let result = await sb.from("live_compra_produtos").insert({ ...baseCols, ...extraCols }).select().single()
+  // Tentativa 1: live_compra_itens com todas as colunas
+  let result = await sb.from("live_compra_itens").insert({
+    compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
+    preco_unitario: precoOrig, desconto_item: 0,
+  }).select().single()
 
-  if (result.error?.code === "42703" || result.error?.message?.includes("column")) {
-    console.warn("[POST produtos] fallback sem extras:", result.error.message)
-    // Tenta com nomes alternativos (preco_unitario / desconto_item)
-    const altCols: Record<string, unknown> = {
-      preco_unitario: preco_original ?? 0,
-      desconto_item: 0,
-    }
-    result = await sb.from("live_compra_produtos").insert({ ...baseCols, ...altCols }).select().single()
+  if (result.error) {
+    errors.push(`itens_full: ${result.error.message}`)
+    // Tentativa 2: live_compra_itens sem colunas de preço
+    result = await sb.from("live_compra_itens").insert({
+      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
+    }).select().single()
   }
 
-  if (result.error?.code === "42703" || result.error?.message?.includes("column")) {
-    console.warn("[POST produtos] fallback só base:", result.error?.message)
-    result = await sb.from("live_compra_produtos").insert(baseCols).select().single()
+  if (result.error) {
+    errors.push(`itens_base: ${result.error.message}`)
+    // Tentativa 3: live_compra_produtos
+    result = await sb.from("live_compra_produtos").insert({
+      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
+      preco_original: precoOrig, preco_live: precoLv,
+    }).select().single()
+  }
+
+  if (result.error) {
+    errors.push(`produtos_full: ${result.error.message}`)
+    // Tentativa 4: live_compra_produtos só base
+    result = await sb.from("live_compra_produtos").insert({
+      compra_id: compraIdNum, produto_id: produto_id ?? null, nome_produto, quantidade: qtd,
+    }).select().single()
   }
 
   const { data: item, error } = result
   if (error) {
-    console.error("[POST produtos]", error)
-    return NextResponse.json({ erro: error.message }, { status: 500 })
+    console.error("[POST produtos] todas tentativas falharam:", errors.join(" | "))
+    return NextResponse.json({ erro: `Erro ao vincular: ${errors[0]}` }, { status: 500 })
   }
 
   // Baixa no estoque

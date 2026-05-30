@@ -1283,7 +1283,13 @@ export default function EtiquetasPage() {
     meta: { total: number; current_page: number; last_page: number }
   }>({
     queryKey: ["etiquetas", page],
-    queryFn: () => apiGet(`/etiquetas?page=${page}&per_page=15`),
+    queryFn: async () => {
+      const res = await apiGet<{ data: MEOrder[]; meta: { total: number; current_page: number; last_page: number } }>(`/etiquetas?page=${page}&per_page=15`)
+      // Garante estrutura mesmo se ME retornar formato inesperado
+      const safe = res as Record<string, unknown>
+      if (!safe?.meta) return { data: (safe?.data as MEOrder[]) ?? [], meta: { total: 0, current_page: 1, last_page: 1 } }
+      return res
+    },
     staleTime: 60_000,
     enabled: !!status?.configurado,
     retry: false,
@@ -1394,7 +1400,7 @@ export default function EtiquetasPage() {
           <div className="flex items-center gap-2">
             <Package size={15} style={{ color: "var(--text-muted)" }} />
             <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Etiquetas geradas</p>
-            {data?.meta.total ? (
+            {data?.meta?.total ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ background: "var(--bg-surface)", color: "var(--text-secondary)" }}>
                 {data.meta.total}
@@ -1496,17 +1502,17 @@ export default function EtiquetasPage() {
         </div>
 
         {/* Paginação */}
-        {data && data.meta.last_page > 1 && (
+        {data && (data.meta?.last_page ?? 0) > 1 && (
           <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{data.meta.total} etiquetas</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{data.meta?.total ?? 0} etiquetas</p>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 className="px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-30"
                 style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                 ← Anterior
               </button>
-              <span className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{page} / {data.meta.last_page}</span>
-              <button onClick={() => setPage(p => Math.min(data.meta.last_page, p + 1))} disabled={page === data.meta.last_page}
+              <span className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{page} / {data.meta?.last_page ?? 1}</span>
+              <button onClick={() => setPage(p => Math.min(data.meta?.last_page ?? 1, p + 1))} disabled={page === (data.meta?.last_page ?? 1)}
                 className="px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-30"
                 style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                 Próxima →

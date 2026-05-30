@@ -59,7 +59,8 @@ export function ModuleTopBar() {
 
   return (
     <div
-      className="flex items-center gap-3 px-5 py-3 shrink-0 relative z-10"
+      id="module-topbar"
+      className="flex items-center gap-3 px-5 py-3 shrink-0 relative z-20"
       style={{
         background:   "var(--bg-card)",
         borderBottom: "1px solid var(--border)",

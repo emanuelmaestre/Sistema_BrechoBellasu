@@ -617,7 +617,7 @@ function ModalVinculo({
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
   const [busca,   setBusca]   = useState("")
   const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; preco?: number; estoque?: number }>>([])
-  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: "", preco_live: "" })
+  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: "", preco_original: "", preco_live: "" })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
   const [finalizando, setFin] = useState(false)
@@ -643,7 +643,7 @@ function ModalVinculo({
   }, [])
 
   function selecionarProd(p: typeof prodRes[0]) {
-    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_original: "", preco_live: "" })
+    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: "", preco_original: "", preco_live: "" })
     setBusca(p.nome); setProdRes([])
   }
 
@@ -654,12 +654,12 @@ function ModalVinculo({
       await apiPost(`/live/${liveId}/compras/${compra.id}/produtos`, {
         produto_id: form.produto_id || undefined,
         nome_produto: form.nome_produto,
-        quantidade: form.quantidade,
+        quantidade: parseInt(String(form.quantidade)) || 1,
         preco_original: parseFloat(String(form.preco_original).replace(/\./g, "").replace(",", ".")) || 0,
         preco_live: parseFloat(String(form.preco_live).replace(/\./g, "").replace(",", ".")) || 0,
       })
       setBusca(""); setProdRes([])
-      setForm({ produto_id: 0, nome_produto: "", quantidade: 1, preco_original: "", preco_live: "" })
+      setForm({ produto_id: 0, nome_produto: "", quantidade: "", preco_original: "", preco_live: "" })
       refetch(); onAtualizado()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao vincular produto.")
@@ -690,8 +690,8 @@ function ModalVinculo({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex"
-      style={{ background: "var(--bg-base)" }}>
+      className="fixed inset-x-0 bottom-0 z-[15] flex"
+      style={{ top: "var(--topbar-height, 52px)", background: "var(--bg-base)" }}>
       <motion.div initial={{ y: 32, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 32, opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         className="w-full flex flex-col overflow-hidden"
@@ -854,8 +854,8 @@ function ModalVinculo({
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>QTD</p>
-                        <input type="number" step="1" min="1" value={form.quantidade}
-                          onChange={e => setForm(prev => ({ ...prev, quantidade: parseInt(e.target.value)||1 }))}
+                        <input type="number" step="1" min="1" value={form.quantidade} placeholder="0"
+                          onChange={e => setForm(prev => ({ ...prev, quantidade: e.target.value }))}
                           className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
                           style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
                       </div>
@@ -1021,7 +1021,8 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex flex-col" style={{ background: "var(--bg-base)" }}>
+      className="fixed inset-x-0 bottom-0 z-[15] flex flex-col"
+      style={{ top: "var(--topbar-height, 52px)", background: "var(--bg-base)" }}>
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: COR_LIVE }}>Disparar Mensagens</span>
@@ -1280,7 +1281,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       }
       return live
     },
-    refetchInterval: 30_000,
+    staleTime: 0,         // sempre busca dados frescos ao invalidar
+    refetchInterval: 15_000,
   })
 
   if (isLoading || !data) {
@@ -1411,14 +1413,16 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
         {/* Ações no topo */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
-          {/* Status badge */}
-          <motion.span
-            animate={{ opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 2 }}
-            className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full"
-            style={{ background: statusCfg.bg, color: statusCfg.cor }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: statusCfg.cor }}/>
-            {statusCfg.label}
-          </motion.span>
+          {/* Status badge — só exibe Aberta / Encerrada */}
+          {live.status !== "disparada" && (
+            <motion.span
+              animate={{ opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 2 }}
+              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full"
+              style={{ background: statusCfg.bg, color: statusCfg.cor }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: statusCfg.cor }}/>
+              {statusCfg.label}
+            </motion.span>
+          )}
 
           {live.status !== "encerrada" && (
             <>
@@ -1581,7 +1585,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                               style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
                               <CheckCircle2 size={9}/> PAGO
                             </span>
-                          ) : c.link_pagamento ? (
+                          ) : (c.link_pagamento || c.pagamento_status === "EM_ABERTO" || c.pagamento_status == null) && c.valor_total > 0 ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
                               style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
                               <Clock size={9}/> EM ABERTO
@@ -1648,7 +1652,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       {/* Modais */}
       <AnimatePresence>
         {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
-        {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); refetch() }}/>}
+        {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
       </AnimatePresence>

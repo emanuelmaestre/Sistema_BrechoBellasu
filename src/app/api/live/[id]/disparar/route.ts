@@ -32,11 +32,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: liveRow } = await sb.from("lives").select("data_live, tipo").eq("id", live_id).single()
   const tipoLive = ((liveRow as Record<string,unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
 
-  const { data: compras, error } = await sb
-    .from("v_live_compras").select("*").eq("live_id", live_id).in("msg_status", ["pendente", "erro"])
+  // Busca todas as compras da live e filtra em JS (evita problema com NULL no PostgREST)
+  const { data: todasCompras } = await sb
+    .from("live_compras").select("*").eq("live_id", live_id)
 
-  if (error) return NextResponse.json({ erro: "Erro ao buscar compras." }, { status: 500 })
-  if (!compras?.length) return NextResponse.json({ ok: true, enviadas: 0, mensagem: "Nenhuma compra pendente." })
+  const compras = (todasCompras ?? []).filter((c: Record<string, unknown>) =>
+    !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro"
+  )
+
+  if (!compras.length) return NextResponse.json({ ok: true, enviadas: 0, mensagem: "Nenhuma compra pendente." })
 
   // Busca CPFs dos clientes de uma vez
   const clienteIds = compras.map((c: Record<string, unknown>) => c.cliente_id).filter(Boolean)
