@@ -32,7 +32,9 @@ export class VendaRepositorySupabase implements IVendaRepository {
     if (error) {
       // Backstop de concorrência: a função pode recusar por estoque mesmo
       // após o pré-check do use case (corrida entre vendas simultâneas).
-      const m = /ESTOQUE_INSUFICIENTE:([^:]*):(\d+):(\d+)/.exec(error.message ?? "")
+      // A mensagem do RAISE pode vir em message/details/hint — checa todas.
+      const texto = [error.message, error.details, error.hint].filter(Boolean).join(" ")
+      const m = /ESTOQUE_INSUFICIENTE:([^:]*):(\d+):(\d+)/.exec(texto)
       if (m) throw new EstoqueInsuficienteError(m[1], Number(m[2]), Number(m[3]))
       throw new Error(error.message)
     }
