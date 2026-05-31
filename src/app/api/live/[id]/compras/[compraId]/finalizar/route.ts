@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { FinalizarCompraUseCase } from "@/application/live/finalizar-compra.use-case"
+import { LiveProdutoRepositorySupabase } from "@/infrastructure/repositories/live-produto.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -10,29 +13,20 @@ export async function POST(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { compraId } = await params
-  const sb = createServerClient()
+  try {
+    const { compraId } = await params
+    const sb = createServerClient()
+    const useCase = new FinalizarCompraUseCase(new LiveProdutoRepositorySupabase(sb))
 
-  const { data: compra } = await sb.from("live_compras").select("quantidade_itens, valor_total").eq("id", parseInt(compraId)).single()
-  const { data: prods }  = await sb.from("live_compra_produtos").select("*").eq("compra_id", parseInt(compraId))
-
-  if (!compra) return NextResponse.json({ erro: "Compra não encontrada." }, { status: 404 })
-  if (!prods?.length) return NextResponse.json({ erro: "Nenhum produto vinculado." }, { status: 422 })
-
-  const totalVinculado = prods.reduce((s, p) => s + (p.quantidade ?? 1), 0)
-  const totalBaixado   = prods.filter(p => p.estoque_baixado).reduce((s, p) => s + (p.quantidade ?? 1), 0)
-  const qtdEsperada    = compra.quantidade_itens ?? 0
-
-  if (totalVinculado < qtdEsperada) {
-    return NextResponse.json({
-      erro: `Quantidade divergente. Esperado: ${qtdEsperada} itens. Vinculado: ${totalVinculado}.`
-    }, { status: 422 })
+    const resultado = await useCase.execute(parseInt(compraId))
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/live/[id]/compras/[compraId]/finalizar]", err)
+    return NextResponse.json(erro, { status })
   }
-
-  if (totalBaixado < totalVinculado) {
-    return NextResponse.json({ erro: "Nem todos os produtos tiveram baixa no estoque." }, { status: 422 })
-  }
-
-  await sb.from("live_compras").update({ status_compra: "finalizada" }).eq("id", parseInt(compraId))
-  return NextResponse.json({ ok: true })
 }

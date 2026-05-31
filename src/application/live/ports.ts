@@ -4,6 +4,7 @@
 // alterar a regra de negócio.
 // ══════════════════════════════════════════════════════════════════
 import type { LiveCompra } from "@/domain/live/live-compra"
+import type { VinculoResumo } from "@/domain/live/status-compra"
 
 export interface ItemCompraInput {
   produtoId?: number | null
@@ -49,4 +50,13 @@ export interface CobrancaParams {
 export interface IPagamentoGateway {
   gerarCobranca(params: CobrancaParams): Promise<{ url: string; paymentId: string } | null>
   consultarStatus(paymentId: string): Promise<"PAGO" | "EM_ABERTO" | null>
+}
+
+export interface ILiveProdutoRepository {
+  /** Quantidade de itens esperada da compra, ou null se a compra não existe. */
+  quantidadeEsperada(compraId: number): Promise<number | null>
+  /** Produtos vinculados à compra (quantidade + se baixou estoque). */
+  listarVinculos(compraId: number): Promise<VinculoResumo[]>
+  /** Define o status_compra. */
+  definirStatusCompra(compraId: number, status: string): Promise<void>
 }

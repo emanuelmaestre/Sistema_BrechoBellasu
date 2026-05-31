@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { calcularStatusCompra } from "@/domain/live/status-compra"
 
 type Params = { params: Promise<{ id: string; compraId: string }> }
 
@@ -131,30 +132,19 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   return NextResponse.json({ ok: true })
 }
 
-// ─── Helper: recalcula status_compra ──────────────────────
+// ─── Helper: recalcula status_compra (regra no domínio) ────
 async function atualizarStatusCompra(compraId: number, sb: ReturnType<typeof import("@/lib/supabase").createServerClient>) {
   const { data: compra } = await sb.from("live_compras").select("quantidade_itens").eq("id", compraId).single()
+  const { data: prods } = await sb
+    .from("live_compra_produtos")
+    .select("quantidade, estoque_baixado")
+    .eq("compra_id", compraId)
 
-  // Tenta ambas as tabelas
-  let prods: Array<{ quantidade?: number; estoque_baixado?: boolean }> = []
-  const r1 = await sb.from("live_compra_produtos").select("quantidade, estoque_baixado").eq("compra_id", compraId)
-  if (!r1.error && r1.data?.length) prods = r1.data
-  else {
-    const r2 = await sb.from("live_compra_itens").select("quantidade").eq("compra_id", compraId)
-    if (!r2.error) prods = (r2.data ?? []).map(p => ({ ...p, estoque_baixado: false }))
-  }
+  const vinculos = (prods ?? []).map(p => ({
+    quantidade: Number(p.quantidade ?? 1),
+    estoqueBaixado: p.estoque_baixado === true,
+  }))
+  const status = calcularStatusCompra(Number(compra?.quantidade_itens ?? 0), vinculos)
 
-  const totalVinculado = prods.reduce((s, p) => s + (p.quantidade ?? 1), 0)
-  const totalBaixado   = prods.filter(p => p.estoque_baixado).reduce((s, p) => s + (p.quantidade ?? 1), 0)
-  const qtdEsperada    = compra?.quantidade_itens ?? 0
-
-  let status = "cadastrada"
-  if (totalVinculado === 0) status = "aguardando_vinculo"
-  else if (totalVinculado < qtdEsperada) status = "vinculo_parcial"
-  else if (totalVinculado >= qtdEsperada && totalBaixado >= qtdEsperada) status = "vinculada"
-  else status = "vinculo_parcial"
-
-  try {
-    await sb.from("live_compras").update({ status_compra: status }).eq("id", compraId)
-  } catch { /* coluna status_compra pode não existir */ }
+  await sb.from("live_compras").update({ status_compra: status }).eq("id", compraId)
 }
