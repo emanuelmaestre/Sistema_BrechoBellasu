@@ -20,7 +20,6 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 
 interface LoginResponse {
-  token: string
   usuario: Usuario
 }
 
@@ -41,7 +40,7 @@ function Particle({ x, y, delay, size }: { x: string; y: string; delay: number; 
 
 export default function LoginPage() {
   const router   = useRouter()
-  const setAuth  = useAuthStore((s) => s.setAuth)
+  const setUsuario = useAuthStore((s) => s.setUsuario)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [entered, setEntered] = useState(false)
@@ -62,7 +61,7 @@ export default function LoginPage() {
     setError("")
     try {
       const res = await apiPost<LoginResponse>("/auth/login", values)
-      setAuth(res.token, res.usuario)
+      setUsuario(res.usuario)
       router.replace("/menu")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro

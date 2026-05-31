@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { AtualizarClienteUseCase } from "@/application/clientes/atualizar-cliente.use-case"
+import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -19,36 +22,39 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { id } = await params
-  const body = await req.json()
-  const { nome, apelido, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado } = body
+  try {
+    const { id } = await params
+    const body = await req.json()
+    const sb = createServerClient()
+    const useCase = new AtualizarClienteUseCase(new ClienteRepositorySupabase(sb))
 
-  if (!nome) return NextResponse.json({ erro: "Nome é obrigatório." }, { status: 400 })
+    const resultado = await useCase.execute(parseInt(id), {
+      nome: body.nome,
+      apelido: body.apelido,
+      cpfCnpj: body.cpf_cnpj,
+      email: body.email,
+      dataNasc: body.data_nasc,
+      celular: body.celular,
+      instagram: body.instagram,
+      cep: body.cep,
+      logradouro: body.logradouro,
+      numero: body.numero,
+      complemento: body.complemento,
+      bairro: body.bairro,
+      cidade: body.cidade,
+      estado: body.estado,
+    })
 
-  const sb = createServerClient()
-
-  // Fallback progressivo: tenta com todas as colunas → remove as que não existem (42703)
-  const tentativas = [
-    { nome, apelido, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado },
-    { nome, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado },
-    { nome, cpf_cnpj, data_nasc, celular, cep, logradouro, numero, complemento, bairro, cidade, estado },
-    { nome, cpf_cnpj, data_nasc, celular },
-  ]
-
-  let lastError = null
-  for (const payload of tentativas) {
-    const { error } = await sb.from("clientes").update(payload).eq("id", id)
-    if (!error) {
-      const { data: updated } = await sb.from("clientes").select("*").eq("id", id).single()
-      return NextResponse.json(updated ?? { ok: true })
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
     }
-    lastError = error
-    // Só continua se for erro de coluna inexistente
-    if (error.code !== "42703") break
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[PUT /api/clientes/:id]", err)
+    return NextResponse.json(erro, { status })
   }
-
-  console.error("[PUT /api/clientes/:id]", lastError)
-  return NextResponse.json({ erro: "Erro ao atualizar cliente." }, { status: 500 })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

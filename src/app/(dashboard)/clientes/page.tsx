@@ -11,6 +11,7 @@ import {
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import DatePicker from "@/components/DatePicker"
 import { fmtData, cn } from "@/lib/utils"
+import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
 import type { Cliente } from "@/types"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
 
@@ -308,6 +309,12 @@ function WizardCliente({
     if (step === 1 && form.nome.trim().length < 2) {
       setErro("Nome deve ter pelo menos 2 caracteres")
       return
+    }
+    // Step 3 = CPF/CNPJ: valida com o MESMO Value Object do servidor
+    // (fonte única de verdade). Vazio é permitido; inválido bloqueia.
+    if (step === 3 && form.cpf_cnpj.trim()) {
+      const r = CpfCnpj.criar(form.cpf_cnpj)
+      if (!r.ok) { setErro(r.error.message); return }
     }
     if (step === 7) { advanceCep(); return }
     if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL); return }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CriarContaReceberUseCase } from "@/application/financeiro/contas-receber.use-cases"
+import { ContaReceberRepositorySupabase } from "@/infrastructure/repositories/conta-receber.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -36,14 +39,26 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { descricao, valor, vencimento, cliente_id } = await req.json()
-  if (!descricao || !valor || !vencimento) return NextResponse.json({ erro: "Campos obrigatórios faltando." }, { status: 400 })
+  try {
+    const body = await req.json()
+    const sb = createServerClient()
+    const useCase = new CriarContaReceberUseCase(new ContaReceberRepositorySupabase(sb))
 
-  const sb = createServerClient()
-  const { data, error } = await sb.from("contas_receber")
-    .insert({ descricao, valor, vencimento, cliente_id: cliente_id ?? null })
-    .select().single()
+    const resultado = await useCase.execute({
+      descricao: body.descricao,
+      valor: body.valor,
+      vencimento: body.vencimento,
+      clienteId: body.cliente_id ?? null,
+    })
 
-  if (error) return NextResponse.json({ erro: error.message ?? "Erro ao criar conta a receber." }, { status: 500 })
-  return NextResponse.json(data, { status: 201 })
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/financeiro/receber]", err)
+    return NextResponse.json(erro, { status })
+  }
 }

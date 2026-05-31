@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CancelarVendaUseCase } from "@/application/vendas/cancelar-venda.use-case"
+import { VendaRepositorySupabase } from "@/infrastructure/repositories/venda.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -48,11 +51,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { id } = await params
-  const sb = createServerClient()
+  try {
+    const { id } = await params
+    const sb = createServerClient()
+    const useCase = new CancelarVendaUseCase(new VendaRepositorySupabase(sb))
 
-  const { error } = await sb.rpc("fn_cancelar_venda", { p_venda_id: parseInt(id) })
-  if (error) return NextResponse.json({ erro: "Erro ao cancelar venda." }, { status: 500 })
+    const resultado = await useCase.execute(parseInt(id))
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[DELETE /api/vendas/[id]]", err)
+    return NextResponse.json(erro, { status })
+  }
 }

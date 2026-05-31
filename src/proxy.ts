@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 
+// Next.js 16: "middleware" passou a se chamar "proxy" (arquivo proxy.ts,
+// função `proxy`). Mesma função: gate otimista de rotas antes da request.
+// A autorização real é feita em cada route handler via verifyAuth().
+
 const PUBLIC_ROUTES = ["/login"]
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas públicas — deixa passar
@@ -15,7 +19,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Verifica token no cookie
+  // Verifica presença do cookie de sessão (gate otimista)
   const token = request.cookies.get("brecho-token")?.value
 
   if (!token) {

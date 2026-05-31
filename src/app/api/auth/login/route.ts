@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { rateLimit, getClientIp } from "@/lib/rateLimit"
+import { AUTH_COOKIE } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+
+const SETE_DIAS = 60 * 60 * 24 * 7
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,8 +57,8 @@ export async function POST(req: NextRequest) {
       { expiresIn: "7d" }
     )
 
-    return NextResponse.json({
-      token,
+    // Token vai em cookie HttpOnly — nunca exposto ao JS do browser (anti-XSS).
+    const res = NextResponse.json({
       usuario: {
         id: usuario.id,
         nome: usuario.nome,
@@ -63,6 +66,14 @@ export async function POST(req: NextRequest) {
         perfil: usuario.perfil,
       },
     })
+    res.cookies.set(AUTH_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SETE_DIAS,
+    })
+    return res
   } catch (err) {
     console.error("[POST /api/auth/login]", err)
     return NextResponse.json({ erro: "Erro interno." }, { status: 500 })

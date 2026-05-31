@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CriarClienteUseCase } from "@/application/clientes/criar-cliente.use-case"
+import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -33,33 +36,36 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const body = await req.json()
-  const { nome, apelido, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado } = body
+  try {
+    const body = await req.json()
+    const sb = createServerClient()
+    const useCase = new CriarClienteUseCase(new ClienteRepositorySupabase(sb))
 
-  if (!nome) return NextResponse.json({ erro: "Nome é obrigatório." }, { status: 400 })
+    const resultado = await useCase.execute({
+      nome: body.nome,
+      apelido: body.apelido,
+      cpfCnpj: body.cpf_cnpj,
+      email: body.email,
+      dataNasc: body.data_nasc,
+      celular: body.celular,
+      instagram: body.instagram,
+      cep: body.cep,
+      logradouro: body.logradouro,
+      numero: body.numero,
+      complemento: body.complemento,
+      bairro: body.bairro,
+      cidade: body.cidade,
+      estado: body.estado,
+    })
 
-  const sb = createServerClient()
-
-  // Tenta com todas as colunas novas; fallback progressivo se coluna não existir
-  let result = await sb.from("clientes")
-    .insert({ nome, apelido, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado })
-    .select().single()
-
-  if (result.error?.code === "42703") {
-    result = await sb.from("clientes")
-      .insert({ nome, cpf_cnpj, data_nasc, celular, instagram, cep, logradouro, numero, complemento, bairro, cidade, estado })
-      .select().single()
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/clientes]", err)
+    return NextResponse.json(erro, { status })
   }
-  if (result.error?.code === "42703") {
-    result = await sb.from("clientes")
-      .insert({ nome, cpf_cnpj, data_nasc, celular, cep, logradouro, numero, complemento, bairro, cidade, estado })
-      .select().single()
-  }
-
-  const { data, error } = result
-  if (error) {
-    console.error("[POST /api/clientes]", error)
-    return NextResponse.json({ erro: error.message ?? "Erro ao criar cliente." }, { status: 500 })
-  }
-  return NextResponse.json(data, { status: 201 })
 }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CriarProdutoUseCase } from "@/application/produtos/criar-produto.use-case"
+import { ProdutoRepositorySupabase } from "@/infrastructure/repositories/produto.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -32,34 +35,31 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const body = await req.json()
-  const { nome, codigo, categoria_id, marca, preco_venda, preco_custo, estoque_atual, controlar_estoque, unidade_medida } = body
+  try {
+    const body = await req.json()
+    const sb = createServerClient()
+    const useCase = new CriarProdutoUseCase(new ProdutoRepositorySupabase(sb))
 
-  if (!nome) return NextResponse.json({ erro: "Nome é obrigatório." }, { status: 400 })
-
-  const sb = createServerClient()
-  let cod = codigo
-  if (!cod) {
-    const { data: nextCod } = await sb.rpc("fn_next_produto_codigo")
-    cod = String(nextCod ?? "00001")
-  }
-
-  const { data, error } = await sb.from("produtos")
-    .insert({
-      nome, codigo: cod,
-      categoria_id: categoria_id ?? null,
-      marca: marca ?? null,
-      preco_venda: preco_venda ?? 0,
-      preco_custo: preco_custo ?? 0,
-      estoque_atual: estoque_atual ?? 0,
-      controlar_estoque: controlar_estoque !== false,
-      unidade_medida: unidade_medida ?? "un",
+    const resultado = await useCase.execute({
+      nome: body.nome,
+      codigo: body.codigo ?? null,
+      categoriaId: body.categoria_id ?? null,
+      marca: body.marca ?? null,
+      precoVenda: body.preco_venda ?? 0,
+      precoCusto: body.preco_custo ?? 0,
+      estoqueAtual: body.estoque_atual ?? 0,
+      controlarEstoque: body.controlar_estoque,
+      unidadeMedida: body.unidade_medida,
     })
-    .select().single()
 
-  if (error) {
-    if (error.code === "23505") return NextResponse.json({ erro: "Código já existe." }, { status: 409 })
-    return NextResponse.json({ erro: "Erro ao criar produto." }, { status: 500 })
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/produtos]", err)
+    return NextResponse.json(erro, { status })
   }
-  return NextResponse.json(data, { status: 201 })
 }

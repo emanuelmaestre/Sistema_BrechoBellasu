@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { PagarContaUseCase } from "@/application/financeiro/contas-pagar.use-cases"
+import { ContaPagarRepositorySupabase } from "@/infrastructure/repositories/conta-pagar.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -8,12 +11,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { id } = await params
-  const sb = createServerClient()
-  const { data, error } = await sb.from("contas_pagar")
-    .update({ status: "pago", data_pagamento: new Date().toISOString().split("T")[0] })
-    .eq("id", id).select().single()
+  try {
+    const { id } = await params
+    const hoje = new Date().toISOString().split("T")[0]
+    const sb = createServerClient()
+    const useCase = new PagarContaUseCase(new ContaPagarRepositorySupabase(sb))
 
-  if (error) return NextResponse.json({ erro: "Erro ao pagar conta." }, { status: 500 })
-  return NextResponse.json(data)
+    const resultado = await useCase.execute(parseInt(id), hoje)
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[PATCH /api/financeiro/pagar/[id]/pagar]", err)
+    return NextResponse.json(erro, { status })
+  }
 }

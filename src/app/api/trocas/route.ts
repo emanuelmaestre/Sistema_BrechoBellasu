@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CriarTrocaUseCase } from "@/application/trocas/troca.use-cases"
+import { TrocaRepositorySupabase } from "@/infrastructure/repositories/troca.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -34,28 +37,35 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const body = await req.json()
-  const { tipo, venda_id, cliente_id, cliente_nome, produto_id, nome_produto, quantidade, motivo, status, decisao_produto, resultado_fin, observacoes } = body
+  try {
+    const body = await req.json()
+    const sb = createServerClient()
+    const useCase = new CriarTrocaUseCase(new TrocaRepositorySupabase(sb))
 
-  if (!tipo || !motivo) return NextResponse.json({ erro: "Tipo e motivo são obrigatórios." }, { status: 400 })
+    const resultado = await useCase.execute(
+      {
+        tipo: body.tipo,
+        motivo: body.motivo,
+        vendaId: body.venda_id ?? null,
+        clienteId: body.cliente_id ?? null,
+        clienteNome: body.cliente_nome ?? null,
+        produtoId: body.produto_id ?? null,
+        nomeProduto: body.nome_produto ?? null,
+        quantidade: body.quantidade ?? 1,
+        observacoes: body.observacoes ?? null,
+        status: body.status,
+      },
+      auth.id,
+    )
 
-  const sb = createServerClient()
-
-  // Fallback progressivo: tenta com todas as colunas → remove as opcionais se 42703
-  let result = await sb.from("trocas")
-    .insert({ tipo, venda_id, cliente_id: cliente_id ?? null, cliente_nome: cliente_nome ?? null, produto_id: produto_id ?? null, nome_produto: nome_produto ?? null, quantidade: quantidade ?? 1, motivo, status: status ?? "solicitado", responsavel_id: auth.id, decisao_produto, resultado_fin, observacoes })
-    .select().single()
-
-  if (result.error?.code === "42703") {
-    result = await sb.from("trocas")
-      .insert({ tipo, venda_id, cliente_id: cliente_id ?? null, produto_id: produto_id ?? null, quantidade: quantidade ?? 1, motivo, status: status ?? "solicitado", responsavel_id: auth.id })
-      .select().single()
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
+    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/trocas]", err)
+    return NextResponse.json(erro, { status })
   }
-
-  const { data, error } = result
-  if (error) {
-    console.error("[POST /api/trocas]", error)
-    return NextResponse.json({ erro: error.message ?? "Erro ao criar troca." }, { status: 500 })
-  }
-  return NextResponse.json(data, { status: 201 })
 }

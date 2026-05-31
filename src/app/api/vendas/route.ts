@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { CriarVendaUseCase } from "@/application/vendas/criar-venda.use-case"
+import { VendaRepositorySupabase } from "@/infrastructure/repositories/venda.repository"
+import { EstoqueReaderSupabase } from "@/infrastructure/repositories/estoque.reader"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -73,87 +77,59 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ data: mapped, total: count })
 }
 
+// Controller fino: apenas traduz HTTP ⇄ use case. A regra de negócio
+// (cálculo de total, validação de estoque, atomicidade) vive no domínio,
+// no use case e na função Postgres — não aqui.
+type ItemInput = {
+  produto_id?: number | null
+  nome_produto?: string
+  nome?: string
+  quantidade?: number
+  qtd?: number
+  preco_unitario?: number
+  preco_unit?: number
+}
+
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const body = await req.json()
-  const { cliente_id, forma_pagamento, desconto_geral, observacoes, itens } = body
+  try {
+    const body = await req.json()
+    const itens = (body.itens as ItemInput[] | undefined) ?? []
 
-  if (!itens?.length) {
-    return NextResponse.json({ erro: "A venda precisa ter ao menos um item." }, { status: 400 })
-  }
+    const sb = createServerClient()
+    const useCase = new CriarVendaUseCase(
+      new VendaRepositorySupabase(sb),
+      new EstoqueReaderSupabase(sb),
+    )
 
-  type ItemInput = { produto_id?: number | null; nome_produto?: string; nome?: string; quantidade?: number; qtd?: number; preco_unitario?: number; preco_unit?: number }
-
-  const itensNorm = (itens as ItemInput[]).map(it => ({
-    produto_id: it.produto_id ?? null,
-    nome:       it.nome_produto ?? it.nome ?? "",
-    qtd:        it.quantidade   ?? it.qtd  ?? 1,
-    preco_unit: it.preco_unitario ?? it.preco_unit ?? 0,
-  }))
-
-  const subtotal   = itensNorm.reduce((s, it) => s + it.preco_unit * it.qtd, 0)
-  const desconto   = Number(desconto_geral) || 0
-  const total      = Math.max(0, subtotal - desconto)
-
-  const sb = createServerClient()
-
-  // 1. Inserir venda
-  const { data: venda, error: errVenda } = await sb
-    .from("vendas")
-    .insert({
-      cliente_id:      cliente_id ?? null,
-      vendedor_id:     auth.id,
-      forma_pagamento: forma_pagamento ?? "Dinheiro",
-      subtotal,
-      desconto,
-      total,
-      obs:             observacoes ?? null,
-      status:          "concluida",
+    const resultado = await useCase.execute({
+      clienteId: body.cliente_id ?? null,
+      vendedorId: auth.id,
+      formaPagamento: body.forma_pagamento,
+      desconto: Number(body.desconto_geral) || 0,
+      observacoes: body.observacoes ?? null,
+      itens: itens.map((it) => ({
+        produtoId: it.produto_id ?? null,
+        nome: it.nome_produto ?? it.nome ?? "",
+        quantidade: it.quantidade ?? it.qtd ?? 1,
+        precoUnitario: it.preco_unitario ?? it.preco_unit ?? 0,
+      })),
     })
-    .select("id")
-    .single()
 
-  if (errVenda) {
-    console.error("[POST /api/vendas] insert venda:", errVenda)
-    return NextResponse.json({ erro: errVenda.message }, { status: 500 })
-  }
-
-  const vendaId = venda.id
-
-  // 2. Inserir itens
-  const itensInsert = itensNorm.map(it => ({
-    venda_id:   vendaId,
-    produto_id: it.produto_id,
-    nome:       it.nome,
-    preco_unit: it.preco_unit,
-    qtd:        it.qtd,
-    subtotal:   it.preco_unit * it.qtd,
-  }))
-
-  const { error: errItens } = await sb.from("venda_itens").insert(itensInsert)
-  if (errItens) {
-    console.error("[POST /api/vendas] insert itens:", errItens)
-    return NextResponse.json({ erro: errItens.message }, { status: 500 })
-  }
-
-  // 3. Decrementar estoque_atual dos produtos com produto_id
-  for (const it of itensNorm) {
-    if (it.produto_id) {
-      const { data: prod } = await sb
-        .from("produtos")
-        .select("estoque_atual")
-        .eq("id", it.produto_id)
-        .single()
-      if (prod) {
-        await sb
-          .from("produtos")
-          .update({ estoque_atual: (prod.estoque_atual ?? 0) - it.qtd })
-          .eq("id", it.produto_id)
-      }
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
     }
-  }
 
-  return NextResponse.json({ id: vendaId, total }, { status: 201 })
+    return NextResponse.json(
+      { id: resultado.value.id, total: resultado.value.total },
+      { status: 201 },
+    )
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/vendas]", err)
+    return NextResponse.json(erro, { status })
+  }
 }

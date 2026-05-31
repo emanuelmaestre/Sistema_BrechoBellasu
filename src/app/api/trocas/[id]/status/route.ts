@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { AtualizarStatusTrocaUseCase } from "@/application/trocas/troca.use-cases"
+import { TrocaRepositorySupabase } from "@/infrastructure/repositories/troca.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
@@ -8,17 +11,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { id } = await params
-  const { status, decisao_produto, resultado_fin } = await req.json()
-  if (!status) return NextResponse.json({ erro: "Status é obrigatório." }, { status: 400 })
+  try {
+    const { id } = await params
+    const { status, decisao_produto, resultado_fin } = await req.json()
+    const sb = createServerClient()
+    const useCase = new AtualizarStatusTrocaUseCase(new TrocaRepositorySupabase(sb))
 
-  const sb = createServerClient()
-  const { data, error } = await sb.rpc("fn_atualizar_status_troca", {
-    p_troca_id: parseInt(id),
-    p_status: status,
-    p_decisao_produto: decisao_produto ?? null,
-    p_resultado_fin: resultado_fin ?? null,
-  })
-  if (error) return NextResponse.json({ erro: "Erro ao atualizar status." }, { status: 500 })
-  return NextResponse.json(data)
+    const resultado = await useCase.execute(
+      parseInt(id),
+      status,
+      decisao_produto ?? null,
+      resultado_fin ?? null,
+    )
+
+    if (!resultado.ok) {
+      const { status: st, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status: st })
+    }
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[PATCH /api/trocas/[id]/status]", err)
+    return NextResponse.json(erro, { status })
+  }
 }
