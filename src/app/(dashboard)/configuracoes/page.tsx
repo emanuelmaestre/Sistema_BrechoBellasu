@@ -95,8 +95,7 @@ function ModalUsuario({
       }
       onSalvo(); onClose()
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErro(msg ?? "Erro ao salvar")
+      setErro((e as Error).message || "Erro ao salvar")
     } finally { setSaving(false) }
   }
 

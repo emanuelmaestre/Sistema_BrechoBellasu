@@ -357,8 +357,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
       })
       setServicos(res.servicos ?? [])
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErroFrete(msg ?? "Erro ao calcular frete.")
+      setErroFrete((e as Error).message || "Erro ao calcular frete.")
     } finally { setCotando(false) }
   }
 
@@ -385,8 +384,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErroFrete(msg ?? "Erro ao gerar etiqueta.")
+      setErroFrete((e as Error).message || "Erro ao gerar etiqueta.")
     } finally { setGerando(false) }
   }
 
@@ -1086,8 +1084,7 @@ function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; 
       setEtapa("qr")
       onRecargaFeita()
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErro(msg ?? "Erro ao gerar recarga. Tente pelo Painel ME.")
+      setErro((e as Error).message || "Erro ao gerar recarga. Tente pelo Painel ME.")
     } finally { setLoading(false) }
   }
 

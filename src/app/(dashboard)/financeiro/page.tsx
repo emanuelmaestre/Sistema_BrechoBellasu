@@ -94,8 +94,7 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErro(msg ?? "Erro ao salvar. Tente novamente.")
+      setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
     }
     finally { setSaving(false) }
   }
@@ -453,8 +452,7 @@ export default function FinanceiroPage() {
       const res = await apiPost("/financeiro/alertas", {}) as { enviados?: number; mensagem?: string; erro?: string }
       setAlertaMsg(res.erro ? `❌ ${res.erro}` : `✅ Alerta enviado para ${res.enviados} número(s)`)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setAlertaMsg(`❌ ${msg ?? "Erro ao enviar alerta."}`)
+      setAlertaMsg(`❌ ${(e as Error).message || "Erro ao enviar alerta."}`)
     } finally { setEnviandoAlerta(false) }
   }
 

@@ -529,8 +529,7 @@ function WizardCliente({
       setTimeout(() => setConfete(false), 1200)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err) {
-      const msg = (err as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErro(msg ?? "Erro ao salvar. Tente novamente.")
+      setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
     } finally {
       setSaving(false)
     }

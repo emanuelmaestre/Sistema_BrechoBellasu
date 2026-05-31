@@ -299,8 +299,8 @@ function WizardProduto({
       qc.invalidateQueries({ queryKey: ["produtos"] })
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
-    } catch {
-      setErro("Erro ao salvar. Tente novamente.")
+    } catch (e) {
+      setErro((e as Error).message || "Erro ao salvar. Tente novamente.")
     } finally {
       setSaving(false)
     }

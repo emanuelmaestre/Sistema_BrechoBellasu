@@ -82,8 +82,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
       await apiPost(`/vendas/${id}/recibo`, {})
       setReciboMsg({ ok: true, texto: "Recibo enviado por WhatsApp!" })
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setReciboMsg({ ok: false, texto: msg ?? "Erro ao enviar recibo." })
+      setReciboMsg({ ok: false, texto: (e as Error).message || "Erro ao enviar recibo." })
     } finally { setEnviandoRecibo(false) }
   }
 
@@ -339,8 +338,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
-      setErro(msg ?? "Erro ao registrar venda.")
+      setErro((e as Error).message || "Erro ao registrar venda.")
     } finally { setSaving(false) }
   }
 
