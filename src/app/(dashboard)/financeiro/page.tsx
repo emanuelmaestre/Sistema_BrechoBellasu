@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, Check, Trash2,
   X, ChevronLeft, ArrowRight, Wallet, TrendingDown, TrendingUp,
+  AlertTriangle, Bell, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -436,6 +437,27 @@ export default function FinanceiroPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["financeiro"] }),
   })
 
+  // Alertas de contas a vencer
+  const { data: alertas } = useQuery<{ pagar: { id: number; descricao: string; valor: number; vencimento: string; vencido: boolean }[]; receber: { id: number; descricao: string; valor: number; vencimento: string; vencido: boolean }[] }>({
+    queryKey: ["financeiro-alertas"],
+    queryFn: () => apiGet("/financeiro/alertas"),
+    staleTime: 120_000,
+  })
+  const [enviandoAlerta, setEnviandoAlerta] = useState(false)
+  const [alertaMsg, setAlertaMsg] = useState("")
+  const alertasPagar = alertas?.pagar ?? []
+
+  async function dispararAlerta() {
+    setEnviandoAlerta(true); setAlertaMsg("")
+    try {
+      const res = await apiPost("/financeiro/alertas", {}) as { enviados?: number; mensagem?: string; erro?: string }
+      setAlertaMsg(res.erro ? `❌ ${res.erro}` : `✅ Alerta enviado para ${res.enviados} número(s)`)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
+      setAlertaMsg(`❌ ${msg ?? "Erro ao enviar alerta."}`)
+    } finally { setEnviandoAlerta(false) }
+  }
+
   const contas = data?.data ?? []
   const statusOps = tab === "pagar" ? ["","pendente","pago","vencido"] : ["","pendente","recebido"]
 
@@ -470,6 +492,42 @@ export default function FinanceiroPage() {
               <p className="text-2xl font-bold mt-1" style={{ color: c as string }}>{v}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Alertas de contas a vencer */}
+      {alertasPagar.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} style={{ color: "#f59e0b" }} />
+              <span className="text-sm font-bold" style={{ color: "#f59e0b" }}>
+                {alertasPagar.length} conta(s) vencendo nos próximos 3 dias
+              </span>
+            </div>
+            <button onClick={dispararAlerta} disabled={enviandoAlerta}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              style={{ background: "rgba(37,211,102,0.15)", color: "#25d366" }}>
+              {enviandoAlerta ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Enviar alerta WhatsApp
+            </button>
+          </div>
+          {alertaMsg && <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>{alertaMsg}</p>}
+          <div className="space-y-1.5">
+            {alertasPagar.map(a => (
+              <div key={a.id} className="flex items-center justify-between px-3 py-2 rounded-xl text-sm"
+                style={{ background: "var(--bg-surface)" }}>
+                <span style={{ color: "var(--text-primary)" }}>{a.descricao}</span>
+                <div className="flex items-center gap-3">
+                  <span style={{ color: "var(--text-muted)" }}>{fmtData(a.vencimento)}</span>
+                  <span className="font-semibold" style={{ color: a.vencido ? "#f87171" : "#f59e0b" }}>
+                    {fmtBRL(a.valor)}
+                  </span>
+                  {a.vencido && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">VENCIDA</span>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

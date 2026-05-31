@@ -27,7 +27,7 @@ interface Usuario {
   id: number; nome: string; email: string; perfil: string; ativo: boolean
 }
 
-type Tab = "empresa" | "usuarios" | "integracoes"
+type Tab = "empresa" | "usuarios" | "integracoes" | "alertas"
 
 interface IntegracaoStatus {
   id: string; nome: string; descricao: string
@@ -584,6 +584,7 @@ export default function ConfiguracoesPage() {
     { key: "empresa",      label: "Empresa",      icon: <Building2 size={14} /> },
     { key: "usuarios",     label: "Usuários",     icon: <Users size={14} /> },
     { key: "integracoes",  label: "Integrações",  icon: <Plug size={14} /> },
+    { key: "alertas",      label: "Alertas",      icon: <AlertCircle size={14} /> },
   ]
 
   if (isLoading) return (
@@ -782,7 +783,112 @@ export default function ConfiguracoesPage() {
             <AbaIntegracoes />
           </motion.div>
         )}
+
+        {tab === "alertas" && (
+          <motion.div key="alertas" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <AbaAlertas />
+          </motion.div>
+        )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── Aba Alertas ─────────────────────────────────────────
+function AbaAlertas() {
+  const [num1, setNum1] = useState("")
+  const [num2, setNum2] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState("")
+  const [zapiStatus, setZapiStatus] = useState<{ conectado: boolean; detalhe: string } | null>(null)
+  const [testando, setTestando] = useState(false)
+
+  // Carrega configurações
+  useEffect(() => {
+    apiGet("/configuracoes/alertas").then((data) => {
+      const d = data as Record<string, string>
+      setNum1(d.alerta_numero_1 ?? "")
+      setNum2(d.alerta_numero_2 ?? "")
+    }).catch(() => {})
+  }, [])
+
+  async function salvar() {
+    setSaving(true); setMsg("")
+    try {
+      await import("@/services/api").then(m => m.apiPut("/configuracoes/alertas", {
+        alerta_numero_1: num1.replace(/\D/g, ""),
+        alerta_numero_2: num2.replace(/\D/g, ""),
+      }))
+      setMsg("✅ Números salvos!")
+    } catch { setMsg("❌ Erro ao salvar.") }
+    finally { setSaving(false) }
+  }
+
+  async function testarZapi() {
+    setTestando(true); setZapiStatus(null)
+    try {
+      const res = await apiPost("/configuracoes/zapi", {}) as { conectado: boolean; detalhe: string }
+      setZapiStatus(res)
+    } catch { setZapiStatus({ conectado: false, detalhe: "Erro de conexão" }) }
+    finally { setTestando(false) }
+  }
+
+  const iBase = "w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all border focus:border-[color:var(--accent)]"
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+
+  return (
+    <div className="space-y-6">
+      {/* Z-API Status */}
+      <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <MessageCircle size={16} style={{ color: "var(--accent)" }} />
+          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>WhatsApp (Z-API)</h3>
+        </div>
+        <button onClick={testarZapi} disabled={testando}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+          style={{ background: "rgba(37,211,102,0.1)", color: "#25d366", border: "1px solid rgba(37,211,102,0.25)" }}>
+          {testando ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
+          Testar conexão
+        </button>
+        {zapiStatus && (
+          <p className={cn("text-xs mt-3 px-3 py-2 rounded-lg",
+            zapiStatus.conectado ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+            {zapiStatus.conectado ? "✅" : "❌"} {zapiStatus.detalhe}
+          </p>
+        )}
+      </div>
+
+      {/* Números de alerta */}
+      <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <AlertCircle size={16} style={{ color: "#f59e0b" }} />
+          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Alertas Financeiros</h3>
+        </div>
+        <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+          Números que recebem alertas de contas a vencer via WhatsApp (todo dia às 8h).
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
+              Número 1 (obrigatório)
+            </label>
+            <input value={num1} onChange={e => setNum1(e.target.value)} placeholder="16991347476" className={iBase} style={iSt} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
+              Número 2 (opcional)
+            </label>
+            <input value={num2} onChange={e => setNum2(e.target.value)} placeholder="16999999999" className={iBase} style={iSt} />
+          </div>
+        </div>
+        <button onClick={salvar} disabled={saving}
+          className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-50"
+          style={{ background: "var(--accent)" }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          Salvar números
+        </button>
+        {msg && <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>{msg}</p>}
+      </div>
     </div>
   )
 }

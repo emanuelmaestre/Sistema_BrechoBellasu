@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
-  Loader2, RefreshCw, Pencil, ShoppingCart, Trash2,
+  Loader2, RefreshCw, Pencil, ShoppingCart, Trash2, MessageCircle,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -73,6 +73,19 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
     mutationFn: () => apiDelete(`/vendas/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vendas"] }); onClose() },
   })
+  const [enviandoRecibo, setEnviandoRecibo] = useState(false)
+  const [reciboMsg, setReciboMsg] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  async function enviarRecibo() {
+    setEnviandoRecibo(true); setReciboMsg(null)
+    try {
+      await apiPost(`/vendas/${id}/recibo`, {})
+      setReciboMsg({ ok: true, texto: "Recibo enviado por WhatsApp!" })
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
+      setReciboMsg({ ok: false, texto: msg ?? "Erro ao enviar recibo." })
+    } finally { setEnviandoRecibo(false) }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -134,6 +147,22 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
               {venda.observacoes && (
                 <p className="mb-4 text-sm px-4 py-3 rounded-xl" style={{ background: "var(--bg-surface)", color: "var(--text-secondary)" }}>
                   📝 {venda.observacoes}
+                </p>
+              )}
+              {/* Botão Enviar Recibo WhatsApp */}
+              <button
+                onClick={enviarRecibo}
+                disabled={enviandoRecibo}
+                className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
+                style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.18)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.1)" }}>
+                {enviandoRecibo ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+                {enviandoRecibo ? "Enviando..." : "Enviar Recibo via WhatsApp"}
+              </button>
+              {reciboMsg && (
+                <p className={cn("text-xs text-center mb-2 px-2 py-1.5 rounded-lg", reciboMsg.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+                  {reciboMsg.texto}
                 </p>
               )}
               <button

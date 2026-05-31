@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
-  Phone, AtSign, FileText, Home, Power,
+  Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
+  Package, RefreshCw,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -86,6 +87,197 @@ function Confete({ show }: { show: boolean }) {
 }
 
 // ─── Drawer Resumo do Cliente ─────────────────────────────
+// ─── Conteúdo com Tabs do Drawer ─────────────────────────
+type DrawerTab = "dados" | "historico" | "notificacoes"
+type HistoricoData = {
+  vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
+  trocas: { id: number; tipo: string; status: string; motivo: string; created_at: string }[]
+  envios: { id: number; created_at: string; rastreio: string; ultimo_status: string }[]
+  total_gasto: number
+  total_compras: number
+}
+
+function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean }[] }) {
+  const [tab, setTab] = useState<DrawerTab>("dados")
+  const qc = useQueryClient()
+
+  const { data: historico, isLoading: loadHist } = useQuery<HistoricoData>({
+    queryKey: ["cliente-historico", cliente.id],
+    queryFn: () => apiGet(`/clientes/${cliente.id}/historico`),
+    enabled: tab === "historico",
+    staleTime: 60_000,
+  })
+
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  async function toggleConsent(tipo: "novidades" | "lives", ativar: boolean) {
+    setToggling(tipo)
+    try {
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo, ativar })
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+    } catch { /* erro silencioso no drawer */ }
+    finally { setToggling(null) }
+  }
+
+  const TABS: { key: DrawerTab; label: string; icon: React.ReactNode }[] = [
+    { key: "dados", label: "Dados", icon: <FileText size={13} /> },
+    { key: "historico", label: "Histórico", icon: <ShoppingBag size={13} /> },
+    { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
+  ]
+
+  const statusCor = (s: string) => {
+    if (s === "confirmado") return { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "✅ Confirmado" }
+    if (s === "aguardando") return { bg: "bg-amber-500/15", text: "text-amber-400", label: "⏳ Aguardando" }
+    if (s === "recusado") return { bg: "bg-red-500/15", text: "text-red-400", label: "❌ Recusado" }
+    return { bg: "bg-slate-500/15", text: "text-slate-400", label: "Não solicitado" }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto flex flex-col">
+      {/* Tab bar */}
+      <div className="flex gap-1 px-6 pt-3 pb-1">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              background: tab === t.key ? "var(--accent)" : "transparent",
+              color: tab === t.key ? "#fff" : "var(--text-muted)",
+            }}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        {/* Aba Dados */}
+        {tab === "dados" && info.map(({ icon, label, value }, i) => (
+          <motion.div key={label}
+            initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.05 + i * 0.03 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-xl"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+            <div className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>{icon}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
+              <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Aba Histórico */}
+        {tab === "historico" && (
+          loadHist ? (
+            <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+          ) : (
+            <>
+              {/* Resumo */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Total gasto</p>
+                  <p className="text-lg font-bold" style={{ color: "#10b981" }}>R$ {(historico?.total_gasto ?? 0).toFixed(2).replace(".", ",")}</p>
+                </div>
+                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Compras</p>
+                  <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{historico?.total_compras ?? 0}</p>
+                </div>
+              </div>
+
+              {/* Vendas */}
+              <p className="text-[10px] font-bold uppercase tracking-wider pt-2" style={{ color: "var(--text-muted)" }}>Compras</p>
+              {(historico?.vendas ?? []).length === 0 ? (
+                <p className="text-sm py-4 text-center" style={{ color: "var(--text-muted)" }}>Nenhuma compra registrada.</p>
+              ) : (historico?.vendas ?? []).map(v => (
+                <div key={v.id} className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold" style={{ color: "var(--accent)" }}>Venda #{v.id}</span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(v.data).toLocaleDateString("pt-BR")}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {v.itens.map((it, i) => (
+                      <p key={i} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {it.qtd}x {it.nome} — R$ {Number(it.subtotal).toFixed(2).replace(".", ",")}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{v.forma_pagamento}</span>
+                    <span className="text-sm font-bold" style={{ color: "#10b981" }}>R$ {Number(v.total).toFixed(2).replace(".", ",")}</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Envios */}
+              {(historico?.envios ?? []).length > 0 && (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-wider pt-2" style={{ color: "var(--text-muted)" }}>Envios</p>
+                  {historico!.envios.map(e => (
+                    <div key={e.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{e.rastreio}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(e.created_at).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
+                        e.ultimo_status === "entregue" ? "bg-emerald-500/15 text-emerald-400" :
+                        e.ultimo_status === "em_transito" ? "bg-blue-500/15 text-blue-400" :
+                        "bg-amber-500/15 text-amber-400"
+                      )}>{e.ultimo_status?.replace("_", " ") ?? "gerada"}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )
+        )}
+
+        {/* Aba Notificações */}
+        {tab === "notificacoes" && (
+          <>
+            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+              Controle de consentimento LGPD para disparos de WhatsApp.
+            </p>
+            {([
+              { tipo: "novidades" as const, label: "Novidades e promoções", campo: (cliente as unknown as Record<string, unknown>).aceita_novidades as string ?? "nao" },
+              { tipo: "lives" as const, label: "Avisos de lives", campo: (cliente as unknown as Record<string, unknown>).aceita_lives as string ?? "nao" },
+            ]).map(item => {
+              const st = statusCor(item.campo)
+              const ativo = item.campo === "confirmado" || item.campo === "aguardando"
+              return (
+                <div key={item.tipo} className="rounded-xl px-4 py-4"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {ativo ? <Bell size={14} style={{ color: "var(--accent)" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                    </div>
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", st.bg, st.text)}>{st.label}</span>
+                  </div>
+                  <button
+                    onClick={() => toggleConsent(item.tipo, !ativo)}
+                    disabled={toggling === item.tipo}
+                    className="w-full py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                    style={{
+                      background: ativo ? "rgba(248,113,113,0.1)" : "rgba(16,185,129,0.1)",
+                      color: ativo ? "#f87171" : "#10b981",
+                      border: `1px solid ${ativo ? "rgba(248,113,113,0.25)" : "rgba(16,185,129,0.25)"}`,
+                    }}>
+                    {toggling === item.tipo ? "Processando..." : ativo ? "Desativar" : "Solicitar consentimento"}
+                  </button>
+                </div>
+              )
+            })}
+            {!cliente.celular && (
+              <p className="text-xs text-center py-2 px-3 rounded-lg bg-amber-500/10 text-amber-400">
+                ⚠️ Cliente sem celular cadastrado. Cadastre antes de solicitar consentimento.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function DrawerCliente({
   cliente, onClose, onEditar, onToggleStatus,
 }: {
@@ -169,22 +361,9 @@ function DrawerCliente({
           </motion.div>
         </div>
 
-        {/* Dados */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
-          {INFO.map(({ icon, label, value }, i) => (
-            <motion.div key={label}
-              initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 + i * 0.05 }}
-              className="flex items-start gap-3 px-4 py-3 rounded-xl"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-              <div className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>{icon}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
-                <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Tabs: Dados | Histórico | Notificações */}
+        <DrawerContent cliente={cliente} info={INFO} />
+
 
         {/* Ações */}
         <motion.div
