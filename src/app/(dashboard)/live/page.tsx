@@ -643,7 +643,9 @@ function ModalVinculo({
   }, [])
 
   function selecionarProd(p: typeof prodRes[0]) {
-    const preco = p.preco_venda ? p.preco_venda.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
+    // preco_venda pode vir como número OU string (numeric via PostgREST) — converte antes de formatar
+    const precoNum = Number(p.preco_venda) || 0
+    const preco = precoNum > 0 ? precoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
     setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: "1", preco_original: preco, preco_live: "" })
     setBusca(p.nome); setProdRes([])
   }
