@@ -7,6 +7,7 @@ import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, RefreshCw, Check, Search, ChevronRight,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
+import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtData, cn } from "@/lib/utils"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
 
@@ -430,6 +431,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   const [form, setForm]   = useState<TrocaForm>(EMPTY)
   const [erro, setErro]   = useState("")
   const [saving, setSaving] = useState(false)
+  const [salvoOk, setSalvoOk] = useState(false)
   const [modalProd, setModalProd] = useState(false)
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   const TOTAL = 5
@@ -516,7 +518,8 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
         motivo: form.motivo.trim(),
       })
       qc.invalidateQueries({ queryKey: ["trocas"] })
-      onSalvo()
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err) {
       const msg = (err as { response?: { data?: { erro?: string } } })?.response?.data?.erro
       setErro(msg ?? "Erro ao salvar. Tente novamente.")
@@ -568,6 +571,8 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
     <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+
+      <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} subtitulo={form.nome_produto || ""} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>

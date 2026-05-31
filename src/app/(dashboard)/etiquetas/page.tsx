@@ -11,6 +11,7 @@ import {
   Wallet2, QrCode, Copy,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
+import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 
@@ -249,6 +250,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
   // Step 6 — gerando
   const [gerando, setGerando]     = useState(false)
   const [orderResult, setOrder]   = useState<{ id: string; label_url?: string } | null>(null)
+  const [salvoOk, setSalvoOk]     = useState(false)
 
   // Valor declarado — exibe formatado ao sair do campo
   const [valorFormatado, setValorFormatado] = useState("")
@@ -380,7 +382,8 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
         },
       })
       setOrder(res)
-      onSalvo()
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
       setErroFrete(msg ?? "Erro ao gerar etiqueta.")
@@ -407,6 +410,8 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+
+      <SuccessOverlay show={salvoOk} titulo="Etiqueta gerada!" subtitulo={form.nome || ""} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0"

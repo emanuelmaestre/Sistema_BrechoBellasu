@@ -8,6 +8,7 @@ import {
   X, ChevronLeft, ArrowRight, Wallet, TrendingDown, TrendingUp,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
+import { SuccessOverlay } from "@/components/SuccessOverlay"
 import DatePicker from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
@@ -46,6 +47,7 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   const [form, setForm]   = useState<ContaForm>(EMPTY)
   const [erro, setErro]   = useState("")
   const [saving, setSaving] = useState(false)
+  const [salvoOk, setSalvoOk] = useState(false)
   const [valorFormatado, setValorFormatado] = useState("")
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,7 +90,8 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
         ...(isPagar ? {} : { cliente_id: form.parte ? Number(form.parte) : null }),
       })
       qc.invalidateQueries({ queryKey: ["financeiro"] })
-      onSalvo()
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { erro?: string } } })?.response?.data?.erro
       setErro(msg ?? "Erro ao salvar. Tente novamente.")
@@ -194,6 +197,8 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+
+      <SuccessOverlay show={salvoOk} titulo={isPagar ? "Conta a pagar criada!" : "Conta a receber criada!"} subtitulo={form.descricao || ""} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>

@@ -26,6 +26,10 @@ interface ZAPIMessageEvent {
   isNewsletter?: boolean
 }
 
+// Palavras que significam SIM
+const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode"])
+const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare"])
+
 // ─── POST — Ao receber (mensagem recebida do cliente) ─────
 export async function POST(req: NextRequest) {
   try {
@@ -43,17 +47,54 @@ export async function POST(req: NextRequest) {
 
     const sb = createServerClient()
 
-    // Registra a mensagem recebida no histórico (tabela whatsapp_mensagens)
+    // Registra a mensagem recebida no log
     try {
-      await sb.from("whatsapp_mensagens").insert({
+      await sb.from("whatsapp_log").insert({
         telefone,
-        nome_contato: nome,
-        mensagem:     texto,
-        direcao:      "recebida",
-        evento:       "ao_receber",
-        payload:      body,
+        tipo: "recebida",
+        mensagem: texto.substring(0, 1000),
+        status: "enviado",
       })
-    } catch { /* silencia se tabela ainda não existe */ }
+    } catch { /* silencia se tabela não existe */ }
+
+    // ── Processa resposta de consentimento LGPD ──
+    const textoLower = texto.toLowerCase().trim()
+    const ehSim = SIM_WORDS.has(textoLower)
+    const ehNao = NAO_WORDS.has(textoLower)
+
+    if (ehSim || ehNao) {
+      // Busca cliente pelo telefone (com e sem 55)
+      const telVariantes = [telefone]
+      if (telefone.startsWith("55")) telVariantes.push(telefone.substring(2))
+      else telVariantes.push(`55${telefone}`)
+
+      // Tenta encontrar cliente com consentimento aguardando
+      for (const tel of telVariantes) {
+        const { data: cliente } = await sb
+          .from("clientes")
+          .select("id, aceita_novidades, aceita_lives")
+          .eq("celular", tel)
+          .single()
+
+        if (!cliente) continue
+
+        const updates: Record<string, string> = {}
+
+        // Processa consentimento de novidades (prioridade: novidades primeiro)
+        if (cliente.aceita_novidades === "aguardando") {
+          updates.aceita_novidades = ehSim ? "confirmado" : "recusado"
+        }
+        // Processa consentimento de lives
+        if (cliente.aceita_lives === "aguardando") {
+          updates.aceita_lives = ehSim ? "confirmado" : "recusado"
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await sb.from("clientes").update(updates).eq("id", cliente.id)
+        }
+        break
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch {
@@ -66,7 +107,6 @@ export async function PUT(req: NextRequest) {
   try {
     const body: ZAPIMessageEvent = await req.json()
 
-    // Atualiza status da mensagem na live_compras se houver messageId
     if (body.messageId && body.status) {
       const sb = createServerClient()
       try {

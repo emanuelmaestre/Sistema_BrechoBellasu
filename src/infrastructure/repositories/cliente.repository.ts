@@ -42,4 +42,13 @@ export class ClienteRepositorySupabase implements IClienteRepository {
     const { error } = await this.sb.from("clientes").update(this.toRow(cliente)).eq("id", id)
     if (error) throw new Error(error.message)
   }
+
+  async existePorCelular(celular: string): Promise<boolean> {
+    const { count, error } = await this.sb
+      .from("clientes")
+      .select("id", { count: "exact", head: true })
+      .eq("celular", celular)
+    if (error) throw new Error(error.message)
+    return (count ?? 0) > 0
+  }
 }

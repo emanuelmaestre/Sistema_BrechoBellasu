@@ -8,6 +8,7 @@ import {
   Loader2, RefreshCw, Pencil, ShoppingCart, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
+import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import type { Cliente, Produto } from "@/types"
@@ -158,6 +159,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const [dir, setDir]             = useState(1)
   const [erro, setErro]           = useState("")
   const [saving, setSaving]       = useState(false)
+  const [salvoOk, setSalvoOk]     = useState(false)
 
   // Step 1 — cliente
   const [clienteId, setClienteId] = useState<number | null>(null)
@@ -305,7 +307,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
         observacoes: obs || null,
         itens,
       })
-      onSalvo()
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { erro?: string } } })?.response?.data?.erro
       setErro(msg ?? "Erro ao registrar venda.")
@@ -334,6 +337,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+
+      <SuccessOverlay show={salvoOk} titulo="Venda registrada!" subtitulo={clienteNome || "Sem cliente"} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0"

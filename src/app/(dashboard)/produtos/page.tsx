@@ -8,6 +8,7 @@ import {
   X, ChevronLeft, ArrowRight, Check, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiDelete } from "@/services/api"
+import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
 import type { Produto, Categoria } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
@@ -89,64 +90,114 @@ const variants = {
 }
 
 // ─── Autocomplete Marca ───────────────────────────────────
-function MarcaStep({ inputRef, value, onChange, inputBase, inputSt }: {
+function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
   inputRef: React.RefObject<HTMLInputElement | null>
   value: string
   onChange: (v: string) => void
+  onAdvance: () => void
   inputBase: string
   inputSt: React.CSSProperties
 }) {
+  const qc = useQueryClient()
   const [busca, setBusca] = useState(value)
   const [open, setOpen] = useState(false)
+  const [cadastrando, setCadastrando] = useState(false)
+  const [novaCadastrada, setNovaCadastrada] = useState(false)
 
-  const { data: todasMarcas } = useQuery<{id: number; nome: string}[]>({
-    queryKey: ["marcas"],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/marcas?select=id,nome&order=nome`, {
-      headers: {
-        "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-      }
-    }).then(r => r.json()),
-    staleTime: 300_000,
+  const { data: sugestoes = [] } = useQuery<{ id: number; nome: string }[]>({
+    queryKey: ["marcas-busca", busca],
+    queryFn: () => apiGet(`/produtos/meta/marcas?busca=${encodeURIComponent(busca)}`),
+    enabled: busca.length >= 1,
+    staleTime: 60_000,
   })
 
-  const sugestoes = busca.length >= 1
-    ? (todasMarcas ?? []).filter(m => m.nome.toLowerCase().includes(busca.toLowerCase())).slice(0, 8)
-    : []
-
-  function selecionar(item: {id: number; nome: string}) {
+  function selecionar(item: { id: number; nome: string }) {
     setBusca(item.nome)
     onChange(item.nome)
     setOpen(false)
+    setNovaCadastrada(false)
   }
 
   const { hi, onKeyDown: dropKeyDown, reset: resetHi } = useDropdownKeyNav(sugestoes, selecionar, () => setOpen(false))
 
+  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const texto = busca.trim()
+      if (!texto) { onAdvance(); return }
+
+      // Se há sugestão selecionada pelo teclado, usa ela
+      if (hi >= 0 && sugestoes[hi]) {
+        selecionar(sugestoes[hi])
+        onAdvance()
+        return
+      }
+
+      // Verifica se já existe nos resultados (match exato)
+      const match = sugestoes.find(m => m.nome.toLowerCase() === texto.toLowerCase())
+      if (match) {
+        selecionar(match)
+        onAdvance()
+        return
+      }
+
+      // Não encontrou — cadastra automaticamente
+      setCadastrando(true)
+      try {
+        const nova = await apiPost<{ id: number; nome: string }>("/produtos/meta/marcas", { nome: texto })
+        qc.invalidateQueries({ queryKey: ["marcas-busca"] })
+        setBusca(nova.nome)
+        onChange(nova.nome)
+        setNovaCadastrada(true)
+        setTimeout(() => { setNovaCadastrada(false); onAdvance() }, 900)
+      } catch {
+        onChange(texto)
+        onAdvance()
+      } finally {
+        setCadastrando(false)
+        setOpen(false)
+      }
+      return
+    }
+    dropKeyDown(e)
+  }
+
   return (
     <>
       <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Marca?</h1>
-      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Ajuda na busca e identificação do produto.</p>
+      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+        Digite para buscar. Se não existir, será cadastrada automaticamente ao pressionar Enter.
+      </p>
       <div className="relative">
         <input ref={inputRef} value={busca}
-          onChange={e => { setBusca(e.target.value); onChange(e.target.value); setOpen(true); resetHi() }}
+          onChange={e => { setBusca(e.target.value); onChange(e.target.value); setOpen(true); resetHi(); setNovaCadastrada(false) }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onKeyDown={dropKeyDown}
+          onKeyDown={handleKeyDown}
           placeholder="Digite para buscar a marca..."
-          className={inputBase} style={inputSt} autoComplete="off" />
+          className={inputBase} style={inputSt} autoComplete="off"
+          disabled={cadastrando} />
+        {/* Feedback de cadastro */}
+        {novaCadastrada && (
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-1 rounded-full"
+            style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+            ✓ Cadastrada!
+          </span>
+        )}
+        {cadastrando && (
+          <Loader2 size={16} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--accent)" }} />
+        )}
         {open && sugestoes.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden shadow-lg z-50"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             {sugestoes.map((m, idx) => (
-              <button key={m.id} onMouseDown={() => selecionar(m)}
-                className="w-full px-5 py-3 text-left text-sm transition-colors"
+              <button key={m.id} onMouseDown={() => { selecionar(m); onAdvance() }}
+                className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
                 style={{
                   color: hi === idx ? "var(--accent)" : "var(--text-primary)",
                   background: hi === idx ? "var(--accent-bg)" : "transparent",
                   borderBottom: "1px solid var(--border)",
-                }}
-                onMouseEnter={e => { if (hi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                onMouseLeave={e => { if (hi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                }}>
                 {m.nome}
               </button>
             ))}
@@ -174,6 +225,7 @@ function WizardProduto({
   const [form, setForm]   = useState<ProdutoForm>(inicial ?? EMPTY)
   const [erro, setErro]   = useState("")
   const [saving, setSaving] = useState(false)
+  const [salvoOk, setSalvoOk] = useState(false)
   const [catSugerida, setCatSugerida] = useState(false)  // indica se categoria foi auto-sugerida
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -245,7 +297,8 @@ function WizardProduto({
       if (editandoId) await apiPut(`/produtos/${editandoId}`, payload)
       else            await apiPost("/produtos", payload)
       qc.invalidateQueries({ queryKey: ["produtos"] })
-      onSalvo()
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch {
       setErro("Erro ao salvar. Tente novamente.")
     } finally {
@@ -254,6 +307,7 @@ function WizardProduto({
   }
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
+    if (step === 2) return // MarcaStep gerencia seu próprio Enter
     if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); handleSalvar(); return }
     if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -267,6 +321,8 @@ function WizardProduto({
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+
+      <SuccessOverlay show={salvoOk} titulo={editandoId ? "Produto atualizado!" : "Produto cadastrado!"} subtitulo={form.nome || ""} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0"
@@ -318,7 +374,7 @@ function WizardProduto({
                 )}
 
                 {step === 2 && (
-                  <MarcaStep inputRef={inputRef} value={form.marca} onChange={v => set("marca", v)} inputBase={inputBase} inputSt={inputSt} />
+                  <MarcaStep inputRef={inputRef} value={form.marca} onChange={v => set("marca", v)} onAdvance={advance} inputBase={inputBase} inputSt={inputSt} />
                 )}
 
                 {step === 3 && (

@@ -28,3 +28,9 @@ export class ValidacaoError extends DomainError {
   readonly code = "VALIDACAO"
   readonly kind = "validacao" as const
 }
+
+/** Erro de conflito (registro duplicado, violação de invariante). */
+export class ConflitoError extends DomainError {
+  readonly code = "CONFLITO"
+  readonly kind = "conflito" as const
+}
