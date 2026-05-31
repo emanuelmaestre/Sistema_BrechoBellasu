@@ -27,6 +27,15 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (res) => res,
   (error) => {
+    // Token expirado/inválido → limpa sessão e redireciona para login
+    if (error?.response?.status === 401 && typeof window !== "undefined") {
+      const { pathname } = window.location
+      if (!pathname.startsWith("/login")) {
+        // Limpa estado persistido e força re-login
+        try { localStorage.removeItem("brecho-auth") } catch {}
+        window.location.href = "/login"
+      }
+    }
     const msg = error?.response?.data?.erro || error?.response?.data?.message || error?.message
     return Promise.reject(new Error(msg || "Erro desconhecido"))
   }
