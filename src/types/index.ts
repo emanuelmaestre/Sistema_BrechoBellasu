@@ -6,7 +6,7 @@ export interface Usuario {
   id: number
   nome: string
   email: string
-  perfil: "administrador" | "gerente" | "vendedor" | "caixa"
+  perfil: "admin" | "operador" | "vendedor"
   status: "ativo" | "inativo"
 }
 
@@ -120,22 +120,6 @@ export interface Live {
   plataforma?: string
   descricao?: string
   created_at: string
-}
-
-export interface Pagamento {
-  id: number
-  pagbank_order_id?: string
-  venda_id?: number
-  live_compra_id?: number
-  tipo: "pix" | "link"
-  valor: number
-  descricao?: string
-  status: string
-  qr_code?: string
-  qr_code_text?: string
-  link_pagamento?: string
-  pago_em?: string
-  criado_em: string
 }
 
 export interface ApiResponse<T> {
