@@ -934,7 +934,7 @@ function ModalVinculo({
 // ══════════════════════════════════════════════════════════
 function ModalAvisoLive({ liveId, tipo, linkAtual, onClose, onSuccess }: {
   liveId: number; tipo: string; linkAtual: string
-  onClose: () => void; onSuccess: () => void
+  onClose: () => void; onSuccess: (enviados: number, link: string) => void
 }) {
   const [link, setLink] = useState(linkAtual)
   const [enviando, setEnviando] = useState(false)
@@ -950,10 +950,10 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, onClose, onSuccess }: {
     try {
       const res = await apiPost<{ enviados: number; erros?: number; total?: number; mensagem?: string }>(`/live/${liveId}/aviso`, { link })
       if (res.enviados === 0) {
-        setResultado({ ok: false, texto: res.mensagem ?? "Nenhum cliente com opt-in para lives." })
+        setResultado({ ok: false, texto: res.mensagem ?? "Nenhum cliente com opt-in para lives. Verifique se alguma cliente confirmou o consentimento." })
       } else {
-        setResultado({ ok: true, texto: `Aviso enviado para ${res.enviados} cliente(s)${res.erros ? ` (${res.erros} falha(s))` : ""}.` })
-        onSuccess()
+        setResultado({ ok: true, texto: `✅ Aviso enviado para ${res.enviados} cliente(s)!${res.erros ? ` (${res.erros} falha(s))` : ""}` })
+        setTimeout(() => { onSuccess(res.enviados, link.trim()) }, 1500)
       }
     } catch (e) {
       setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
@@ -1362,6 +1362,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [encerrando, setEnc]  = useState(false)
   const [excluindo, setExc]   = useState(false)
   const [editCompra, setEditCompra] = useState<Compra | null>(null)
+  // Histórico de avisos enviados durante esta sessão
+  const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["live-detalhe", liveId],
@@ -1594,6 +1596,53 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         ))}
       </div>
 
+      {/* ══ CARD AVISOS DE LIVE ══ */}
+      {live.status === "aberta" && (
+        <div className="px-6 pb-3">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.25)" }}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/>
+                  <span className="text-xs font-black uppercase tracking-widest" style={{ color: "#10b981" }}>
+                    {historicoAvisos.length === 0 ? "Avisar clientes da live" : `Live caiu? Reenvie o aviso`}
+                  </span>
+                </div>
+                {historicoAvisos.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                    style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                    {historicoAvisos.length}x enviado{historicoAvisos.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setModalAviso(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide text-white shrink-0"
+                style={{ background: historicoAvisos.length > 0 ? "#e11d48" : "#10b981" }}>
+                {historicoAvisos.length > 0
+                  ? <><RefreshCw size={13}/> Reenviar com novo link</>
+                  : <><Radio size={13}/> Enviar aviso agora</>}
+              </button>
+            </div>
+
+            {/* Histórico de disparos desta sessão */}
+            {historicoAvisos.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {historicoAvisos.map((h, i) => (
+                  <div key={i} className="flex items-center gap-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    <span className="font-bold tabular-nums" style={{ color: "#10b981" }}>#{i + 1}</span>
+                    <span>{h.hora}</span>
+                    <span>→</span>
+                    <span>{h.enviados} cliente{h.enviados !== 1 ? "s" : ""} notificada{h.enviados !== 1 ? "s" : ""}</span>
+                    <span className="truncate max-w-[200px] opacity-60">{h.link}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
       {/* ══ TABELA COMPRAS ══ */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
 
@@ -1755,7 +1804,12 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
-      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={live.link_live ?? ""} onClose={() => setModalAviso(false)} onSuccess={() => { qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); refetch() }}/>}
+      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
+        const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        setHistoricoAvisos(prev => [...prev, { hora, enviados, link }])
+        setModalAviso(false)
+        qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); refetch()
+      }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
       </AnimatePresence>
