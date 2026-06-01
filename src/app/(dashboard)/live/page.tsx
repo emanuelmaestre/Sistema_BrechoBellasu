@@ -1791,7 +1791,7 @@ export default function LivePage() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Live Commerce</h2>
+          <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Live</h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} lives</p>
         </div>
         <motion.button onClick={() => setWizard(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
