@@ -40,14 +40,14 @@ export class Troca {
 
   static criar(input: TrocaInput): Result<Troca> {
     if (input.tipo !== "troca" && input.tipo !== "devolucao") {
-      return err(new ValidacaoError("Tipo deve ser 'troca' ou 'devolucao'."))
+      return err(new ValidacaoError("Selecione o tipo: Troca ou Devolução."))
     }
     const motivo = (input.motivo ?? "").trim()
-    if (!motivo) return err(new ValidacaoError("Motivo é obrigatório."))
+    if (!motivo) return err(new ValidacaoError("Informe o motivo da solicitação."))
 
     const quantidade = input.quantidade ?? 1
     if (!Number.isInteger(quantidade) || quantidade < 1) {
-      return err(new ValidacaoError("Quantidade deve ser ao menos 1."))
+      return err(new ValidacaoError("A quantidade deve ser ao menos 1."))
     }
 
     return ok(

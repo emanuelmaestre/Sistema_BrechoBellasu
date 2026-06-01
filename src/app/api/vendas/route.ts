@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { CriarVendaUseCase } from "@/application/vendas/criar-venda.use-case"
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const de          = searchParams.get("de")
@@ -92,7 +92,7 @@ type ItemInput = {
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()

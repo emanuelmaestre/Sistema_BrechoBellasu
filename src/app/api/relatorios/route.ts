@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 
@@ -8,7 +8,7 @@ type RpcFn = "fn_vendas_periodo" | "fn_produtos_mais_vendidos" | "fn_ticket_medi
 
 async function rpcRelatorio(req: NextRequest, fn: RpcFn) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const de  = searchParams.get("de")
@@ -19,7 +19,7 @@ async function rpcRelatorio(req: NextRequest, fn: RpcFn) {
 
   if (error) {
     console.error(`[rpc ${fn}]`, error.message)
-    return NextResponse.json({ erro: "Erro ao gerar relatório." }, { status: 500 })
+    return NextResponse.json({ erro: "Não foi possível gerar o relatório. Tente novamente." }, { status: 500 })
   }
   return NextResponse.json(data ?? (fn === "fn_ticket_medio" ? {} : []))
 }

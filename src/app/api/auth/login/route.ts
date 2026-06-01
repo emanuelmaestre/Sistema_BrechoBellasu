@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { rateLimit, getClientIp } from "@/lib/rateLimit"
 import { AUTH_COOKIE } from "@/lib/auth"
@@ -76,6 +76,6 @@ export async function POST(req: NextRequest) {
     return res
   } catch (err) {
     console.error("[POST /api/auth/login]", err)
-    return NextResponse.json({ erro: "Erro interno." }, { status: 500 })
+    return NextResponse.json({ erro: "Ocorreu um erro inesperado. Tente novamente." }, { status: 500 })
   }
 }

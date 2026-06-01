@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { CriarTrocaUseCase } from "@/application/trocas/troca.use-cases"
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const tipo   = searchParams.get("tipo")
@@ -29,13 +29,13 @@ export async function GET(req: NextRequest) {
   if (ate)    q = q.lte("created_at", `${ate}T23:59:59`)
 
   const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, to)
-  if (error) return NextResponse.json({ erro: "Erro ao buscar trocas." }, { status: 500 })
+  if (error) return NextResponse.json({ erro: "Não foi possível carregar as trocas. Tente novamente." }, { status: 500 })
   return NextResponse.json({ data, total: count })
 }
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const busca = req.nextUrl.searchParams.get("busca") ?? ""
   const sb = createServerClient()
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { nome } = await req.json()
   if (!nome?.trim()) return NextResponse.json({ erro: "Nome obrigatório." }, { status: 400 })

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const status = searchParams.get("status")
@@ -20,13 +20,13 @@ export async function GET(req: NextRequest) {
   if (status) q = q.eq("status", status)
 
   const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, to)
-  if (error) return NextResponse.json({ erro: "Erro ao buscar lives." }, { status: 500 })
+  if (error) return NextResponse.json({ erro: "Não foi possível carregar as lives. Tente novamente." }, { status: 500 })
   return NextResponse.json({ data, total: count })
 }
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { titulo, data_live, plataforma, tipo, observacoes, link_live } = await req.json()
   if (!data_live) return NextResponse.json({ erro: "Data da live é obrigatória." }, { status: 400 })
@@ -50,6 +50,6 @@ export async function POST(req: NextRequest) {
     data = withTipo.data; error = withTipo.error
   }
 
-  if (error) return NextResponse.json({ erro: "Erro ao criar live.", detalhe: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ erro: "Não foi possível criar a live. Verifique os dados e tente novamente.", detalhe: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import {
   listarEtiquetas,
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
 // GET /api/etiquetas — lista etiquetas do Melhor Envio
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const { searchParams } = req.nextUrl
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const data = await listarEtiquetas({ page, per_page, filter })
     return NextResponse.json(data)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao listar etiquetas."
+    const msg = err instanceof Error ? err.message : "Não foi possível carregar as etiquetas. Tente novamente."
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
 }
@@ -36,14 +36,14 @@ export async function GET(req: NextRequest) {
 // POST /api/etiquetas — cria etiqueta (carrinho → checkout → gerar)
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()
     const { service_id, venda_id, destinatario, checkout_auto } = body
 
     if (!service_id || !destinatario?.postal_code) {
-      return NextResponse.json({ erro: "service_id e destinatario.postal_code são obrigatórios." }, { status: 400 })
+      return NextResponse.json({ erro: "Selecione um serviço de envio e informe o CEP do destinatário." }, { status: 400 })
     }
 
     // Busca config empresa para remetente
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao criar etiqueta."
+    const msg = err instanceof Error ? err.message : "Não foi possível gerar a etiqueta. Verifique os dados e tente novamente."
     console.error("[POST /api/etiquetas]", msg)
     return NextResponse.json({ erro: msg }, { status: 500 })
   }

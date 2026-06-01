@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { CriarClienteUseCase } from "@/application/clientes/criar-cliente.use-case"
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const busca   = searchParams.get("busca")
@@ -27,14 +27,14 @@ export async function GET(req: NextRequest) {
   else if (status !== "todos") q = q.neq("ativo", false)
 
   const { data, count, error } = await q.order("nome").range(from, to)
-  if (error) return NextResponse.json({ erro: "Erro ao buscar clientes." }, { status: 500 })
+  if (error) return NextResponse.json({ erro: "Não foi possível carregar os clientes. Tente novamente." }, { status: 500 })
 
   return NextResponse.json({ data, total: count })
 }
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()

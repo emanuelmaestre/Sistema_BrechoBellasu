@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+    return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
   }
 
   const sb = createServerClient()

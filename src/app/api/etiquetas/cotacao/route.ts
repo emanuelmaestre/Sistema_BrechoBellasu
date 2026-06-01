@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { calcularFrete, cepOrigem, defaultVolume } from "@/lib/melhorenvio"
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ servicos: validos, erros: invalidos })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao calcular frete."
+    const msg = err instanceof Error ? err.message : "Não foi possível calcular o frete. Verifique o CEP e tente novamente."
     console.error("[POST /api/etiquetas/cotacao]", msg)
     return NextResponse.json({ erro: msg }, { status: 500 })
   }

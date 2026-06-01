@@ -28,18 +28,18 @@ export function calcularStatusCompra(qtdEsperada: number, vinculos: VinculoResum
 
 export function validarFinalizacao(qtdEsperada: number, vinculos: VinculoResumo[]): Result<void> {
   if (vinculos.length === 0) {
-    return err(new FinalizacaoInvalidaError("Nenhum produto vinculado."))
+    return err(new FinalizacaoInvalidaError("Vincule os produtos desta compra antes de finalizar."))
   }
   const { vinculado, baixado } = totais(vinculos)
   if (vinculado < qtdEsperada) {
     return err(
       new FinalizacaoInvalidaError(
-        `Quantidade divergente. Esperado: ${qtdEsperada} itens. Vinculado: ${vinculado}.`,
+        `A compra tem ${qtdEsperada} item(ns) mas apenas ${vinculado} foi(ram) vinculado(s). Vincule todos antes de finalizar.`,
       ),
     )
   }
   if (baixado < vinculado) {
-    return err(new FinalizacaoInvalidaError("Nem todos os produtos tiveram baixa no estoque."))
+    return err(new FinalizacaoInvalidaError("Alguns produtos ainda não tiveram a baixa de estoque confirmada. Conclua o vínculo antes de finalizar."))
   }
   return ok(undefined)
 }

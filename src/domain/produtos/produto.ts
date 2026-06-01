@@ -33,23 +33,23 @@ export class Produto {
 
   static criar(input: ProdutoInput): Result<Produto> {
     const nome = (input.nome ?? "").trim()
-    if (!nome) return err(new ValidacaoError("Nome do produto é obrigatório."))
+    if (!nome) return err(new ValidacaoError("Informe o nome do produto antes de salvar."))
 
     const precoVenda = Money.deReais(input.precoVenda ?? 0)
     if (!precoVenda.ok) return precoVenda
     if (precoVenda.value.ehNegativo()) {
-      return err(new ValidacaoError("Preço de venda não pode ser negativo."))
+      return err(new ValidacaoError("O preço de venda não pode ser negativo."))
     }
 
     const precoCusto = Money.deReais(input.precoCusto ?? 0)
     if (!precoCusto.ok) return precoCusto
     if (precoCusto.value.ehNegativo()) {
-      return err(new ValidacaoError("Preço de custo não pode ser negativo."))
+      return err(new ValidacaoError("O preço de custo não pode ser negativo."))
     }
 
     const estoque = input.estoqueAtual ?? 0
     if (!Number.isInteger(estoque) || estoque < 0) {
-      return err(new ValidacaoError("Estoque inicial deve ser um inteiro ≥ 0."))
+      return err(new ValidacaoError("A quantidade em estoque deve ser um número inteiro e não pode ser negativa."))
     }
 
     return ok(

@@ -42,11 +42,11 @@ export class CpfCnpj {
   static criar(raw: string): Result<CpfCnpj> {
     const digitos = (raw ?? "").replace(/\D/g, "")
     if (digitos.length === 11) {
-      if (!validarCpf(digitos)) return err(new ValidacaoError("CPF inválido."))
+      if (!validarCpf(digitos)) return err(new ValidacaoError("CPF inválido. Verifique os números digitados."))
     } else if (digitos.length === 14) {
-      if (!validarCnpj(digitos)) return err(new ValidacaoError("CNPJ inválido."))
+      if (!validarCnpj(digitos)) return err(new ValidacaoError("CNPJ inválido. Verifique os números digitados."))
     } else {
-      return err(new ValidacaoError("CPF/CNPJ deve ter 11 ou 14 dígitos."))
+      return err(new ValidacaoError("CPF deve ter 11 dígitos e CNPJ 14 dígitos."))
     }
     return ok(new CpfCnpj(digitos))
   }

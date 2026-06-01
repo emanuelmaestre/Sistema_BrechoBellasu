@@ -65,7 +65,7 @@ export class Cliente {
 
   static criar(input: ClienteInput): Result<Cliente> {
     const nome = (input.nome ?? "").trim()
-    if (!nome) return err(new ValidacaoError("Nome é obrigatório."))
+    if (!nome) return err(new ValidacaoError("O nome da cliente é obrigatório."))
 
     let cpfCnpj: string | null = null
     if (norm(input.cpfCnpj)) {
@@ -84,13 +84,13 @@ export class Cliente {
     let estado: string | null = norm(input.estado)
     if (estado) {
       estado = estado.toUpperCase()
-      if (estado.length !== 2) return err(new ValidacaoError("Estado (UF) deve ter 2 letras."))
+      if (estado.length !== 2) return err(new ValidacaoError("Estado inválido. Use a sigla com 2 letras (ex: SP, RJ, MG)."))
     }
 
     let entregaEstado: string | null = norm(input.entregaEstado)
     if (entregaEstado) {
       entregaEstado = entregaEstado.toUpperCase()
-      if (entregaEstado.length !== 2) return err(new ValidacaoError("Estado (UF) de entrega deve ter 2 letras."))
+      if (entregaEstado.length !== 2) return err(new ValidacaoError("Estado do endereço de entrega inválido. Use a sigla com 2 letras (ex: SP, RJ, MG)."))
     }
 
     return ok(

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { CriarContaPagarUseCase } from "@/application/financeiro/contas-pagar.use-cases"
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const status = searchParams.get("status")
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (busca)  q = q.ilike("descricao", `%${busca}%`)
 
   const { data, count, error } = await q.order("vencimento").range(from, to)
-  if (error) return NextResponse.json({ erro: "Erro ao buscar contas." }, { status: 500 })
+  if (error) return NextResponse.json({ erro: "Não foi possível carregar as contas. Tente novamente." }, { status: 500 })
 
   const soma = (data ?? []).reduce((a, r) => a + parseFloat(String(r.valor ?? 0)), 0)
   return NextResponse.json({ data, total: count, soma })
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   try {
     const body = await req.json()
