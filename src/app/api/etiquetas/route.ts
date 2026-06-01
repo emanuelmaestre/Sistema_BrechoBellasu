@@ -10,6 +10,7 @@ import {
   type MECartItem,
 } from "@/lib/melhorenvio"
 import { createServerClient } from "@/lib/supabase"
+import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
@@ -127,6 +128,15 @@ export async function POST(req: NextRequest) {
         criado_por:   auth.id,
       })
     } catch { /* tabela pode não existir ainda — não é bloqueante */ }
+
+    // 4. Notifica a cliente com o link de rastreio (assíncrono, não bloqueia)
+    //    Só quando a etiqueta foi efetivamente gerada (tem tracking) e há telefone.
+    if (result.tracking && destinatario.telefone) {
+      const nome = (destinatario.nome ?? "Cliente").split(" ")[0]
+      const linkRastreio = `https://melhorrastreio.com.br/rastreio/${result.tracking}`
+      const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${result.tracking}*`
+      enviarTexto(destinatario.telefone, mensagem, "rastreio_envio").catch(() => {})
+    }
 
     return NextResponse.json(result, { status: 201 })
   } catch (err) {

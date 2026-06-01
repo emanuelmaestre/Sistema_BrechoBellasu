@@ -119,6 +119,7 @@ export interface Live {
   tipo?: "novidades" | "promocional"
   plataforma?: string
   descricao?: string
+  link_live?: string | null
   created_at: string
 }
 

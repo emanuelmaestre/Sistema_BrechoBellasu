@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // ── Notificação WhatsApp ao aprovar/recusar ──
-    if (status === "aprovada" || status === "recusada") {
+    if (status === "aprovado" || status === "recusado") {
       try {
         const { data: troca } = await sb
           .from("trocas")
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
             const tipoTexto = troca.tipo === "devolucao" ? "devolução" : "troca"
 
-            const mensagem = status === "aprovada"
+            const mensagem = status === "aprovado"
               ? `Oi ${nome}! Sua solicitação de *${tipoTexto}* foi *APROVADA* ✅. Em breve entraremos em contato com os próximos passos.`
               : `Oi ${nome}! Sua solicitação de *${tipoTexto}* foi *RECUSADA* ❌. Caso tenha dúvidas, entre em contato conosco.`
 
@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             enviarTexto(
               cliente.celular,
               mensagem,
-              status === "aprovada" ? "troca_aprovada" : "troca_recusada",
+              status === "aprovado" ? "troca_aprovada" : "troca_recusada",
             ).catch(() => {})
           }
         }

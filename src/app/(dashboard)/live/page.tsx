@@ -922,6 +922,81 @@ function ModalVinculo({
 }
 
 // ══════════════════════════════════════════════════════════
+// MODAL — Avisar Clientes (aviso de live p/ opt-in de lives)
+// ══════════════════════════════════════════════════════════
+function ModalAvisoLive({ liveId, tipo, linkAtual, onClose, onSuccess }: {
+  liveId: number; tipo: string; linkAtual: string
+  onClose: () => void; onSuccess: () => void
+}) {
+  const [link, setLink] = useState(linkAtual)
+  const [enviando, setEnviando] = useState(false)
+  const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  const previewMsg = tipo === "promocional"
+    ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
+    : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
+
+  async function disparar() {
+    if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
+    setEnviando(true); setResultado(null)
+    try {
+      const res = await apiPost<{ enviados: number; erros?: number; total?: number; mensagem?: string }>(`/live/${liveId}/aviso`, { link })
+      if (res.enviados === 0) {
+        setResultado({ ok: false, texto: res.mensagem ?? "Nenhum cliente com opt-in para lives." })
+      } else {
+        setResultado({ ok: true, texto: `Aviso enviado para ${res.enviados} cliente(s)${res.erros ? ` (${res.erros} falha(s))` : ""}.` })
+        onSuccess()
+      }
+    } catch (e) {
+      setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
+    } finally { setEnviando(false) }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+        onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <span className="font-bold text-sm inline-flex items-center gap-2" style={{ color: "#10b981" }}>
+            <Radio size={16}/> Avisar Clientes da Live
+          </span>
+          <button onClick={onClose}><X size={18} style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Envia para todas as clientes com consentimento de <b>avisos de lives</b> confirmado.
+            Tipo: <b>{tipo === "promocional" ? "Promocional 🏷️" : "Novidades ✨"}</b>.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Link da live (Instagram/TikTok)</label>
+            <input value={link} onChange={e => setLink(e.target.value)} autoFocus
+              className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              placeholder="https://instagram.com/..." />
+          </div>
+          <div className="rounded-lg p-3 text-xs whitespace-pre-line" style={{ background: "var(--bg-base)", color: "var(--text-secondary)" }}>
+            {previewMsg}
+          </div>
+          {resultado && (
+            <p className={cn("text-xs px-3 py-2 rounded-lg", resultado.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+              {resultado.texto}
+            </p>
+          )}
+          <button onClick={disparar} disabled={enviando}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: "#10b981" }}>
+            {enviando ? <Loader2 size={16} className="animate-spin"/> : <Send size={15}/>}
+            {enviando ? "Disparando..." : "Disparar Aviso Agora"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════
 // MODAL — Disparar Mensagens
 // ══════════════════════════════════════════════════════════
 function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSuccess }: {
@@ -1273,6 +1348,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const qc = useQueryClient()
   const [modalCompra, setModalCompra]   = useState(false)
   const [modalDisparar, setModalDisp]   = useState(false)
+  const [modalAviso, setModalAviso]     = useState(false)
   const [modalVinculo, setModalVinculo] = useState<Compra | null>(null)
   const [erroEnc, setErroEnc] = useState("")
   const [encerrando, setEnc]  = useState(false)
@@ -1449,6 +1525,15 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white"
                   style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
                   <Send size={14}/> Disparar Mensagens
+                </motion.button>
+              )}
+
+              {live.status === "aberta" && (
+                <motion.button onClick={() => setModalAviso(true)}
+                  whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
+                  style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                  <Radio size={14}/> Avisar Clientes
                 </motion.button>
               )}
 
@@ -1661,6 +1746,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       <AnimatePresence>
         {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
+
+      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={live.link_live ?? ""} onClose={() => setModalAviso(false)} onSuccess={() => { qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); refetch() }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
       </AnimatePresence>
