@@ -667,7 +667,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     </div>
                   </div>
                   <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white">{clienteNome || "VENDA AVULSA"}</p>
+                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{clienteNome || "VENDA AVULSA"}</p>
                     <p className="text-lg md:text-2xl font-bold text-white mt-0.5 md:mt-1">{fmtBRL(totalFinal)}</p>
                     <p className="text-xs mt-0.5 md:mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.65)" }}>Revise antes de finalizar</p>
                   </div>

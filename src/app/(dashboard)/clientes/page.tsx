@@ -1024,38 +1024,6 @@ function WizardCliente({
                   ))}
                 </div>
 
-                {/* Endereço de entrega alternativo (opcional) */}
-                <div className="mt-6">
-                  <button onClick={() => setMostrarEntrega(v => !v)}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest mb-3"
-                    style={{ color: "var(--text-muted)" }}>
-                    <Truck size={12} /> Endereço de entrega diferente?
-                    <ChevronDown size={12} style={{ transform: mostrarEntrega ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-                  </button>
-                  {mostrarEntrega && (
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        Preencha apenas se a entrega for em endereço diferente do cadastro. Ao gerar etiqueta, o sistema perguntará qual usar.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input value={form.entrega_cep} onChange={e => set("entrega_cep", e.target.value)} placeholder="CEP"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
-                        <input value={form.entrega_numero} onChange={e => set("entrega_numero", e.target.value)} placeholder="Número"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
-                        <input value={form.entrega_logradouro} onChange={e => set("entrega_logradouro", e.target.value)} placeholder="Logradouro"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border col-span-2" style={inputStyle} />
-                        <input value={form.entrega_complemento} onChange={e => set("entrega_complemento", e.target.value)} placeholder="Complemento"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border col-span-2" style={inputStyle} />
-                        <input value={form.entrega_bairro} onChange={e => set("entrega_bairro", e.target.value)} placeholder="Bairro"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
-                        <input value={form.entrega_cidade} onChange={e => set("entrega_cidade", e.target.value)} placeholder="Cidade"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
-                        <input value={form.entrega_estado} onChange={e => set("entrega_estado", e.target.value.toUpperCase().slice(0,2))} placeholder="UF"
-                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} maxLength={2} />
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </motion.div>
           )}
