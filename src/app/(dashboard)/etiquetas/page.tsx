@@ -542,7 +542,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold"
                           style={{ background: COR, color: "#fff" }}>
-                          {cliSel.nome[0]}
+                          {cliSel.nome[0].toUpperCase()}
                         </div>
                         <div>
                           <p className="font-bold text-sm uppercase" style={{ color: "var(--text-primary)" }}>{cliSel.nome}</p>
