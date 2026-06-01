@@ -1267,52 +1267,24 @@ function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; 
           {etapa === "form" ? (
             <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
               className="px-6 pb-6 pt-4">
-              <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>Adicionar saldo via PIX</p>
 
-              {/* Quick values */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {valores.map(v => (
-                  <button key={v} onClick={() => { setValor(v); setErro("") }}
-                    className="py-2.5 rounded-xl text-sm font-bold transition-all"
-                    style={{
-                      background: valor === v ? COR : "var(--bg-surface)",
-                      color: valor === v ? "#fff" : "var(--text-secondary)",
-                      border: `1px solid ${valor === v ? COR : "var(--border)"}`,
-                    }}>
-                    R${v}
-                  </button>
-                ))}
+              {/* Informação sobre recarga */}
+              <div className="rounded-2xl p-4 mb-4" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Como adicionar saldo?</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  A recarga da carteira do Melhor Envio é feita diretamente pelo site deles. Clique no botão abaixo — o saldo atualiza automaticamente após o pagamento.
+                </p>
               </div>
-
-              {/* Custom value */}
-              <div className="relative mb-4">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                <input
-                  type="text" inputMode="decimal"
-                  value={valor}
-                  onChange={e => { setValor(e.target.value.replace(/[^0-9.,]/g, "")); setErro("") }}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-semibold outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                  style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}
-                  placeholder="Outro valor..." />
-              </div>
-
-              {erro && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-3 text-xs" style={{ color: "#f87171" }}>{erro}</motion.p>
-              )}
-
-              <button onClick={gerarPix} disabled={loading}
-                className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
-                style={{ background: COR }}>
-                {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando PIX...</> : <><QrCode size={16} /> Gerar QR Code PIX</>}
-              </button>
 
               <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 mt-3 text-xs transition-colors"
-                style={{ color: "var(--text-muted)" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-secondary)" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-muted)" }}>
-                <ExternalLink size={11} /> Recarregar pelo site Melhor Envio
+                className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg mb-3"
+                style={{ background: COR, textDecoration: "none" }}>
+                <ExternalLink size={16} /> Adicionar saldo no Melhor Envio
               </a>
+
+              <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                Após o pagamento, feche e reabra esta janela para ver o saldo atualizado.
+              </p>
             </motion.div>
           ) : recarga ? (
             <motion.div key="qr" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
