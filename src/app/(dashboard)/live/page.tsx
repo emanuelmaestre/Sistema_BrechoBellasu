@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, Radio, Send,
   Check, Search, ShoppingBag, User, ChevronDown, Package,
-  AlertTriangle, CheckCircle2, Link2, Trash2, ChevronRight,
+  AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save,
 } from "lucide-react"
@@ -932,17 +932,24 @@ function ModalVinculo({
 // ══════════════════════════════════════════════════════════
 // MODAL — Avisar Clientes (aviso de live p/ opt-in de lives)
 // ══════════════════════════════════════════════════════════
-function ModalAvisoLive({ liveId, tipo, linkAtual, onClose, onSuccess }: {
-  liveId: number; tipo: string; linkAtual: string
+function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSuccess }: {
+  liveId: number; tipo: string; linkAtual: string; numeroEnvio: number
   onClose: () => void; onSuccess: (enviados: number, link: string) => void
 }) {
   const [link, setLink] = useState(linkAtual)
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null)
 
-  const previewMsg = tipo === "promocional"
-    ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
-    : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
+  const reenvio = numeroEnvio > 0
+
+  // Mensagem varia se é o 1º disparo ou reenvio (live caiu e voltou)
+  const previewMsg = reenvio
+    ? tipo === "promocional"
+      ? `⚡ Voltamos! A live caiu mas estamos DE VOLTA com PROMOÇÕES!\n\nNovo link de acesso: ${link || "[link]"}\n\nCorre que ainda dá tempo! 🔥`
+      : `💫 Voltamos! A live caiu mas estamos DE VOLTA com NOVIDADES!\n\nNovo link de acesso: ${link || "[link]"}\n\nTe esperamos com muito amor! 💖`
+    : tipo === "promocional"
+      ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
+      : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
 
   async function disparar() {
     if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
@@ -967,36 +974,59 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, onClose, onSuccess }: {
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
         onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="font-bold text-sm inline-flex items-center gap-2" style={{ color: "#10b981" }}>
-            <Radio size={16}/> Avisar Clientes da Live
+        {/* Header — muda cor e título se for reenvio */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: "1px solid var(--border)", background: reenvio ? "rgba(225,29,72,0.06)" : "transparent" }}>
+          <span className="font-bold text-sm inline-flex items-center gap-2"
+            style={{ color: reenvio ? "#e11d48" : "#10b981" }}>
+            {reenvio ? <><RefreshCw size={15}/> Live caiu? Enviando de volta! 🔴</> : <><Radio size={16}/> Avisar Clientes da Live</>}
           </span>
           <button onClick={onClose}><X size={18} style={{ color: "var(--text-muted)" }} /></button>
         </div>
+
         <div className="p-5 space-y-4">
+          {/* Badge de reenvio */}
+          {reenvio && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
+              style={{ background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.25)", color: "#e11d48" }}>
+              <AlertCircle size={13}/>
+              Reenvio #{numeroEnvio + 1} — a mensagem já informa que a live voltou após queda.
+            </div>
+          )}
+
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Envia para todas as clientes com consentimento de <b>avisos de lives</b> confirmado.
-            Tipo: <b>{tipo === "promocional" ? "Promocional 🏷️" : "Novidades ✨"}</b>.
+            {reenvio
+              ? "Cole o novo link da live. A mensagem já será diferente — as clientes saberão que a live voltou."
+              : <>Envia para todas as clientes com consentimento de <b>avisos de lives</b> confirmado. Tipo: <b>{tipo === "promocional" ? "Promocional 🏷️" : "Novidades ✨"}</b>.</>}
           </p>
+
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Link da live (Instagram/TikTok)</label>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+              {reenvio ? "Novo link da live (Instagram/TikTok)" : "Link da live (Instagram/TikTok)"}
+            </label>
             <input value={link} onChange={e => setLink(e.target.value)} autoFocus
-              className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={{ background: "var(--bg-base)", border: `1px solid ${reenvio ? "rgba(225,29,72,0.4)" : "var(--border)"}`, color: "var(--text-primary)" }}
               placeholder="https://instagram.com/..." />
           </div>
-          <div className="rounded-lg p-3 text-xs whitespace-pre-line" style={{ background: "var(--bg-base)", color: "var(--text-secondary)" }}>
+
+          {/* Preview da mensagem */}
+          <div className="rounded-lg p-3 text-xs whitespace-pre-line"
+            style={{ background: reenvio ? "rgba(225,29,72,0.05)" : "var(--bg-base)", color: "var(--text-secondary)", border: `1px solid ${reenvio ? "rgba(225,29,72,0.15)" : "transparent"}` }}>
             {previewMsg}
           </div>
+
           {resultado && (
             <p className={cn("text-xs px-3 py-2 rounded-lg", resultado.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
               {resultado.texto}
             </p>
           )}
+
           <button onClick={disparar} disabled={enviando}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
-            style={{ background: "#10b981" }}>
-            {enviando ? <Loader2 size={16} className="animate-spin"/> : <Send size={15}/>}
-            {enviando ? "Disparando..." : "Disparar Aviso Agora"}
+            className="w-full py-2.5 rounded-lg text-sm font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: reenvio ? "#e11d48" : "#10b981" }}>
+            {enviando ? <Loader2 size={16} className="animate-spin"/> : reenvio ? <RefreshCw size={15}/> : <Send size={15}/>}
+            {enviando ? "Disparando..." : reenvio ? "Reenviar — Estamos de Volta!" : "Disparar Aviso Agora"}
           </button>
         </div>
       </motion.div>
@@ -1804,7 +1834,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
-      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
+      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
         const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         setHistoricoAvisos(prev => [...prev, { hora, enviados, link }])
         setModalAviso(false)
