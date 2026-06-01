@@ -115,7 +115,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 {[
                   ["Data",      `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`],
-                  ["Cliente",   venda.cliente_nome ?? "Venda avulsa"],
+                  ["Cliente",   (venda.cliente_nome ?? "Venda avulsa").toUpperCase()],
                   ["Pagamento", venda.forma_pagamento ?? "—"],
                   ["Desconto",  venda.desconto > 0 ? fmtBRL(venda.desconto) : "R$ 0,00"],
                   ["Itens",     String(venda.qtd_itens ?? 0)],
@@ -431,9 +431,9 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                   )}
                   {clienteId && (
                     <div className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
-                      style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
+                      style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)" }}>
                       <Check size={15} style={{ color: COR }} />
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{clienteNome}</p>
+                      <p className="text-sm font-bold uppercase" style={{ color: COR }}>{clienteNome}</p>
                     </div>
                   )}
                 </>}
