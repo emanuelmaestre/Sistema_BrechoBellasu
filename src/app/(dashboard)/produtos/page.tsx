@@ -425,7 +425,7 @@ function WizardProduto({
                         className={cn(inputBase, "pl-14")} style={inputSt} />
                     </div>
                     <div className="mt-4">
-                      <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>Preço de custo (opcional):</p>
+                      <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>Preço de custo:</p>
                       <div className="relative">
                         <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base"
                           style={{ color: "var(--text-muted)" }}>R$</span>
