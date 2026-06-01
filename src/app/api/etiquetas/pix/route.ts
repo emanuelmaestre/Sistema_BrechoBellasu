@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from "next/server"
+import { verifyAuth } from "@/lib/auth"
+import {
+  adicionarCarrinho,
+  checkoutComPix,
+  gerarEtiquetas,
+  cepOrigem,
+  defaultVolume,
+  type MECartItem,
+} from "@/lib/melhorenvio"
+import { createServerClient } from "@/lib/supabase"
+
+export const dynamic = "force-dynamic"
+
+// POST /api/etiquetas/pix
+// Fase 1: add ao carrinho + checkout PIX → retorna QR Code
+// Fase 2: após pagamento confirmado, gerar etiqueta (order_id já existe)
+export async function POST(req: NextRequest) {
+  const auth = verifyAuth(req)
+  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
+
+  try {
+    const body = await req.json()
+    const { service_id, venda_id, destinatario, order_id } = body
+
+    // ── Fase 2: já tem order_id pago → gerar etiqueta ────────────
+    if (order_id) {
+      const gerado = await gerarEtiquetas([order_id])
+      const result = gerado.orders?.[0]
+      if (!result) return NextResponse.json({ erro: "Não foi possível gerar a etiqueta. Verifique o pagamento." }, { status: 400 })
+      return NextResponse.json({ gerado: true, id: result.id, label_url: result.label_url, tracking: result.tracking })
+    }
+
+    // ── Fase 1: criar pedido + checkout PIX ───────────────────────
+    if (!service_id || !destinatario?.postal_code) {
+      return NextResponse.json({ erro: "Selecione um serviço de envio e informe o CEP do destinatário." }, { status: 400 })
+    }
+
+    const sb = createServerClient()
+    const { data: config } = await sb.from("configuracoes").select("valor").eq("chave", "empresa").maybeSingle()
+    const empresa = (config?.valor ?? {}) as Record<string, string>
+
+    if (!empresa.logradouro || !empresa.cidade) {
+      return NextResponse.json({
+        erro: "Endereço da empresa incompleto. Configure em Configurações → Empresa.",
+      }, { status: 422 })
+    }
+
+    const vol = defaultVolume()
+    const cartItem: MECartItem = {
+      service: Number(service_id),
+      from: {
+        name:        empresa.nome           ?? "Brechó Bellasu",
+        phone:       empresa.telefone       ?? "",
+        email:       empresa.email          ?? "",
+        address:     empresa.logradouro     ?? "",
+        number:      empresa.numero         ?? "S/N",
+        district:    empresa.bairro         ?? "",
+        city:        empresa.cidade         ?? "",
+        state_abbr:  empresa.estado         ?? "SP",
+        country_id:  "BR",
+        postal_code: cepOrigem().replace(/\D/g, ""),
+      },
+      to: {
+        name:       destinatario.nome       ?? "Cliente",
+        phone:      destinatario.telefone   ?? "",
+        email:      destinatario.email      ?? "",
+        address:    destinatario.logradouro ?? "",
+        number:     destinatario.numero     ?? "S/N",
+        district:   destinatario.bairro     ?? "",
+        city:       destinatario.cidade     ?? "",
+        state_abbr: destinatario.estado     ?? "SP",
+        country_id: "BR",
+        postal_code: String(destinatario.postal_code).replace(/\D/g, ""),
+        complement: destinatario.complemento ?? "",
+      },
+      volumes: [{
+        height:  parseFloat(destinatario.altura      ?? String(vol.height)),
+        width:   parseFloat(destinatario.largura     ?? String(vol.width)),
+        length:  parseFloat(destinatario.comprimento ?? String(vol.length)),
+        weight:  parseFloat(destinatario.peso        ?? String(vol.weight)),
+      }],
+      options: {
+        insurance_value: parseFloat(destinatario.valor_declarado ?? "0") || undefined,
+        non_commercial: true,
+        platform: "Brechó Bellasu",
+      },
+      tag: venda_id ? `Venda #${venda_id}` : undefined,
+    }
+
+    const [pedido] = await adicionarCarrinho([cartItem])
+    if (!pedido?.id) throw new Error("Não foi possível adicionar ao carrinho. Verifique os dados e tente novamente.")
+
+    // Checkout via PIX
+    const checkout = await checkoutComPix([pedido.id])
+
+    const pixData = checkout.payment ?? checkout.pix
+    const copyPaste = pixData?.copy_paste
+    const qrBase64  = pixData?.qr_code_base64
+    const expiresAt = pixData?.expires_at
+
+    return NextResponse.json({
+      gerado:     false,
+      order_id:   pedido.id,
+      copy_paste: copyPaste ?? null,
+      qr_code_base64: qrBase64 ?? null,
+      expires_at: expiresAt ?? null,
+    })
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Não foi possível gerar o PIX. Tente novamente."
+    console.error("[POST /api/etiquetas/pix]", msg)
+    return NextResponse.json({ erro: msg }, { status: 500 })
+  }
+}

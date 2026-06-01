@@ -401,6 +401,22 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
     } finally { setCotando(false) }
   }
 
+  const [pixData, setPixData] = useState<{ order_id: string; copy_paste: string | null; qr_code_base64: string | null; expires_at: string | null } | null>(null)
+  const [gerindoPix, setGerindoPix] = useState(false)
+  const [confirmandoPix, setConfirmandoPix] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+
+  const destinatarioPayload = () => ({
+    nome: form.nome, telefone: form.telefone, cpf: form.cpf,
+    logradouro: form.logradouro, numero: form.numero,
+    bairro: form.bairro, cidade: form.cidade, estado: form.estado,
+    complemento: form.complemento,
+    postal_code: form.cep.replace(/\D/g, ""),
+    peso: form.peso, altura: form.altura,
+    largura: form.largura, comprimento: form.comprimento,
+    valor_declarado: form.valor_declarado || undefined,
+  })
+
   async function gerar(checkout_auto: boolean) {
     if (!servicoSel) return
     setGerando(true)
@@ -409,16 +425,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
         service_id: servicoSel.id,
         venda_id: form.venda_id ? parseInt(form.venda_id) : undefined,
         checkout_auto,
-        destinatario: {
-          nome: form.nome, telefone: form.telefone, cpf: form.cpf,
-          logradouro: form.logradouro, numero: form.numero,
-          bairro: form.bairro, cidade: form.cidade, estado: form.estado,
-          complemento: form.complemento,
-          postal_code: form.cep.replace(/\D/g, ""),
-          peso: form.peso, altura: form.altura,
-          largura: form.largura, comprimento: form.comprimento,
-          valor_declarado: form.valor_declarado || undefined,
-        },
+        destinatario: destinatarioPayload(),
       })
       setOrder(res)
       setSalvoOk(true)
@@ -426,6 +433,39 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
     } catch (e: unknown) {
       setErroFrete((e as Error).message || "Erro ao gerar etiqueta.")
     } finally { setGerando(false) }
+  }
+
+  async function gerarPix() {
+    if (!servicoSel) return
+    setGerindoPix(true); setErroFrete("")
+    try {
+      const res = await apiPost<{ gerado: boolean; order_id: string; copy_paste?: string; qr_code_base64?: string; expires_at?: string }>("/etiquetas/pix", {
+        service_id: servicoSel.id,
+        venda_id: form.venda_id ? parseInt(form.venda_id) : undefined,
+        destinatario: destinatarioPayload(),
+      })
+      setPixData({ order_id: res.order_id, copy_paste: res.copy_paste ?? null, qr_code_base64: res.qr_code_base64 ?? null, expires_at: res.expires_at ?? null })
+    } catch (e: unknown) {
+      setErroFrete((e as Error).message || "Não foi possível gerar o PIX da etiqueta.")
+    } finally { setGerindoPix(false) }
+  }
+
+  async function confirmarPagamentoPix() {
+    if (!pixData) return
+    setConfirmandoPix(true); setErroFrete("")
+    try {
+      const res = await apiPost<{ gerado: boolean; id: string; label_url?: string; tracking?: string }>("/etiquetas/pix", { order_id: pixData.order_id })
+      setPixData(null)
+      setOrder(res)
+      setSalvoOk(true)
+      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
+    } catch (e: unknown) {
+      setErroFrete((e as Error).message || "Pagamento ainda não confirmado. Aguarde e tente novamente.")
+    } finally { setConfirmandoPix(false) }
+  }
+
+  function copiarPix(txt: string) {
+    navigator.clipboard.writeText(txt).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2500) })
   }
 
   function advance() {
@@ -910,19 +950,24 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                         exit={{ opacity: 0, y: 10 }}
                         className="shrink-0 px-4 pt-3 pb-4 flex gap-3"
                         style={{ borderTop: "1px solid var(--border)" }}>
-                        <button onClick={() => gerar(false)} disabled={gerando}
+                        <button onClick={() => gerar(false)} disabled={gerando || gerindoPix}
                           className="flex-1 py-4 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                           style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
                           <ShoppingBag size={16} /> Carrinho
                         </button>
-                        <button onClick={() => gerar(true)} disabled={gerando}
+                        <button onClick={gerarPix} disabled={gerando || gerindoPix}
+                          className="flex-1 py-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                          style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                          {gerindoPix ? <><Loader2 size={16} className="animate-spin" />Gerando PIX...</> : <><QrCode size={16} />Pagar com PIX</>}
+                        </button>
+                        <button onClick={() => gerar(true)} disabled={gerando || gerindoPix}
                           className="flex-[2] py-4 rounded-2xl text-base font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
                           style={{ background: COR }}>
                           {gerando
                             ? <><Loader2 size={16} className="animate-spin" />Gerando...</>
-                            : <><Tag size={16} />Gerar Etiqueta</>}
+                            : <><Tag size={16} />Usar Saldo ME</>}
                         </button>
                       </motion.div>
                     )}
@@ -1113,6 +1158,76 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
           />
         )}
       </AnimatePresence>
+
+      {/* Modal PIX da etiqueta */}
+      <AnimatePresence>
+        {pixData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl overflow-hidden"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+                <span className="font-bold text-sm flex items-center gap-2" style={{ color: "#10b981" }}>
+                  <QrCode size={16}/> Pagar etiqueta via PIX
+                </span>
+                <button onClick={() => setPixData(null)}><X size={18} style={{ color: "var(--text-muted)" }}/></button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {pixData.qr_code_base64 ? (
+                  <div className="flex justify-center">
+                    <div className="p-3 bg-white rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX" className="w-48 h-48" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-4 text-center">
+                    <QrCode size={48} className="mx-auto mb-2 opacity-30" style={{ color: "#10b981" }}/>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Escaneie o QR Code pelo app do banco</p>
+                  </div>
+                )}
+
+                {pixData.copy_paste && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Copia e Cola PIX</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate"
+                        style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {pixData.copy_paste}
+                      </div>
+                      <button onClick={() => copiarPix(pixData.copy_paste!)}
+                        className="px-3 py-2 rounded-xl text-xs font-bold"
+                        style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--bg-base)", color: copiado ? "#10b981" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                        {copiado ? <Check size={14}/> : <Copy size={14}/>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {pixData.expires_at && (
+                  <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
+                    Válido até {new Date(pixData.expires_at).toLocaleString("pt-BR")}
+                  </p>
+                )}
+
+                <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                  Após pagar, clique no botão abaixo para gerar a etiqueta.
+                </p>
+
+                <button onClick={confirmarPagamentoPix} disabled={confirmandoPix}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                  style={{ background: "#10b981" }}>
+                  {confirmandoPix ? <><Loader2 size={15} className="animate-spin"/>Verificando...</> : <><Check size={15}/>Já paguei — Gerar etiqueta</>}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -1268,23 +1383,54 @@ function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; 
             <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
               className="px-6 pb-6 pt-4">
 
-              {/* Informação sobre recarga */}
-              <div className="rounded-2xl p-4 mb-4" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Como adicionar saldo?</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  A recarga da carteira do Melhor Envio é feita diretamente pelo site deles. Clique no botão abaixo — o saldo atualiza automaticamente após o pagamento.
-                </p>
+              <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Adicionar saldo via PIX</p>
+
+              {/* Valores rápidos */}
+              <div className="flex gap-2 mb-3">
+                {valores.map(v => (
+                  <button key={v} onClick={() => setValor(v)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                    style={{
+                      background: valor === v ? COR : "var(--bg-surface)",
+                      color: valor === v ? "#fff" : "var(--text-secondary)",
+                      border: `1px solid ${valor === v ? COR : "var(--border)"}`,
+                    }}>
+                    R$ {v}
+                  </button>
+                ))}
               </div>
 
-              <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
-                className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg mb-3"
-                style={{ background: COR, textDecoration: "none" }}>
-                <ExternalLink size={16} /> Adicionar saldo no Melhor Envio
-              </a>
+              {/* Valor personalizado */}
+              <div className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Ou informe um valor</p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: "var(--text-muted)" }}>R$</span>
+                  <input type="text" inputMode="decimal" value={valor}
+                    onChange={e => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
+                    onKeyDown={e => { if (e.key === "Enter") gerarPix() }}
+                    className="w-full pl-12 pr-4 py-3.5 text-lg font-bold rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
+                    style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              </div>
 
-              <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                Após o pagamento, feche e reabra esta janela para ver o saldo atualizado.
-              </p>
+              {erro && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)" }}>
+                  <AlertCircle size={13} style={{ color: "#f87171" }} />
+                  <p className="text-xs" style={{ color: "#f87171" }}>{erro}</p>
+                </div>
+              )}
+
+              <button onClick={gerarPix} disabled={loading}
+                className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg mb-3 disabled:opacity-50"
+                style={{ background: "#10b981" }}>
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando PIX...</> : <><QrCode size={16} /> Gerar QR Code PIX</>}
+              </button>
+
+              <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
+                className="w-full py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2"
+                style={{ color: "var(--text-muted)", textDecoration: "none" }}>
+                <ExternalLink size={12} /> Ou recarregue pelo Painel ME
+              </a>
             </motion.div>
           ) : recarga ? (
             <motion.div key="qr" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}

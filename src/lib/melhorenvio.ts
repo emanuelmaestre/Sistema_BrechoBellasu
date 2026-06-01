@@ -146,9 +146,19 @@ export async function adicionarCarrinho(items: MECartItem[]): Promise<MEOrder[]>
   }
 }
 
-/** Faz checkout das etiquetas no carrinho */
+/** Faz checkout das etiquetas no carrinho (desconta saldo da carteira) */
 export function checkoutEtiquetas(orders: string[]) {
   return meRequest<{ purchased: MEOrder[]; errors: unknown[] }>("POST", "/me/shipment/checkout", { orders })
+}
+
+/** Faz checkout via PIX (gera QR Code para pagar a etiqueta) */
+export function checkoutComPix(orders: string[]) {
+  return meRequest<{
+    purchased?: MEOrder[]
+    payment?: { qr_code?: string; qr_code_base64?: string; copy_paste?: string; expires_at?: string }
+    pix?: { qr_code?: string; qr_code_base64?: string; copy_paste?: string; expires_at?: string }
+    errors?: unknown[]
+  }>("POST", "/me/shipment/checkout", { orders, payment_method: "pix" })
 }
 
 /** Gera as etiquetas (após checkout) */
