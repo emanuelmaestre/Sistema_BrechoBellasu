@@ -26,6 +26,16 @@ export interface Cliente {
   estado?: string | null
   instagram?: string | null
   apelido?: string | null
+  // Endereço de entrega alternativo (opcional)
+  entrega_cep?: string | null
+  entrega_logradouro?: string | null
+  entrega_numero?: string | null
+  entrega_complemento?: string | null
+  entrega_bairro?: string | null
+  entrega_cidade?: string | null
+  entrega_estado?: string | null
+  aceita_novidades?: string
+  aceita_lives?: string
   ativo: boolean
   created_at?: string
 }

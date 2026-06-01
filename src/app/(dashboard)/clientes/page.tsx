@@ -7,7 +7,7 @@ import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
-  Package, RefreshCw,
+  Package, RefreshCw, Truck, ChevronDown,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -32,12 +32,22 @@ interface ClienteForm {
   bairro: string
   cidade: string
   estado: string
+  // Endereço de entrega alternativo (opcional)
+  entrega_cep: string
+  entrega_logradouro: string
+  entrega_numero: string
+  entrega_complemento: string
+  entrega_bairro: string
+  entrega_cidade: string
+  entrega_estado: string
 }
 
 const EMPTY: ClienteForm = {
   nome: "", apelido: "", cpf_cnpj: "", data_nasc: "", celular: "", instagram: "",
   cep: "", logradouro: "", numero: "",
   complemento: "", bairro: "", cidade: "", estado: "",
+  entrega_cep: "", entrega_logradouro: "", entrega_numero: "",
+  entrega_complemento: "", entrega_bairro: "", entrega_cidade: "", entrega_estado: "",
 }
 
 // ─── Animação de slide ────────────────────────────────────
@@ -410,6 +420,9 @@ function WizardCliente({
     inicial?.logradouro ? "encontrado" : "idle"
   )
   const [returnToRevisao, setReturnToRevisao] = useState(false)
+  const [mostrarEntrega, setMostrarEntrega] = useState(
+    !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
+  )
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 9 steps: 1-Nome 2-Apelido 3-CPF 4-Nasc 5-Celular 6-Instagram 7-CEP 8-Número/Compl 9-Revisão
@@ -519,6 +532,13 @@ function WizardCliente({
         bairro:      form.bairro      || null,
         cidade:      form.cidade      || null,
         estado:      form.estado      || null,
+        entrega_cep:         form.entrega_cep         || null,
+        entrega_logradouro:  form.entrega_logradouro  || null,
+        entrega_numero:      form.entrega_numero      || null,
+        entrega_complemento: form.entrega_complemento || null,
+        entrega_bairro:      form.entrega_bairro      || null,
+        entrega_cidade:      form.entrega_cidade      || null,
+        entrega_estado:      form.entrega_estado      || null,
       }
       if (editandoId) await apiPut(`/clientes/${editandoId}`, payload)
       else            await apiPost("/clientes", payload)
@@ -967,6 +987,39 @@ function WizardCliente({
                     </div>
                   ))}
                 </div>
+
+                {/* Endereço de entrega alternativo (opcional) */}
+                <div className="mt-6">
+                  <button onClick={() => setMostrarEntrega(v => !v)}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest mb-3"
+                    style={{ color: "var(--text-muted)" }}>
+                    <Truck size={12} /> Endereço de entrega diferente?
+                    <ChevronDown size={12} style={{ transform: mostrarEntrega ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                  {mostrarEntrega && (
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        Preencha apenas se a entrega for em endereço diferente do cadastro. Ao gerar etiqueta, o sistema perguntará qual usar.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={form.entrega_cep} onChange={e => set("entrega_cep", e.target.value)} placeholder="CEP"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
+                        <input value={form.entrega_numero} onChange={e => set("entrega_numero", e.target.value)} placeholder="Número"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
+                        <input value={form.entrega_logradouro} onChange={e => set("entrega_logradouro", e.target.value)} placeholder="Logradouro"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border col-span-2" style={inputStyle} />
+                        <input value={form.entrega_complemento} onChange={e => set("entrega_complemento", e.target.value)} placeholder="Complemento"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border col-span-2" style={inputStyle} />
+                        <input value={form.entrega_bairro} onChange={e => set("entrega_bairro", e.target.value)} placeholder="Bairro"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
+                        <input value={form.entrega_cidade} onChange={e => set("entrega_cidade", e.target.value)} placeholder="Cidade"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} />
+                        <input value={form.entrega_estado} onChange={e => set("entrega_estado", e.target.value.toUpperCase().slice(0,2))} placeholder="UF"
+                          className="px-3 py-2 text-sm rounded-lg outline-none border" style={inputStyle} maxLength={2} />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
@@ -1045,6 +1098,10 @@ export default function ClientesPage() {
       cep: c.cep ?? "", logradouro: c.logradouro ?? "", numero: c.numero ?? "",
       complemento: c.complemento ?? "", bairro: c.bairro ?? "",
       cidade: c.cidade ?? "", estado: c.estado ?? "",
+      entrega_cep: c.entrega_cep ?? "", entrega_logradouro: c.entrega_logradouro ?? "",
+      entrega_numero: c.entrega_numero ?? "", entrega_complemento: c.entrega_complemento ?? "",
+      entrega_bairro: c.entrega_bairro ?? "", entrega_cidade: c.entrega_cidade ?? "",
+      entrega_estado: c.entrega_estado ?? "",
     })
     setWizard(true)
   }

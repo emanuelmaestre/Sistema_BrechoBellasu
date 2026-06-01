@@ -21,6 +21,18 @@ interface Cliente {
   celular?: string | null; cep?: string | null; logradouro?: string | null
   numero?: string | null; complemento?: string | null; bairro?: string | null
   cidade?: string | null; estado?: string | null
+  // Endereço de entrega alternativo (opcional)
+  entrega_cep?: string | null; entrega_logradouro?: string | null
+  entrega_numero?: string | null; entrega_complemento?: string | null
+  entrega_bairro?: string | null; entrega_cidade?: string | null
+  entrega_estado?: string | null
+}
+
+// Endereço genérico (cadastro ou entrega) para preencher o form
+interface Endereco {
+  cep?: string | null; logradouro?: string | null; numero?: string | null
+  complemento?: string | null; bairro?: string | null
+  cidade?: string | null; estado?: string | null
 }
 
 interface Servico {
@@ -268,6 +280,8 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
   const [cliBusca, setCliBusca]   = useState("")
   const [cliRes, setCliRes]       = useState<Cliente[]>([])
   const [cliSel, setCliSel]       = useState<Cliente | null>(null)
+  // Modal 2B: endereço de entrega ≠ cadastro
+  const [modalEntrega, setModalEntrega] = useState<Cliente | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 280)
@@ -283,24 +297,50 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
     } catch { setCliRes([]) }
   }, [])
 
+  // Preenche os campos de endereço do form a partir de um endereço dado.
+  function aplicarEndereco(end: Endereco) {
+    setForm(f => ({
+      ...f,
+      cep:         end.cep ?? "",
+      logradouro:  end.logradouro ?? "",
+      numero:      end.numero ?? "",
+      complemento: end.complemento ?? "",
+      bairro:      end.bairro ?? "",
+      cidade:      end.cidade ?? "",
+      estado:      end.estado ?? "",
+    }))
+    setCepStatus(end.logradouro ? "encontrado" : "idle")
+  }
+
+  // True se o cliente tem endereço de entrega preenchido e diferente do cadastro.
+  function temEntregaDivergente(c: Cliente): boolean {
+    const temEntrega = !!(c.entrega_logradouro || c.entrega_cep)
+    if (!temEntrega) return false
+    const dif = (a?: string | null, b?: string | null) =>
+      (a ?? "").trim().toLowerCase() !== (b ?? "").trim().toLowerCase()
+    return (
+      dif(c.entrega_cep, c.cep) ||
+      dif(c.entrega_logradouro, c.logradouro) ||
+      dif(c.entrega_numero, c.numero) ||
+      dif(c.entrega_bairro, c.bairro) ||
+      dif(c.entrega_cidade, c.cidade) ||
+      dif(c.entrega_estado, c.estado)
+    )
+  }
+
   function selecionarCliente(c: Cliente) {
     setCliSel(c)
     setCliBusca(c.nome)
     setCliRes([])
-    setForm(f => ({
-      ...f,
-      nome:        c.nome ?? "",
-      cpf:         c.cpf_cnpj ?? "",
-      telefone:    c.celular ?? "",
-      cep:         c.cep ?? "",
-      logradouro:  c.logradouro ?? "",
-      numero:      c.numero ?? "",
-      complemento: c.complemento ?? "",
-      bairro:      c.bairro ?? "",
-      cidade:      c.cidade ?? "",
-      estado:      c.estado ?? "",
-    }))
-    if (c.logradouro) setCepStatus("encontrado")
+    // Dados pessoais sempre vêm do cadastro
+    setForm(f => ({ ...f, nome: c.nome ?? "", cpf: c.cpf_cnpj ?? "", telefone: c.celular ?? "" }))
+    // Endereço: por padrão usa o do cadastro
+    aplicarEndereco({
+      cep: c.cep, logradouro: c.logradouro, numero: c.numero,
+      complemento: c.complemento, bairro: c.bairro, cidade: c.cidade, estado: c.estado,
+    })
+    // 2B: se houver endereço de entrega divergente, pergunta qual usar
+    if (temEntregaDivergente(c)) setModalEntrega(c)
   }
 
   const { hi: cliHi, onKeyDown: cliDropKeyDown, reset: resetCliHi } = useDropdownKeyNav(cliRes, selecionarCliente)
@@ -1050,6 +1090,84 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
           </p>
         </div>
       )}
+
+      {/* 2B — Modal: endereço de entrega ≠ cadastro */}
+      <AnimatePresence>
+        {modalEntrega && (
+          <ModalEnderecoEntrega
+            cliente={modalEntrega}
+            onUsarEntrega={() => {
+              aplicarEndereco({
+                cep: modalEntrega.entrega_cep, logradouro: modalEntrega.entrega_logradouro,
+                numero: modalEntrega.entrega_numero, complemento: modalEntrega.entrega_complemento,
+                bairro: modalEntrega.entrega_bairro, cidade: modalEntrega.entrega_cidade,
+                estado: modalEntrega.entrega_estado,
+              })
+              setModalEntrega(null)
+            }}
+            onInformarOutro={() => {
+              aplicarEndereco({})  // limpa para digitação manual
+              setModalEntrega(null)
+            }}
+            onCancelar={() => setModalEntrega(null)}  // mantém endereço do cadastro
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+// ── Modal 2B — Endereço de entrega diferente do cadastro ──────
+function ModalEnderecoEntrega({ cliente, onUsarEntrega, onInformarOutro, onCancelar }: {
+  cliente: Cliente
+  onUsarEntrega: () => void
+  onInformarOutro: () => void
+  onCancelar: () => void
+}) {
+  const linhaCad = [cliente.logradouro, cliente.numero, cliente.bairro, cliente.cidade && cliente.estado ? `${cliente.cidade}/${cliente.estado}` : cliente.cidade].filter(Boolean).join(", ")
+  const linhaEnt = [cliente.entrega_logradouro, cliente.entrega_numero, cliente.entrega_bairro, cliente.entrega_cidade && cliente.entrega_estado ? `${cliente.entrega_cidade}/${cliente.entrega_estado}` : cliente.entrega_cidade].filter(Boolean).join(", ")
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onCancelar}>
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+        onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <AlertCircle size={18} style={{ color: "#f59e0b" }} />
+          <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Endereço de entrega diferente</span>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Esta cliente tem um <b>endereço de entrega</b> diferente do endereço de cadastro. Qual deseja usar nesta etiqueta?
+          </p>
+          <div className="space-y-2">
+            <div className="rounded-lg p-3" style={{ background: "var(--bg-base)", border: "1px solid var(--border)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>📍 Cadastro</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{linhaCad || "—"}</p>
+            </div>
+            <div className="rounded-lg p-3" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#10b981" }}>🚚 Entrega</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{linhaEnt || "—"}</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 pt-1">
+            <button onClick={onUsarEntrega}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold text-white" style={{ background: "#10b981" }}>
+              Usar endereço de entrega
+            </button>
+            <button onClick={onInformarOutro}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold" style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              Informar outro endereço
+            </button>
+            <button onClick={onCancelar}
+              className="w-full py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              Cancelar (manter cadastro)
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </motion.div>
   )
 }

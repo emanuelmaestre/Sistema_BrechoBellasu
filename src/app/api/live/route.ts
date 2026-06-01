@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { titulo, data_live, plataforma, tipo, observacoes } = await req.json()
+  const { titulo, data_live, plataforma, tipo, observacoes, link_live } = await req.json()
   if (!data_live) return NextResponse.json({ erro: "Data da live é obrigatória." }, { status: 400 })
 
   const sb = createServerClient()
@@ -37,11 +37,11 @@ export async function POST(req: NextRequest) {
   // Tenta inserir com campo tipo; se coluna não existir ainda, insere sem ela
   let data, error
   const withTipo = await sb.from("lives")
-    .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, tipo: tipo || "novidades", status: "aberta", observacoes: observacoes || null })
+    .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, tipo: tipo || "novidades", status: "aberta", observacoes: observacoes || null, link_live: link_live || null })
     .select().single()
 
-  if (withTipo.error?.message?.includes("tipo")) {
-    // Coluna tipo ainda não existe no banco — insere sem ela
+  if (withTipo.error?.message?.includes("tipo") || withTipo.error?.message?.includes("link_live")) {
+    // Coluna tipo/link_live ainda não existe no banco — insere sem elas
     const sem = await sb.from("lives")
       .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, status: "aberta", observacoes: observacoes || null })
       .select().single()

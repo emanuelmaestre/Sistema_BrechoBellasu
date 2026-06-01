@@ -23,6 +23,14 @@ export interface ClienteInput {
   bairro?: string | null
   cidade?: string | null
   estado?: string | null
+  // Endereço de entrega alternativo (opcional)
+  entregaCep?: string | null
+  entregaLogradouro?: string | null
+  entregaNumero?: string | null
+  entregaComplemento?: string | null
+  entregaBairro?: string | null
+  entregaCidade?: string | null
+  entregaEstado?: string | null
 }
 
 const norm = (v?: string | null): string | null => {
@@ -46,6 +54,13 @@ export class Cliente {
     readonly bairro: string | null,
     readonly cidade: string | null,
     readonly estado: string | null,
+    readonly entregaCep: string | null,
+    readonly entregaLogradouro: string | null,
+    readonly entregaNumero: string | null,
+    readonly entregaComplemento: string | null,
+    readonly entregaBairro: string | null,
+    readonly entregaCidade: string | null,
+    readonly entregaEstado: string | null,
   ) {}
 
   static criar(input: ClienteInput): Result<Cliente> {
@@ -72,6 +87,12 @@ export class Cliente {
       if (estado.length !== 2) return err(new ValidacaoError("Estado (UF) deve ter 2 letras."))
     }
 
+    let entregaEstado: string | null = norm(input.entregaEstado)
+    if (entregaEstado) {
+      entregaEstado = entregaEstado.toUpperCase()
+      if (entregaEstado.length !== 2) return err(new ValidacaoError("Estado (UF) de entrega deve ter 2 letras."))
+    }
+
     return ok(
       new Cliente(
         nome,
@@ -88,6 +109,13 @@ export class Cliente {
         norm(input.bairro),
         norm(input.cidade),
         estado,
+        norm(input.entregaCep),
+        norm(input.entregaLogradouro),
+        norm(input.entregaNumero),
+        norm(input.entregaComplemento),
+        norm(input.entregaBairro),
+        norm(input.entregaCidade),
+        entregaEstado,
       ),
     )
   }

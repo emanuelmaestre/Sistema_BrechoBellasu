@@ -55,7 +55,7 @@ interface ProdutoVinculo {
   estoque_baixado: boolean
 }
 
-interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo: "novidades" | "promocional" }
+interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo: "novidades" | "promocional"; link_live: string }
 interface CompraForm {
   cliente_id: number | null; nome_cliente: string; whatsapp: string
   cor_sacola: string; numero_sacola: string
@@ -65,7 +65,7 @@ interface CompraForm {
 }
 
 const hoje = new Date().toISOString().split("T")[0]
-const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram", tipo: "novidades" }
+const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram", tipo: "novidades", link_live: "" }
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
   cor_sacola: "", numero_sacola: "",
@@ -205,7 +205,7 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
-      const nova = await apiPost<{ id: number }>("/live", { data_live: form.data_live, titulo: form.titulo || null, plataforma: form.plataforma || null, tipo: form.tipo })
+      const nova = await apiPost<{ id: number }>("/live", { data_live: form.data_live, titulo: form.titulo || null, plataforma: form.plataforma || null, tipo: form.tipo, link_live: form.link_live || null })
       qc.invalidateQueries({ queryKey: ["lives"] }); onSalvo(nova.id)
     } catch { setErro("Erro ao criar live.") } finally { setSaving(false) }
   }
@@ -258,6 +258,13 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Data da Live</h1>
                 <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Quando aconteceu a live? 📅</p>
                 <DatePicker value={form.data_live} onChange={v => set("data_live", v)} inputClassName={iBase}/>
+                <div className="mt-5">
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Link da live (opcional)</label>
+                  <input value={form.link_live} onChange={e => set("link_live", e.target.value)}
+                    placeholder="https://instagram.com/... ou https://tiktok.com/..."
+                    className={iBase} style={iSt}/>
+                  <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>Instagram ou TikTok — usado ao avisar as clientes.</p>
+                </div>
               </>}
 
               {step === 2 && <>

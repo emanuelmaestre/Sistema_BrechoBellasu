@@ -9,6 +9,8 @@ import type { Cliente } from "@/domain/clientes/cliente"
 export class ClienteRepositorySupabase implements IClienteRepository {
   constructor(private readonly sb: SupabaseClient) {}
 
+  // Campos base (sempre existem). Endereço de entrega vai à parte
+  // porque a coluna pode não existir ainda (migration 017 pendente).
   private toRow(c: Cliente) {
     return {
       nome: c.nome,
@@ -28,19 +30,52 @@ export class ClienteRepositorySupabase implements IClienteRepository {
     }
   }
 
+  private toEntregaRow(c: Cliente) {
+    return {
+      entrega_cep: c.entregaCep,
+      entrega_logradouro: c.entregaLogradouro,
+      entrega_numero: c.entregaNumero,
+      entrega_complemento: c.entregaComplemento,
+      entrega_bairro: c.entregaBairro,
+      entrega_cidade: c.entregaCidade,
+      entrega_estado: c.entregaEstado,
+    }
+  }
+
+  /** True se o erro do Postgres é "coluna inexistente" de endereço de entrega. */
+  private ehColunaEntregaAusente(msg?: string): boolean {
+    return !!msg && msg.includes("entrega_")
+  }
+
   async criar(cliente: Cliente): Promise<{ id: number }> {
-    const { data, error } = await this.sb
+    // Tenta com endereço de entrega; se a coluna não existir, insere sem.
+    const completo = await this.sb
       .from("clientes")
-      .insert(this.toRow(cliente))
+      .insert({ ...this.toRow(cliente), ...this.toEntregaRow(cliente) })
       .select("id")
       .single()
-    if (error) throw new Error(error.message)
-    return { id: data.id as number }
+
+    if (completo.error && this.ehColunaEntregaAusente(completo.error.message)) {
+      const base = await this.sb.from("clientes").insert(this.toRow(cliente)).select("id").single()
+      if (base.error) throw new Error(base.error.message)
+      return { id: base.data.id as number }
+    }
+    if (completo.error) throw new Error(completo.error.message)
+    return { id: completo.data.id as number }
   }
 
   async atualizar(id: number, cliente: Cliente): Promise<void> {
-    const { error } = await this.sb.from("clientes").update(this.toRow(cliente)).eq("id", id)
-    if (error) throw new Error(error.message)
+    const completo = await this.sb
+      .from("clientes")
+      .update({ ...this.toRow(cliente), ...this.toEntregaRow(cliente) })
+      .eq("id", id)
+
+    if (completo.error && this.ehColunaEntregaAusente(completo.error.message)) {
+      const base = await this.sb.from("clientes").update(this.toRow(cliente)).eq("id", id)
+      if (base.error) throw new Error(base.error.message)
+      return
+    }
+    if (completo.error) throw new Error(completo.error.message)
   }
 
   async existePorCelular(celular: string): Promise<boolean> {

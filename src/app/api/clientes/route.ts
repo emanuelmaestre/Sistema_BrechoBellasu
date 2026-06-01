@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
       bairro: body.bairro,
       cidade: body.cidade,
       estado: body.estado,
+      entregaCep: body.entrega_cep,
+      entregaLogradouro: body.entrega_logradouro,
+      entregaNumero: body.entrega_numero,
+      entregaComplemento: body.entrega_complemento,
+      entregaBairro: body.entrega_bairro,
+      entregaCidade: body.entrega_cidade,
+      entregaEstado: body.entrega_estado,
     })
 
     if (!resultado.ok) {
