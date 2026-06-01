@@ -279,7 +279,7 @@ function AbaUsuarios() {
                   style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
                   {u.nome[0].toUpperCase()}
                 </div>
-                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{u.nome}</p>
+                <p className="text-sm font-medium truncate uppercase" style={{ color: "var(--text-primary)" }}>{u.nome}</p>
               </div>
               <div className="col-span-4 min-w-0">
                 <p className="text-sm truncate" style={{ color: "var(--text-secondary)" }}>{u.email}</p>

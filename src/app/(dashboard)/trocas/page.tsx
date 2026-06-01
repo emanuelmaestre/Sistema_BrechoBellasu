@@ -666,10 +666,11 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                     )}
                   </div>
                   {form.cliente_id && (
-                    <p className="text-xs mt-2 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                      <Check size={11} className="text-emerald-400" />
-                      Cliente vinculado — produtos na próxima etapa serão filtrados pelas compras dele.
-                    </p>
+                    <div className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
+                      style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)" }}>
+                      <Check size={15} style={{ color: "#10b981" }} />
+                      <p className="text-sm font-bold uppercase" style={{ color: "#10b981" }}>{form.cliente_nome}</p>
+                    </div>
                   )}
                 </>}
 
