@@ -111,16 +111,17 @@ const ETAPAS_LIVE = [
 ]
 
 function calcEtapa(live: LiveDetalhe): number {
+  // Etapas visuais: 1=CRIADA 2=COMPRAS 3=MENSAGENS 4=PRODUTOS 5=ESTOQUE 6=ENCERRADA
   if (live.status === "encerrada") return 6
   const compras = live.compras ?? []
-  if (!compras.length) return 1
+  if (!compras.length) return 2                                                          // sem compras → ir para COMPRAS
   const disparada = live.status === "disparada" || compras.some(c => c.msg_status === "enviada")
-  if (!disparada) return 2
+  if (!disparada) return 3                                                               // compras ok → ir para MENSAGENS
   const todasVinculadas = compras.every(c => c.status_compra === "vinculada" || c.status_compra === "finalizada")
-  if (!todasVinculadas) return 3
+  if (!todasVinculadas) return 4                                                         // msgs ok → ir para PRODUTOS
   const todasFinalizadas = compras.every(c => c.status_compra === "finalizada")
-  if (!todasFinalizadas) return 4
-  return 5
+  if (!todasFinalizadas) return 5                                                        // vinculadas → ir para ESTOQUE
+  return 5                                                                               // tudo ok → pronto para encerrar
 }
 
 // ─── Variantes de animação ────────────────────────────────
