@@ -221,6 +221,85 @@ function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }:
   )
 }
 
+// ─── Autocomplete Cor ────────────────────────────────────
+function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
+  inputRef: React.RefObject<HTMLInputElement | null>
+  value: string
+  onChange: (v: string) => void
+  onAdvance: () => void
+  inputBase: string
+  inputSt: React.CSSProperties
+}) {
+  const [busca, setBusca] = useState(value)
+  const [open, setOpen] = useState(false)
+
+  const sugestoes = busca.trim().length === 0
+    ? CORES_PRODUTO.slice(0, 12)
+    : CORES_PRODUTO.filter(c => c.includes(busca.toUpperCase()))
+
+  function selecionar(cor: string) {
+    setBusca(cor); onChange(cor); setOpen(false)
+    setTimeout(() => onAdvance(), 120)
+  }
+
+  const sugestoesObj = sugestoes.map((c, i) => ({ id: i, nome: c }))
+  const { hi, onKeyDown: dropKeyDown, reset: resetHi } = useDropdownKeyNav(sugestoesObj, (m) => selecionar(m.nome), () => setOpen(false))
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const texto = busca.trim().toUpperCase()
+      if (!texto) { onAdvance(); return }
+      if (hi >= 0 && sugestoes[hi]) { selecionar(sugestoes[hi]); return }
+      const exata = CORES_PRODUTO.find(c => c === texto)
+      selecionar(exata ?? texto)
+      return
+    }
+    dropKeyDown(e)
+  }
+
+  return (
+    <>
+      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Cor?</h1>
+      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+        Digite para filtrar ou selecione uma sugestão.
+      </p>
+      <div className="relative">
+        <input ref={inputRef} value={busca}
+          onChange={e => { const v = e.target.value; setBusca(v); onChange(v); setOpen(true); resetHi() }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={handleKeyDown}
+          placeholder="DIGITE PARA BUSCAR A COR..."
+          className={inputBase} style={inputSt} autoComplete="off" />
+        {open && sugestoes.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden shadow-lg z-50 max-h-64 overflow-y-auto"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            {sugestoes.map((c, idx) => (
+              <button key={c} onMouseDown={() => selecionar(c)}
+                className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
+                style={{
+                  color: hi === idx ? "var(--accent)" : "var(--text-primary)",
+                  background: hi === idx ? "var(--accent-bg)" : "transparent",
+                  borderBottom: "1px solid var(--border)",
+                }}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {value && (
+        <div className="mt-3 flex items-center gap-2">
+          <Check size={13} style={{ color: "var(--accent)" }} />
+          <span className="text-sm font-bold uppercase" style={{ color: "var(--accent)" }}>{value}</span>
+          <button onClick={() => { setBusca(""); onChange("") }} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>limpar</button>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Wizard ───────────────────────────────────────────────
 function WizardProduto({
   inicial, editandoId, initialStep, categorias, onClose, onSalvo,
@@ -258,7 +337,7 @@ function WizardProduto({
 
   // ── Auto-sugestão de categoria ao entrar no step 3 ──
   useEffect(() => {
-    if (step !== 3) return
+    if (step !== 4) return
     if (form.categoria_id) { setCatSugerida(false); return }  // já tem categoria, não sobrescreve
     const sugestao = sugerirCategoria(form.nome, categorias)
     if (sugestao) {
@@ -284,7 +363,7 @@ function WizardProduto({
       setErro("Nome do produto é obrigatório")
       return
     }
-    if (step === 4 && Number(form.preco_venda) < 0) { // preco_venda ainda é step 4
+    if (step === 5 && Number(form.preco_venda) < 0) {
       setErro("Preço inválido")
       return
     }
@@ -322,6 +401,7 @@ function WizardProduto({
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
     if (step === 2) return // MarcaStep gerencia seu próprio Enter
+    if (step === 3) return // CorStep gerencia seu próprio Enter
     if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); handleSalvar(); return }
     if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -392,6 +472,10 @@ function WizardProduto({
                 )}
 
                 {step === 3 && (
+                  <CorStep inputRef={inputRef} value={form.cor} onChange={v => set("cor", v)} onAdvance={advance} inputBase={inputBase} inputSt={inputSt} />
+                )}
+
+                {step === 4 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Categoria?
@@ -423,7 +507,7 @@ function WizardProduto({
                   </>
                 )}
 
-                {step === 4 && (
+                {step === 5 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Preço de venda?
@@ -450,34 +534,6 @@ function WizardProduto({
                           className={cn(inputBase, "pl-12 !text-base !py-3")} style={inputSt} />
                       </div>
                     </div>
-                  </>
-                )}
-
-                {step === 5 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Cor?</h1>
-                    <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>Selecione a cor principal do produto.</p>
-                    <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
-                      {CORES_PRODUTO.map(c => (
-                        <button key={c} type="button"
-                          onClick={() => { set("cor", form.cor === c ? "" : c); if (form.cor !== c) setTimeout(() => advance(), 120) }}
-                          className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                          style={{
-                            background: form.cor === c ? "var(--accent)" : "var(--bg-surface)",
-                            color: form.cor === c ? "#fff" : "var(--text-secondary)",
-                            border: `1.5px solid ${form.cor === c ? "var(--accent)" : "var(--border)"}`,
-                          }}>
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                    {form.cor && (
-                      <div className="mt-4 flex items-center gap-2">
-                        <Check size={14} style={{ color: "var(--accent)" }} />
-                        <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>{form.cor}</span>
-                        <button onClick={() => set("cor", "")} className="text-xs ml-2" style={{ color: "var(--text-muted)" }}>limpar</button>
-                      </div>
-                    )}
                   </>
                 )}
 
@@ -587,10 +643,10 @@ function WizardProduto({
                   {[
                     { label: "Nome",           value: form.nome || "—",                                    s: 1, full: true },
                     { label: "Marca",          value: form.marca || "—",                                   s: 2 },
-                    { label: "Categoria",      value: catNome,                                             s: 3 },
-                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 4 },
-                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 4 },
-                    { label: "Cor",            value: form.cor || "—",                                     s: 5 },
+                    { label: "Cor",            value: form.cor || "—",                                     s: 3 },
+                    { label: "Categoria",      value: catNome,                                             s: 4 },
+                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 5 },
+                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 5 },
                     { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 6 },
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
