@@ -118,15 +118,32 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
     staleTime: 60_000,
   })
 
-  const [toggling, setToggling] = useState<string | null>(null)
+  const [toggling, setToggling] = useState(false)
+  const [consentErro, setConsentErro] = useState("")
+  const [consentOk, setConsentOk] = useState("")
 
-  async function toggleConsent(tipo: "novidades" | "lives", ativar: boolean) {
-    setToggling(tipo)
+  async function solicitarAmbos() {
+    if (!cliente.celular) { setConsentErro("Cadastre o celular da cliente antes de solicitar."); return }
+    setToggling(true); setConsentErro(""); setConsentOk("")
     try {
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo, ativar })
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "novidades", ativar: true })
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "lives", ativar: true })
       qc.invalidateQueries({ queryKey: ["clientes"] })
-    } catch { /* erro silencioso no drawer */ }
-    finally { setToggling(null) }
+      setConsentOk("Mensagens enviadas! Aguardando resposta da cliente.")
+    } catch (e) {
+      setConsentErro((e as Error).message || "Não foi possível enviar a mensagem de consentimento. Verifique a conexão com o WhatsApp.")
+    } finally { setToggling(false) }
+  }
+
+  async function desativarAmbos() {
+    setToggling(true); setConsentErro(""); setConsentOk("")
+    try {
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "novidades", ativar: false })
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "lives", ativar: false })
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+    } catch (e) {
+      setConsentErro((e as Error).message || "Erro ao desativar.")
+    } finally { setToggling(false) }
   }
 
   const TABS: { key: DrawerTab; label: string; icon: React.ReactNode }[] = [
@@ -241,48 +258,67 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
         )}
 
         {/* Aba Notificações */}
-        {tab === "notificacoes" && (
-          <>
-            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-              Controle de consentimento LGPD para disparos de WhatsApp.
-            </p>
-            {([
-              { tipo: "novidades" as const, label: "Novidades e promoções", campo: (cliente as unknown as Record<string, unknown>).aceita_novidades as string ?? "nao" },
-              { tipo: "lives" as const, label: "Avisos de lives", campo: (cliente as unknown as Record<string, unknown>).aceita_lives as string ?? "nao" },
-            ]).map(item => {
-              const st = statusCor(item.campo)
-              const ativo = item.campo === "confirmado" || item.campo === "aguardando"
-              return (
-                <div key={item.tipo} className="rounded-xl px-4 py-4"
-                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {ativo ? <Bell size={14} style={{ color: "var(--accent)" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
-                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.label}</span>
-                    </div>
-                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", st.bg, st.text)}>{st.label}</span>
-                  </div>
-                  <button
-                    onClick={() => toggleConsent(item.tipo, !ativo)}
-                    disabled={toggling === item.tipo}
-                    className="w-full py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                    style={{
-                      background: ativo ? "rgba(248,113,113,0.1)" : "rgba(16,185,129,0.1)",
-                      color: ativo ? "#f87171" : "#10b981",
-                      border: `1px solid ${ativo ? "rgba(248,113,113,0.25)" : "rgba(16,185,129,0.25)"}`,
-                    }}>
-                    {toggling === item.tipo ? "Processando..." : ativo ? "Desativar" : "Solicitar consentimento"}
-                  </button>
-                </div>
-              )
-            })}
-            {!cliente.celular && (
-              <p className="text-xs text-center py-2 px-3 rounded-lg bg-amber-500/10 text-amber-400">
-                ⚠️ Cliente sem celular cadastrado. Cadastre antes de solicitar consentimento.
+        {tab === "notificacoes" && (() => {
+          const stNov = statusCor((cliente.aceita_novidades as string | undefined) ?? "nao")
+          const stLiv = statusCor((cliente.aceita_lives as string | undefined) ?? "nao")
+          const algumAtivo = ["confirmado","aguardando"].includes(cliente.aceita_novidades ?? "") ||
+                             ["confirmado","aguardando"].includes(cliente.aceita_lives ?? "")
+          return (
+            <>
+              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                Controle de consentimento LGPD para disparos de WhatsApp.
               </p>
-            )}
-          </>
-        )}
+
+              {/* Card unificado */}
+              <div className="rounded-xl px-4 py-4 space-y-3"
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+
+                {/* Novidades */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={13} style={{ color: "var(--text-muted)" }} />
+                    <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Novidades e promoções</span>
+                  </div>
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", stNov.bg, stNov.text)}>{stNov.label}</span>
+                </div>
+
+                <div style={{ height: 1, background: "var(--border)" }} />
+
+                {/* Lives */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={13} style={{ color: "var(--text-muted)" }} />
+                    <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Avisos de lives</span>
+                  </div>
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", stLiv.bg, stLiv.text)}>{stLiv.label}</span>
+                </div>
+
+                {/* Botão único */}
+                <button
+                  onClick={algumAtivo ? desativarAmbos : solicitarAmbos}
+                  disabled={toggling || !cliente.celular}
+                  className="w-full py-2.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 mt-1"
+                  style={{
+                    background: algumAtivo ? "rgba(248,113,113,0.1)" : "rgba(16,185,129,0.1)",
+                    color: algumAtivo ? "#f87171" : "#10b981",
+                    border: `1px solid ${algumAtivo ? "rgba(248,113,113,0.25)" : "rgba(16,185,129,0.25)"}`,
+                  }}>
+                  {toggling ? "Enviando..." : algumAtivo ? "Desativar notificações" : "Solicitar consentimento"}
+                </button>
+
+                {/* Feedback */}
+                {consentOk && <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-emerald-500/10 text-emerald-400">{consentOk}</p>}
+                {consentErro && <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-red-500/10 text-red-400">{consentErro}</p>}
+              </div>
+
+              {!cliente.celular && (
+                <p className="text-xs text-center py-2 px-3 rounded-lg bg-amber-500/10 text-amber-400">
+                  ⚠️ Cadastre o celular da cliente antes de solicitar consentimento.
+                </p>
+              )}
+            </>
+          )
+        })()}
       </div>
     </div>
   )
