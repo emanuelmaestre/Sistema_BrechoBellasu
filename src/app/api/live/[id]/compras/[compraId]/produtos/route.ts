@@ -145,6 +145,12 @@ async function atualizarStatusCompra(compraId: number, sb: ReturnType<typeof imp
     estoqueBaixado: p.estoque_baixado === true,
   }))
   const status = calcularStatusCompra(Number(compra?.quantidade_itens ?? 0), vinculos)
+  const totalVinculados = vinculos.reduce((s, v) => s + v.quantidade, 0)
+  const totalBaixados   = vinculos.filter(v => v.estoqueBaixado).reduce((s, v) => s + v.quantidade, 0)
 
-  await sb.from("live_compras").update({ status_compra: status }).eq("id", compraId)
+  await sb.from("live_compras").update({
+    status_compra: status,
+    total_produtos_vinculados: totalVinculados,
+    total_estoque_baixado: totalBaixados,
+  }).eq("id", compraId)
 }
