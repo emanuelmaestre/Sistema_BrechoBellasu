@@ -22,7 +22,8 @@ function totais(vinculos: VinculoResumo[]) {
 export function calcularStatusCompra(qtdEsperada: number, vinculos: VinculoResumo[]): StatusCompra {
   const { vinculado, baixado } = totais(vinculos)
   if (vinculado === 0) return "aguardando_vinculo"
-  if (vinculado >= qtdEsperada && baixado >= qtdEsperada) return "vinculada"
+  // Todos vinculados E estoque baixado → finalizada automaticamente (sem clique extra)
+  if (vinculado >= qtdEsperada && baixado >= qtdEsperada) return "finalizada"
   return "vinculo_parcial"
 }
 
