@@ -1494,7 +1494,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           <div className="shrink-0 scale-[0.6] -mx-2">{plataformaIcon ?? <Radio size={20} style={{ color: COR_LIVE }}/>}</div>
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>
-              {live.titulo ?? "LIVE"} — {fmtData(live.data_live ?? "")}
+              {live.titulo ?? fmtData(live.data_live ?? "")}
             </p>
           </div>
         </div>
