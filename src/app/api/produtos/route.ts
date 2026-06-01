@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       estoqueAtual: body.estoque_atual ?? 0,
       controlarEstoque: body.controlar_estoque,
       unidadeMedida: body.unidade_medida,
+      cor: body.cor ?? null,
     })
 
     if (!resultado.ok) {

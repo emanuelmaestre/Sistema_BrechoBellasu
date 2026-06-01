@@ -29,6 +29,7 @@ export class ProdutoRepositorySupabase implements IProdutoRepository {
         estoque_atual: produto.estoqueAtual,
         controlar_estoque: produto.controlarEstoque,
         unidade_medida: produto.unidadeMedida,
+        cor: produto.cor,
       })
       .select("id")
       .single()

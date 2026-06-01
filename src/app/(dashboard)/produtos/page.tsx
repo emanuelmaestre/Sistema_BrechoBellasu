@@ -24,14 +24,27 @@ interface ProdutoForm {
   estoque_atual: string
   unidade_medida: string
   controlar_estoque: boolean
+  cor: string
 }
 
 const EMPTY: ProdutoForm = {
   nome: "", codigo: "", categoria_id: "", marca: "",
   preco_venda: "", preco_custo: "",
   estoque_atual: "", unidade_medida: "pc",
-  controlar_estoque: true,
+  controlar_estoque: true, cor: "",
 }
+
+const CORES_PRODUTO = [
+  "BRANCO","PRETO","CINZA","CHUMBO","BEGE","NUDE","OFF WHITE","CREME","MARFIM","MARROM",
+  "CARAMELO","CAFÉ","CHOCOLATE","TERRACOTA","CAMEL","ROSA","ROSA CLARO","ROSA BEBÊ","ROSA PINK","PINK",
+  "MAGENTA","FÚCSIA","ROSÊ","VERMELHO","VINHO","BORDÔ","MARSALA","CEREJA","RUBI","LARANJA",
+  "CORAL","SALMÃO","PÊSSEGO","ABÓBORA","AMARELO","AMARELO CLARO","AMARELO MOSTARDA","MOSTARDA","DOURADO","OURO",
+  "VERDE","VERDE CLARO","VERDE ESCURO","VERDE MILITAR","VERDE MUSGO","VERDE OLIVA","VERDE ÁGUA","VERDE MENTA","VERDE BANDEIRA","VERDE LIMÃO",
+  "ESMERALDA","AZUL","AZUL CLARO","AZUL BEBÊ","AZUL MARINHO","AZUL ROYAL","AZUL TURQUESA","AZUL PETRÓLEO","AZUL JEANS","AZUL CELESTE",
+  "AZUL BIC","ROXO","LILÁS","LAVANDA","VIOLETA","AMEIXA","PRATA","BRONZE","COBRE","ROSE GOLD",
+  "ESTAMPADO","FLORAL","ANIMAL PRINT","ONÇA","ZEBRA","COBRA","LISTRADO","XADREZ","POÁ","TIE DYE",
+  "CAMUFLADO","JEANS CLARO","JEANS ESCURO","JEANS MÉDIO","JEANS PRETO","JEANS BRANCO","JEANS DESTROYED","COLORIDO","MULTICOLORIDO","BICOLOR","TRICOLOR",
+]
 
 // ─── Sugestão inteligente de categoria ───────────────────
 const KEYWORDS: [string[], string[]][] = [
@@ -230,7 +243,7 @@ function WizardProduto({
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const TOTAL = 6
+  const TOTAL = 7
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -271,7 +284,7 @@ function WizardProduto({
       setErro("Nome do produto é obrigatório")
       return
     }
-    if (step === 4 && Number(form.preco_venda) < 0) {
+    if (step === 4 && Number(form.preco_venda) < 0) { // preco_venda ainda é step 4
       setErro("Preço inválido")
       return
     }
@@ -293,6 +306,7 @@ function WizardProduto({
         estoque_atual:     Number(form.estoque_atual) || 0,
         unidade_medida:    form.unidade_medida,
         controlar_estoque: form.controlar_estoque,
+        cor:               form.cor || null,
       }
       if (editandoId) await apiPut(`/produtos/${editandoId}`, payload)
       else            await apiPost("/produtos", payload)
@@ -441,6 +455,34 @@ function WizardProduto({
 
                 {step === 5 && (
                   <>
+                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Cor?</h1>
+                    <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>Selecione a cor principal do produto.</p>
+                    <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
+                      {CORES_PRODUTO.map(c => (
+                        <button key={c} type="button"
+                          onClick={() => { set("cor", form.cor === c ? "" : c); if (form.cor !== c) setTimeout(() => advance(), 120) }}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                          style={{
+                            background: form.cor === c ? "var(--accent)" : "var(--bg-surface)",
+                            color: form.cor === c ? "#fff" : "var(--text-secondary)",
+                            border: `1.5px solid ${form.cor === c ? "var(--accent)" : "var(--border)"}`,
+                          }}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    {form.cor && (
+                      <div className="mt-4 flex items-center gap-2">
+                        <Check size={14} style={{ color: "var(--accent)" }} />
+                        <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>{form.cor}</span>
+                        <button onClick={() => set("cor", "")} className="text-xs ml-2" style={{ color: "var(--text-muted)" }}>limpar</button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {step === 6 && (
+                  <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Estoque inicial?
                     </h1>
@@ -548,7 +590,8 @@ function WizardProduto({
                     { label: "Categoria",      value: catNome,                                             s: 3 },
                     { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 4 },
                     { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 4 },
-                    { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 5 },
+                    { label: "Cor",            value: form.cor || "—",                                     s: 5 },
+                    { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 6 },
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)" }}>
@@ -644,6 +687,7 @@ export default function ProdutosPage() {
       estoque_atual: String(p.estoque_atual ?? 0),
       unidade_medida: p.unidade_medida ?? "un",
       controlar_estoque: p.controlar_estoque ?? true,
+      cor: (p as unknown as { cor?: string }).cor ?? "",
     })
     setEditInitStep(6)   // abre direto no resumo
     setWizard(true)
