@@ -125,7 +125,7 @@ export function ModuleTopBar() {
           </span>
         </div>
         <span className="text-xs font-medium hidden md:block" style={{ color: "var(--text-secondary)" }}>
-          {usuario?.nome ?? "—"}
+          {(usuario?.nome ?? "—").toUpperCase()}
         </span>
       </div>
 

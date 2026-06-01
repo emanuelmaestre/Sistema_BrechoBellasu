@@ -341,7 +341,7 @@ export function Sidebar() {
               >
                 <p className="text-xs font-semibold truncate"
                   style={{ color: "var(--sidebar-text, var(--text-primary))" }}>
-                  {usuario?.nome ?? "—"}
+                  {(usuario?.nome ?? "—").toUpperCase()}
                 </p>
                 <p className="text-[10px] truncate capitalize"
                   style={{ color: "var(--sidebar-muted, var(--text-muted))" }}>
