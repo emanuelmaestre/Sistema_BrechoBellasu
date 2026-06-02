@@ -7,7 +7,7 @@ import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
-  Package, RefreshCw, Truck, ChevronDown, Eye,
+  Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -325,12 +325,13 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 }
 
 function DrawerCliente({
-  cliente, onClose, onEditar, onToggleStatus,
+  cliente, onClose, onEditar, onToggleStatus, onReenviarNotificacao,
 }: {
   cliente: Cliente
   onClose: () => void
   onEditar: () => void
   onToggleStatus: () => void
+  onReenviarNotificacao: () => void
 }) {
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -423,6 +424,25 @@ function DrawerCliente({
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
             <Pencil size={14} /> Editar dados
           </button>
+
+          {/* Botão reenvio manual — só aparece se não for "enviado" e tiver celular */}
+          {cliente.celular && cliente.notificacao_status !== "enviado" && (
+            <button onClick={onReenviarNotificacao} disabled={!cliente.celular}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50"
+              style={{ background: "rgba(37,211,102,0.08)", border: "1px solid rgba(37,211,102,0.25)", color: "#25d366" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.15)" }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.08)" }}>
+              <Send size={13} />
+              {cliente.notificacao_status === "erro" ? "Reenviar notificação" : "Enviar notificação"}
+            </button>
+          )}
+          {cliente.notificacao_status === "enviado" && (
+            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold"
+              style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
+              <CheckCircle2 size={13} /> Notificação já enviada
+            </div>
+          )}
+
           <button onClick={onToggleStatus}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: cliente.ativo ? "#f87171" : "#4ade80" }}>
@@ -1058,6 +1078,24 @@ function WizardCliente({
   )
 }
 
+// ─── Badge de status de notificação ──────────────────────
+function BadgeNotificacao({ status }: { status?: "pendente" | "enviado" | "erro" | null }) {
+  if (!status) return (
+    <span className="text-xs font-semibold px-2.5 py-1 rounded-full uppercase bg-slate-500/10 text-slate-400">—</span>
+  )
+  const map = {
+    pendente: { bg: "bg-amber-500/10", text: "text-amber-400", icon: <Clock size={10} />,        label: "Pendente" },
+    enviado:  { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={10} />, label: "Enviado"  },
+    erro:     { bg: "bg-red-500/10",   text: "text-red-400",   icon: <XCircle size={10} />,      label: "Erro"     },
+  }
+  const { bg, text, icon, label } = map[status]
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full uppercase ${bg} ${text}`}>
+      {icon} {label}
+    </span>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────
 export default function ClientesPage() {
   const qc = useQueryClient()
@@ -1067,6 +1105,24 @@ export default function ClientesPage() {
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
   const [drawer, setDrawer]       = useState<Cliente | null>(null)
+  const [reenvioMsg, setReenvioMsg] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [reenvioLoading, setReenvioLoading] = useState(false)
+
+  async function reenviarNotificacao(cliente: Cliente) {
+    setReenvioLoading(true); setReenvioMsg(null)
+    try {
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { reenviar: true })
+      setReenvioMsg({ ok: true, texto: "✅ Notificação enviada!" })
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      // Atualiza o drawer com o novo status
+      setDrawer(prev => prev ? { ...prev, notificacao_status: "enviado" } : prev)
+    } catch (e: unknown) {
+      const msg = (e as Error).message || "Erro ao enviar notificação."
+      setReenvioMsg({ ok: false, texto: msg })
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      setDrawer(prev => prev ? { ...prev, notificacao_status: "erro" } : prev)
+    } finally { setReenvioLoading(false) }
+  }
 
   const statusParam = status === "inativos" ? "inativo" : status === "todos" ? "todos" : undefined
 
@@ -1172,7 +1228,7 @@ export default function ClientesPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Nome", "WhatsApp", "Instagram", "Status", "Ações"].map(h => (
+                {["Nome", "WhatsApp", "Instagram", "Status", "Notificações", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
@@ -1180,11 +1236,11 @@ export default function ClientesPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center">
+                <tr><td colSpan={7} className="px-4 py-12 text-center">
                   <Loader2 size={24} className="animate-spin mx-auto" style={{ color: "var(--accent)" }} />
                 </td></tr>
               ) : clientes.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
                   Nenhum cliente encontrado.
                 </td></tr>
               ) : clientes.map((c, idx) => (
@@ -1206,6 +1262,9 @@ export default function ClientesPage() {
                     )}>
                       {c.ativo ? "Ativo" : "Inativo"}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <BadgeNotificacao status={c.notificacao_status} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -1268,12 +1327,13 @@ export default function ClientesPage() {
         {drawer && (
           <DrawerCliente
             cliente={drawer}
-            onClose={() => setDrawer(null)}
+            onClose={() => { setDrawer(null); setReenvioMsg(null) }}
             onEditar={() => abrirEdicao(drawer)}
             onToggleStatus={() => {
               toggleStatus.mutate({ id: drawer.id, ativo: !drawer.ativo })
               setDrawer(null)
             }}
+            onReenviarNotificacao={() => reenviarNotificacao(drawer)}
           />
         )}
       </AnimatePresence>

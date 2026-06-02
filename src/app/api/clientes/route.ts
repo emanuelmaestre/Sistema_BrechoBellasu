@@ -4,6 +4,8 @@ import { verifyAuth } from "@/lib/auth"
 import { CriarClienteUseCase } from "@/application/clientes/criar-cliente.use-case"
 import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
+import { enviarTexto } from "@/lib/zapi"
+import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
 
 export const dynamic = "force-dynamic"
 
@@ -69,7 +71,28 @@ export async function POST(req: NextRequest) {
       const { status, body: erro } = apresentarErro(resultado.error)
       return NextResponse.json(erro, { status })
     }
-    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+
+    const clienteId = resultado.value.id
+    const sb2 = createServerClient()
+
+    // ── Envio automático da mensagem de consentimento ──────
+    // Só envia se o cliente tem celular cadastrado
+    if (body.celular) {
+      const nome = (body.nome as string).split(" ")[0]
+      const mensagem = MENSAGEM_CONSENTIMENTO(nome)
+
+      // Marca como pendente antes de enviar
+      await sb2.from("clientes").update({ notificacao_status: "pendente" }).eq("id", clienteId)
+
+      const envio = await enviarTexto(body.celular, mensagem, "consentimento_novidades")
+
+      // Atualiza status conforme resultado
+      await sb2.from("clientes")
+        .update({ notificacao_status: envio.ok ? "enviado" : "erro" })
+        .eq("id", clienteId)
+    }
+
+    return NextResponse.json({ id: clienteId }, { status: 201 })
   } catch (err) {
     const { status, body: erro } = apresentarErro(err)
     if (status === 500) console.error("[POST /api/clientes]", err)
