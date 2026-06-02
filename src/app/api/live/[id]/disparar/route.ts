@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { gerarLinkAsaas } from "@/lib/asaas"
+import { enviarTexto } from "@/lib/zapi"
 // consultarPagamentoAsaas importado mas não usado no disparo — usado no sync
 
 function fmtData(d: string | null) {
@@ -62,9 +63,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     clientes?.forEach((c: { id: number; cpf_cnpj?: string | null }) => { cpfMap[c.id] = c.cpf_cnpj ?? null })
   }
 
-  const zapiInstance    = process.env.ZAPI_INSTANCE_ID
-  const zapiToken       = process.env.ZAPI_TOKEN
-  const zapiClientToken = process.env.ZAPI_CLIENT_TOKEN
   const resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> = []
 
   for (const compra of compras) {
@@ -144,24 +142,12 @@ Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
     let statusEnvio = "enviada"
 
     try {
-      if (zapiInstance && zapiToken && zapiClientToken) {
-        const numFormatado = numero.length === 11 ? `55${numero}` : numero
-        const resp = await fetch(
-          `https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Client-Token": zapiClientToken },
-            body: JSON.stringify({ phone: numFormatado, message: mensagem }),
-          }
-        )
-        if (!resp.ok) {
-          statusEnvio = "erro"
-          resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: `Z-API ${resp.status}` })
-          await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id).then(({ error: e2 }) => {
-            if (e2) console.error(`[LIVE] Erro update Z-API falhou compra #${compra.id}:`, e2.message)
-          })
-          continue
-        }
+      const resultado = await enviarTexto(numero, mensagem, "aviso_live")
+      if (!resultado.ok) {
+        statusEnvio = "erro"
+        resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultado.erro ?? "Falha Z-API" })
+        await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
+        continue
       }
     } catch { statusEnvio = "erro" }
 
