@@ -481,8 +481,8 @@ function WizardCliente({
   )
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // 9 steps: 1-Nome 2-Apelido 3-CPF 4-Nasc 5-Celular 6-Instagram 7-CEP 8-Número/Compl 9-Revisão
-  const TOTAL = 9
+  // 10 steps: 1-Nome 2-Apelido 3-CPF 4-Nasc 5-Celular 6-Instagram 7-CEP 8-Endereço 9-Número/Compl 10-Revisão
+  const TOTAL = 10
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 280)
@@ -535,18 +535,15 @@ function WizardCliente({
 
   async function advanceCep() {
     const limpo = form.cep.replace(/\D/g, "")
-    // CEP vazio → pula endereço
-    if (!limpo) { go(step + 1); return }
-    // já validado → avança
-    if (cepStatus === "encontrado" || cepStatus === "manual") { go(step + 1); return }
-    // CEP inválido já detectado → não avança
-    if (cepStatus === "invalido") {
-      setErro("Corrija o CEP ou preencha o endereço manualmente.")
-      return
-    }
-    // ainda idle → buscar agora
-    const ok = await buscarCep(form.cep)
-    if (ok) go(step + 1)
+    // CEP vazio → avança para step 8 (endereço manual)
+    if (!limpo) { go(8); return }
+    // já validado → avança para step 8 (conferência)
+    if (cepStatus === "encontrado" || cepStatus === "manual") { go(8); return }
+    // CEP inválido → avança para step 8 (preenchimento manual)
+    if (cepStatus === "invalido") { go(8); return }
+    // ainda idle → buscar agora e avança independente do resultado
+    await buscarCep(form.cep)
+    go(8)
   }
 
   function ativarManual() {
@@ -566,6 +563,7 @@ function WizardCliente({
       if (!r.ok) { setErro(r.error.message); return }
     }
     if (step === 7) { advanceCep(); return }
+    if (step === 9 && !form.numero.trim()) { setErro("Número é obrigatório."); return }
     if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL); return }
     if (step < TOTAL) go(step + 1)
   }
@@ -785,10 +783,9 @@ function WizardCliente({
                       Qual o CEP?
                     </h1>
                     <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      O endereço é preenchido automaticamente após o CEP.
+                      Buscamos o endereço automaticamente. Você poderá conferir e editar na próxima etapa.
                     </p>
 
-                    {/* Input CEP */}
                     <div className="relative">
                       <input
                         ref={inputRef}
@@ -820,99 +817,107 @@ function WizardCliente({
                       )}
                     </div>
 
-                    {/* Card endereço encontrado */}
                     <AnimatePresence>
                       {cepStatus === "encontrado" && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                           className="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}
-                        >
+                          style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
                           <MapPin size={16} className="mt-0.5 shrink-0" style={{ color: "#10b981" }} />
                           <div>
                             <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                               {[form.logradouro, form.bairro].filter(Boolean).join(", ")}
                             </p>
                             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                              {[form.cidade, form.estado].filter(Boolean).join(" – ")}
+                              {[form.cidade, form.estado].filter(Boolean).join(" – ")} · Você poderá editar na próxima etapa
                             </p>
                           </div>
                         </motion.div>
                       )}
-
-                      {/* CEP inválido */}
                       {cepStatus === "invalido" && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="mt-4"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle size={15} style={{ color: "#f87171" }} />
-                            <p className="text-sm font-medium" style={{ color: "#f87171" }}>
-                              CEP não encontrado.
-                            </p>
-                          </div>
-                          <button
-                            onClick={ativarManual}
-                            className="text-xs font-medium underline underline-offset-2 transition-opacity"
-                            style={{ color: "var(--text-muted)" }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                            Preencher endereço manualmente →
-                          </button>
-                        </motion.div>
-                      )}
-
-                      {/* Campos manuais */}
-                      {cepStatus === "manual" && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                          className="mt-4 space-y-2"
-                        >
-                          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                            Preencha o endereço manualmente:
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className="mt-4 flex items-center gap-2 px-4 py-3 rounded-2xl"
+                          style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
+                          <AlertCircle size={15} style={{ color: "#f87171" }} />
+                          <p className="text-sm" style={{ color: "#f87171" }}>
+                            CEP não encontrado — você poderá preencher o endereço manualmente na próxima etapa.
                           </p>
-                          <input value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
-                            placeholder="Rua / Avenida / Travessa..."
-                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input value={form.bairro} onChange={e => set("bairro", e.target.value)}
-                              placeholder="Bairro" className={cn(inputBase, "!text-base !py-3")} style={inputStyle} />
-                            <input value={form.cidade} onChange={e => set("cidade", e.target.value)}
-                              placeholder="Cidade" className={cn(inputBase, "!text-base !py-3")} style={inputStyle} />
-                          </div>
-                          <input value={form.estado} onChange={e => set("estado", e.target.value)}
-                            placeholder="UF (ex: SP)" maxLength={2}
-                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} />
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </>
                 )}
 
-                {/* ── Step 8: Número e Complemento ── */}
+                {/* ── Step 8: Endereço (conferência + edição) ── */}
                 {step === 8 && (
+                  <>
+                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+                      Confirme o endereço
+                    </h1>
+                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+                      {cepStatus === "encontrado"
+                        ? "Confira o endereço encontrado e edite se necessário."
+                        : "Preencha o endereço manualmente."}
+                    </p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
+                          Logradouro *
+                        </p>
+                        <input ref={inputRef} value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
+                          placeholder="Rua, Avenida, Travessa..."
+                          className={inputBase} style={inputStyle} autoComplete="off" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Bairro</p>
+                          <input value={form.bairro} onChange={e => set("bairro", e.target.value)}
+                            placeholder="Bairro"
+                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} autoComplete="off" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Cidade</p>
+                          <input value={form.cidade} onChange={e => set("cidade", e.target.value)}
+                            placeholder="Cidade"
+                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} autoComplete="off" />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Estado (UF)</p>
+                        <input value={form.estado} onChange={e => set("estado", e.target.value.toUpperCase())}
+                          placeholder="SP" maxLength={2}
+                          className={cn(inputBase, "!text-base !py-3 !w-24")} style={inputStyle} autoComplete="off" />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ── Step 9: Número e Complemento ── */}
+                {step === 9 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Número e complemento?
                     </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      {enderecoFormatado
+                    <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                      {form.logradouro
                         ? <span style={{ color: "var(--text-secondary)" }}>{form.logradouro}{form.bairro ? `, ${form.bairro}` : ""}</span>
                         : "Apto, casa, bloco, etc."}
                     </p>
+                    <p className="text-xs mb-6" style={{ color: "var(--text-muted)" }}>Número obrigatório · Complemento opcional</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
-                          Número
+                          Número *
                         </p>
                         <input ref={inputRef} value={form.numero} onChange={e => set("numero", e.target.value)}
                           placeholder="EX: 123"
-                          className={inputBase} style={inputStyle} autoComplete="off" />
+                          className={inputBase}
+                          style={{ ...inputStyle, borderColor: erro && !form.numero.trim() ? "#f87171" : "var(--border)" }}
+                          autoComplete="off" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
-                          Complemento
+                          Complemento <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(opcional)</span>
                         </p>
                         <input value={form.complemento} onChange={e => set("complemento", e.target.value)}
                           placeholder="APTO, CASA, BLOCO..."
@@ -957,7 +962,7 @@ function WizardCliente({
             </motion.div>
 
           ) : (
-            /* ── Step 7: Revisão ── */
+            /* ── Step 10: Revisão ── */
             <motion.div key="revisao" custom={dir}
               variants={variants} initial="enter" animate="center" exit="exit"
               transition={{ duration: 0.22, ease: "easeInOut" }}
