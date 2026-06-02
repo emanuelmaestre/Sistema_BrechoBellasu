@@ -99,9 +99,12 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
         total: venda.total,
       })
 
-      // 2. Converte para base64
+      // 2. Converte para base64 (loop seguro para PDFs grandes)
       const arrayBuffer = await pdfBlob.arrayBuffer()
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+      const uint8 = new Uint8Array(arrayBuffer)
+      let binary = ""
+      for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
+      const base64 = btoa(binary)
 
       // 3. Envia para o servidor — que faz upload no Storage e dispara Z-API
       await apiPost(`/vendas/${id}/recibo`, { pdfBase64: base64 })
