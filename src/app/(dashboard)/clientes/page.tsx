@@ -7,7 +7,7 @@ import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
-  Package, RefreshCw, Truck, ChevronDown,
+  Package, RefreshCw, Truck, ChevronDown, Eye,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -1210,6 +1210,13 @@ export default function ClientesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button onClick={() => abrirDrawer(c)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        style={{ background: "rgba(99,102,241,0.1)", color: "var(--accent)", border: "1px solid rgba(99,102,241,0.2)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.2)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.1)" }}>
+                        <Eye size={12} /> Ver
+                      </button>
+                      <button onClick={() => abrirEdicao(c)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
