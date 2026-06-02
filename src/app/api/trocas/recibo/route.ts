@@ -6,17 +6,17 @@ import { enviarDocumento } from "@/lib/zapi"
 export const dynamic = "force-dynamic"
 
 // POST /api/trocas/recibo
-// Body: { trocaId: number, pdfBase64: string }
+// Body: { trocaId: number, pdfBase64: string, reenviar?: boolean }
 export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { trocaId, pdfBase64 } = await req.json()
+  const { trocaId, pdfBase64, reenviar } = await req.json()
   if (!pdfBase64 || !trocaId) return NextResponse.json({ erro: "Dados incompletos." }, { status: 400 })
 
   const sb = createServerClient()
 
-  // 1. Busca troca + cliente
+  // 1. Busca troca + status de notificação
   const { data: troca, error } = await sb
     .from("trocas")
     .select("*, clientes(nome, celular)")
@@ -25,10 +25,18 @@ export async function POST(req: NextRequest) {
 
   if (error || !troca) return NextResponse.json({ erro: "Troca não encontrada." }, { status: 404 })
 
+  // 2. Bloqueia reenvio se já enviado (regras 11 e 12)
+  if (reenviar && troca.notificacao_status === "enviado") {
+    return NextResponse.json({ erro: "Recibo já foi enviado com sucesso. Não é necessário reenviar." }, { status: 409 })
+  }
+
   const cliente = troca.clientes as { nome: string; celular: string } | null
   if (!cliente?.celular) return NextResponse.json({ erro: "Cliente sem celular cadastrado." }, { status: 400 })
 
-  // 2. Upload temporário no Storage
+  // 3. Marca como PENDENTE antes de enviar
+  await sb.from("trocas").update({ notificacao_status: "pendente" }).eq("id", trocaId)
+
+  // 4. Upload temporário no Storage
   const fileName = `recibo-troca-${trocaId}-${Date.now()}.pdf`
   const pdfBuffer = Buffer.from(pdfBase64, "base64")
 
@@ -36,13 +44,19 @@ export async function POST(req: NextRequest) {
     .from("recibos")
     .upload(fileName, pdfBuffer, { contentType: "application/pdf", upsert: true })
 
-  if (upErr) return NextResponse.json({ erro: `Erro ao salvar PDF: ${upErr.message}` }, { status: 500 })
+  if (upErr) {
+    await sb.from("trocas").update({ notificacao_status: "erro" }).eq("id", trocaId)
+    return NextResponse.json({ erro: `Erro ao salvar PDF: ${upErr.message}` }, { status: 500 })
+  }
 
-  // 3. URL assinada (1 hora)
+  // 5. URL assinada (1 hora)
   const { data: urlData } = await sb.storage.from("recibos").createSignedUrl(fileName, 3600)
-  if (!urlData?.signedUrl) return NextResponse.json({ erro: "Erro ao gerar URL do PDF." }, { status: 500 })
+  if (!urlData?.signedUrl) {
+    await sb.from("trocas").update({ notificacao_status: "erro" }).eq("id", trocaId)
+    return NextResponse.json({ erro: "Erro ao gerar URL do PDF." }, { status: 500 })
+  }
 
-  // 4. Envia via Z-API
+  // 6. Envia via Z-API
   const tipo = troca.tipo === "devolucao" ? "Devolução" : "Troca"
   const caption = `🔄 *${tipo} — Brechó Bellasu*\n#${trocaId} · Olá, ${cliente.nome.split(" ")[0]}! Segue o comprovante 💛`
   const resultado = await enviarDocumento(
@@ -53,12 +67,20 @@ export async function POST(req: NextRequest) {
     "troca_aprovada",
   )
 
-  // 5. Deleta do Storage
+  // 7. Deleta do Storage
   await sb.storage.from("recibos").remove([fileName])
 
+  // 8. Atualiza status
+  await sb.from("trocas")
+    .update({ notificacao_status: resultado.ok ? "enviado" : "erro" })
+    .eq("id", trocaId)
+
   if (!resultado.ok) {
-    return NextResponse.json({ erro: `Falha ao enviar WhatsApp: ${resultado.erro}`, enviado: false }, { status: 502 })
+    return NextResponse.json(
+      { erro: `Falha ao enviar WhatsApp: ${resultado.erro}`, notificacao_status: "erro" },
+      { status: 502 }
+    )
   }
 
-  return NextResponse.json({ ok: true, enviado: true, messageId: resultado.messageId })
+  return NextResponse.json({ ok: true, enviado: true, notificacao_status: "enviado", messageId: resultado.messageId })
 }
