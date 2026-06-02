@@ -1392,8 +1392,19 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [encerrando, setEnc]  = useState(false)
   const [excluindo, setExc]   = useState(false)
   const [editCompra, setEditCompra] = useState<Compra | null>(null)
+  const [excluindoCompraId, setExcluindoCompraId] = useState<number | null>(null)
+  const [confirmExcluirCompra, setConfirmExcluirCompra] = useState<number | null>(null)
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
+
+  async function excluirCompra(compraId: number) {
+    setExcluindoCompraId(compraId)
+    try {
+      await apiDelete(`/live/${liveId}/compras/${compraId}`)
+      qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+    } catch { /* silencia */ }
+    finally { setExcluindoCompraId(null); setConfirmExcluirCompra(null) }
+  }
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["live-detalhe", liveId],
@@ -1568,14 +1579,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 </motion.button>
               )}
 
-              {live.status === "aberta" && (
-                <motion.button onClick={() => setModalAviso(true)}
-                  whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
-                  style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
-                  <Radio size={14}/> Avisar Clientes
-                </motion.button>
-              )}
 
               <motion.button onClick={podeEncerrar ? encerrar : undefined} disabled={encerrando}
                 whileHover={podeEncerrar ? { scale: 1.03, y: -1 } : {}}
@@ -1783,7 +1786,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                         </td>
 
                         <td className="px-4 py-3.5 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-2 flex-wrap">
                             {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
                               <motion.button onClick={() => setEditCompra(c)}
                                 whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
@@ -1805,6 +1808,31 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                                 style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
                                 <CheckCircle2 size={10}/> OK
                               </span>
+                            )}
+                            {/* Botão excluir compra */}
+                            {live.status !== "encerrada" && (
+                              confirmExcluirCompra === c.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => excluirCompra(c.id)}
+                                    disabled={excluindoCompraId === c.id}
+                                    className="text-[10px] font-black uppercase px-2 py-1 rounded-lg disabled:opacity-50"
+                                    style={{ background: "#ef4444", color: "#fff" }}>
+                                    {excluindoCompraId === c.id ? "..." : "Sim"}
+                                  </button>
+                                  <button onClick={() => setConfirmExcluirCompra(null)}
+                                    className="text-[10px] font-black uppercase px-2 py-1 rounded-lg"
+                                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                                    Não
+                                  </button>
+                                </div>
+                              ) : (
+                                <motion.button onClick={() => setConfirmExcluirCompra(c.id)}
+                                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg"
+                                  style={{ background: "rgba(248,113,113,0.08)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                                  <Trash2 size={10}/> EXCLUIR
+                                </motion.button>
+                              )
                             )}
                           </div>
                         </td>

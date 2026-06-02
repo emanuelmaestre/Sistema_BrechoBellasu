@@ -40,7 +40,7 @@ async function checkMelhorEnvio(): Promise<IntegracaoStatus> {
       : "https://melhorenvio.com.br/api/v2"
     const res = await fetch(`${base}/me/balance`, {
       headers: { Authorization: `Bearer ${token}`, "User-Agent": "Brecho Bellasu (bellasu.brecho@gmail.com)", Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return {
       id: "melhorenvio", nome: "Melhor Envio", descricao: "Cálculo de fretes e etiquetas",
@@ -62,7 +62,7 @@ async function checkZApi(): Promise<IntegracaoStatus> {
   try {
     const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/status`, {
       headers: { "Client-Token": clientToken },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     const json = await res.json().catch(() => ({}))
     const connected = json?.connected === true || json?.status === "connected" || json?.value === "CONNECTED"
@@ -85,7 +85,7 @@ async function checkAsaas(): Promise<IntegracaoStatus> {
     const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
     const res = await fetch(`${base}/myAccount`, {
       headers: { access_token: token, Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return {
       id: "asaas", nome: "Asaas", descricao: "Cobranças e pagamentos online",
@@ -105,7 +105,7 @@ async function checkResend(): Promise<IntegracaoStatus> {
   try {
     const res = await fetch("https://api.resend.com/domains", {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return {
       id: "resend", nome: "Resend", descricao: "Envio de e-mails transacionais",
@@ -125,7 +125,7 @@ async function checkOpenAI(): Promise<IntegracaoStatus> {
   try {
     const res = await fetch("https://api.openai.com/v1/models", {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return {
       id: "openai", nome: "OpenAI (IA)", descricao: "Agente inteligente e automações",
@@ -145,7 +145,7 @@ async function checkVercel(): Promise<IntegracaoStatus> {
   try {
     const res = await fetch("https://api.vercel.com/v2/user", {
       headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return {
       id: "vercel", nome: "Vercel", descricao: "Deploy e hospedagem do sistema",
@@ -161,7 +161,7 @@ async function checkVercel(): Promise<IntegracaoStatus> {
 async function checkViaCep(): Promise<IntegracaoStatus> {
   const t0 = Date.now()
   try {
-    const res = await fetch("https://viacep.com.br/ws/01001000/json/", { signal: AbortSignal.timeout(6000) })
+    const res = await fetch("https://viacep.com.br/ws/01001000/json/", { signal: AbortSignal.timeout(4000) })
     return {
       id: "viacep", nome: "ViaCEP", descricao: "Consulta automática de endereços",
       conectado: res.ok, configurado: true,
