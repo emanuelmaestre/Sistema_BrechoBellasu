@@ -94,6 +94,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
   })
   const [enviandoRecibo, setEnviandoRecibo] = useState(false)
   const [reciboMsg, setReciboMsg] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [confirmCancelar, setConfirmCancelar] = useState(false)
 
   async function gerarEEnviarPDF(reenviar = false) {
     if (!venda) return
@@ -227,15 +228,40 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   {reciboMsg.texto}
                 </p>
               )}
-              <button
-                onClick={() => { if (confirm("Cancelar esta venda?")) cancelar.mutate() }}
-                disabled={cancelar.isPending}
-                className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                style={{ border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.08)" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                {cancelar.isPending ? "Cancelando..." : "Cancelar Venda"}
-              </button>
+              {!confirmCancelar ? (
+                <button
+                  onClick={() => setConfirmCancelar(true)}
+                  disabled={cancelar.isPending}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                  style={{ border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.08)" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                  Cancelar Venda
+                </button>
+              ) : (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl p-3 space-y-2"
+                  style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
+                  <p className="text-sm text-center font-medium" style={{ color: "#f87171" }}>
+                    Confirmar cancelamento da venda?
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmCancelar(false)}
+                      className="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                      Não, voltar
+                    </button>
+                    <button onClick={() => { cancelar.mutate(); setConfirmCancelar(false) }}
+                      disabled={cancelar.isPending}
+                      className="flex-1 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-50"
+                      style={{ background: "#ef4444" }}>
+                      {cancelar.isPending ? "Cancelando..." : "Sim, cancelar"}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
             </>
           ) : <p className="text-center py-12" style={{ color: "var(--text-muted)" }}>Venda não encontrada.</p>}
         </div>
