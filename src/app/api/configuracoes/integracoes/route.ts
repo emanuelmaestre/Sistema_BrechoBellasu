@@ -85,7 +85,7 @@ async function checkAsaas(): Promise<IntegracaoStatus> {
     const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
     const res = await fetch(`${base}/myAccount`, {
       headers: { access_token: token, Accept: "application/json" },
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(7000), // Asaas pode ser lento do Vercel (EUA→Brasil)
     })
     return {
       id: "asaas", nome: "Asaas", descricao: "Cobranças e pagamentos online",
