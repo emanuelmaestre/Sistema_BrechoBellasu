@@ -44,27 +44,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const nome = cliente.nome?.split(" ")[0]
 
-  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
-
-  // ── Mensagens que deixam claro os 2 casos: novidades E lives ──
-  const variacoesNovidades = [
-    `Oi ${nome}! 👗✨\n\nPosso te enviar pelo WhatsApp:\n• 🛍️ *Novidades e promoções* do brechó\n• 🎥 *Avisos de lives* com peças novas\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
-    `Olá ${nome}! 🌸\n\nGostaria de te manter por dentro do Brechó Bellasu:\n• 👗 *Novidades e ofertas exclusivas*\n• 📱 *Avisos quando abrirmos lives*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💕`,
-    `Oi ${nome}! 🎀\n\nPosso te enviar mensagens sobre:\n• ✨ *Promoções e peças novas*\n• 🎬 *Avisos das nossas lives*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🛍️`,
-    `Olá ${nome}! 💛\n\nQuer ficar por dentro de tudo do Brechó Bellasu?\n• 👠 *Novidades e promoções especiais*\n• 🎥 *Avisos das nossas lives ao vivo*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🌺`,
-    `Oi ${nome}! 🌟\n\nPosso te enviar pelo WhatsApp:\n• 🛍️ *Promoções e peças selecionadas*\n• 📲 *Avisos quando tivermos lives*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
-  ]
-
-  // Lives: mesma mensagem completa, só muda o gancho inicial
-  const variacoesLives = [
-    `Oi ${nome}! 🎥✨\n\nPosso te enviar pelo WhatsApp:\n• 📲 *Avisos das nossas lives* com peças novas\n• 🛍️ *Novidades e promoções* do brechó\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
-    `Olá ${nome}! 📱🌸\n\nQuer receber nossos avisos por aqui?\n• 🎬 *Avisos quando abrirmos uma live*\n• 👗 *Novidades e ofertas especiais*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💕`,
-    `Oi ${nome}! 🌟\n\nPosso te chamar nas nossas lives e te enviar:\n• 🎥 *Avisos de lives com peças selecionadas*\n• ✨ *Promoções e novidades do brechó*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🛍️`,
-    `Olá ${nome}! 🎀💫\n\nQuer ficar sabendo de tudo em primeira mão?\n• 📲 *Avisos das nossas lives ao vivo*\n• 👠 *Novidades e promoções exclusivas*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
-    `Oi ${nome}! 🌺\n\nPosso te enviar pelo WhatsApp:\n• 🎬 *Avisos quando abrirmos lives*\n• 🛍️ *Promoções e peças novas do brechó*\n\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
-  ]
-
-  const mensagem = tipo === "novidades" ? pick(variacoesNovidades) : pick(variacoesLives)
+  const mensagem =
+    `Oi ${nome}! 👋\n\n` +
+    `O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:\n\n` +
+    `• 🛍️ Novidades, promoções e ofertas exclusivas\n` +
+    `• 🎥 Avisos das nossas lives com peças selecionadas\n\n` +
+    `Você pode cancelar quando quiser, é só nos avisar.\n\n` +
+    `Responda:\n` +
+    `✅ *SIM* — Autorizo\n` +
+    `❌ *NÃO* — Não autorizo`
 
   const tipoLog = tipo === "novidades" ? "consentimento_novidades" as const : "consentimento_lives" as const
 
