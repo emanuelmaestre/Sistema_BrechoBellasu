@@ -42,9 +42,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ erro: "Cliente sem celular cadastrado." }, { status: 400 })
   }
 
-  const mensagem = tipo === "novidades"
-    ? `Oi ${cliente.nome?.split(" ")[0]}! Posso te enviar novidades do Brechó Bellasu pelo WhatsApp? Responda *SIM* para aceitar ou *NÃO* para recusar.`
-    : `Oi ${cliente.nome?.split(" ")[0]}! Posso te avisar quando abrirmos uma live com peças novas? Responda *SIM* para aceitar ou *NÃO* para recusar.`
+  const nome = cliente.nome?.split(" ")[0]
+
+  // Variações de mensagem para não parecer robô
+  const variacoesNovidades = [
+    `Oi ${nome}! 👗✨ Posso te enviar novidades e promoções do Brechó Bellasu pelo WhatsApp?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
+    `Olá ${nome}! 🛍️💫 Gostaria de receber nossas novidades e ofertas especiais por aqui?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🌸`,
+    `Oi ${nome}! 👠🌟 Quer ser a primeira a saber das peças novas do Brechó Bellasu?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💕`,
+    `Olá ${nome}! 🎀✨ Posso te mandar novidades e promoções exclusivas do brechó?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
+    `Oi ${nome}! 🌺👒 Quer receber nossas novidades em primeira mão pelo WhatsApp?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🛍️`,
+  ]
+
+  const variacoesLives = [
+    `Oi ${nome}! 🎥✨ Posso te avisar quando abrirmos uma live com peças novas?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
+    `Olá ${nome}! 📱🌟 Quer receber aviso quando tivermos uma live no Brechó Bellasu?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🎀`,
+    `Oi ${nome}! 🎬💫 Posso te chamar nas nossas lives com peças selecionadas?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💕`,
+    `Olá ${nome}! 🛍️✨ Quer saber quando abrirmos uma live com novidades do brechó?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 🌸`,
+    `Oi ${nome}! 🎥🌺 Posso te avisar das nossas próximas lives pelo WhatsApp?\nResponda *SIM* para aceitar ou *NÃO* para recusar. 💛`,
+  ]
+
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)]
+
+  const mensagem = tipo === "novidades" ? pick(variacoesNovidades) : pick(variacoesLives)
 
   const tipoLog = tipo === "novidades" ? "consentimento_novidades" as const : "consentimento_lives" as const
 
