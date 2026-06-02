@@ -5,36 +5,31 @@ import { enviarDocumento } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
-// POST /api/vendas/[id]/recibo
-// Body: { pdfBase64: string } — PDF gerado no browser
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// POST /api/trocas/recibo
+// Body: { trocaId: number, pdfBase64: string }
+export async function POST(req: NextRequest) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
-  const { id } = await params
-  const vendaId = parseInt(id)
+  const { trocaId, pdfBase64 } = await req.json()
+  if (!pdfBase64 || !trocaId) return NextResponse.json({ erro: "Dados incompletos." }, { status: 400 })
+
   const sb = createServerClient()
 
-  const body = await req.json()
-  const { pdfBase64 } = body
-
-  if (!pdfBase64) return NextResponse.json({ erro: "PDF não enviado." }, { status: 400 })
-
-  // 1. Busca dados da venda
-  const { data: venda, error: errVenda } = await sb
-    .from("v_vendas")
-    .select("*")
-    .eq("id", vendaId)
+  // 1. Busca troca + cliente
+  const { data: troca, error } = await sb
+    .from("trocas")
+    .select("*, clientes(nome, celular)")
+    .eq("id", trocaId)
     .single()
-  if (errVenda || !venda) return NextResponse.json({ erro: "Venda não encontrada." }, { status: 404 })
 
-  // 2. Busca celular do cliente
-  if (!venda.cliente_id) return NextResponse.json({ erro: "Venda sem cliente vinculado." }, { status: 400 })
-  const { data: cliente } = await sb.from("clientes").select("nome, celular").eq("id", venda.cliente_id).single()
+  if (error || !troca) return NextResponse.json({ erro: "Troca não encontrada." }, { status: 404 })
+
+  const cliente = troca.clientes as { nome: string; celular: string } | null
   if (!cliente?.celular) return NextResponse.json({ erro: "Cliente sem celular cadastrado." }, { status: 400 })
 
-  // 3. Upload do PDF para Supabase Storage (temporário)
-  const fileName = `recibo-venda-${vendaId}-${Date.now()}.pdf`
+  // 2. Upload temporário no Storage
+  const fileName = `recibo-troca-${trocaId}-${Date.now()}.pdf`
   const pdfBuffer = Buffer.from(pdfBase64, "base64")
 
   const { error: upErr } = await sb.storage
@@ -43,21 +38,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (upErr) return NextResponse.json({ erro: `Erro ao salvar PDF: ${upErr.message}` }, { status: 500 })
 
-  // 4. Gera URL pública temporária (1 hora)
+  // 3. URL assinada (1 hora)
   const { data: urlData } = await sb.storage.from("recibos").createSignedUrl(fileName, 3600)
   if (!urlData?.signedUrl) return NextResponse.json({ erro: "Erro ao gerar URL do PDF." }, { status: 500 })
 
-  // 5. Envia via Z-API como documento
-  const caption = `✅ *Recibo — Brechó Bellasu*\nVenda #${vendaId} · Olá, ${cliente.nome.split(" ")[0]}! Segue seu recibo 💛`
+  // 4. Envia via Z-API
+  const tipo = troca.tipo === "devolucao" ? "Devolução" : "Troca"
+  const caption = `🔄 *${tipo} — Brechó Bellasu*\n#${trocaId} · Olá, ${cliente.nome.split(" ")[0]}! Segue o comprovante 💛`
   const resultado = await enviarDocumento(
     cliente.celular,
     urlData.signedUrl,
-    `Recibo-Bellasu-${vendaId}.pdf`,
+    `Recibo-${tipo}-Bellasu-${trocaId}.pdf`,
     caption,
-    "recibo_venda",
+    "troca_aprovada",
   )
 
-  // 6. Deleta o arquivo do Storage após envio
+  // 5. Deleta do Storage
   await sb.storage.from("recibos").remove([fileName])
 
   if (!resultado.ok) {

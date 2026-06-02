@@ -13,6 +13,7 @@ import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import type { Cliente, Produto } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
+import { gerarReciboPDF } from "@/lib/recibo-pdf"
 
 // ─── Tipos ────────────────────────────────────────────────
 interface VendaListItem {
@@ -77,10 +78,34 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
   const [reciboMsg, setReciboMsg] = useState<{ ok: boolean; texto: string } | null>(null)
 
   async function enviarRecibo() {
+    if (!venda) return
     setEnviandoRecibo(true); setReciboMsg(null)
     try {
-      await apiPost(`/vendas/${id}/recibo`, {})
-      setReciboMsg({ ok: true, texto: "Recibo enviado por WhatsApp!" })
+      // 1. Gera o PDF no browser
+      const pdfBlob = await gerarReciboPDF({
+        numero: venda.numero,
+        tipo: "Venda",
+        data: `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`,
+        cliente_nome: venda.cliente_nome ?? "Avulso",
+        cliente_celular: "",
+        itens: venda.itens.map(it => ({
+          nome: it.nome_produto,
+          qtd: it.quantidade,
+          preco_unit: it.preco_unitario,
+          subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
+        })),
+        forma_pagamento: venda.forma_pagamento ?? "PIX",
+        desconto: venda.desconto ?? 0,
+        total: venda.total,
+      })
+
+      // 2. Converte para base64
+      const arrayBuffer = await pdfBlob.arrayBuffer()
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+
+      // 3. Envia para o servidor — que faz upload no Storage e dispara Z-API
+      await apiPost(`/vendas/${id}/recibo`, { pdfBase64: base64 })
+      setReciboMsg({ ok: true, texto: "✅ Recibo enviado por WhatsApp!" })
     } catch (e: unknown) {
       setReciboMsg({ ok: false, texto: (e as Error).message || "Erro ao enviar recibo." })
     } finally { setEnviandoRecibo(false) }
