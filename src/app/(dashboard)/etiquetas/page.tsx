@@ -948,26 +948,14 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                     {servicoSel && servicos.length > 0 && (
                       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="shrink-0 px-4 pt-3 pb-4 flex gap-3"
+                        className="shrink-0 px-4 pt-3 pb-4"
                         style={{ borderTop: "1px solid var(--border)" }}>
-                        <button onClick={() => gerar(false)} disabled={gerando || gerindoPix}
-                          className="flex-1 py-4 rounded-2xl text-base font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                          <ShoppingBag size={16} /> Carrinho
-                        </button>
-                        <button onClick={gerarPix} disabled={gerando || gerindoPix}
-                          className="flex-1 py-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-                          style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
-                          {gerindoPix ? <><Loader2 size={16} className="animate-spin" />Gerando PIX...</> : <><QrCode size={16} />Pagar com PIX</>}
-                        </button>
-                        <button onClick={() => gerar(true)} disabled={gerando || gerindoPix}
-                          className="flex-[2] py-4 rounded-2xl text-base font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
+                        <button onClick={() => gerar(true)} disabled={gerando}
+                          className="w-full py-4 rounded-2xl text-base font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
                           style={{ background: COR }}>
                           {gerando
                             ? <><Loader2 size={16} className="animate-spin" />Gerando...</>
-                            : <><Tag size={16} />Usar Saldo ME</>}
+                            : <><Tag size={16} />Gerar Etiqueta</>}
                         </button>
                       </motion.div>
                     )}
@@ -1375,7 +1363,6 @@ export default function EtiquetasPage() {
   const [showWizard, setWizard]       = useState(false)
   const [rastreioId, setRastreio]     = useState<string | null>(null)
   const [page, setPage]               = useState(1)
-  const [showSaldo, setShowSaldo]     = useState(false)
 
   const { data: status } = useQuery<StatusInfo>({
     queryKey: ["etiquetas-status"],
@@ -1479,34 +1466,20 @@ export default function EtiquetasPage() {
               </>
             )}
           </div>
-          {/* Saldo chip */}
+          {/* Saldo chip — apenas exibe, sem modal */}
           {status.configurado && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-              onClick={() => setShowSaldo(true)}
-              whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-              className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm transition-all"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", color: COR }}>
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm"
+              style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.25)", color: COR }}>
               <Wallet2 size={14} />
               {saldoData !== undefined
                 ? <span>{fmtBRL(saldoData.saldo ?? 0)}</span>
                 : <Loader2 size={13} className="animate-spin" />}
-              <span className="text-[10px] font-bold uppercase tracking-wide opacity-70">+ saldo</span>
-            </motion.button>
+              <span className="text-[10px] font-bold uppercase tracking-wide opacity-60">saldo</span>
+            </div>
           )}
         </motion.div>
       )}
 
-      {/* Modal Saldo */}
-      <AnimatePresence>
-        {showSaldo && (
-          <ModalSaldo
-            saldo={saldoData?.saldo ?? null}
-            onClose={() => setShowSaldo(false)}
-            onRecargaFeita={() => { refetchSaldo(); setTimeout(refetchSaldo, 5000) }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Lista de etiquetas */}
       <div className="rounded-3xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
