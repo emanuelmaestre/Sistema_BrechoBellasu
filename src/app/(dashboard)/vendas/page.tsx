@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
   Loader2, RefreshCw, Pencil, ShoppingCart, Trash2, MessageCircle,
+  CheckCircle2, XCircle, Clock, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -20,6 +21,7 @@ interface VendaListItem {
   id: number; numero: number; data_venda: string; hora_venda: string
   cliente_nome: string | null; vendedor_nome: string | null
   qtd_itens: number; total: number; forma_pagamento: string
+  notificacao_status?: "pendente" | "enviado" | "erro" | null
 }
 interface VendaDetalhe extends VendaListItem {
   desconto: number; observacoes: string | null
@@ -56,6 +58,22 @@ const variants = {
   exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
 }
 
+// ─── Badge notificação ────────────────────────────────────
+function BadgeNotif({ status }: { status?: "pendente" | "enviado" | "erro" | null }) {
+  if (!status) return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">—</span>
+  const map = {
+    pendente: { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Clock size={9} />,         label: "Pendente" },
+    enviado:  { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={9} />,  label: "Enviado"  },
+    erro:     { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={9} />,       label: "Erro"     },
+  }
+  const { bg, text, icon, label } = map[status]
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${bg} ${text}`}>
+      {icon} {label}
+    </span>
+  )
+}
+
 // ─── Modal Detalhe ────────────────────────────────────────
 function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
   const qc = useQueryClient()
@@ -66,7 +84,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  const { data: venda, isLoading } = useQuery<VendaDetalhe>({
+  const { data: venda, isLoading, refetch } = useQuery<VendaDetalhe>({
     queryKey: ["venda", id],
     queryFn: () => apiGet(`/vendas/${id}`),
   })
@@ -77,11 +95,10 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
   const [enviandoRecibo, setEnviandoRecibo] = useState(false)
   const [reciboMsg, setReciboMsg] = useState<{ ok: boolean; texto: string } | null>(null)
 
-  async function enviarRecibo() {
+  async function gerarEEnviarPDF(reenviar = false) {
     if (!venda) return
     setEnviandoRecibo(true); setReciboMsg(null)
     try {
-      // 1. Gera o PDF no browser
       const pdfBlob = await gerarReciboPDF({
         numero: venda.numero,
         tipo: "Venda",
@@ -98,19 +115,20 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
         desconto: venda.desconto ?? 0,
         total: venda.total,
       })
-
-      // 2. Converte para base64 (loop seguro para PDFs grandes)
       const arrayBuffer = await pdfBlob.arrayBuffer()
       const uint8 = new Uint8Array(arrayBuffer)
       let binary = ""
       for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
       const base64 = btoa(binary)
 
-      // 3. Envia para o servidor — que faz upload no Storage e dispara Z-API
-      await apiPost(`/vendas/${id}/recibo`, { pdfBase64: base64 })
+      await apiPost(`/vendas/${id}/recibo`, { pdfBase64: base64, reenviar })
       setReciboMsg({ ok: true, texto: "✅ Recibo enviado por WhatsApp!" })
+      qc.invalidateQueries({ queryKey: ["vendas"] })
+      refetch()
     } catch (e: unknown) {
       setReciboMsg({ ok: false, texto: (e as Error).message || "Erro ao enviar recibo." })
+      qc.invalidateQueries({ queryKey: ["vendas"] })
+      refetch()
     } finally { setEnviandoRecibo(false) }
   }
 
@@ -176,17 +194,34 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   📝 {venda.observacoes}
                 </p>
               )}
-              {/* Botão Enviar Recibo WhatsApp */}
-              <button
-                onClick={enviarRecibo}
-                disabled={enviandoRecibo}
-                className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
-                style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.18)" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.1)" }}>
-                {enviandoRecibo ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
-                {enviandoRecibo ? "Enviando..." : "Enviar Recibo via WhatsApp"}
-              </button>
+              {/* Status de notificação */}
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>Recibo WhatsApp:</span>
+                <BadgeNotif status={(venda as VendaDetalhe & { notificacao_status?: "pendente"|"enviado"|"erro"|null }).notificacao_status} />
+              </div>
+
+              {/* Botão envio manual — bloqueado se já ENVIADO */}
+              {(venda as VendaDetalhe & { notificacao_status?: string }).notificacao_status !== "enviado" ? (
+                <button
+                  onClick={() => gerarEEnviarPDF(true)}
+                  disabled={enviandoRecibo}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
+                  style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.18)" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.1)" }}>
+                  {enviandoRecibo ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  {enviandoRecibo ? "Enviando..." : (
+                    (venda as VendaDetalhe & { notificacao_status?: string }).notificacao_status === "erro"
+                      ? "Reenviar Recibo via WhatsApp"
+                      : "Enviar Recibo via WhatsApp"
+                  )}
+                </button>
+              ) : (
+                <div className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 mb-2"
+                  style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
+                  <CheckCircle2 size={15} /> Recibo já enviado
+                </div>
+              )}
               {reciboMsg && (
                 <p className={cn("text-xs text-center mb-2 px-2 py-1.5 rounded-lg", reciboMsg.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
                   {reciboMsg.texto}
@@ -356,13 +391,44 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
-      await apiPost("/vendas", {
+      const res = await apiPost<{ id: number; total: number }>("/vendas", {
         cliente_id: clienteId,
         forma_pagamento: forma,
         desconto_geral: descontoVal,
         observacoes: obs || null,
         itens,
       })
+
+      // ── Envio automático do recibo (regra 2) ──────────────
+      // Só tenta se tem cliente selecionado (para ter celular)
+      if (res.id && clienteId) {
+        try {
+          const pdfBlob = await gerarReciboPDF({
+            numero: res.id,
+            tipo: "Venda",
+            data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+            cliente_nome: clienteNome || "Cliente",
+            cliente_celular: "",
+            itens: itens.map(it => ({
+              nome: it.nome_produto,
+              qtd: it.quantidade,
+              preco_unit: it.preco_unitario,
+              subtotal: it.preco_unitario * it.quantidade,
+            })),
+            forma_pagamento: forma,
+            desconto: descontoVal,
+            total: totalFinal,
+          })
+          const arrayBuffer = await pdfBlob.arrayBuffer()
+          const uint8 = new Uint8Array(arrayBuffer)
+          let binary = ""
+          for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
+          const base64 = btoa(binary)
+          // Não bloqueia — dispara em background, não espera
+          apiPost(`/vendas/${res.id}/recibo`, { pdfBase64: base64, reenviar: false }).catch(() => {})
+        } catch { /* Falha no PDF não cancela a venda */ }
+      }
+
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e: unknown) {
@@ -909,7 +975,7 @@ export default function VendasPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["", "#", "Data", "Hora", "Itens", "Cliente", "Pagamento", "Total"].map(h => (
+                {["", "#", "Data", "Hora", "Itens", "Cliente", "Pagamento", "Total", "Notificações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
@@ -917,11 +983,11 @@ export default function VendasPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center">
+                <tr><td colSpan={9} className="px-4 py-12 text-center">
                   <Loader2 size={24} className="animate-spin mx-auto" style={{ color: "var(--accent)" }} />
                 </td></tr>
               ) : vendas.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
                   Nenhuma venda encontrada para este período.
                 </td></tr>
               ) : vendas.map((v, idx) => (
@@ -944,6 +1010,7 @@ export default function VendasPage() {
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-secondary)" }}>{v.cliente_nome ?? "—"}</td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-muted)" }}>{v.forma_pagamento ?? "—"}</td>
                   <td className="px-4 py-3 text-sm font-semibold" style={{ color: COR }}>{fmtBRL(v.total)}</td>
+                  <td className="px-4 py-3"><BadgeNotif status={v.notificacao_status} /></td>
                 </tr>
               ))}
             </tbody>

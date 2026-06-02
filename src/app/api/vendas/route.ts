@@ -65,12 +65,13 @@ export async function GET(req: NextRequest) {
       cliente_id:     v.cliente_id,
       cliente_nome:   v.cliente_nome,
       vendedor_nome:  v.vendedor_nome,
-      qtd_itens:      qtdMap[v.id as number] ?? 0,
-      total:          v.total,
-      forma_pagamento: v.forma_pagamento,
-      status:         v.status,
-      desconto:       v.desconto,
-      observacoes:    v.obs,
+      qtd_itens:           qtdMap[v.id as number] ?? 0,
+      total:               v.total,
+      forma_pagamento:     v.forma_pagamento,
+      status:              v.status,
+      desconto:            v.desconto,
+      observacoes:         v.obs,
+      notificacao_status:  v.notificacao_status ?? null,
     }
   })
 
@@ -122,6 +123,12 @@ export async function POST(req: NextRequest) {
       const { status, body: erro } = apresentarErro(resultado.error)
       return NextResponse.json(erro, { status })
     }
+
+    // Marca como PENDENTE imediatamente — o frontend gerará e enviará o PDF
+    const sb2 = createServerClient()
+    await sb2.from("vendas")
+      .update({ notificacao_status: "pendente" })
+      .eq("id", resultado.value.id)
 
     return NextResponse.json(
       { id: resultado.value.id, total: resultado.value.total },
