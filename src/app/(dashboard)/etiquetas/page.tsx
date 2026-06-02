@@ -1288,44 +1288,14 @@ function ModalEnderecoEntrega({ cliente, onUsarEntrega, onInformarOutro, onCance
 }
 
 // ── Modal Saldo / Recarga ─────────────────────────────────
-interface RecargaResult {
-  id: string; value: string; status: string
-  payment?: { type: string; qr_code?: string; qr_code_base64?: string; copy_paste?: string; expires_at?: string }
-}
-
 function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; onClose: () => void; onRecargaFeita: () => void }) {
-  const [valor, setValor] = useState("20")
-  const [etapa, setEtapa] = useState<"form" | "qr">("form")
-  const [loading, setLoading] = useState(false)
-  const [erro, setErro] = useState("")
-  const [recarga, setRecarga] = useState<RecargaResult | null>(null)
-  const [copiado, setCopiado] = useState(false)
-
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     document.addEventListener("keydown", fn)
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  async function gerarPix() {
-    const v = parseFloat(valor.replace(",", "."))
-    if (!v || v < 1) { setErro("Valor mínimo R$ 1,00"); return }
-    setLoading(true); setErro("")
-    try {
-      const res = await apiPost<RecargaResult>("/etiquetas/saldo", { valor: v })
-      setRecarga(res)
-      setEtapa("qr")
-      onRecargaFeita()
-    } catch (e: unknown) {
-      setErro((e as Error).message || "Erro ao gerar recarga. Tente pelo Painel ME.")
-    } finally { setLoading(false) }
-  }
-
-  function copiar(txt: string) {
-    navigator.clipboard.writeText(txt).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2500) })
-  }
-
-  const valores = ["10", "20", "50", "100"]
+  void onRecargaFeita // mantido na assinatura para compatibilidade
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -1357,15 +1327,12 @@ function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; 
         </div>
 
         {/* Saldo atual */}
-        <motion.div layout className="px-6 pt-5">
+        <div className="px-6 pt-5">
           <div className="rounded-2xl px-5 py-4 flex items-center gap-4" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(99,102,241,0.7)" }}>Saldo atual</p>
               {saldo !== null ? (
-                <motion.p key={saldo} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                  className="text-3xl font-black" style={{ color: COR }}>
-                  {fmtBRL(saldo)}
-                </motion.p>
+                <p className="text-3xl font-black" style={{ color: COR }}>{fmtBRL(saldo)}</p>
               ) : (
                 <div className="w-24 h-8 rounded-lg animate-pulse" style={{ background: "rgba(99,102,241,0.15)" }} />
               )}
@@ -1376,118 +1343,27 @@ function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; 
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <AnimatePresence mode="wait">
-          {etapa === "form" ? (
-            <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-              className="px-6 pb-6 pt-4">
+        <div className="px-6 pb-6 pt-4 space-y-3">
+          {/* Aviso */}
+          <div className="rounded-2xl p-4" style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)" }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Como adicionar saldo?</p>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              A recarga da carteira é feita diretamente no painel do Melhor Envio. Clique no botão abaixo e o saldo atualiza automaticamente após o pagamento.
+            </p>
+          </div>
 
-              <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Adicionar saldo via PIX</p>
+          <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
+            className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg"
+            style={{ background: COR, textDecoration: "none" }}>
+            <ExternalLink size={16} /> Adicionar saldo no Melhor Envio
+          </a>
 
-              {/* Valores rápidos */}
-              <div className="flex gap-2 mb-3">
-                {valores.map(v => (
-                  <button key={v} onClick={() => setValor(v)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
-                    style={{
-                      background: valor === v ? COR : "var(--bg-surface)",
-                      color: valor === v ? "#fff" : "var(--text-secondary)",
-                      border: `1px solid ${valor === v ? COR : "var(--border)"}`,
-                    }}>
-                    R$ {v}
-                  </button>
-                ))}
-              </div>
-
-              {/* Valor personalizado */}
-              <div className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Ou informe um valor</p>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: "var(--text-muted)" }}>R$</span>
-                  <input type="text" inputMode="decimal" value={valor}
-                    onChange={e => setValor(e.target.value.replace(/[^0-9.,]/g, ""))}
-                    onKeyDown={e => { if (e.key === "Enter") gerarPix() }}
-                    className="w-full pl-12 pr-4 py-3.5 text-lg font-bold rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                    style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
-                </div>
-              </div>
-
-              {erro && (
-                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)" }}>
-                  <AlertCircle size={13} style={{ color: "#f87171" }} />
-                  <p className="text-xs" style={{ color: "#f87171" }}>{erro}</p>
-                </div>
-              )}
-
-              <button onClick={gerarPix} disabled={loading}
-                className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg mb-3 disabled:opacity-50"
-                style={{ background: "#10b981" }}>
-                {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando PIX...</> : <><QrCode size={16} /> Gerar QR Code PIX</>}
-              </button>
-
-              <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
-                className="w-full py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2"
-                style={{ color: "var(--text-muted)", textDecoration: "none" }}>
-                <ExternalLink size={12} /> Ou recarregue pelo Painel ME
-              </a>
-            </motion.div>
-          ) : recarga ? (
-            <motion.div key="qr" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-              className="px-6 pb-6 pt-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Check size={16} className="text-emerald-400" />
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>PIX gerado — R$ {parseFloat(recarga.value).toFixed(2).replace(".", ",")}</p>
-              </div>
-
-              {/* QR Code */}
-              {recarga.payment?.qr_code_base64 ? (
-                <div className="flex flex-col items-center gap-3 mb-4">
-                  <div className="p-3 rounded-2xl bg-white">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`data:image/png;base64,${recarga.payment.qr_code_base64}`} alt="QR Code PIX" className="w-48 h-48" />
-                  </div>
-                  {recarga.payment.expires_at && (
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Válido até {new Date(recarga.payment.expires_at).toLocaleString("pt-BR")}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="py-6 flex flex-col items-center gap-2 mb-4">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.1)" }}>
-                    <QrCode size={32} style={{ color: COR }} />
-                  </div>
-                  <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>QR Code disponível no Painel ME</p>
-                </div>
-              )}
-
-              {/* Copia e Cola */}
-              {recarga.payment?.copy_paste && (
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Copia e Cola PIX</p>
-                  <div className="flex gap-2">
-                    <div className="flex-1 px-3 py-2 rounded-xl text-xs font-mono overflow-hidden text-ellipsis whitespace-nowrap"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                      {recarga.payment.copy_paste}
-                    </div>
-                    <button onClick={() => copiar(recarga.payment!.copy_paste!)}
-                      className="px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1"
-                      style={{ background: copiado ? "#10b981" : COR, color: "#fff" }}>
-                      {copiado ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <button onClick={() => { setEtapa("form"); setRecarga(null) }}
-                className="w-full py-2.5 rounded-xl text-sm font-medium"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                ← Gerar outro valor
-              </button>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+          <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
+            Após o pagamento, feche e reabra esta janela para atualizar o saldo.
+          </p>
+        </div>
       </motion.div>
     </div>
   )
