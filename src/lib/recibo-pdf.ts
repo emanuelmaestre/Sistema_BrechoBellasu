@@ -203,13 +203,15 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   let px = colL
   formas.forEach(f => {
     const sel = data.forma_pagamento?.toLowerCase() === f.toLowerCase()
-    doc.setFillColor(sel ? ...BROWN : ...WHITE)
+    const [fr, fg, fb] = sel ? BROWN : WHITE
+    doc.setFillColor(fr, fg, fb)
     doc.setDrawColor(...GOLD_D)
     doc.setLineWidth(0.4)
     doc.roundedRect(px, y, secW / 4 - 2, 8, 1, 1, sel ? "FD" : "D")
     doc.setFont("helvetica", sel ? "bold" : "normal")
     doc.setFontSize(7.5)
-    doc.setTextColor(sel ? ...WHITE : ...MUTED)
+    const [tr, tg, tb] = sel ? WHITE : MUTED
+    doc.setTextColor(tr, tg, tb)
     doc.text(f, px + (secW / 4 - 2) / 2, y + 5, { align: "center" })
     px += secW / 4
   })
