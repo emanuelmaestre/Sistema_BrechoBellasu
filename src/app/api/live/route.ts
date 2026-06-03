@@ -1,13 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const status = searchParams.get("status")
   const page   = parseInt(searchParams.get("page") ?? "1")
@@ -22,12 +19,9 @@ export async function GET(req: NextRequest) {
   const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, to)
   if (error) return NextResponse.json({ erro: "Não foi possível carregar as lives. Tente novamente." }, { status: 500 })
   return NextResponse.json({ data, total: count })
-}
+})
 
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   const { titulo, data_live, plataforma, tipo, observacoes, link_live } = await req.json()
   if (!data_live) return NextResponse.json({ erro: "Data da live é obrigatória." }, { status: 400 })
 
@@ -52,4 +46,4 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ erro: "Não foi possível criar a live. Verifique os dados e tente novamente.", detalhe: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
-}
+})

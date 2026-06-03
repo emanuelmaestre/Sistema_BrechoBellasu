@@ -1,14 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { meUsuario } from "@/lib/melhorenvio"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/etiquetas/status — verifica se o token está configurado e válido
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   const token = process.env.MELHOR_ENVIO_TOKEN
   const env   = process.env.MELHOR_ENVIO_ENV ?? "sandbox"
 
@@ -28,4 +25,4 @@ export async function GET(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Não foi possível verificar a conexão com o Melhor Envio. Verifique o token."
     return NextResponse.json({ configurado: false, env, mensagem: msg }, { status: 200 })
   }
-}
+})

@@ -1,15 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
 // POST /api/etiquetas/notificar — Envia link de rastreio via WhatsApp
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   const { etiqueta_id } = await req.json()
   const sb = createServerClient()
 
@@ -48,4 +45,4 @@ export async function POST(req: NextRequest) {
     ok: resultado.ok,
     erro: resultado.erro,
   })
-}
+})

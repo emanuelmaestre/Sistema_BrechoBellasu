@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import {
   listarEtiquetas,
   adicionarCarrinho,
@@ -15,10 +15,7 @@ import { enviarTexto } from "@/lib/zapi"
 export const dynamic = "force-dynamic"
 
 // GET /api/etiquetas — lista etiquetas do Melhor Envio
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (req: NextRequest) => {
   try {
     const { searchParams } = req.nextUrl
     const page     = parseInt(searchParams.get("page") ?? "1")
@@ -31,13 +28,10 @@ export async function GET(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Não foi possível carregar as etiquetas. Tente novamente."
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})
 
 // POST /api/etiquetas — cria etiqueta (carrinho → checkout → gerar)
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   try {
     const body = await req.json()
     const { service_id, venda_id, destinatario, checkout_auto } = body
@@ -144,4 +138,4 @@ export async function POST(req: NextRequest) {
     console.error("[POST /api/etiquetas]", msg)
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})

@@ -1,15 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/financeiro/alertas — Retorna contas a vencer nos próximos 3 dias
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
@@ -46,13 +43,10 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(alertas)
-}
+})
 
 // POST /api/financeiro/alertas — Dispara alertas via WhatsApp manualmente
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (_req: NextRequest) => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
@@ -99,4 +93,4 @@ export async function POST(req: NextRequest) {
   const enviados = resultados.filter(r => r.status === "fulfilled" && (r.value as { ok: boolean }).ok).length
 
   return NextResponse.json({ ok: true, enviados, total: numeros.length })
-}
+})

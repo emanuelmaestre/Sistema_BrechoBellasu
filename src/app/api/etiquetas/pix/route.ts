@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import {
   adicionarCarrinho,
   checkoutComPix,
@@ -15,10 +15,7 @@ export const dynamic = "force-dynamic"
 // POST /api/etiquetas/pix
 // Fase 1: add ao carrinho + checkout PIX → retorna QR Code
 // Fase 2: após pagamento confirmado, gerar etiqueta (order_id já existe)
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const { service_id, venda_id, destinatario, order_id } = body
@@ -112,4 +109,4 @@ export async function POST(req: NextRequest) {
     console.error("[POST /api/etiquetas/pix]", msg)
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})

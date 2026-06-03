@@ -1,14 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import bcrypt from "bcryptjs"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   const sb = createServerClient()
   const { data, error } = await sb
     .from("usuarios")
@@ -17,11 +14,10 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ erro: "Não foi possível carregar os usuários. Tente novamente." }, { status: 500 })
   return NextResponse.json({ data: data ?? [] })
-}
+})
 
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth || auth.perfil !== "admin") return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
+export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
+  if (auth.perfil !== "admin") return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
 
   const body = await req.json()
   const { nome, email, senha, perfil = "operador" } = body
@@ -45,4 +41,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(data, { status: 201 })
-}
+})

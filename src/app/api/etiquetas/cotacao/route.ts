@@ -1,13 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { calcularFrete, cepOrigem, defaultVolume } from "@/lib/melhorenvio"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const { cep_destino, altura, largura, comprimento, peso } = body
@@ -37,4 +34,4 @@ export async function POST(req: NextRequest) {
     console.error("[POST /api/etiquetas/cotacao]", msg)
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})

@@ -1,16 +1,13 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
 // POST /api/etiquetas/sync-status — Sincroniza status das etiquetas e notifica mudanças
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (_req: NextRequest) => {
   const sb = createServerClient()
 
   // Busca etiquetas ativas (não entregues e não canceladas)
@@ -87,4 +84,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, atualizadas, notificadas })
-}
+})

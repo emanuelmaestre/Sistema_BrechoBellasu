@@ -1,14 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { meSaldo, meRecarregar } from "@/lib/melhorenvio"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/etiquetas/saldo
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   try {
     const data = await meSaldo()
     const saldo = parseFloat(data.balance ?? data.wallet_balance ?? "0")
@@ -17,13 +14,10 @@ export async function GET(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Não foi possível consultar o saldo. Verifique sua integração com o Melhor Envio."
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})
 
 // POST /api/etiquetas/saldo — cria recarga PIX
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   const { valor } = await req.json()
   if (!valor || isNaN(Number(valor)) || Number(valor) < 1) {
     return NextResponse.json({ erro: "Valor inválido. Mínimo R$ 1,00." }, { status: 400 })
@@ -36,4 +30,4 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Não foi possível gerar a recarga. Tente pelo Painel Melhor Envio."
     return NextResponse.json({ erro: msg }, { status: 500 })
   }
-}
+})

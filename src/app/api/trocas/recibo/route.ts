@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { enviarDocumento } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
 // POST /api/trocas/recibo
 // Body: { trocaId: number, pdfBase64: string, reenviar?: boolean }
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   const { trocaId, pdfBase64, reenviar } = await req.json()
   if (!pdfBase64 || !trocaId) return NextResponse.json({ erro: "Dados incompletos." }, { status: 400 })
 
@@ -83,4 +80,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, enviado: true, notificacao_status: "enviado", messageId: resultado.messageId })
-}
+})

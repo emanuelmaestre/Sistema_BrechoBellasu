@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -173,10 +173,7 @@ async function checkViaCep(): Promise<IntegracaoStatus> {
   }
 }
 
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   const results = await Promise.allSettled([
     checkSupabase(),
     checkMelhorEnvio(),
@@ -192,4 +189,4 @@ export async function GET(req: NextRequest) {
   )
 
   return NextResponse.json({ integracoes, verificado_em: new Date().toISOString() })
-}
+})

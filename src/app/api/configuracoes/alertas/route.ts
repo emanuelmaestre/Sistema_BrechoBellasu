@@ -1,14 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/configuracoes/alertas — Retorna configurações de alertas
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (_req: NextRequest) => {
   const sb = createServerClient()
   const { data } = await sb.from("config_alertas").select("chave, valor")
 
@@ -16,13 +13,10 @@ export async function GET(req: NextRequest) {
   for (const row of data ?? []) config[row.chave] = row.valor
 
   return NextResponse.json(config)
-}
+})
 
 // PUT /api/configuracoes/alertas — Atualiza configurações de alertas
-export async function PUT(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const PUT = withAuth(async (req: NextRequest) => {
   const body = await req.json() as Record<string, string>
   const sb = createServerClient()
 
@@ -32,4 +26,4 @@ export async function PUT(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true })
-}
+})
