@@ -40,6 +40,11 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       return NextResponse.json({ erro: "Selecione um serviço de envio e informe o CEP do destinatário." }, { status: 400 })
     }
 
+    // ME exige CPF/CNPJ do destinatário para emitir a etiqueta
+    if (!String(destinatario?.cpf ?? "").replace(/\D/g, "")) {
+      return NextResponse.json({ erro: "Informe o CPF/CNPJ do destinatário para gerar a etiqueta." }, { status: 400 })
+    }
+
     // Busca config empresa para remetente
     const sb = createServerClient()
     const { data: config } = await sb.from("configuracoes").select("valor").eq("chave", "empresa").maybeSingle()
@@ -72,6 +77,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
         name:       destinatario.nome       ?? "Cliente",
         phone:      destinatario.telefone   ?? "",
         email:      destinatario.email      ?? "",
+        document:   String(destinatario.cpf ?? "").replace(/\D/g, ""), // ME exige CPF/CNPJ do destinatário
         address:    destinatario.logradouro ?? "",
         number:     destinatario.numero     ?? "S/N",
         district:   destinatario.bairro     ?? "",

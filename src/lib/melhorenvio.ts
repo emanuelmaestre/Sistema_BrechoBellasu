@@ -57,6 +57,7 @@ export interface MEEndereco {
   name:        string
   phone?:      string
   email?:      string
+  document?:   string       // CPF do destinatário (pessoa física)
   company_document?: string
   address:     string
   complement?: string
@@ -131,19 +132,18 @@ export function calcularFrete(payload: MECotacaoPayload) {
   return meRequest<MECotacaoResult[]>("POST", "/me/shipment/calculate", payload)
 }
 
-/** Adiciona etiqueta ao carrinho (ME API aceita objeto único ou array) */
+/** Adiciona etiqueta ao carrinho.
+ *  O endpoint /me/cart da ME espera um OBJETO ÚNICO (não array). Enviar
+ *  array faz a API ignorar o campo `products` e retornar 422 ("declaração
+ *  de conteúdo"). Por isso enviamos um item por vez como objeto. */
 export async function adicionarCarrinho(items: MECartItem[]): Promise<MEOrder[]> {
-  // Tenta primeiro como array; se falhar com 422, tenta item único
-  try {
-    const result = await meRequest<MEOrder[] | MEOrder>("POST", "/me/cart", items)
-    return Array.isArray(result) ? result : [result]
-  } catch (err) {
-    if ((err as Error).message.includes("422") && items.length === 1) {
-      const single = await meRequest<MEOrder | MEOrder[]>("POST", "/me/cart", items[0])
-      return Array.isArray(single) ? single : [single]
-    }
-    throw err
+  const orders: MEOrder[] = []
+  for (const item of items) {
+    const result = await meRequest<MEOrder | MEOrder[]>("POST", "/me/cart", item)
+    if (Array.isArray(result)) orders.push(...result)
+    else orders.push(result)
   }
+  return orders
 }
 
 /** Faz checkout das etiquetas no carrinho (desconta saldo da carteira) */
