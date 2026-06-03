@@ -1,6 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { CriarVendaUseCase } from "@/application/vendas/criar-venda.use-case"
 import { VendaRepositorySupabase } from "@/infrastructure/repositories/venda.repository"
 import { EstoqueReaderSupabase } from "@/infrastructure/repositories/estoque.reader"
@@ -8,10 +8,7 @@ import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const de          = searchParams.get("de")
   const ate         = searchParams.get("ate")
@@ -76,7 +73,7 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({ data: mapped, total: count })
-}
+})
 
 // Controller fino: apenas traduz HTTP ⇄ use case. A regra de negócio
 // (cálculo de total, validação de estoque, atomicidade) vive no domínio,
@@ -91,10 +88,7 @@ type ItemInput = {
   preco_unit?: number
 }
 
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   try {
     const body = await req.json()
     const itens = (body.itens as ItemInput[] | undefined) ?? []
@@ -139,4 +133,4 @@ export async function POST(req: NextRequest) {
     if (status === 500) console.error("[POST /api/vendas]", err)
     return NextResponse.json(erro, { status })
   }
-}
+})
