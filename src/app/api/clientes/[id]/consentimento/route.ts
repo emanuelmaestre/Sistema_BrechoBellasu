@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
 import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
 
@@ -9,10 +9,7 @@ export const dynamic = "force-dynamic"
 // PATCH /api/clientes/[id]/consentimento
 // Body: { tipo: "novidades"|"lives", ativar: boolean }
 //       ou { reenviar: true } para reenvio manual da mensagem de consentimento
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const PATCH = withAuth(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params
   const clienteId = parseInt(id)
   const body = await req.json() as {
@@ -82,4 +79,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ ok: true, status: "aguardando", messageId: resultado.messageId })
-}
+})

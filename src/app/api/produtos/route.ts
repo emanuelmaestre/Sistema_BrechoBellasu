@@ -1,16 +1,13 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { CriarProdutoUseCase } from "@/application/produtos/criar-produto.use-case"
 import { ProdutoRepositorySupabase } from "@/infrastructure/repositories/produto.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const GET = withAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const busca       = searchParams.get("busca")
   const categoria_id = searchParams.get("categoria_id")
@@ -29,12 +26,9 @@ export async function GET(req: NextRequest) {
 
   const rows = (data ?? []).map(p => ({ ...p, categoria_nome: (p.categorias as {nome:string}|null)?.nome ?? null, categorias: undefined }))
   return NextResponse.json({ data: rows, total: count })
-}
+})
 
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const sb = createServerClient()
@@ -63,4 +57,4 @@ export async function POST(req: NextRequest) {
     if (status === 500) console.error("[POST /api/produtos]", err)
     return NextResponse.json(erro, { status })
   }
-}
+})
