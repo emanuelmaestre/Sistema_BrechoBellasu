@@ -120,6 +120,8 @@ export interface MEOrder {
   tracking:        string | null
   label_url?:      string
   created_at:      string
+  paid_at?:        string | null
+  generated_at?:   string | null
   to:              MEEndereco
   price?:          string
   delivery_range?: { min: number; max: number }
@@ -161,9 +163,20 @@ export function checkoutComPix(orders: string[]) {
   }>("POST", "/me/shipment/checkout", { orders, payment_method: "pix" })
 }
 
-/** Gera as etiquetas (após checkout) */
+/** Gera as etiquetas (após checkout). O formato de resposta da ME varia,
+ *  por isso não dependemos dele — usamos buscarPedido() como fonte de verdade. */
 export function gerarEtiquetas(orders: string[]) {
-  return meRequest<{ orders: MEOrder[] }>("POST", "/me/shipment/generate", { orders })
+  return meRequest<unknown>("POST", "/me/shipment/generate", { orders })
+}
+
+/** Busca um pedido específico (fonte de verdade após checkout/generate) */
+export function buscarPedido(orderId: string) {
+  return meRequest<MEOrder>("GET", `/me/orders/${orderId}`)
+}
+
+/** Retorna a URL do PDF da etiqueta já paga/gerada (não gera cobrança) */
+export function imprimirEtiqueta(orders: string[]) {
+  return meRequest<{ url: string }>("POST", "/me/shipment/print", { mode: "public", orders })
 }
 
 /** Lista etiquetas/pedidos do usuário */

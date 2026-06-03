@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
-import { checkoutEtiquetas, gerarEtiquetas, cancelarEtiqueta } from "@/lib/melhorenvio"
+import { checkoutEtiquetas, gerarEtiquetas, buscarPedido, imprimirEtiqueta, cancelarEtiqueta } from "@/lib/melhorenvio"
 
 export const dynamic = "force-dynamic"
 
@@ -12,9 +12,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
 
   try {
-    const { purchased } = await checkoutEtiquetas([id])
-    const gerado = await gerarEtiquetas([id])
-    return NextResponse.json({ purchased: purchased[0], label: gerado.orders?.[0] })
+    try {
+      await checkoutEtiquetas([id])
+    } catch (e) {
+      const m = (e as Error).message.toLowerCase()
+      if (m.includes("saldo") || m.includes("insufficient") || m.includes("balance")) {
+        return NextResponse.json({ erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta." }, { status: 402 })
+      }
+      throw e
+    }
+    await gerarEtiquetas([id]).catch(() => {})
+    const pedido = await buscarPedido(id).catch(() => null)
+    const printed = await imprimirEtiqueta([id]).catch(() => null)
+    return NextResponse.json({ ...pedido, label_url: printed?.url ?? pedido?.label_url ?? null })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro ao gerar etiqueta."
     return NextResponse.json({ erro: msg }, { status: 500 })

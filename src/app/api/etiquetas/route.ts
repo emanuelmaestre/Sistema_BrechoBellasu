@@ -5,6 +5,8 @@ import {
   adicionarCarrinho,
   checkoutEtiquetas,
   gerarEtiquetas,
+  buscarPedido,
+  imprimirEtiqueta,
   cepOrigem,
   defaultVolume,
   type MECartItem,
@@ -112,12 +114,32 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     if (!pedido?.id) throw new Error("Falha ao adicionar ao carrinho.")
 
     let result = pedido
+    let label_url: string | undefined
 
-    // 2. Checkout (opcional via flag checkout_auto=true)
+    // 2. Checkout (opcional via flag checkout_auto=true) — paga com saldo da carteira
     if (checkout_auto) {
-      const { purchased } = await checkoutEtiquetas([pedido.id])
-      const gerado = await gerarEtiquetas([pedido.id])
-      result = gerado.orders?.[0] ?? purchased[0] ?? pedido
+      try {
+        await checkoutEtiquetas([pedido.id])
+      } catch (e) {
+        const m = (e as Error).message.toLowerCase()
+        if (m.includes("saldo") || m.includes("insufficient") || m.includes("balance")) {
+          return NextResponse.json({
+            erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
+          }, { status: 402 })
+        }
+        throw e
+      }
+
+      // Gera a etiqueta (dispara a geração; não dependemos do formato de retorno)
+      await gerarEtiquetas([pedido.id]).catch(() => {})
+
+      // Fonte de verdade: busca o pedido atualizado (status/tracking corretos)
+      const atualizado = await buscarPedido(pedido.id).catch(() => null)
+      if (atualizado) result = atualizado
+
+      // URL do PDF da etiqueta (não gera cobrança — pedido já está pago)
+      const printed = await imprimirEtiqueta([pedido.id]).catch(() => null)
+      if (printed?.url) label_url = printed.url
     }
 
     // 3. Persiste referência no Supabase (se tabela existir)
@@ -130,7 +152,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
         service_id:   parseInt(service_id),
         status:       result.status ?? "pending",
         cep_destino:  String(destinatario.postal_code).replace(/\D/g, ""),
-        label_url:    result.label_url ?? null,
+        label_url:    label_url ?? result.label_url ?? null,
         criado_por:   auth.id,
       })
     } catch { /* tabela pode não existir ainda — não é bloqueante */ }
@@ -144,7 +166,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       enviarTexto(destinatario.telefone, mensagem, "rastreio_envio").catch(() => {})
     }
 
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json({ ...result, label_url: label_url ?? result.label_url ?? null }, { status: 201 })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Não foi possível gerar a etiqueta. Verifique os dados e tente novamente."
     console.error("[POST /api/etiquetas]", msg)

@@ -4,6 +4,8 @@ import {
   adicionarCarrinho,
   checkoutComPix,
   gerarEtiquetas,
+  buscarPedido,
+  imprimirEtiqueta,
   cepOrigem,
   defaultVolume,
   type MECartItem,
@@ -22,10 +24,11 @@ export const POST = withAuth(async (req: NextRequest) => {
 
     // ── Fase 2: já tem order_id pago → gerar etiqueta ────────────
     if (order_id) {
-      const gerado = await gerarEtiquetas([order_id])
-      const result = gerado.orders?.[0]
+      await gerarEtiquetas([order_id]).catch(() => {})
+      const result = await buscarPedido(order_id).catch(() => null)
       if (!result) return NextResponse.json({ erro: "Não foi possível gerar a etiqueta. Verifique o pagamento." }, { status: 400 })
-      return NextResponse.json({ gerado: true, id: result.id, label_url: result.label_url, tracking: result.tracking })
+      const printed = await imprimirEtiqueta([order_id]).catch(() => null)
+      return NextResponse.json({ gerado: true, id: result.id, label_url: printed?.url ?? result.label_url ?? null, tracking: result.tracking })
     }
 
     // ── Fase 1: criar pedido + checkout PIX ───────────────────────
