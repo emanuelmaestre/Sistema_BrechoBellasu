@@ -327,7 +327,7 @@ export default function LoginPage() {
                         ? "border-red-500/60 bg-red-500/5"
                         : "border-white/10 bg-white/5 focus:border-violet-500/70 focus:bg-white/8"
                     )}
-                    style={{ border: "1px solid", color: "#fff" }}
+                    style={{ border: "1px solid", color: "#fff", textTransform: "none" }}
                   />
                   <button
                     type="button"
