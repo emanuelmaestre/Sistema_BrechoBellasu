@@ -82,14 +82,12 @@ export const POST = withAuth(async (req: NextRequest) => {
         non_commercial: true,
         platform: "Brechó Bellasu",
       },
-      // ME exige products quando insurance_value > 0 (declaração de conteúdo)
-      ...(parseFloat(destinatario.valor_declarado ?? "0") > 0 ? {
-        products: [{
-          name: "Produtos de vestuário usados",
-          quantity: 1,
-          unitary_value: parseFloat(destinatario.valor_declarado ?? "0"),
-        }],
-      } : {}),
+      // ME sempre exige products (declaração de conteúdo obrigatória)
+      products: [{
+        name: "Produtos de vestuário usados",
+        quantity: 1,
+        unitary_value: parseFloat(destinatario.valor_declarado ?? "0") || 1,
+      }],
       tag: venda_id ? `Venda #${venda_id}` : undefined,
     }
 
