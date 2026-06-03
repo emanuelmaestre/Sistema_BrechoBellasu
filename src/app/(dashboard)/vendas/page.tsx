@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
   Loader2, RefreshCw, Pencil, ShoppingCart, Trash2, MessageCircle,
-  CheckCircle2, XCircle, Clock, Send,
+  CheckCircle2, XCircle, Clock, Send, FileText,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -195,6 +195,34 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   📝 {venda.observacoes}
                 </p>
               )}
+              {/* Pré-visualizar Recibo */}
+              <button
+                onClick={async () => {
+                  const blob = await gerarReciboPDF({
+                    numero: venda.numero,
+                    tipo: "Venda",
+                    data: `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`,
+                    cliente_nome: venda.cliente_nome ?? "Avulso",
+                    cliente_celular: "",
+                    itens: venda.itens.map(it => ({
+                      nome: it.nome_produto,
+                      qtd: it.quantidade,
+                      preco_unit: it.preco_unitario,
+                      subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
+                    })),
+                    forma_pagamento: venda.forma_pagamento ?? "PIX",
+                    desconto: venda.desconto ?? 0,
+                    total: venda.total,
+                  })
+                  const url = URL.createObjectURL(blob)
+                  window.open(url, "_blank")
+                }}
+                className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-2"
+                style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#818cf8" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.18)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.1)" }}>
+                <FileText size={16} /> Pré-visualizar Recibo (PDF)
+              </button>
               {/* Status de notificação */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs" style={{ color: "var(--text-muted)" }}>Recibo WhatsApp:</span>
