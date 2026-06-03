@@ -11,17 +11,9 @@ const BASE_URL =
 
 export const apiClient = axios.create({ baseURL: BASE_URL })
 
-// Injeta token automaticamente
-apiClient.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    try {
-      const auth = JSON.parse(localStorage.getItem("brecho-auth") || "{}")
-      const token = auth?.state?.token
-      if (token) config.headers.Authorization = `Bearer ${token}`
-    } catch {}
-  }
-  return config
-})
+// Auth via HttpOnly cookie — enviado automaticamente pelo browser.
+// Não há token no localStorage; o interceptor de request não precisa fazer nada.
+apiClient.interceptors.request.use((config) => config)
 
 // Extrai mensagem real do erro da API em vez do genérico Axios
 apiClient.interceptors.response.use(
@@ -31,8 +23,6 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 401 && typeof window !== "undefined") {
       const { pathname } = window.location
       if (!pathname.startsWith("/login")) {
-        // Limpa estado persistido e força re-login
-        try { localStorage.removeItem("brecho-auth") } catch {}
         window.location.href = "/login"
       }
     }
