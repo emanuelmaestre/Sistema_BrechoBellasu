@@ -109,6 +109,42 @@ type HistoricoData = {
   total_compras: number
 }
 
+// Informações visuais para cada estado de notificacao_status
+function notificacaoStatusInfo(status?: string | null) {
+  switch (status) {
+    case "enviado":
+      return {
+        emoji: "📤", bgCard: "rgba(251,191,36,0.06)", border: "rgba(251,191,36,0.2)",
+        badge: "bg-amber-500/15 text-amber-400",
+        label: "ENVIADO", descricao: "Mensagem enviada. Aguardando resposta do cliente.",
+      }
+    case "autorizado":
+      return {
+        emoji: "✅", bgCard: "rgba(16,185,129,0.06)", border: "rgba(16,185,129,0.2)",
+        badge: "bg-emerald-500/15 text-emerald-400",
+        label: "AUTORIZADO", descricao: "Cliente autorizou o recebimento de mensagens pelo WhatsApp.",
+      }
+    case "recusado":
+      return {
+        emoji: "❌", bgCard: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)",
+        badge: "bg-red-500/15 text-red-400",
+        label: "RECUSADO", descricao: "Cliente não autorizou o recebimento de mensagens.",
+      }
+    case "erro":
+      return {
+        emoji: "⚠️", bgCard: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)",
+        badge: "bg-red-500/15 text-red-400",
+        label: "ERRO", descricao: "Falha no envio ou no processamento da mensagem.",
+      }
+    default:
+      return {
+        emoji: "📭", bgCard: "rgba(100,116,139,0.06)", border: "rgba(100,116,139,0.15)",
+        badge: "bg-slate-500/15 text-slate-400",
+        label: "NÃO ENVIADO", descricao: "A mensagem de consentimento ainda não foi enviada.",
+      }
+  }
+}
+
 function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean }[] }) {
   const [tab, setTab] = useState<DrawerTab>("dados")
   const qc = useQueryClient()
@@ -124,27 +160,23 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   const [consentErro, setConsentErro] = useState("")
   const [consentOk, setConsentOk] = useState("")
 
-  async function solicitarAmbos() {
-    if (!cliente.celular) { setConsentErro("Cadastre o celular da cliente antes de solicitar."); return }
-    setToggling(true); setConsentErro(""); setConsentOk("")
-    try {
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "novidades", ativar: true })
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "lives", ativar: true })
+  // Polling automático enquanto aguardando resposta (status "enviado")
+  useEffect(() => {
+    if (tab !== "notificacoes" || cliente.notificacao_status !== "enviado") return
+    const interval = setInterval(() => {
       qc.invalidateQueries({ queryKey: ["clientes"] })
-      setConsentOk("Mensagens enviadas! Aguardando resposta da cliente.")
-    } catch (e) {
-      setConsentErro((e as Error).message || "Não foi possível enviar a mensagem de consentimento. Verifique a conexão com o WhatsApp.")
-    } finally { setToggling(false) }
-  }
+    }, 15_000)
+    return () => clearInterval(interval)
+  }, [tab, cliente.notificacao_status, qc])
 
-  async function desativarAmbos() {
+  async function revogarConsentimento() {
     setToggling(true); setConsentErro(""); setConsentOk("")
     try {
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "novidades", ativar: false })
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { tipo: "lives", ativar: false })
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { acao: "revogar" })
       qc.invalidateQueries({ queryKey: ["clientes"] })
+      setConsentOk("Consentimento revogado com sucesso.")
     } catch (e) {
-      setConsentErro((e as Error).message || "Erro ao desativar.")
+      setConsentErro((e as Error).message || "Erro ao revogar consentimento.")
     } finally { setToggling(false) }
   }
 
@@ -154,13 +186,6 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
     { key: "etiquetas", label: "Etiquetas", icon: <Tag size={13} /> },
     { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
   ]
-
-  const statusCor = (s: string) => {
-    if (s === "confirmado") return { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "✅ Confirmado" }
-    if (s === "aguardando") return { bg: "bg-amber-500/15", text: "text-amber-400", label: "⏳ Aguardando" }
-    if (s === "recusado") return { bg: "bg-red-500/15", text: "text-red-400", label: "❌ Recusado" }
-    return { bg: "bg-slate-500/15", text: "text-slate-400", label: "Não solicitado" }
-  }
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
@@ -274,61 +299,67 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 
         {/* Aba Notificações */}
         {tab === "notificacoes" && (() => {
-          const stNov = statusCor((cliente.aceita_novidades as string | undefined) ?? "nao")
-          const stLiv = statusCor((cliente.aceita_lives as string | undefined) ?? "nao")
-          const algumAtivo = ["confirmado","aguardando"].includes(cliente.aceita_novidades ?? "") ||
-                             ["confirmado","aguardando"].includes(cliente.aceita_lives ?? "")
+          const st = notificacaoStatusInfo(cliente.notificacao_status)
+          const podeRevogar = cliente.notificacao_status === "autorizado"
+          const aguardando = cliente.notificacao_status === "enviado"
           return (
             <>
               <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                Controle de consentimento LGPD para disparos de WhatsApp.
+                Consentimento LGPD para disparos de WhatsApp. Use o botão <strong style={{ color: "var(--text-primary)" }}>Notificar</strong> no topo para enviar a mensagem.
               </p>
 
-              {/* Card unificado */}
-              <div className="rounded-xl px-4 py-4 space-y-3"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+              {/* Card de status principal */}
+              <div className="rounded-2xl px-5 py-5 flex flex-col items-center gap-3 text-center"
+                style={{ background: st.bgCard, border: `1px solid ${st.border}` }}>
 
-                {/* Novidades */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bell size={13} style={{ color: "var(--text-muted)" }} />
-                    <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Novidades e promoções</span>
+                {/* Emoji grande */}
+                <div className="text-4xl leading-none">{st.emoji}</div>
+
+                {/* Badge de status */}
+                <span className={cn("text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-widest", st.badge)}>
+                  {st.label}
+                </span>
+
+                {/* Descrição */}
+                <p className="text-xs leading-relaxed max-w-[220px]" style={{ color: "var(--text-muted)" }}>
+                  {st.descricao}
+                </p>
+
+                {/* Indicador de polling quando aguardando */}
+                {aguardando && (
+                  <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    <Loader2 size={11} className="animate-spin" />
+                    Verificando resposta automaticamente...
                   </div>
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", stNov.bg, stNov.text)}>{stNov.label}</span>
-                </div>
-
-                <div style={{ height: 1, background: "var(--border)" }} />
-
-                {/* Lives */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bell size={13} style={{ color: "var(--text-muted)" }} />
-                    <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Avisos de lives</span>
-                  </div>
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", stLiv.bg, stLiv.text)}>{stLiv.label}</span>
-                </div>
-
-                {/* Botão único */}
-                <button
-                  onClick={algumAtivo ? desativarAmbos : solicitarAmbos}
-                  disabled={toggling || !cliente.celular}
-                  className="w-full py-2.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 mt-1"
-                  style={{
-                    background: algumAtivo ? "rgba(248,113,113,0.1)" : "rgba(16,185,129,0.1)",
-                    color: algumAtivo ? "#f87171" : "#10b981",
-                    border: `1px solid ${algumAtivo ? "rgba(248,113,113,0.25)" : "rgba(16,185,129,0.25)"}`,
-                  }}>
-                  {toggling ? "Enviando..." : algumAtivo ? "Desativar notificações" : "Solicitar consentimento"}
-                </button>
-
-                {/* Feedback */}
-                {consentOk && <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-emerald-500/10 text-emerald-400">{consentOk}</p>}
-                {consentErro && <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-red-500/10 text-red-400">{consentErro}</p>}
+                )}
               </div>
+
+              {/* Botão revogar — só aparece quando autorizado */}
+              {podeRevogar && (
+                <button
+                  onClick={revogarConsentimento}
+                  disabled={toggling}
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 mt-1"
+                  style={{
+                    background: "rgba(248,113,113,0.08)",
+                    color: "#f87171",
+                    border: "1px solid rgba(248,113,113,0.25)",
+                  }}>
+                  {toggling ? "Revogando..." : "Revogar autorização"}
+                </button>
+              )}
+
+              {/* Feedback */}
+              {consentOk && (
+                <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-emerald-500/10 text-emerald-400">{consentOk}</p>
+              )}
+              {consentErro && (
+                <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-red-500/10 text-red-400">{consentErro}</p>
+              )}
 
               {!cliente.celular && (
                 <p className="text-xs text-center py-2 px-3 rounded-lg bg-amber-500/10 text-amber-400">
-                  ⚠️ Cadastre o celular da cliente antes de solicitar consentimento.
+                  ⚠️ Cadastre o celular do cliente antes de enviar notificação.
                 </p>
               )}
             </>
@@ -738,7 +769,8 @@ function DrawerCliente({
                 <Pencil size={14} /> Editar dados
               </motion.button>
 
-              {cliente.celular && cliente.notificacao_status !== "enviado" && (
+              {/* Botão Notificar — único ponto de envio da mensagem de consentimento */}
+              {cliente.celular && !["enviado", "autorizado"].includes(cliente.notificacao_status ?? "") && (
                 <motion.button onClick={onReenviarNotificacao} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
@@ -748,9 +780,22 @@ function DrawerCliente({
               )}
               {cliente.notificacao_status === "enviado" && (
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
-                  <CheckCircle2 size={13} /> Notificado
+                  style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
+                  <Clock size={13} /> Aguardando
                 </div>
+              )}
+              {cliente.notificacao_status === "autorizado" && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
+                  <CheckCircle2 size={13} /> Autorizado
+                </div>
+              )}
+              {cliente.notificacao_status === "recusado" && (
+                <motion.button onClick={onReenviarNotificacao} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}>
+                  <Send size={13} /> Reenviar
+                </motion.button>
               )}
 
               <motion.button onClick={onToggleStatus} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
@@ -1411,15 +1456,19 @@ function WizardCliente({
 }
 
 // ─── Badge de status de notificação ──────────────────────
-function BadgeNotificacao({ status }: { status?: "pendente" | "enviado" | "erro" | null }) {
-  if (!status) return (
-    <span className="text-xs font-semibold px-2.5 py-1 rounded-full uppercase bg-slate-500/10 text-slate-400">—</span>
-  )
-  const map = {
-    pendente: { bg: "bg-amber-500/10", text: "text-amber-400", icon: <Clock size={10} />,        label: "Pendente" },
-    enviado:  { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={10} />, label: "Enviado"  },
-    erro:     { bg: "bg-red-500/10",   text: "text-red-400",   icon: <XCircle size={10} />,      label: "Erro"     },
+function BadgeNotificacao({ status }: { status?: string | null }) {
+  const map: Record<string, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
+    pendente:   { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Clock size={10} />,        label: "Pendente"    },
+    enviado:    { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Send size={10} />,          label: "Enviado"     },
+    autorizado: { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={10} />,  label: "Autorizado"  },
+    recusado:   { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={10} />,       label: "Recusado"    },
+    erro:       { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={10} />,       label: "Erro"        },
   }
+  if (!status || !map[status]) return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full uppercase bg-slate-500/10 text-slate-400">
+      <BellOff size={10} /> Não enviado
+    </span>
+  )
   const { bg, text, icon, label } = map[status]
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full uppercase ${bg} ${text}`}>
@@ -1443,10 +1492,9 @@ export default function ClientesPage() {
   async function reenviarNotificacao(cliente: Cliente) {
     setReenvioLoading(true); setReenvioMsg(null)
     try {
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { reenviar: true })
-      setReenvioMsg({ ok: true, texto: "✅ Notificação enviada!" })
+      await apiPatch(`/clientes/${cliente.id}/consentimento`, { acao: "enviar" })
+      setReenvioMsg({ ok: true, texto: "✅ Mensagem enviada! Aguardando resposta do cliente." })
       qc.invalidateQueries({ queryKey: ["clientes"] })
-      // Atualiza o drawer com o novo status
       setDrawer(prev => prev ? { ...prev, notificacao_status: "enviado" } : prev)
     } catch (e: unknown) {
       const msg = (e as Error).message || "Erro ao enviar notificação."

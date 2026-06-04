@@ -36,7 +36,7 @@ export interface Cliente {
   entrega_estado?: string | null
   aceita_novidades?: string
   aceita_lives?: string
-  notificacao_status?: "pendente" | "enviado" | "erro" | null
+  notificacao_status?: "pendente" | "enviado" | "autorizado" | "recusado" | "erro" | null
   ativo: boolean
   created_at?: string
 }

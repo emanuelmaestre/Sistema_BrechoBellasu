@@ -32,6 +32,7 @@ type LogTipo =
   | "status_envio"
   | "consentimento_novidades"
   | "consentimento_lives"
+  | "consentimento"
   | "teste_conexao"
   | "outro"
 

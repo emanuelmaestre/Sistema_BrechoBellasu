@@ -26,16 +26,16 @@ interface ZAPIMessageEvent {
   isNewsletter?: boolean
 }
 
-// Palavras que significam SIM
-const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode"])
-const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare"])
+// Palavras que significam SIM ou NÃO
+const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo"])
+const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare", "não autorizo", "nao autorizo"])
 
-// ─── POST — Ao receber (mensagem recebida do cliente) ─────
+// ─── POST — mensagem recebida do cliente ──────────────────
 export async function POST(req: NextRequest) {
   try {
     const body: ZAPIMessageEvent = await req.json()
 
-    // Ignora mensagens enviadas por nós mesmos
+    // Ignora mensagens enviadas por nós
     if (body.fromMe) return NextResponse.json({ ok: true })
 
     // Ignora eventos sem texto
@@ -43,11 +43,10 @@ export async function POST(req: NextRequest) {
     if (!texto) return NextResponse.json({ ok: true })
 
     const telefone = (body.phone || "").replace(/\D/g, "")
-    const nome     = body.senderName || body.chatName || "Cliente"
 
     const sb = createServerClient()
 
-    // Registra a mensagem recebida no log
+    // Registra no log (silencia se tabela não existir)
     try {
       await sb.from("whatsapp_log").insert({
         telefone,
@@ -55,45 +54,44 @@ export async function POST(req: NextRequest) {
         mensagem: texto.substring(0, 1000),
         status: "enviado",
       })
-    } catch { /* silencia se tabela não existe */ }
+    } catch { /* silencia */ }
 
-    // ── Processa resposta de consentimento LGPD ──
+    // ── Processa resposta de consentimento LGPD ──────────
     const textoLower = texto.toLowerCase().trim()
     const ehSim = SIM_WORDS.has(textoLower)
     const ehNao = NAO_WORDS.has(textoLower)
 
-    if (ehSim || ehNao) {
-      // Busca cliente pelo telefone (com e sem 55)
-      const telVariantes = [telefone]
-      if (telefone.startsWith("55")) telVariantes.push(telefone.substring(2))
-      else telVariantes.push(`55${telefone}`)
+    if (!ehSim && !ehNao) return NextResponse.json({ ok: true })
 
-      // Tenta encontrar cliente com consentimento aguardando
-      for (const tel of telVariantes) {
-        const { data: cliente } = await sb
-          .from("clientes")
-          .select("id, aceita_novidades, aceita_lives")
-          .eq("celular", tel)
-          .single()
+    // Tenta encontrar o cliente pelo telefone (com e sem DDI 55)
+    const telVariantes = [telefone]
+    if (telefone.startsWith("55")) telVariantes.push(telefone.substring(2))
+    else telVariantes.push(`55${telefone}`)
 
-        if (!cliente) continue
+    for (const tel of telVariantes) {
+      const { data: cliente } = await sb
+        .from("clientes")
+        .select("id, notificacao_status, aceita_novidades, aceita_lives")
+        .eq("celular", tel)
+        .single()
 
-        const updates: Record<string, string> = {}
+      if (!cliente) continue
 
-        // Processa consentimento de novidades (prioridade: novidades primeiro)
-        if (cliente.aceita_novidades === "aguardando") {
-          updates.aceita_novidades = ehSim ? "confirmado" : "recusado"
-        }
-        // Processa consentimento de lives
-        if (cliente.aceita_lives === "aguardando") {
-          updates.aceita_lives = ehSim ? "confirmado" : "recusado"
-        }
+      // Só processa se estava aguardando resposta
+      if (cliente.notificacao_status !== "enviado") break
 
-        if (Object.keys(updates).length > 0) {
-          await sb.from("clientes").update(updates).eq("id", cliente.id)
-        }
-        break
-      }
+      const novoStatus = ehSim ? "autorizado" : "recusado"
+      const novoConsent = ehSim ? "confirmado" : "recusado"
+
+      await sb.from("clientes")
+        .update({
+          notificacao_status: novoStatus,
+          aceita_novidades: novoConsent,
+          aceita_lives: novoConsent,
+        })
+        .eq("id", cliente.id)
+
+      break
     }
 
     return NextResponse.json({ ok: true })
@@ -102,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ─── PUT — Ao enviar (confirmação de entrega/envio) ───────
+// ─── PUT — confirmação de entrega/envio ───────────────────
 export async function PUT(req: NextRequest) {
   try {
     const body: ZAPIMessageEvent = await req.json()
