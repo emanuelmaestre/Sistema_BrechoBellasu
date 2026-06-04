@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { IClienteRepository } from "@/application/clientes/ports"
 import type { Cliente } from "@/domain/clientes/cliente"
+import { ConflitoError } from "@/domain/shared/domain-error"
 
 export class ClienteRepositorySupabase implements IClienteRepository {
   constructor(private readonly sb: SupabaseClient) {}
@@ -57,6 +58,24 @@ export class ClienteRepositorySupabase implements IClienteRepository {
     return err.code === "42703" || (!!err.message && err.message.includes("column") && err.message.includes("does not exist"))
   }
 
+  /**
+   * Traduz erros do Postgres em erros de domínio quando aplicável.
+   * Em especial, a violação do índice único de celular (23505 /
+   * uq_clientes_celular) vira um ConflitoError com mensagem amigável,
+   * em vez de vazar como "Erro interno" (500).
+   */
+  private traduzErro(err: { code?: string; message?: string }): Error {
+    const msg = err.message ?? ""
+    const ehCelularDuplicado =
+      err.code === "23505" || msg.includes("duplicate key")
+    if (ehCelularDuplicado && (msg.includes("uq_clientes_celular") || msg.includes("celular"))) {
+      return new ConflitoError(
+        "Já existe outro cliente cadastrado com este celular (WhatsApp). Verifique se não é um cadastro duplicado.",
+      )
+    }
+    return new Error(msg)
+  }
+
   async criar(cliente: Cliente): Promise<{ id: number }> {
     const r1 = await this.sb
       .from("clientes")
@@ -73,12 +92,12 @@ export class ClienteRepositorySupabase implements IClienteRepository {
       if (this.ehColunaNaoExiste(r2.error)) {
         // Tenta sem apelido/instagram nem entrega
         const r3 = await this.sb.from("clientes").insert(this.toRowBase(cliente)).select("id").single()
-        if (r3.error) throw new Error(r3.error.message)
+        if (r3.error) throw this.traduzErro(r3.error)
         return { id: r3.data.id as number }
       }
-      throw new Error(r2.error.message)
+      throw this.traduzErro(r2.error)
     }
-    throw new Error(r1.error.message)
+    throw this.traduzErro(r1.error)
   }
 
   async atualizar(id: number, cliente: Cliente): Promise<void> {
@@ -96,12 +115,12 @@ export class ClienteRepositorySupabase implements IClienteRepository {
       if (this.ehColunaNaoExiste(r2.error)) {
         // Tenta sem apelido/instagram nem entrega
         const r3 = await this.sb.from("clientes").update(this.toRowBase(cliente)).eq("id", id)
-        if (r3.error) throw new Error(r3.error.message)
+        if (r3.error) throw this.traduzErro(r3.error)
         return
       }
-      throw new Error(r2.error.message)
+      throw this.traduzErro(r2.error)
     }
-    throw new Error(r1.error.message)
+    throw this.traduzErro(r1.error)
   }
 
   async existePorCelular(celular: string): Promise<boolean> {
