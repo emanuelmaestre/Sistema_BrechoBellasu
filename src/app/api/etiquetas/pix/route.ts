@@ -11,16 +11,17 @@ import {
   type MECartItem,
 } from "@/lib/melhorenvio"
 import { createServerClient } from "@/lib/supabase"
+import { montarRegistroEtiqueta } from "@/lib/etiqueta-snapshot"
 
 export const dynamic = "force-dynamic"
 
 // POST /api/etiquetas/pix
 // Fase 1: add ao carrinho + checkout PIX → retorna QR Code
 // Fase 2: após pagamento confirmado, gerar etiqueta (order_id já existe)
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   try {
     const body = await req.json()
-    const { service_id, venda_id, destinatario, order_id } = body
+    const { service_id, venda_id, cliente_id, tipo_etiqueta, destinatario, order_id } = body
 
     // ── Fase 2: já tem order_id pago → gerar etiqueta ────────────
     if (order_id) {
@@ -28,6 +29,29 @@ export const POST = withAuth(async (req: NextRequest) => {
       const result = await buscarPedido(order_id).catch(() => null)
       if (!result) return NextResponse.json({ erro: "Não foi possível gerar a etiqueta. Verifique o pagamento." }, { status: 400 })
       const printed = await imprimirEtiqueta([order_id]).catch(() => null)
+
+      // Persiste registro + snapshot no histórico do cliente (best-effort)
+      if (destinatario && service_id) {
+        try {
+          const sb = createServerClient()
+          await sb.from("etiquetas").insert(montarRegistroEtiqueta({
+            me_order_id:   result.id,
+            me_protocol:   result.protocol,
+            me_tracking:   result.tracking,
+            cliente_id:    cliente_id ? Number(cliente_id) : null,
+            venda_id:      venda_id ?? null,
+            service_id:    parseInt(service_id),
+            status:        result.status ?? "pending",
+            destinatario,
+            tipo_etiqueta: tipo_etiqueta ?? null,
+            label_url:     printed?.url ?? result.label_url ?? null,
+            criado_por:    auth.id,
+          }))
+        } catch (e) {
+          console.error("[POST /api/etiquetas/pix] falha ao salvar histórico:", (e as Error).message)
+        }
+      }
+
       return NextResponse.json({ gerado: true, id: result.id, label_url: printed?.url ?? result.label_url ?? null, tracking: result.tracking })
     }
 

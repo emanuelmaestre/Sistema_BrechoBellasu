@@ -46,11 +46,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .order("created_at", { ascending: false })
 
   // Busca envios do cliente
-  const { data: envios } = await sb
+  const { data: enviosRaw } = await sb
     .from("etiquetas")
-    .select("id, created_at, rastreio, ultimo_status")
+    .select("id, created_at, me_tracking, status")
     .eq("cliente_id", clienteId)
     .order("created_at", { ascending: false })
+
+  const envios = (enviosRaw ?? []).map(e => ({
+    id: e.id,
+    created_at: e.created_at,
+    rastreio: e.me_tracking,
+    ultimo_status: e.status,
+  }))
 
   const resultado = (vendas ?? []).map(v => ({
     ...v,

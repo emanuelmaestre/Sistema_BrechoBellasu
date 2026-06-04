@@ -8,9 +8,11 @@ import {
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
+  Tag, Printer, Copy,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
+import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
 import { fmtData, cn } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
@@ -98,7 +100,7 @@ function Confete({ show }: { show: boolean }) {
 
 // ─── Drawer Resumo do Cliente ─────────────────────────────
 // ─── Conteúdo com Tabs do Drawer ─────────────────────────
-type DrawerTab = "dados" | "historico" | "notificacoes"
+type DrawerTab = "dados" | "historico" | "notificacoes" | "etiquetas"
 type HistoricoData = {
   vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
   trocas: { id: number; tipo: string; status: string; motivo: string; created_at: string }[]
@@ -149,6 +151,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   const TABS: { key: DrawerTab; label: string; icon: React.ReactNode }[] = [
     { key: "dados", label: "Dados", icon: <FileText size={13} /> },
     { key: "historico", label: "Histórico", icon: <ShoppingBag size={13} /> },
+    { key: "etiquetas", label: "Etiquetas", icon: <Tag size={13} /> },
     { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
   ]
 
@@ -319,7 +322,232 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
             </>
           )
         })()}
+
+        {/* Aba Etiquetas */}
+        {tab === "etiquetas" && <EtiquetasTab cliente={cliente} />}
       </div>
+    </div>
+  )
+}
+
+// ─── Aba: Histórico de Etiquetas Emitidas ─────────────────
+type EtiquetaSnapshot = {
+  logradouro?: string; numero?: string; complemento?: string
+  bairro?: string; cidade?: string; estado?: string; cep?: string
+}
+type EtiquetaRow = {
+  id: number
+  me_order_id: string
+  me_protocol: string | null
+  me_tracking: string | null
+  status: string
+  cep_destino: string | null
+  responsavel: string | null
+  nome_cliente_snapshot: string | null
+  endereco_snapshot: EtiquetaSnapshot | null
+  tipo_etiqueta: string | null
+  quantidade_reimpressoes: number
+  data_ultima_reimpressao: string | null
+  created_at: string
+}
+type EtiquetasResp = {
+  data: EtiquetaRow[]
+  total: number
+  resumo: { total_emitidas: number; ultima_emissao: string | null; ultimo_endereco: EtiquetaSnapshot | null }
+}
+
+const ET_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:   { label: "Pendente",  cls: "bg-amber-500/15 text-amber-400" },
+  paid:      { label: "Paga",      cls: "bg-blue-500/15 text-blue-400" },
+  released:  { label: "Liberada",  cls: "bg-blue-500/15 text-blue-400" },
+  generated: { label: "Gerada",    cls: "bg-indigo-500/15 text-indigo-400" },
+  posted:    { label: "Postada",   cls: "bg-violet-500/15 text-violet-400" },
+  delivered: { label: "Entregue",  cls: "bg-emerald-500/15 text-emerald-400" },
+  canceled:  { label: "Cancelada", cls: "bg-red-500/15 text-red-400" },
+}
+
+function enderecoStr(e?: EtiquetaSnapshot | null): string {
+  if (!e) return "—"
+  return [e.logradouro, e.numero, e.bairro, e.cidade && `${e.cidade}/${e.estado ?? ""}`, e.cep]
+    .filter(Boolean).join(", ")
+}
+
+function EtiquetasTab({ cliente }: { cliente: Cliente }) {
+  const [q, setQ] = useState("")
+  const [statusF, setStatusF] = useState("")
+  const [de, setDe] = useState("")
+  const [ate, setAte] = useState("")
+  const [pdfOrderId, setPdfOrderId] = useState<string | null>(null)
+  const [reimprimindo, setReimprimindo] = useState<number | null>(null)
+  const [copiadoId, setCopiadoId] = useState<number | null>(null)
+  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
+
+  const qs = new URLSearchParams()
+  if (q) qs.set("q", q)
+  if (statusF) qs.set("status", statusF)
+  if (de) qs.set("de", de)
+  if (ate) qs.set("ate", ate)
+
+  const { data, isLoading, refetch } = useQuery<EtiquetasResp>({
+    queryKey: ["cliente-etiquetas", cliente.id, q, statusF, de, ate],
+    queryFn: () => apiGet(`/clientes/${cliente.id}/etiquetas?${qs.toString()}`),
+    staleTime: 30_000,
+  })
+
+  const etiquetas = data?.data ?? []
+  const resumo = data?.resumo
+
+  // Endereço atual do cliente para comparar com o snapshot
+  const enderecoAtual: EtiquetaSnapshot = {
+    logradouro: cliente.logradouro ?? "", numero: cliente.numero ?? "",
+    bairro: cliente.bairro ?? "", cidade: cliente.cidade ?? "",
+    estado: cliente.estado ?? "", cep: (cliente.cep ?? "").replace(/\D/g, ""),
+  }
+  const enderecoMudou = (snap?: EtiquetaSnapshot | null) =>
+    snap ? enderecoStr(snap).toUpperCase() !== enderecoStr(enderecoAtual).toUpperCase() : false
+
+  async function reimprimir(et: EtiquetaRow) {
+    if (!confirm("Reimprimir esta etiqueta? Será reaberto o mesmo PDF já gerado (não gera nova cobrança).")) return
+    setReimprimindo(et.id); setMsg(null)
+    try {
+      await apiPost(`/etiquetas/${et.id}/reimprimir`, {})
+      setPdfOrderId(et.me_order_id)
+      setMsg({ tipo: "ok", texto: "Etiqueta reaberta para reimpressão." })
+      refetch()
+    } catch (e) {
+      setMsg({ tipo: "erro", texto: (e as Error).message || "Não foi possível reimprimir." })
+    } finally { setReimprimindo(null) }
+  }
+
+  async function copiar(et: EtiquetaRow) {
+    const txt = [
+      `Cliente: ${et.nome_cliente_snapshot ?? cliente.nome}`,
+      `Protocolo: ${et.me_protocol ?? "—"}`,
+      et.me_tracking ? `Rastreio: ${et.me_tracking}` : null,
+      `Tipo: ${et.tipo_etiqueta ?? "—"}`,
+      `Endereço: ${enderecoStr(et.endereco_snapshot)}`,
+      `Emitida em: ${fmtData(et.created_at)}`,
+    ].filter(Boolean).join("\n")
+    try { await navigator.clipboard.writeText(txt); setCopiadoId(et.id); setTimeout(() => setCopiadoId(null), 1500) } catch { /* noop */ }
+  }
+
+  const STATUS_OPTS = [
+    { v: "", l: "Todos status" },
+    { v: "released", l: "Liberada" },
+    { v: "posted", l: "Postada" },
+    { v: "delivered", l: "Entregue" },
+    { v: "pending", l: "Pendente" },
+    { v: "canceled", l: "Cancelada" },
+  ]
+
+  return (
+    <div className="space-y-3">
+      {/* Resumo */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+          <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Etiquetas</p>
+          <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{resumo?.total_emitidas ?? 0}</p>
+        </div>
+        <div className="rounded-xl p-3 col-span-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+          <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Última emissão</p>
+          <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+            {resumo?.ultima_emissao ? fmtData(resumo.ultima_emissao) : "—"}
+          </p>
+        </div>
+      </div>
+      {resumo?.ultimo_endereco && (
+        <div className="rounded-xl px-3 py-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+          <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Último endereço usado</p>
+          <p className="text-xs uppercase" style={{ color: "var(--text-secondary)" }}>{enderecoStr(resumo.ultimo_endereco)}</p>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[140px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar protocolo/rastreio"
+            className="w-full pl-8 pr-3 py-2 rounded-lg text-xs outline-none"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        </div>
+        <select value={statusF} onChange={e => setStatusF(e.target.value)}
+          className="px-2 py-2 rounded-lg text-xs outline-none"
+          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+          {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <input type="date" value={de} onChange={e => setDe(e.target.value)} title="De"
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs outline-none"
+          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input type="date" value={ate} onChange={e => setAte(e.target.value)} title="Até"
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs outline-none"
+          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      </div>
+
+      {msg && (
+        <p className={cn("text-xs text-center py-1.5 px-3 rounded-lg", msg.tipo === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{msg.texto}</p>
+      )}
+
+      {/* Lista */}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+      ) : etiquetas.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+          <Tag size={32} style={{ color: "var(--border-hover)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma etiqueta emitida para este cliente.</p>
+        </div>
+      ) : etiquetas.map(et => {
+        const st = ET_STATUS[et.status] ?? { label: et.status, cls: "bg-slate-500/15 text-slate-400" }
+        return (
+          <div key={et.id} className="rounded-xl px-4 py-3 space-y-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold uppercase truncate" style={{ color: "var(--text-primary)" }}>{et.nome_cliente_snapshot ?? cliente.nome}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{fmtData(et.created_at)} · {et.tipo_etiqueta ?? "Envio"}</p>
+              </div>
+              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0", st.cls)}>{st.label}</span>
+            </div>
+            <p className="text-[11px] uppercase" style={{ color: "var(--text-secondary)" }}>{enderecoStr(et.endereco_snapshot)}</p>
+            <div className="flex items-center gap-2 flex-wrap text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {et.me_protocol && <span className="font-mono">{et.me_protocol}</span>}
+              {et.responsavel && <span>· por {et.responsavel}</span>}
+              {et.quantidade_reimpressoes > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-semibold">Reimpressa {et.quantidade_reimpressoes}×</span>
+              )}
+            </div>
+
+            {enderecoMudou(et.endereco_snapshot) && (
+              <p className="text-[10px] flex items-start gap-1 px-2 py-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                <AlertCircle size={12} className="mt-px shrink-0" />
+                O endereço do cadastro mudou desde esta emissão. Para enviar ao novo endereço, gere uma nova etiqueta.
+              </p>
+            )}
+
+            <div className="flex items-center gap-1 pt-1">
+              <button onClick={() => setPdfOrderId(et.me_order_id)} title="Visualizar"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                <Eye size={13} /> Visualizar
+              </button>
+              <button onClick={() => reimprimir(et)} disabled={reimprimindo === et.id} title="Reimprimir"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                {reimprimindo === et.id ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Reimprimir
+              </button>
+              <button onClick={() => copiar(et)} title="Copiar informações"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: copiadoId === et.id ? "#10b981" : "var(--text-secondary)" }}>
+                {copiadoId === et.id ? <Check size={13} /> : <Copy size={13} />} {copiadoId === et.id ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+          </div>
+        )
+      })}
+
+      <AnimatePresence>
+        {pdfOrderId && <EtiquetaPDFModal orderId={pdfOrderId} onClose={() => setPdfOrderId(null)} />}
+      </AnimatePresence>
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 } from "@/lib/melhorenvio"
 import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
+import { montarRegistroEtiqueta } from "@/lib/etiqueta-snapshot"
 
 export const dynamic = "force-dynamic"
 
@@ -36,7 +37,7 @@ export const GET = withAuth(async (req: NextRequest) => {
 export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   try {
     const body = await req.json()
-    const { service_id, venda_id, destinatario, checkout_auto } = body
+    const { service_id, venda_id, cliente_id, tipo_etiqueta, destinatario, checkout_auto } = body
 
     if (!service_id || !destinatario?.postal_code) {
       return NextResponse.json({ erro: "Selecione um serviço de envio e informe o CEP do destinatário." }, { status: 400 })
@@ -142,20 +143,25 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       if (printed?.url) label_url = printed.url
     }
 
-    // 3. Persiste referência no Supabase (se tabela existir)
+    // 3. Persiste referência + snapshot no Supabase (histórico do cliente)
     try {
-      await sb.from("etiquetas").insert({
-        me_order_id:  result.id,
-        me_protocol:  result.protocol,
-        me_tracking:  result.tracking,
-        venda_id:     venda_id ?? null,
-        service_id:   parseInt(service_id),
-        status:       result.status ?? "pending",
-        cep_destino:  String(destinatario.postal_code).replace(/\D/g, ""),
-        label_url:    label_url ?? result.label_url ?? null,
-        criado_por:   auth.id,
-      })
-    } catch { /* tabela pode não existir ainda — não é bloqueante */ }
+      await sb.from("etiquetas").insert(montarRegistroEtiqueta({
+        me_order_id:   result.id,
+        me_protocol:   result.protocol,
+        me_tracking:   result.tracking,
+        cliente_id:    cliente_id ? Number(cliente_id) : null,
+        venda_id:      venda_id ?? null,
+        service_id:    parseInt(service_id),
+        status:        result.status ?? "pending",
+        destinatario,
+        tipo_etiqueta: tipo_etiqueta ?? null,
+        label_url:     label_url ?? result.label_url ?? null,
+        criado_por:    auth.id,
+      }))
+    } catch (e) {
+      // Não bloqueia a emissão da etiqueta; apenas registra a falha.
+      console.error("[POST /api/etiquetas] falha ao salvar histórico:", (e as Error).message)
+    }
 
     // 4. Notifica a cliente com o link de rastreio (assíncrono, não bloqueia).
     //    Usa o código de rastreio dos Correios quando já existe; senão usa o
