@@ -163,22 +163,34 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   }
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col">
+    <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
       {/* Tab bar */}
-      <div className="flex gap-1 px-6 pt-3 pb-1">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+      <div className="flex gap-1 px-6 pt-4 pb-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        {TABS.map((t, i) => (
+          <motion.button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 + i * 0.04 }}
+            className="relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
             style={{
               background: tab === t.key ? "var(--accent)" : "transparent",
               color: tab === t.key ? "#fff" : "var(--text-muted)",
-            }}>
+            }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}>
             {t.icon} {t.label}
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <AnimatePresence mode="wait">
+      <motion.div
+        key={tab}
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.18 }}
+        className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
         {/* Aba Dados */}
         {tab === "dados" && info.map(({ icon, label, value }, i) => (
           <motion.div key={label}
@@ -325,7 +337,8 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 
         {/* Aba Etiquetas */}
         {tab === "etiquetas" && <EtiquetasTab cliente={cliente} />}
-      </div>
+      </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
@@ -579,104 +592,190 @@ function DrawerCliente({
   const inicial = cliente.nome?.trim()[0]?.toUpperCase() ?? "?"
 
   const INFO = [
-    { icon: <Phone size={14} />,     label: "WhatsApp",   value: cliente.celular   ?? "—" },
-    { icon: <AtSign size={14} />,    label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram}` : "—" },
-    { icon: <FileText size={14} />,  label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—" },
+    { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—" },
+    { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram}` : "—" },
+    { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—" },
     { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—" },
-    { icon: <Home size={14} />,      label: "Endereço",   value: endereco || "—", full: true },
+    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—", full: true },
   ]
 
+  // Cores do avatar baseadas na inicial
+  const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444"]
+  const avatarBg = AVATAR_COLORS[inicial.charCodeAt(0) % AVATAR_COLORS.length]
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop animado */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
         onClick={onClose}
       />
 
-      {/* Painel lateral */}
+      {/* Modal centralizado */}
       <motion.div
-        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-        transition={{ type: "spring", stiffness: 320, damping: 34 }}
-        className="relative w-full max-w-sm flex flex-col shadow-2xl"
-        style={{ background: "var(--bg-card)", borderLeft: "1px solid var(--border)" }}>
+        initial={{ opacity: 0, scale: 0.92, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 16 }}
+        transition={{ type: "spring", stiffness: 340, damping: 30 }}
+        className="relative w-full flex flex-col overflow-hidden"
+        style={{
+          maxWidth: 860,
+          maxHeight: "90vh",
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: 24,
+          boxShadow: "0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)",
+        }}>
 
-        {/* Topo colorido */}
-        <div className="px-6 pt-8 pb-6 shrink-0" style={{ background: "linear-gradient(135deg, var(--accent-bg) 0%, transparent 100%)", borderBottom: "1px solid var(--border)" }}>
-          <div className="flex items-start justify-between mb-5">
+        {/* ── HERO ── */}
+        <div className="relative shrink-0 overflow-hidden" style={{ minHeight: 180 }}>
+          {/* Gradiente de fundo */}
+          <div className="absolute inset-0" style={{
+            background: `linear-gradient(135deg, ${avatarBg}28 0%, ${avatarBg}08 50%, transparent 100%)`,
+          }} />
+          {/* Orbs decorativos */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.05, duration: 0.6 }}
+            className="absolute pointer-events-none"
+            style={{ width: 320, height: 320, top: -120, right: -80, borderRadius: "50%", background: `radial-gradient(circle, ${avatarBg}18 0%, transparent 70%)` }}
+          />
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15, duration: 0.8 }}
+            className="absolute pointer-events-none"
+            style={{ width: 180, height: 180, bottom: -60, left: 120, borderRadius: "50%", background: `radial-gradient(circle, ${avatarBg}12 0%, transparent 70%)` }}
+          />
+          {/* Grid decorativo */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
+            backgroundSize: "32px 32px",
+          }} />
+
+          {/* Botão fechar */}
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 p-2 rounded-xl transition-all"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text-muted)" }}
+            whileHover={{ scale: 1.1, background: "rgba(248,113,113,0.15)" }}
+            whileTap={{ scale: 0.95 }}>
+            <X size={16} />
+          </motion.button>
+
+          {/* Conteúdo hero */}
+          <div className="relative z-10 px-8 pt-8 pb-6 flex items-end gap-6">
+            {/* Avatar grande com ilustração */}
             <motion.div
-              initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 280 }}
-              className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black"
-              style={{ background: "var(--accent)", color: "#fff" }}>
-              {inicial}
+              initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 22 }}
+              className="relative shrink-0">
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shadow-xl"
+                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, color: "#fff", boxShadow: `0 8px 32px ${avatarBg}55` }}>
+                {inicial}
+              </div>
+              {/* Badge de status flutuante */}
+              <motion.div
+                initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.22, type: "spring" }}
+                className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                style={{ borderColor: "var(--bg-card)", background: cliente.ativo ? "#10b981" : "#64748b" }}>
+                <div className="w-2 h-2 rounded-full bg-white" />
+              </motion.div>
             </motion.div>
-            <button onClick={onClose}
-              className="p-1.5 rounded-xl transition-colors"
-              style={{ color: "var(--text-muted)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-              <X size={16} />
-            </button>
+
+            {/* Nome + info básica */}
+            <motion.div
+              initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.12 }}
+              className="flex-1 min-w-0 pb-1">
+              <p className="text-2xl font-black uppercase leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
+                {cliente.nome}
+              </p>
+              {cliente.apelido && (
+                <motion.p
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }}
+                  className="text-sm font-semibold mt-0.5"
+                  style={{ color: avatarBg }}>
+                  &ldquo;{cliente.apelido}&rdquo;
+                </motion.p>
+              )}
+              <motion.div
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                className="flex flex-wrap items-center gap-2 mt-3">
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full uppercase",
+                  cliente.ativo ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-500/15 text-slate-400"
+                )}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: cliente.ativo ? "#10b981" : "#64748b" }} />
+                  {cliente.ativo ? "Ativa" : "Inativa"}
+                </span>
+                {cliente.celular && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)" }}>
+                    <Phone size={11} /> {cliente.celular}
+                  </span>
+                )}
+                {cliente.cidade && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)" }}>
+                    <MapPin size={11} /> {cliente.cidade}{cliente.estado ? `/${cliente.estado}` : ""}
+                  </span>
+                )}
+              </motion.div>
+            </motion.div>
+
+            {/* Ações rápidas — lado direito do hero */}
+            <motion.div
+              initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.18 }}
+              className="shrink-0 flex flex-col gap-2 pb-1">
+              <motion.button onClick={onEditar} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
+                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, boxShadow: `0 4px 16px ${avatarBg}44` }}>
+                <Pencil size={14} /> Editar dados
+              </motion.button>
+
+              {cliente.celular && cliente.notificacao_status !== "enviado" && (
+                <motion.button onClick={onReenviarNotificacao} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
+                  <Send size={13} />
+                  {cliente.notificacao_status === "erro" ? "Reenviar" : "Notificar"}
+                </motion.button>
+              )}
+              {cliente.notificacao_status === "enviado" && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
+                  <CheckCircle2 size={13} /> Notificado
+                </div>
+              )}
+
+              <motion.button onClick={onToggleStatus} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: cliente.ativo ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
+                  border: `1px solid ${cliente.ativo ? "rgba(248,113,113,0.3)" : "rgba(74,222,128,0.3)"}`,
+                  color: cliente.ativo ? "#f87171" : "#4ade80",
+                }}>
+                <Power size={13} />
+                {cliente.ativo ? "Desativar" : "Ativar"}
+              </motion.button>
+            </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <p className="text-lg font-bold uppercase leading-tight" style={{ color: "var(--text-primary)" }}>{cliente.nome}</p>
-            {cliente.apelido && (
-              <p className="text-sm mt-0.5 font-medium" style={{ color: "var(--accent)" }}>&ldquo;{cliente.apelido}&rdquo;</p>
-            )}
-            <span className={cn(
-              "inline-block mt-2 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase",
-              cliente.ativo ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 text-slate-400"
-            )}>
-              {cliente.ativo ? "● Ativo" : "● Inativo"}
-            </span>
-          </motion.div>
+          {/* Linha separadora com gradiente */}
+          <div className="absolute bottom-0 left-0 right-0 h-px"
+            style={{ background: `linear-gradient(90deg, transparent, ${avatarBg}44, transparent)` }} />
         </div>
 
-        {/* Tabs: Dados | Histórico | Notificações */}
-        <DrawerContent cliente={cliente} info={INFO} />
-
-
-        {/* Ações */}
+        {/* ── CORPO COM ABAS ── */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="px-6 py-5 shrink-0 space-y-2.5"
-          style={{ borderTop: "1px solid var(--border)" }}>
-          <button onClick={onEditar}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-opacity"
-            style={{ background: "var(--accent)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-            <Pencil size={14} /> Editar dados
-          </button>
-
-          {/* Botão reenvio manual — só aparece se não for "enviado" e tiver celular */}
-          {cliente.celular && cliente.notificacao_status !== "enviado" && (
-            <button onClick={onReenviarNotificacao} disabled={!cliente.celular}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50"
-              style={{ background: "rgba(37,211,102,0.08)", border: "1px solid rgba(37,211,102,0.25)", color: "#25d366" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.15)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.08)" }}>
-              <Send size={13} />
-              {cliente.notificacao_status === "erro" ? "Reenviar notificação" : "Enviar notificação"}
-            </button>
-          )}
-          {cliente.notificacao_status === "enviado" && (
-            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold"
-              style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
-              <CheckCircle2 size={13} /> Notificação já enviada
-            </div>
-          )}
-
-          <button onClick={onToggleStatus}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: cliente.ativo ? "#f87171" : "#4ade80" }}>
-            <Power size={13} />
-            {cliente.ativo ? "Desativar cliente" : "Ativar cliente"}
-          </button>
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
+          className="flex-1 overflow-hidden">
+          <DrawerContent cliente={cliente} info={INFO} />
         </motion.div>
       </motion.div>
     </div>
