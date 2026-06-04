@@ -26,7 +26,10 @@ apiClient.interceptors.response.use(
         window.location.href = "/login"
       }
     }
-    const msg = error?.response?.data?.erro || error?.response?.data?.message || error?.message
+    const data = error?.response?.data
+    const base = data?.erro || data?.message || error?.message
+    // Anexa o detalhe técnico quando houver (diagnóstico de erros 500).
+    const msg = data?.detalhe ? `${base} (${data.detalhe})` : base
     return Promise.reject(new Error(msg || "Erro desconhecido"))
   }
 )

@@ -14,7 +14,7 @@ const STATUS_POR_KIND: Record<ErrorKind, number> = {
 
 export interface ErroHttp {
   status: number
-  body: { erro: string; codigo: string }
+  body: { erro: string; codigo: string; detalhe?: string }
 }
 
 /** Mapeia um DomainError para status + corpo. Erros desconhecidos → 500 genérico. */
@@ -25,6 +25,8 @@ export function apresentarErro(error: unknown): ErroHttp {
       body: { erro: error.message, codigo: error.code },
     }
   }
-  // Erro de infraestrutura/inesperado: nunca vaza detalhes internos.
-  return { status: 500, body: { erro: "Erro interno.", codigo: "INTERNO" } }
+  // Erro de infraestrutura/inesperado. O detalhe ajuda a diagnosticar
+  // falhas de schema/banco em produção (ex.: coluna/constraint/trigger).
+  const detalhe = error instanceof Error ? error.message : String(error)
+  return { status: 500, body: { erro: "Erro interno.", codigo: "INTERNO", detalhe } }
 }
