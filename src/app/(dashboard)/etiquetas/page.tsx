@@ -1536,8 +1536,8 @@ export default function EtiquetasPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{e.to?.name ?? "—"}</p>
-                          <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                          <p className="text-sm font-semibold truncate uppercase" style={{ color: "var(--text-primary)" }}>{e.to?.name ?? "—"}</p>
+                          <p className="text-xs truncate uppercase" style={{ color: "var(--text-muted)" }}>
                             {e.company?.name} · {e.to ? `${e.to.city}/${e.to.state_abbr}` : "—"}
                           </p>
                         </div>
@@ -1547,7 +1547,7 @@ export default function EtiquetasPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", st.bg, st.text)}>
+                        <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase", st.bg, st.text)}>
                           <span className={cn("w-1.5 h-1.5 rounded-full", st.dot)} />
                           {st.label}
                         </span>
