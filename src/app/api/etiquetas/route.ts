@@ -157,13 +157,16 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       })
     } catch { /* tabela pode não existir ainda — não é bloqueante */ }
 
-    // 4. Notifica a cliente com o link de rastreio (assíncrono, não bloqueia)
-    //    Só quando a etiqueta foi efetivamente gerada (tem tracking) e há telefone.
-    if (result.tracking && destinatario.telefone) {
-      const nome = (destinatario.nome ?? "Cliente").split(" ")[0]
-      const linkRastreio = `https://melhorrastreio.com.br/rastreio/${result.tracking}`
-      const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${result.tracking}*`
-      enviarTexto(destinatario.telefone, mensagem, "rastreio_envio").catch(() => {})
+    // 4. Notifica a cliente com o link de rastreio (assíncrono, não bloqueia).
+    //    Usa o código de rastreio dos Correios quando já existe; senão usa o
+    //    self_tracking do Melhor Envio (disponível assim que a etiqueta é gerada).
+    const codigoRastreio = result.tracking ?? result.self_tracking ?? null
+    const telefoneCliente = destinatario.telefone || result.to?.phone
+    if (codigoRastreio && telefoneCliente) {
+      const nome = (destinatario.nome ?? result.to?.name ?? "Cliente").split(" ")[0]
+      const linkRastreio = `https://melhorrastreio.com.br/rastreio/${codigoRastreio}`
+      const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${codigoRastreio}*`
+      enviarTexto(telefoneCliente, mensagem, "rastreio_envio").catch(() => {})
     }
 
     return NextResponse.json({ ...result, label_url: label_url ?? result.label_url ?? null }, { status: 201 })

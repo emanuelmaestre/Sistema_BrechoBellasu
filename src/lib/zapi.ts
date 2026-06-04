@@ -5,9 +5,14 @@
 // ══════════════════════════════════════════════════════════════════
 import { createServerClient } from "./supabase"
 
-const INSTANCE_ID   = () => process.env.ZAPI_INSTANCE_ID   ?? ""
-const TOKEN         = () => process.env.ZAPI_TOKEN         ?? ""
-const CLIENT_TOKEN  = () => process.env.ZAPI_CLIENT_TOKEN  ?? ""
+// Remove qualquer caractere fora do ASCII imprimível (evita
+// "Cannot convert argument to a ByteString" quando o env var foi colado
+// com aspas tipográficas, espaços invisíveis ou quebras de linha).
+const limpaHeader = (s: string) => s.replace(/[^\x21-\x7E]/g, "")
+
+const INSTANCE_ID   = () => limpaHeader(process.env.ZAPI_INSTANCE_ID   ?? "")
+const TOKEN         = () => limpaHeader(process.env.ZAPI_TOKEN         ?? "")
+const CLIENT_TOKEN  = () => limpaHeader(process.env.ZAPI_CLIENT_TOKEN  ?? "")
 const BASE          = () => `https://api.z-api.io/instances/${INSTANCE_ID()}/token/${TOKEN()}`
 
 // ── Tipos ────────────────────────────────────────────────────

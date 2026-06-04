@@ -1402,6 +1402,20 @@ export default function EtiquetasPage() {
   })
 
   const etiquetas = data?.data ?? []
+  const [imprimindo, setImprimindo] = useState<string | null>(null)
+
+  async function abrirEtiqueta(orderId: string) {
+    setImprimindo(orderId)
+    try {
+      const res = await apiPost<{ url?: string; erro?: string }>("/etiquetas/imprimir", { order_id: orderId })
+      if (res.url) window.open(res.url, "_blank")
+      else alert(res.erro || "Etiqueta ainda não disponível para impressão.")
+    } catch (e) {
+      alert((e as Error).message || "Não foi possível abrir a etiqueta.")
+    } finally {
+      setImprimindo(null)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -1556,13 +1570,14 @@ export default function EtiquetasPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {e.label_url && (
-                        <a href={e.label_url} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg transition-all" style={{ color: "var(--text-muted)" }}
-                          onMouseEnter={f => { (f.currentTarget as HTMLAnchorElement).style.color = "var(--accent)" }}
-                          onMouseLeave={f => { (f.currentTarget as HTMLAnchorElement).style.color = "var(--text-muted)" }}>
-                          <Printer size={14} />
-                        </a>
+                      {["released", "generated", "posted", "delivered"].includes(e.status) && (
+                        <button onClick={() => abrirEtiqueta(e.id)} disabled={imprimindo === e.id}
+                          title="Imprimir etiqueta"
+                          className="p-1.5 rounded-lg transition-all disabled:opacity-50" style={{ color: "var(--text-muted)" }}
+                          onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
+                          onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                          {imprimindo === e.id ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                        </button>
                       )}
                       {e.tracking && (
                         <button onClick={() => setRastreio(e.id)} className="p-1.5 rounded-lg transition-all"

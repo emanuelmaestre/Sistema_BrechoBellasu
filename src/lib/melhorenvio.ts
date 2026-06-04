@@ -118,6 +118,7 @@ export interface MEOrder {
   service_id:      number
   status:          string
   tracking:        string | null
+  self_tracking?:  string | null
   label_url?:      string
   created_at:      string
   paid_at?:        string | null
