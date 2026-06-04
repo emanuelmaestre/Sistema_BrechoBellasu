@@ -17,6 +17,21 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "Brechó Bellasu — Sistema de Gestão",
   description: "Sistema de gestão para o Brechó Bellasu",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Brechó Bellasu",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
