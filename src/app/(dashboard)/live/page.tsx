@@ -75,6 +75,14 @@ const EMPTY_COMPRA: CompraForm = {
 }
 
 const CORES_SACOLA = ["Amarela","Azul","Bege","Branca","Cinza","Laranja","Lilás","Marrom","Preta","Rosa","Roxa","Verde","Vermelha"]
+
+function gerarArroba(nome: string): string {
+  const palavras = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/\s+/).filter(Boolean)
+  if (palavras.length === 0) return ""
+  const first = palavras[0]
+  const last = palavras.length > 1 ? palavras[palavras.length - 1] : ""
+  return "@" + first + last
+}
 const COR_LIVE = "#e11d48"
 
 // ─── Status colors (lista) ────────────────────────────────
@@ -366,7 +374,9 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
   const buscarClientes = useCallback(async (val: string) => {
     setCliBusca(val); setCli(null)
     if (val.length < 2) { setCliRes([]); return }
-    try { const res = await apiGet<{ data: Cliente[] }>(`/clientes?busca=${encodeURIComponent(val)}&limit=8`); setCliRes(res.data ?? []) }
+    const query = val.startsWith("@") ? val.slice(1) : val
+    if (!query) { setCliRes([]); return }
+    try { const res = await apiGet<{ data: Cliente[] }>(`/clientes?busca=${encodeURIComponent(query)}&limit=8`); setCliRes(res.data ?? []) }
     catch { setCliRes([]) }
   }, [])
 
@@ -479,7 +489,10 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                           {c.nome[0]}
                         </div>
                         <div>
-                          <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
+                          <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>
+                            {c.nome}
+                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--text-muted)" }}>{gerarArroba(c.nome)}</span>
+                          </p>
                           {c.celular && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular}</p>}
                         </div>
                       </button>
