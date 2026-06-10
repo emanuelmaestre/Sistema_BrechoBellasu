@@ -184,7 +184,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-xl"
                     style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                     <div>
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
+                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>{it.quantidade}x · {fmtBRL(it.preco_unitario)}</p>
                     </div>
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
