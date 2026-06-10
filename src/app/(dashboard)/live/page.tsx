@@ -40,7 +40,7 @@ export interface Compra {
 type LiveDetalhe = Live & { compras: Compra[] }
 
 interface Cliente {
-  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null
+  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null; instagram?: string | null
 }
 
 interface ProdutoVinculo {
@@ -491,7 +491,9 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                         <div>
                           <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>
                             {c.nome}
-                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--text-muted)" }}>{gerarArroba(c.nome)}</span>
+                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--text-muted)" }}>
+                              {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : gerarArroba(c.nome)}
+                            </span>
                           </p>
                           {c.celular && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular}</p>}
                         </div>

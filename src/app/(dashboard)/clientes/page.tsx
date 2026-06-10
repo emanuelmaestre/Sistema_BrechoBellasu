@@ -797,7 +797,7 @@ function DrawerCliente({
 
   const INFO = [
     { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—" },
-    { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram}` : "—" },
+    { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—" },
     { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—" },
     { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—" },
     { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—", full: true },
@@ -1569,7 +1569,7 @@ function WizardCliente({
                     { label: "CPF / CNPJ", value: form.cpf_cnpj || "—",                            s: 3             },
                     { label: "Nascimento", value: form.data_nasc ? fmtData(form.data_nasc) : "—",   s: 4             },
                     { label: "Celular",    value: form.celular || "—",                               s: 5             },
-                    { label: "Instagram",  value: form.instagram ? `@${form.instagram}` : "—",      s: 6             },
+                    { label: "Instagram",  value: form.instagram ? `@${form.instagram.replace(/^@/, "")}` : "—",      s: 6             },
                     { label: "Endereço",   value: enderecoFormatado || "—",                          s: 7, full: true },
                   ].map(({ label, value, s, full }) => (
                     <div key={label}
@@ -1815,7 +1815,7 @@ export default function ClientesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: "var(--text-secondary)" }}>{c.celular ?? "—"}</td>
                   <td className="px-4 py-3 text-sm font-medium uppercase" style={{ color: "var(--text-secondary)" }}>
-                    {c.instagram ? `@${c.instagram}` : "—"}
+                    {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : "—"}
                   </td>
 
                   <td className="px-4 py-3">
