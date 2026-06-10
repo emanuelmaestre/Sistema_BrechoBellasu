@@ -125,7 +125,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.setFont("times", "italic")
   doc.setFontSize(9.5)
   doc.setTextColor(...GOLD_D)
-  doc.text("O Desapego é o Esporte da Felicidade", W / 2, hy, { align: "center" })
+  doc.text("O Desapego é o Esporte da Felicidade!", W / 2, hy, { align: "center" })
   hy += 5.5
 
   // Divisor
@@ -138,7 +138,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.setFontSize(6.5)
   doc.setTextColor(...GOLD_D)
   doc.text("Nº RECIBO", mc[0], hy, { align: "center", charSpace: 0.6 })
-  doc.text("DATA",      mc[1], hy, { align: "center", charSpace: 0.6 })
+  doc.text("DATA DA COMPRA", mc[1], hy, { align: "center", charSpace: 0.6 })
   doc.text("TIPO",      mc[2], hy, { align: "center", charSpace: 0.6 })
   hy += 4.5
   doc.setFont("times", "normal")
@@ -194,12 +194,11 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   sectionTitle(doc, "Itens", M, y, CW)
   y += 6
 
-  // Posições das colunas
+  // Posições das colunas (sem COR — modelo HTML oficial: Descrição | Tam. | Qtd. | Preço Unit. | Subtotal)
   const cDesc = M + 3
-  const cCor  = M + 78
-  const cTam  = M + 104
-  const cQtd  = M + 124
-  const cUnit = M + 148
+  const cTam  = M + 108
+  const cQtd  = M + 130
+  const cUnit = M + 153
   const cSub  = W - M - 3
 
   // Cabeçalho (marrom, cantos arredondados no topo)
@@ -209,12 +208,11 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.setFont("helvetica", "bold")
   doc.setFontSize(7)
   doc.setTextColor(...GOLD_L)
-  doc.text("DESCRIÇÃO", cDesc, y + 5, { charSpace: 0.3 })
-  doc.text("COR",       cCor,  y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("TAMANHO",   cTam,  y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("QTD",       cQtd,  y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("UNIT.",     cUnit, y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("SUBTOTAL",  cSub,  y + 5, { align: "right", charSpace: 0.3 })
+  doc.text("DESCRIÇÃO",   cDesc, y + 5, { charSpace: 0.3 })
+  doc.text("TAM.",        cTam,  y + 5, { align: "center", charSpace: 0.3 })
+  doc.text("QTD",         cQtd,  y + 5, { align: "center", charSpace: 0.3 })
+  doc.text("PREÇO UNIT.", cUnit, y + 5, { align: "center", charSpace: 0.3 })
+  doc.text("SUBTOTAL",    cSub,  y + 5, { align: "right", charSpace: 0.3 })
   y += 7.5
 
   const tableTop = y
@@ -226,13 +224,12 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
     doc.setFont("helvetica", "bold")
     doc.setFontSize(8.5)
     doc.setTextColor(...TEXT)
-    const nome = doc.splitTextToSize(item.nome, 70)[0]
+    const nome = doc.splitTextToSize(item.nome, 90)[0]
     doc.text(nome, cDesc, y + 5)
 
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8.5)
     doc.setTextColor(...BR2)
-    doc.text(item.cor || "—",     cCor, y + 5, { align: "center" })
     doc.text(item.tamanho || "—", cTam, y + 5, { align: "center" })
 
     doc.setTextColor(...TEXT)
