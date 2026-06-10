@@ -35,7 +35,7 @@ function buildHTML(data: ReciboData): string {
   const frete    = data.frete    ?? 0
   const desconto = data.desconto ?? 0
 
-  const formas = ["PIX", "Dinheiro", "Crédito", "Débito"]
+  const formas = ["PIX", "Dinheiro", "Cartão Crédito", "Cartão Débito"]
   const formaAtual = (data.forma_pagamento ?? "").toLowerCase()
 
   const chipsHTML = formas.map(f => {
