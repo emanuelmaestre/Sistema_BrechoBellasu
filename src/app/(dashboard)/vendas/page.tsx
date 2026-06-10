@@ -25,6 +25,7 @@ interface VendaListItem {
 }
 interface VendaDetalhe extends VendaListItem {
   desconto: number; observacoes: string | null
+  cliente_celular?: string | null
   itens: { nome_produto: string; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
 }
 interface WizItem {
@@ -106,7 +107,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
         tipo: "Venda",
         data: `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`,
         cliente_nome: venda.cliente_nome ?? "Avulso",
-        cliente_celular: "",
+        cliente_celular: venda.cliente_celular ?? "",
         itens: venda.itens.map(it => ({
           nome: it.nome_produto,
           qtd: it.quantidade,
@@ -205,7 +206,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                     tipo: "Venda",
                     data: `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`,
                     cliente_nome: venda.cliente_nome ?? "Avulso",
-                    cliente_celular: "",
+                    cliente_celular: venda.cliente_celular ?? "",
                     itens: venda.itens.map(it => ({
                       nome: it.nome_produto,
                       qtd: it.quantidade,
@@ -233,7 +234,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   tipo: "Venda",
                   data: `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`,
                   cliente_nome: venda.cliente_nome ?? "Avulso",
-                  cliente_celular: "",
+                  cliente_celular: venda.cliente_celular ?? "",
                   itens: venda.itens.map(it => ({
                     nome: it.nome_produto,
                     qtd: it.quantidade,
@@ -336,7 +337,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 
   // Step 1 — cliente
   const [clienteId, setClienteId] = useState<number | null>(null)
-  const [clienteNome, setClienteNome] = useState("")
+  const [clienteNome, setClienteNome]     = useState("")
+  const [clienteCelular, setClienteCelular] = useState<string | null>(null)
   const [cliBusca, setCliBusca]   = useState("")
   const [cliRes, setCliRes]       = useState<Cliente[]>([])
 
@@ -389,6 +391,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 
   function selecionarCliente(c: Cliente) {
     setClienteId(c.id); setClienteNome(c.nome)
+    setClienteCelular((c as Cliente & { celular?: string | null }).celular ?? null)
     setCliBusca(c.nome); setCliRes([])
   }
 
@@ -490,7 +493,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
             tipo: "Venda",
             data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
             cliente_nome: clienteNome || "Cliente",
-            cliente_celular: "",
+            cliente_celular: clienteCelular ?? "",
             itens: itens.map(it => ({
               nome: it.nome_produto,
               qtd: it.quantidade,

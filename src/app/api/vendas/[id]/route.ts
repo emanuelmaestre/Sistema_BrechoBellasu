@@ -17,6 +17,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: venda, error } = await sb.from("v_vendas").select("*").eq("id", id).single()
   if (error || !venda) return NextResponse.json({ erro: "Venda não encontrada." }, { status: 404 })
 
+  // Busca celular do cliente se houver
+  const clienteId = (venda as Record<string, unknown>).cliente_id
+  let clienteCelular: string | null = null
+  if (clienteId) {
+    const { data: cli } = await sb.from("clientes").select("celular").eq("id", clienteId).single()
+    clienteCelular = cli?.celular ?? null
+  }
+
   const { data: itensRaw } = await sb
     .from("venda_itens")
     .select("*, produtos(marca)")
@@ -39,8 +47,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     numero:         v.id,
     data_venda:     dt.toISOString().split("T")[0],
     hora_venda:     dt.toTimeString().slice(0, 8),
-    cliente_nome:   v.cliente_nome,
-    vendedor_nome:  v.vendedor_nome,
+    cliente_nome:    v.cliente_nome,
+    cliente_celular: clienteCelular,
+    vendedor_nome:   v.vendedor_nome,
     forma_pagamento: v.forma_pagamento,
     desconto:       v.desconto,
     total:          v.total,
