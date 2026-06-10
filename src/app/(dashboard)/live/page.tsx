@@ -479,7 +479,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                           {c.nome[0]}
                         </div>
                         <div>
-                          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
+                          <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
                           {c.celular && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular}</p>}
                         </div>
                       </button>
@@ -490,7 +490,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   <div className="mt-2 px-4 py-2 rounded-xl flex items-center gap-2"
                     style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
                     <Check size={13} style={{ color: "#16a34a" }}/>
-                    <p className="text-sm font-medium" style={{ color: "#15803d" }}>{cliSel.nome} selecionado</p>
+                    <p className="text-sm font-medium uppercase" style={{ color: "#15803d" }}>{cliSel.nome} selecionado</p>
                   </div>
                 )}
                 <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
