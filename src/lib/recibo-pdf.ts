@@ -212,6 +212,24 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
 </html>`
 }
 
+/** Abre o recibo em nova janela e dispara o diálogo de impressão nativa.
+ *  Texto é selecionável/copiável. Usa window.print() — sem custo extra. */
+export function imprimirRecibo(data: ReciboData): void {
+  const html = buildHTML(data)
+  const win = window.open("", "_blank", "width=700,height=900")
+  if (!win) return
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  // Aguarda fontes e imagens antes de imprimir
+  win.onload = () => {
+    setTimeout(() => {
+      win.focus()
+      win.print()
+    }, 600)
+  }
+}
+
 export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   // Importações dinâmicas — só no browser
   const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
