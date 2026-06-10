@@ -331,21 +331,28 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.setTextColor(...GOLD_D)
   doc.text("Obrigada pela sua compra!", W / 2, footerBg + 10, { align: "center" })
 
-  // Links clicáveis — 10mm abaixo do agradecimento
+  // Links clicáveis — sem emojis (jsPDF não suporta Unicode fora do BMP)
   const linkY = footerBg + 20
-  const wppLabel = "\u{1F4F1} WhatsApp  (16) 99455-6296"
-  const igLabel  = "\u{1F4F8} Instagram  @brecho.bellasu"
+  const wppLabel = "(16) 99455-6296"
+  const igLabel  = "@brecho.bellasu"
   doc.setFont("helvetica", "bold")
   doc.setFontSize(8.5)
   const wppW = doc.getTextWidth(wppLabel)
   const igW  = doc.getTextWidth(igLabel)
-  const gap  = 12
+  const gap  = 20
   const lx   = (W - (wppW + gap + igW)) / 2
 
+  // Label "WhatsApp" acima do número
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(6.5)
+  doc.setTextColor(...MUTED)
+  doc.text("WhatsApp", lx + wppW / 2, linkY - 4, { align: "center", charSpace: 0.5 })
+
   // Link WhatsApp
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
   doc.setTextColor(...GOLD_D)
   doc.textWithLink(wppLabel, lx, linkY, { url: "https://wa.me/5516994556296" })
-  // sublinhado tracejado ABAIXO do texto (linkY + 2.2 = base da linha + espaço)
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.3)
   doc.setLineDashPattern([0.7, 0.7], 0)
@@ -354,13 +361,21 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
 
   // Separador central
   doc.setFont("helvetica", "normal")
+  doc.setFontSize(10)
   doc.setTextColor(...GOLD_L)
   doc.text("·", lx + wppW + gap / 2, linkY, { align: "center" })
 
+  // Label "Instagram" acima do @
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(6.5)
+  doc.setTextColor(...MUTED)
+  const ix = lx + wppW + gap
+  doc.text("Instagram", ix + igW / 2, linkY - 4, { align: "center", charSpace: 0.5 })
+
   // Link Instagram
   doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
   doc.setTextColor(...GOLD_D)
-  const ix = lx + wppW + gap
   doc.textWithLink(igLabel, ix, linkY, { url: "https://www.instagram.com/brecho.bellasu/" })
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.3)
@@ -368,7 +383,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.line(ix, linkY + 2.2, ix + igW, linkY + 2.2)
   doc.setLineDashPattern([], 0)
 
-  // Nota final — 10mm abaixo dos links
+  // Nota final
   doc.setFont("helvetica", "normal")
   doc.setFontSize(7.5)
   doc.setTextColor(...GOLD_D)
