@@ -21,7 +21,10 @@ export const GET = withAuth(async (req: NextRequest) => {
   const sb = createServerClient()
   let q = sb.from("clientes").select("*", { count: "exact" })
 
-  if (busca) q = q.or(`nome.ilike.%${busca}%,cpf_cnpj.ilike.%${busca}%,celular.ilike.%${busca}%`)
+  if (busca) {
+    const b = busca.replace(/^@/, "")
+    q = q.or(`nome.ilike.%${b}%,cpf_cnpj.ilike.%${b}%,celular.ilike.%${b}%,instagram.ilike.%${b}%`)
+  }
   if (status === "inativo") q = q.eq("ativo", false)
   else if (status !== "todos") q = q.neq("ativo", false)
 

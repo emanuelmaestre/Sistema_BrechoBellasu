@@ -1748,7 +1748,7 @@ export default function ClientesPage() {
         <div className="relative flex-1 min-w-[200px]">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
           <input value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar por nome, CPF ou WhatsApp"
+            placeholder="Buscar por nome, CPF, WhatsApp ou @Instagram"
             className="w-full pl-10 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)" }}

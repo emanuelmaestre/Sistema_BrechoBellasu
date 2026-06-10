@@ -700,7 +700,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                       }}
                       onFocus={() => { if (cliRes.length) setCliOpen(true) }}
                       onBlur={() => setTimeout(() => setCliOpen(false), 150)}
-                      placeholder="Digite o nome do cliente..."
+                      placeholder="Nome, WhatsApp ou @Instagram..."
                       className={iBase} style={iSt} autoComplete="off" />
                     {cliLoading && <Loader2 size={16} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />}
                     {form.cliente_id && !cliLoading && <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400" />}

@@ -468,7 +468,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
               {/* Step 1 — Cliente */}
               {step === 1 && <>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Qual cliente?</h1>
-                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Busque pelo nome ou WhatsApp cadastrado.</p>
+                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Busque pelo nome, CPF, WhatsApp ou @Instagram.</p>
                 <div className="relative mb-2">
                   <input ref={inputRef} value={cliBusca}
                     onChange={e => { buscarClientes(e.target.value); resetCli() }}

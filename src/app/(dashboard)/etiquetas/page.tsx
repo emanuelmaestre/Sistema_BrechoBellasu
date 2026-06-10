@@ -551,7 +551,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                       value={cliBusca}
                       onChange={e => { buscarClientes(e.target.value); resetCliHi() }}
                       onKeyDown={cliDropKeyDown}
-                      placeholder="Buscar cliente por nome ou CPF"
+                      placeholder="Buscar por nome, CPF, WhatsApp ou @Instagram"
                       className={cn(iBase, "pl-12")} style={iSt} autoComplete="off" />
                   </div>
 

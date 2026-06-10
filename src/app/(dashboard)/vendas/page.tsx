@@ -597,7 +597,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                       value={cliBusca}
                       onChange={e => { buscarClientes(e.target.value); resetCliHi() }}
                       onKeyDown={cliDropKeyDown}
-                      placeholder="Nome ou WhatsApp do cliente"
+                      placeholder="Nome, CPF, WhatsApp ou @Instagram"
                       className={cn(iBase, "pl-12")} style={iSt} autoComplete="off" />
                   </div>
                   {cliRes.length > 0 && (
