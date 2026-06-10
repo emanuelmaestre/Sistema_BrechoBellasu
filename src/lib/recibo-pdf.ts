@@ -63,7 +63,7 @@ function buildHTML(data: ReciboData): string {
   const linhasResumo = [
     `<div class="tr"><span>Subtotal</span><span>${fmtBRL(subtotal)}</span></div>`,
     frete    > 0 ? `<div class="tr"><span>Frete</span><span>${fmtBRL(frete)}</span></div>` : "",
-    desconto > 0 ? `<div class="tr"><span>Desconto</span><span>– ${fmtBRL(desconto)}</span></div>` : "",
+    `<div class="tr"><span>Desconto</span><span>${desconto > 0 ? `– ${fmtBRL(desconto)}` : "—"}</span></div>`,
     `<div class="tr ttotal"><span>TOTAL</span><span>${fmtBRL(data.total)}</span></div>`,
   ].join("")
 
