@@ -96,7 +96,7 @@ body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:
 .c2{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
 .fg{display:flex;flex-direction:column;gap:3px}
 .flbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--gold-d)}
-.fval{font-size:13px;color:var(--brown);font-weight:700}
+.fval{font-size:13px;color:var(--brown);font-weight:700;word-break:break-word;word-spacing:normal;letter-spacing:0.2px}
 .lgpd{background:#fffaef;border-left:3px solid var(--gold);padding:8px 12px;font-size:10.5px;color:var(--br2);line-height:1.6;margin-top:12px}
 .lgpd b{color:var(--gold-d)}
 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
@@ -247,7 +247,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
 
   // Monta o HTML num iframe oculto para isolar estilos e carregar fontes
   const iframe = document.createElement("iframe")
-  iframe.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:640px;height:1px;border:none;visibility:hidden"
+  iframe.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:640px;height:900px;border:none;visibility:hidden"
   document.body.appendChild(iframe)
 
   const iDoc = iframe.contentDocument!
@@ -286,28 +286,26 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
 
   document.body.removeChild(iframe)
 
-  // Dimensões A4 (mm)
+  // Largura A4 em mm — altura exata do conteúdo (sem espaço em branco)
   const A4_W = 210
-  const A4_H = 297
   const imgW = A4_W
   const imgH = (canvas.height * A4_W) / canvas.width
 
   const doc = new jsPDF({
     unit: "mm",
-    format: "a4",
+    format: [A4_W, imgH],
     orientation: "portrait",
   })
 
   const imgData = canvas.toDataURL("image/jpeg", 0.92)
 
-  // Se o recibo couber numa página, centraliza verticalmente
-  if (imgH <= A4_H) {
-    const offsetY = (A4_H - imgH) / 2
-    doc.addImage(imgData, "JPEG", 0, offsetY, imgW, imgH)
-  } else {
-    // Recibo alto demais: divide em páginas
+  // Uma única página do tamanho exato do recibo
+  doc.addImage(imgData, "JPEG", 0, 0, imgW, imgH)
+
+  if (false) {
+    // bloco mantido apenas para satisfazer o compilador — nunca executado
     let srcY = 0
-    const pageH = (A4_H * canvas.width) / A4_W
+    const pageH = (297 * canvas.width) / A4_W
     while (srcY < canvas.height) {
       const slice = Math.min(pageH, canvas.height - srcY)
       const pageCanvas = document.createElement("canvas")
