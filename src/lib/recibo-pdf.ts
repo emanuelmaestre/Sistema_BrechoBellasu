@@ -45,7 +45,7 @@ function buildHTML(data: ReciboData): string {
 
   const rowsHTML = data.itens.map((item, i) => `
     <tr class="${i % 2 === 0 ? "odd" : "even"}">
-      <td class="desc">${item.nome}</td>
+      <td class="desc">${item.nome.toUpperCase()}</td>
       <td class="c">${item.marca || "—"}</td>
       <td class="cq">${item.qtd}</td>
       <td class="cp">${fmtBRL(item.preco_unit)}</td>
