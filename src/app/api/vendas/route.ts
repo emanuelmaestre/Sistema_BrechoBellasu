@@ -118,14 +118,34 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       return NextResponse.json(erro, { status })
     }
 
-    // Marca como PENDENTE imediatamente — o frontend gerará e enviará o PDF
+    const vendaId = resultado.value.id
     const sb2 = createServerClient()
+
+    // Marca como PENDENTE imediatamente — o frontend gerará e enviará o PDF
     await sb2.from("vendas")
       .update({ notificacao_status: "pendente" })
-      .eq("id", resultado.value.id)
+      .eq("id", vendaId)
+
+    // Debita crédito se solicitado
+    const creditoUsar = Number(body.credito_usar) || 0
+    if (creditoUsar > 0 && body.cliente_id) {
+      try {
+        await sb2.rpc("fn_credito_saida", {
+          p_cliente_id: body.cliente_id,
+          p_valor:      creditoUsar,
+          p_origem:     "venda",
+          p_obs:        `Venda #${vendaId}`,
+          p_op_id:      vendaId,
+          p_op_tipo:    "venda",
+          p_user_id:    auth.id,
+        })
+      } catch (err) {
+        console.error("[POST /api/vendas] erro ao debitar crédito:", err)
+      }
+    }
 
     return NextResponse.json(
-      { id: resultado.value.id, total: resultado.value.total },
+      { id: vendaId, total: resultado.value.total },
       { status: 201 },
     )
   } catch (err) {

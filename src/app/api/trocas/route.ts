@@ -56,7 +56,44 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       const { status, body: erro } = apresentarErro(resultado.error)
       return NextResponse.json(erro, { status })
     }
-    return NextResponse.json({ id: resultado.value.id }, { status: 201 })
+
+    const trocaId = resultado.value.id
+    const valorProduto = Number(body.valor_produto) || 0
+    let creditoGerado = 0
+
+    // Persiste valor_produto e gera crédito se houver cliente e valor
+    if (valorProduto > 0) {
+      const sb2 = createServerClient()
+
+      // Salva valor_produto na troca
+      await sb2.from("trocas").update({ valor_produto: valorProduto }).eq("id", trocaId)
+
+      // Gera crédito se houver cliente
+      if (body.cliente_id) {
+        try {
+          const origem = body.tipo === "devolucao" ? "devolucao" : "troca"
+          const obs = `${body.tipo === "devolucao" ? "Devolução" : "Troca"} #${trocaId}` +
+            (body.nome_produto ? ` — ${body.nome_produto}` : "")
+
+          await sb2.rpc("fn_credito_entrada", {
+            p_cliente_id: body.cliente_id,
+            p_valor:      valorProduto,
+            p_origem:     origem,
+            p_obs:        obs,
+            p_op_id:      trocaId,
+            p_op_tipo:    "troca",
+            p_user_id:    auth.id,
+          })
+
+          await sb2.from("trocas").update({ credito_gerado: valorProduto }).eq("id", trocaId)
+          creditoGerado = valorProduto
+        } catch (err) {
+          console.error("[POST /api/trocas] erro ao gerar crédito:", err)
+        }
+      }
+    }
+
+    return NextResponse.json({ id: trocaId, credito_gerado: creditoGerado }, { status: 201 })
   } catch (err) {
     const { status, body: erro } = apresentarErro(err)
     if (status === 500) console.error("[POST /api/trocas]", err)

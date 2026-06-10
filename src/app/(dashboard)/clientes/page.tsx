@@ -8,7 +8,7 @@ import {
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy,
+  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -100,7 +100,21 @@ function Confete({ show }: { show: boolean }) {
 
 // ─── Drawer Resumo do Cliente ─────────────────────────────
 // ─── Conteúdo com Tabs do Drawer ─────────────────────────
-type DrawerTab = "dados" | "historico" | "notificacoes" | "etiquetas"
+type DrawerTab = "dados" | "historico" | "creditos" | "etiquetas" | "notificacoes"
+
+type CreditoMov = {
+  id: number
+  tipo: "entrada" | "saida"
+  origem: string
+  valor: number
+  saldo_antes: number
+  saldo_depois: number
+  obs: string | null
+  operacao_id: number | null
+  operacao_tipo: string | null
+  created_at: string
+  usuarios: { nome: string } | null
+}
 type HistoricoData = {
   vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
   trocas: { id: number; tipo: string; status: string; motivo: string; created_at: string }[]
@@ -156,6 +170,39 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
     staleTime: 60_000,
   })
 
+  // ── Créditos ──────────────────────────────────────────────
+  const { data: creditosData, isLoading: loadCreditos, refetch: refetchCreditos } = useQuery<{
+    data: CreditoMov[]; total: number; saldo: number
+  }>({
+    queryKey: ["cliente-creditos", cliente.id],
+    queryFn: () => apiGet(`/clientes/${cliente.id}/creditos`),
+    enabled: tab === "creditos",
+    staleTime: 30_000,
+  })
+
+  const [creditoForm, setCreditoForm] = useState(false)
+  const [creditoValor, setCreditoValor] = useState("")
+  const [creditoOrigem, setCreditoOrigem] = useState("manual")
+  const [creditoObs, setCreditoObs] = useState("")
+  const [creditoLoading, setCreditoLoading] = useState(false)
+  const [creditoErro, setCreditoErro] = useState("")
+
+  async function adicionarCredito() {
+    const v = parseFloat(creditoValor.replace(",", "."))
+    if (!v || v <= 0) { setCreditoErro("Informe um valor válido."); return }
+    setCreditoLoading(true); setCreditoErro("")
+    try {
+      await apiPost(`/clientes/${cliente.id}/creditos`, {
+        valor: v, origem: creditoOrigem, obs: creditoObs || null,
+      })
+      setCreditoForm(false); setCreditoValor(""); setCreditoObs("")
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      refetchCreditos()
+    } catch (e) {
+      setCreditoErro((e as Error).message || "Erro ao adicionar crédito.")
+    } finally { setCreditoLoading(false) }
+  }
+
   const [toggling, setToggling] = useState(false)
   const [consentErro, setConsentErro] = useState("")
   const [consentOk, setConsentOk] = useState("")
@@ -181,9 +228,10 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   }
 
   const TABS: { key: DrawerTab; label: string; icon: React.ReactNode }[] = [
-    { key: "dados", label: "Dados", icon: <FileText size={13} /> },
-    { key: "historico", label: "Histórico", icon: <ShoppingBag size={13} /> },
-    { key: "etiquetas", label: "Etiquetas", icon: <Tag size={13} /> },
+    { key: "dados",        label: "Dados",        icon: <FileText size={13} /> },
+    { key: "historico",    label: "Histórico",    icon: <ShoppingBag size={13} /> },
+    { key: "creditos",     label: "Créditos",     icon: <Wallet size={13} /> },
+    { key: "etiquetas",    label: "Etiquetas",    icon: <Tag size={13} /> },
     { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
   ]
 
@@ -365,6 +413,131 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
             </>
           )
         })()}
+
+        {/* Aba Créditos */}
+        {tab === "creditos" && (
+          <div className="space-y-3">
+            {/* Card de saldo */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl p-5 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.04))", border: "1px solid rgba(251,191,36,0.3)" }}>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "rgba(251,191,36,0.7)" }}>Saldo disponível</p>
+                <p className="text-3xl font-bold" style={{ color: "#fbbf24" }}>
+                  R$ {(creditosData?.saldo ?? (cliente as Cliente & { saldo_credito?: number }).saldo_credito ?? 0).toFixed(2).replace(".", ",")}
+                </p>
+              </div>
+              <Wallet size={32} style={{ color: "rgba(251,191,36,0.4)" }} />
+            </motion.div>
+
+            {/* Botão + Adicionar crédito */}
+            {!creditoForm ? (
+              <button onClick={() => { setCreditoForm(true); setCreditoErro("") }}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", color: "#fbbf24" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.15)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.08)" }}>
+                + Adicionar Crédito
+              </button>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl p-4 space-y-3"
+                style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Adicionar Crédito Manual</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Valor (R$)</label>
+                    <input type="number" step="0.01" min="0.01" placeholder="0,00"
+                      value={creditoValor} onChange={e => setCreditoValor(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Origem</label>
+                    <select value={creditoOrigem} onChange={e => setCreditoOrigem(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                      <option value="manual">Ajuste manual</option>
+                      <option value="ajuste">Correção de valor</option>
+                      <option value="devolucao">Devolução fora do fluxo</option>
+                      <option value="troca">Troca fora do fluxo</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Observação (opcional)</label>
+                  <input type="text" placeholder="Ex: Cortesia, acordo com cliente..."
+                    value={creditoObs} onChange={e => setCreditoObs(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                {creditoErro && <p className="text-xs text-red-400">{creditoErro}</p>}
+                <div className="flex gap-2">
+                  <button onClick={adicionarCredito} disabled={creditoLoading}
+                    className="flex-1 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: "#fbbf24", color: "#1a0f00" }}>
+                    {creditoLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+                    Confirmar
+                  </button>
+                  <button onClick={() => { setCreditoForm(false); setCreditoErro("") }}
+                    className="px-4 py-2 rounded-xl text-sm transition-colors"
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Histórico de movimentações */}
+            <p className="text-[10px] font-bold uppercase tracking-wider pt-1" style={{ color: "var(--text-muted)" }}>Movimentações</p>
+            {loadCreditos ? (
+              <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+            ) : (creditosData?.data ?? []).length === 0 ? (
+              <div className="py-10 text-center">
+                <Wallet size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma movimentação de crédito ainda.</p>
+              </div>
+            ) : (creditosData?.data ?? []).map((mov, i) => {
+              const entrada = mov.tipo === "entrada"
+              const origemLabel: Record<string, string> = {
+                devolucao: "Devolução", troca: "Troca", venda: "Venda",
+                manual: "Manual", ajuste: "Ajuste",
+              }
+              return (
+                <motion.div key={mov.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <div className="mt-0.5 p-1.5 rounded-lg shrink-0"
+                    style={{ background: entrada ? "rgba(16,185,129,0.12)" : "rgba(248,113,113,0.12)" }}>
+                    {entrada
+                      ? <TrendingUp size={13} style={{ color: "#10b981" }} />
+                      : <TrendingDown size={13} style={{ color: "#f87171" }} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase" style={{ color: entrada ? "#10b981" : "#f87171" }}>
+                        {entrada ? "+" : "–"} R$ {mov.valor.toFixed(2).replace(".", ",")}
+                      </span>
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        {new Date(mov.created_at).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      {origemLabel[mov.origem] ?? mov.origem}
+                      {mov.operacao_id ? ` #${mov.operacao_id}` : ""}
+                      {mov.obs ? ` — ${mov.obs}` : ""}
+                    </p>
+                    <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      Saldo: R$ {mov.saldo_antes.toFixed(2).replace(".", ",")} → R$ {mov.saldo_depois.toFixed(2).replace(".", ",")}
+                      {mov.usuarios?.nome ? ` · ${mov.usuarios.nome}` : ""}
+                    </p>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Aba Etiquetas */}
         {tab === "etiquetas" && <EtiquetasTab cliente={cliente} />}
@@ -1628,7 +1801,17 @@ export default function ClientesPage() {
                   onMouseEnter={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "var(--bg-hover)" }}
                   onMouseLeave={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
                   <td className="px-4 py-3">
-                    <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
+                      {(c as Cliente & { saldo_credito?: number }).saldo_credito! > 0 && (
+                        <span
+                          title={`Crédito disponível: R$ ${((c as Cliente & { saldo_credito?: number }).saldo_credito ?? 0).toFixed(2).replace(".", ",")}`}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-default select-none"
+                          style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)" }}>
+                          ✦ R$ {((c as Cliente & { saldo_credito?: number }).saldo_credito ?? 0).toFixed(2).replace(".", ",")}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: "var(--text-secondary)" }}>{c.celular ?? "—"}</td>
                   <td className="px-4 py-3 text-sm font-medium uppercase" style={{ color: "var(--text-secondary)" }}>

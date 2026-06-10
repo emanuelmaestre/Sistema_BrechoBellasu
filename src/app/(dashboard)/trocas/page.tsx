@@ -454,8 +454,9 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   const [saving, setSaving] = useState(false)
   const [salvoOk, setSalvoOk] = useState(false)
   const [modalProd, setModalProd] = useState(false)
+  const [valorProduto, setValorProduto] = useState("")
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
-  const TOTAL = 5
+  const TOTAL = 6
 
   // ── Autocomplete Cliente (step 2) ──────────────────────
   const [cliBusca, setCliBusca]   = useState("")
@@ -507,7 +508,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   }, [prodBusca, step, form.cliente_id])
 
   useEffect(() => {
-    if (step !== 4) {
+    if (step !== 4 && step !== 5) {
       const t = setTimeout(() => inputRef.current?.focus(), 280)
       return () => clearTimeout(t)
     }
@@ -530,13 +531,14 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
-      const res = await apiPost<{ id: number }>("/trocas", {
+      const res = await apiPost<{ id: number; credito_gerado?: number }>("/trocas", {
         tipo: form.tipo,
         nome_produto: form.nome_produto || null,
         produto_id: form.produto_id || null,
         cliente_nome: form.cliente_nome || null,
         cliente_id: form.cliente_id || null,
         motivo: form.motivo.trim(),
+        valor_produto: valorProduto ? parseFloat(valorProduto.replace(",", ".")) : null,
         // Já salva como concluído — sem necessidade de aprovação (regra 1 e 2)
         status: "concluido",
       })
@@ -610,7 +612,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
         return
       }
     }
-    if (e.key === "Enter" && step < TOTAL && step !== 4) { e.preventDefault(); advance() }
+    if (e.key === "Enter" && step < TOTAL && step !== 4 && step !== 5) { e.preventDefault(); advance() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, form, cliOpen, cliRes, cliIdx])
 
@@ -652,7 +654,8 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
               className={cn(
                 "absolute inset-0 flex flex-col items-center px-6",
                 step === 4 ? "justify-start pt-5 overflow-hidden" : "justify-center overflow-y-auto py-8"
-              )}>
+              )}
+              style={step === 5 ? { maxHeight: "100%" } : undefined}>
               <div className="w-full max-w-xl">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-base font-bold" style={{ color: cor }}>{step}</span>
@@ -798,6 +801,46 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                   <SeletorMotivo tipo={form.tipo} valor={form.motivo} onChange={v => set("motivo", v)} />
                 </>}
 
+                {/* Step 5 — Valor & Crédito */}
+                {step === 5 && <>
+                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor do produto</h1>
+                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+                    Informe o valor pago pela cliente. Esse valor será gerado como crédito para uso em próximas compras.
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
+                    <input
+                      value={valorProduto}
+                      onChange={e => { setValorProduto(e.target.value); setErro("") }}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      disabled={!form.cliente_id}
+                      className={`${iBase} pl-12 disabled:opacity-50 disabled:cursor-not-allowed`}
+                      style={iSt} />
+                  </div>
+                  {!form.cliente_id && (
+                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                      ℹ️ Selecione uma cliente (step 2) para gerar crédito.
+                    </p>
+                  )}
+                  {form.cliente_id && valorProduto && parseFloat(valorProduto.replace(",", ".")) > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 px-5 py-4 rounded-2xl flex items-center justify-between"
+                      style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.35)" }}>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#10b981" }}>Crédito a gerar</p>
+                        <p className="text-2xl font-bold mt-0.5" style={{ color: "#10b981" }}>
+                          R$ {parseFloat(valorProduto.replace(",", ".")).toFixed(2).replace(".", ",")}
+                        </p>
+                      </div>
+                      <span className="text-2xl">✦</span>
+                    </motion.div>
+                  )}
+                  <p className="text-xs mt-4 opacity-60" style={{ color: "var(--text-muted)" }}>
+                    Deixe em branco para não gerar crédito agora.
+                  </p>
+                </>}
+
                 <AnimatePresence>
                   {erro && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="mt-3 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
@@ -869,6 +912,13 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                     { label: "Cliente", value: form.cliente_nome || "—", s: 2 },
                     { label: "Produto", value: form.nome_produto || "—", s: 3 },
                     { label: "Motivo",  value: form.motivo || "—", s: 4, full: true },
+                    {
+                      label: "Crédito a gerar",
+                      value: (valorProduto && parseFloat(valorProduto.replace(",", ".")) > 0)
+                        ? `✦ R$ ${parseFloat(valorProduto.replace(",", ".")).toFixed(2).replace(".", ",")}`
+                        : "Sem crédito",
+                      s: 5, full: false,
+                    },
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}` }}>

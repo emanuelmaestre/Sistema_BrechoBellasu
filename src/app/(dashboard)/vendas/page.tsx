@@ -34,7 +34,7 @@ interface WizItem {
   marca?: string | null
 }
 
-const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Misto"]
+const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Crédito", "Misto"]
 const PERIODO_OPTIONS = [
   { key: "hoje",   label: "Hoje" },
   { key: "semana", label: "7 dias" },
@@ -349,6 +349,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 
   // Step 3 — pagamento
   const [forma, setForma]         = useState("Dinheiro")
+  const [saldoCredito, setSaldoCredito] = useState(0)
+  const [creditoUsar, setCreditoUsar]   = useState("")
 
   // Step 4 — desconto
   const [desconto, setDesconto]   = useState("")
@@ -392,6 +394,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   function selecionarCliente(c: Cliente) {
     setClienteId(c.id); setClienteNome(c.nome)
     setClienteCelular((c as Cliente & { celular?: string | null }).celular ?? null)
+    setSaldoCredito(Number((c as Cliente & { saldo_credito?: number }).saldo_credito ?? 0))
     setCliBusca(c.nome); setCliRes([])
   }
 
@@ -476,12 +479,14 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
+      const creditoUsarVal = parseFloat(creditoUsar.replace(",", ".")) || 0
       const res = await apiPost<{ id: number; total: number }>("/vendas", {
         cliente_id: clienteId,
         forma_pagamento: forma,
         desconto_geral: descontoVal,
         observacoes: obs || null,
         itens,
+        credito_usar: creditoUsarVal > 0 ? creditoUsarVal : undefined,
       })
 
       // ── Envio automático do recibo (regra 2) ──────────────
@@ -732,6 +737,61 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                       )
                     })}
                   </div>
+                  {/* Badge crédito disponível */}
+                  {saldoCredito > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between"
+                      style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.35)" }}>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Crédito disponível</p>
+                        <p className="text-lg font-bold mt-0.5" style={{ color: "#fbbf24" }}>
+                          ✦ R$ {saldoCredito.toFixed(2).replace(".", ",")}
+                        </p>
+                      </div>
+                      {forma !== "Crédito" && (
+                        <button onClick={() => { setForma("Crédito"); setFormaIdx(FORMAS.indexOf("Crédito")) }}
+                          className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                          style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>
+                          Usar crédito
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* Campos de uso de crédito */}
+                  {forma === "Crédito" && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 space-y-3">
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>
+                          Valor em crédito (máx. R$ {Math.min(saldoCredito, totalFinal).toFixed(2).replace(".", ",")})
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
+                          <input
+                            value={creditoUsar}
+                            onChange={e => setCreditoUsar(e.target.value)}
+                            placeholder="0,00"
+                            inputMode="decimal"
+                            className={cn(iBase, "pl-12 text-base py-3")} style={iSt} />
+                        </div>
+                      </div>
+                      {(() => {
+                        const cu = parseFloat(creditoUsar.replace(",", ".")) || 0
+                        const restante = Math.max(0, totalFinal - cu)
+                        return restante > 0 && (
+                          <div className="px-4 py-3 rounded-2xl flex items-center justify-between"
+                            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                            <span className="text-sm" style={{ color: "var(--text-muted)" }}>Restante a cobrar</span>
+                            <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                              R$ {restante.toFixed(2).replace(".", ",")}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </motion.div>
+                  )}
+
                   {/* Hint teclado */}
                   <p className="mt-4 text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>
                     Use{" "}
