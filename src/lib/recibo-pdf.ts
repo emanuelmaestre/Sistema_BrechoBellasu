@@ -155,11 +155,10 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
         <span class="flbl">Nome</span>
         <span class="fval">${data.cliente_nome.toUpperCase()}</span>
       </div>
-      ${data.cliente_celular ? `
       <div class="fg">
         <span class="flbl">WhatsApp</span>
-        <span class="fval">${data.cliente_celular}</span>
-      </div>` : ""}
+        <span class="fval">${data.cliente_celular || "—"}</span>
+      </div>
     </div>
     <div class="lgpd">
       <b>LGPD – LEI 13.709/2018</b> — Nome e telefone coletados exclusivamente para identificação desta transação. Não compartilhados com terceiros.
