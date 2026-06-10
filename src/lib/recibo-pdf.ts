@@ -78,7 +78,7 @@ function buildHTML(data: ReciboData): string {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--gold:#C9A84C;--gold-l:#E8D49A;--gold-d:#9B7A2F;--brown:#3B1F0E;--br2:#6B4226;--cream:#F7F2E8;--bd:#D4B86A}
-body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:center}
+body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:center;align-items:flex-start;min-height:unset}
 .card{background:#fff;width:600px;border:1px solid var(--bd)}
 .gbar{height:5px;background:linear-gradient(90deg,var(--gold-d),var(--gold),var(--gold-l),var(--gold),var(--gold-d))}
 .hd{background:var(--cream);padding:24px 28px 18px;text-align:center;border-bottom:1px solid var(--bd)}
@@ -96,7 +96,7 @@ body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:
 .c2{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
 .fg{display:flex;flex-direction:column;gap:3px}
 .flbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--gold-d)}
-.fval{font-size:13px;color:var(--brown);font-weight:700;word-break:break-word;word-spacing:normal;letter-spacing:0.2px}
+.fval{font-size:13px;color:var(--brown);font-weight:700;word-break:break-word;word-spacing:4px;letter-spacing:0.3px}
 .lgpd{background:#fffaef;border-left:3px solid var(--gold);padding:8px 12px;font-size:10.5px;color:var(--br2);line-height:1.6;margin-top:12px}
 .lgpd b{color:var(--gold-d)}
 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
@@ -281,7 +281,9 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
     allowTaint: true,
     backgroundColor: "#ffffff",
     logging: false,
-    windowWidth: 640,
+    windowWidth: 600,
+    scrollX: 0,
+    scrollY: 0,
   })
 
   document.body.removeChild(iframe)
