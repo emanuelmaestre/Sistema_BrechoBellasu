@@ -214,6 +214,7 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
     </div>
     <div class="ft-note">Trocas aceitas em até 7 dias &nbsp;·&nbsp; Guarde este recibo</div>
   </div>
+  <div class="gbar"></div>
 </div>
 </body>
 </html>`
