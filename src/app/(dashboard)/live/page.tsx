@@ -473,7 +473,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   <input ref={inputRef} value={cliBusca}
                     onChange={e => { buscarClientes(e.target.value); resetCli() }}
                     onKeyDown={cliKD}
-                    placeholder="NOME OU TELEFONE..."
+                    placeholder="NOME, CPF, WHATSAPP OU @INSTAGRAM..."
                     className="w-full px-4 py-4 text-base rounded-xl outline-none transition-all border"
                     style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                     autoComplete="off"/>
