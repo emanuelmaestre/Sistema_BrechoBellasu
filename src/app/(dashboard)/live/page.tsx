@@ -578,7 +578,8 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Resumo</p>
                   {[
                     { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
-                    { l: "Sacola",    v: [form.cor_sacola, form.numero_sacola ? `#${form.numero_sacola}` : ""].filter(Boolean).join(" ") || "—" },
+                    { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—" },
+                    { l: "Cor",       v: form.cor_sacola || "—" },
                     { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
                     { l: "Total",     v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(",","."))) : "—" },
                   ].map(r => (
@@ -733,7 +734,7 @@ function ModalVinculo({
             <div>
               <p className="font-black text-lg uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>{compra.nome_cliente}</p>
               <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-                {[compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ") || "Sem sacola"} · {fmtBRL(compra.valor_total)}
+                {compra.cor_sacola || "—"} · #{compra.numero_sacola || "—"} · {fmtBRL(compra.valor_total)}
               </p>
             </div>
           </div>
@@ -1711,8 +1712,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             <table className="w-full">
               <thead className="sticky top-0 z-10" style={{ background: "var(--bg-surface)" }}>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["CLIENTE","SACOLA","ITENS","VALOR","WHATSAPP","STATUS MSG","PAGAMENTO","STATUS","AÇÃO"].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
+                  {["CLIENTE","Nº SACOLA","COR","ITENS","VALOR","WHATSAPP","STATUS MSG","PAGAMENTO","STATUS","AÇÃO"].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${i >= 3 ? "text-center" : "text-left"}`}
                       style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
@@ -1739,8 +1740,14 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                         </td>
 
                         <td className="px-4 py-3.5">
+                          <p className="text-xs font-bold" style={{ color: "var(--text-secondary)" }}>
+                            {c.numero_sacola ? `#${c.numero_sacola}` : "—"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-3.5">
                           <p className="text-xs font-bold uppercase" style={{ color: "var(--text-secondary)" }}>
-                            {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "—"}
+                            {c.cor_sacola || "—"}
                           </p>
                         </td>
 
