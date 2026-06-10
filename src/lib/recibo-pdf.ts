@@ -1,10 +1,8 @@
 // ══════════════════════════════════════════════════════════
-// Gerador de Recibo PDF — roda no navegador (jsPDF)
-// Estilo: Brechó Bellasu — dourado/marrom/creme com logo
-// Colunas separadas: Cor e Tamanho. Layout caprichado UI/UX.
+// Gerador de Recibo PDF — html2canvas → jsPDF
+// Renderiza HTML fiel ao modelo oficial (RECIBO - SISTEMA.html)
+// Suporta emoji, fontes Google, CSS completo.
 // ══════════════════════════════════════════════════════════
-
-import jsPDF from "jspdf"
 
 export interface ReciboItem {
   nome: string
@@ -28,369 +26,275 @@ export interface ReciboData {
   total: number
 }
 
-// ── Paleta (igual ao HTML) ───────────────────────────────
-const GOLD   = [201, 168, 76]  as [number, number, number]
-const GOLD_L = [232, 212, 154] as [number, number, number]
-const GOLD_D = [155, 122,  47] as [number, number, number]
-const BROWN  = [ 59,  31,  14] as [number, number, number]
-const BR2    = [107,  66,  38] as [number, number, number]
-const CREAM  = [247, 242, 232] as [number, number, number]
-const WHITE  = [255, 255, 255] as [number, number, number]
-const LIGHT  = [237, 229, 213] as [number, number, number]
-const TEXT   = [ 59,  31,  14] as [number, number, number]
-const MUTED  = [150, 120,  85] as [number, number, number]
-
 function fmtBRL(v: number) {
   return `R$ ${v.toFixed(2).replace(".", ",")}`
 }
 
-async function loadLogo(): Promise<string | null> {
-  try {
-    const res = await fetch("/logo-bellasu-pdf.jpg")
-    if (!res.ok) return null
-    const blob = await res.blob()
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
+function buildHTML(data: ReciboData): string {
+  const subtotal = data.itens.reduce((s, it) => s + it.subtotal, 0)
+  const frete    = data.frete    ?? 0
+  const desconto = data.desconto ?? 0
 
-// Barra dourada em degradê (3 faixas)
-function goldBar(doc: jsPDF, y: number, w: number) {
-  doc.setFillColor(...GOLD_D); doc.rect(0, y, w, 1.5, "F")
-  doc.setFillColor(...GOLD);   doc.rect(0, y + 1.5, w, 1.5, "F")
-  doc.setFillColor(...GOLD_L); doc.rect(0, y + 3, w, 1, "F")
-}
+  const formas = ["PIX", "Dinheiro", "Crédito", "Débito"]
+  const formaAtual = (data.forma_pagamento ?? "").toLowerCase()
 
-function divider(doc: jsPDF, y: number, xa: number, xb: number) {
-  doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.4)
-  doc.line(xa, y, xb, y)
-}
+  const chipsHTML = formas.map(f => {
+    const sel = formaAtual.includes(f.toLowerCase())
+    return `<label class="pt${sel ? " sel" : ""}"><span>${f}</span></label>`
+  }).join("")
 
-// Título de seção com tracinho dourado ao lado
-function sectionTitle(doc: jsPDF, label: string, x: number, y: number, w: number) {
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(9)
-  doc.setTextColor(...BROWN)           // marrom escuro — bem legível
-  doc.text(label.toUpperCase(), x, y, { charSpace: 1.8 })
-  const tw = doc.getTextWidth(label.toUpperCase()) + 6
-  doc.setDrawColor(...GOLD)            // linha dourada mais viva
-  doc.setLineWidth(0.35)
-  doc.line(x + tw, y - 1.5, x + w, y - 1.5)
+  const rowsHTML = data.itens.map((item, i) => `
+    <tr class="${i % 2 === 0 ? "odd" : "even"}">
+      <td class="desc">${item.nome}</td>
+      <td class="c">${item.marca || "—"}</td>
+      <td class="cq">${item.qtd}</td>
+      <td class="cp">${fmtBRL(item.preco_unit)}</td>
+      <td class="sv">${fmtBRL(item.subtotal)}</td>
+    </tr>`).join("")
+
+  const linhasResumo = [
+    `<div class="tr"><span>Subtotal</span><span>${fmtBRL(subtotal)}</span></div>`,
+    frete    > 0 ? `<div class="tr"><span>Frete</span><span>${fmtBRL(frete)}</span></div>` : "",
+    desconto > 0 ? `<div class="tr"><span>Desconto</span><span>– ${fmtBRL(desconto)}</span></div>` : "",
+    `<div class="tr ttotal"><span>TOTAL</span><span>${fmtBRL(data.total)}</span></div>`,
+  ].join("")
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--gold:#C9A84C;--gold-l:#E8D49A;--gold-d:#9B7A2F;--brown:#3B1F0E;--br2:#6B4226;--cream:#F7F2E8;--bd:#D4B86A}
+body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:center}
+.card{background:#fff;width:600px;border:1px solid var(--bd)}
+.gbar{height:5px;background:linear-gradient(90deg,var(--gold-d),var(--gold),var(--gold-l),var(--gold),var(--gold-d))}
+.hd{background:var(--cream);padding:24px 28px 18px;text-align:center;border-bottom:1px solid var(--bd)}
+.hd img{width:90px;height:90px;object-fit:contain;display:block;margin:0 auto 8px}
+.hd h1{font-family:'Playfair Display',serif;font-size:20px;color:var(--brown);letter-spacing:3px;text-transform:uppercase}
+.hd .tag{font-family:'Playfair Display',serif;font-style:italic;color:var(--gold-d);font-size:11.5px;margin-top:3px}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:14px auto 0;width:70%}
+.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;text-align:center}
+.mi{display:flex;flex-direction:column;gap:4px;align-items:center}
+.lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold-d)}
+.val{font-family:'Playfair Display',serif;font-size:13px;color:var(--brown)}
+.sec{padding:16px 28px;border-bottom:1px solid #ede5d5}
+.stitle{font-size:9.5px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold-d);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.stitle::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--gold-l),transparent)}
+.c2{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.flbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--gold-d)}
+.fval{font-size:13px;color:var(--brown);font-weight:700}
+.lgpd{background:#fffaef;border-left:3px solid var(--gold);padding:8px 12px;font-size:10.5px;color:var(--br2);line-height:1.6;margin-top:12px}
+.lgpd b{color:var(--gold-d)}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+col.cd{width:40%}col.ct{width:12%}col.cq{width:10%}col.cp{width:16%}col.cs{width:22%}
+thead tr{background:var(--brown)}
+thead th{padding:10px 12px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-l);font-weight:700;text-align:left;vertical-align:middle}
+thead th.c{text-align:center}
+thead th.r{text-align:right}
+tbody tr{border-bottom:1px solid #e8e0ce}
+tbody tr.even{background:var(--cream)}
+tbody tr.odd{background:#fff}
+tbody td{padding:9px 12px;vertical-align:middle}
+tbody td.desc{color:var(--brown);font-weight:700}
+tbody td.c{color:#a08060;font-style:italic;text-align:center}
+tbody td.cq{color:var(--brown);text-align:center}
+tbody td.cp{color:#a08060;text-align:right}
+tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
+.bot{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;padding:16px 28px}
+.pay-col{display:flex;flex-direction:column;gap:7px}
+.pt{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--br2);padding:6px 10px;border:1px solid var(--bd);border-radius:2px;white-space:nowrap}
+.pt.sel{background:var(--brown);color:var(--gold-l);border-color:var(--brown);font-weight:700}
+.tbox{border:1px solid var(--bd);min-width:195px}
+.tr{display:flex;justify-content:space-between;padding:7px 12px;font-size:12.5px;color:var(--br2);border-bottom:1px solid #ede5d5;align-items:center}
+.tr:last-child{border:none}
+.ttotal{background:var(--brown);color:var(--gold-l);font-family:'Playfair Display',serif;font-size:16px;font-weight:600;padding:11px 12px}
+.ft{background:var(--cream);padding:16px 28px;text-align:center;border-top:3px solid var(--gold)}
+.ft-msg{font-family:'Playfair Display',serif;font-style:italic;font-size:13.5px;color:var(--brown);margin-bottom:8px}
+.ft-links{display:flex;justify-content:center;gap:22px;font-size:12px;flex-wrap:wrap;margin-bottom:8px}
+.ft-links a{color:var(--gold-d);text-decoration:none;border-bottom:1px dashed var(--gold)}
+.ft-note{font-size:9.5px;color:#aaa;letter-spacing:1px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="gbar"></div>
+
+  <!-- HEADER -->
+  <div class="hd">
+    <img src="/logo-bellasu-pdf.jpg" alt="Logo Brechó Bellasu" onerror="this.style.display='none'">
+    <h1>Brechó Bellasu</h1>
+    <div class="tag">O Desapego é o Esporte da Felicidade!</div>
+    <div class="divider"></div>
+    <div class="meta">
+      <div class="mi">
+        <span class="lbl">Nº Recibo</span>
+        <span class="val">${String(data.numero).padStart(3, "0")}</span>
+      </div>
+      <div class="mi">
+        <span class="lbl">Data da Compra</span>
+        <span class="val">${data.data}</span>
+      </div>
+      <div class="mi">
+        <span class="lbl">Tipo</span>
+        <span class="val">${data.tipo}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENTE -->
+  <div class="sec">
+    <div class="stitle">Cliente</div>
+    <div class="c2">
+      <div class="fg">
+        <span class="flbl">Nome</span>
+        <span class="fval">${data.cliente_nome.toUpperCase()}</span>
+      </div>
+      ${data.cliente_celular ? `
+      <div class="fg">
+        <span class="flbl">WhatsApp</span>
+        <span class="fval">${data.cliente_celular}</span>
+      </div>` : ""}
+    </div>
+    <div class="lgpd">
+      <b>LGPD – LEI 13.709/2018</b> — Nome e telefone coletados exclusivamente para identificação desta transação. Não compartilhados com terceiros.
+    </div>
+  </div>
+
+  <!-- ITENS -->
+  <div class="sec">
+    <div class="stitle">Itens</div>
+    <table>
+      <colgroup>
+        <col class="cd"><col class="ct"><col class="cq"><col class="cp"><col class="cs">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th class="c">Marca</th>
+          <th class="c">Qtd.</th>
+          <th class="r">Preço Unit.</th>
+          <th class="r">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+  </div>
+
+  <!-- PAGAMENTO + RESUMO -->
+  <div class="bot">
+    <div class="pay-col">
+      <div class="stitle" style="margin-bottom:8px">Pagamento</div>
+      ${chipsHTML}
+    </div>
+    <div>
+      <div class="stitle" style="margin-bottom:8px">Resumo</div>
+      <div class="tbox">${linhasResumo}</div>
+    </div>
+  </div>
+
+  <!-- RODAPÉ -->
+  <div class="ft">
+    <div class="ft-msg">Obrigada pela sua compra! 🛍️✨</div>
+    <div class="ft-links">
+      <a href="https://wa.me/5516994556296">📱 (16) 99455-6296</a>
+      <a href="https://www.instagram.com/brecho.bellasu/">📸 @brecho.bellasu</a>
+    </div>
+    <div class="ft-note">Trocas aceitas em até 7 dias &nbsp;·&nbsp; Guarde este recibo</div>
+  </div>
+</div>
+</body>
+</html>`
 }
 
 export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
-  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" })
-  const W = doc.internal.pageSize.getWidth()  // 210
-  const M = 15
-  const CW = W - M * 2
-  let y = 0
+  // Importações dinâmicas — só no browser
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ])
 
-  const logo = await loadLogo()
+  // Monta o HTML num iframe oculto para isolar estilos e carregar fontes
+  const iframe = document.createElement("iframe")
+  iframe.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:640px;height:1px;border:none;visibility:hidden"
+  document.body.appendChild(iframe)
 
-  // ══ TOPO ══
-  goldBar(doc, 0, W)
-  y = 4
+  const iDoc = iframe.contentDocument!
+  iDoc.open()
+  iDoc.write(buildHTML(data))
+  iDoc.close()
 
-  // ── HEADER (fundo creme) — posições explícitas p/ não sobrepor ──
-  const headerH = logo ? 62 : 46
-  doc.setFillColor(...CREAM)
-  doc.rect(0, y, W, headerH, "F")
+  // Aguarda fontes + imagens carregarem
+  await new Promise<void>(resolve => {
+    const check = () => {
+      if (iDoc.readyState === "complete") resolve()
+      else setTimeout(check, 50)
+    }
+    check()
+  })
 
-  let hy = y // y = 4 (logo após a barra dourada)
+  // Aguarda fontes Google
+  try {
+    await (iDoc as Document & { fonts?: FontFaceSet }).fonts?.ready
+  } catch { /* fallback silencioso */ }
 
-  // Logo centralizada
-  if (logo) {
-    const ls = 24
-    doc.addImage(logo, "JPEG", (W - ls) / 2, hy + 6, ls, ls)
-    hy = hy + 6 + ls + 8   // base da logo (34) + folga (8) → título em ~42
+  // Pequeno delay extra para garantir render das fontes
+  await new Promise(r => setTimeout(r, 400))
+
+  const card = iDoc.querySelector(".card") as HTMLElement
+  if (!card) throw new Error("Elemento .card não encontrado no recibo HTML")
+
+  const canvas = await html2canvas(card, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: "#ffffff",
+    logging: false,
+    windowWidth: 640,
+  })
+
+  document.body.removeChild(iframe)
+
+  // Dimensões A4 (mm)
+  const A4_W = 210
+  const A4_H = 297
+  const imgW = A4_W
+  const imgH = (canvas.height * A4_W) / canvas.width
+
+  const doc = new jsPDF({
+    unit: "mm",
+    format: "a4",
+    orientation: "portrait",
+  })
+
+  const imgData = canvas.toDataURL("image/jpeg", 0.92)
+
+  // Se o recibo couber numa página, centraliza verticalmente
+  if (imgH <= A4_H) {
+    const offsetY = (A4_H - imgH) / 2
+    doc.addImage(imgData, "JPEG", 0, offsetY, imgW, imgH)
   } else {
-    hy += 12
+    // Recibo alto demais: divide em páginas
+    let srcY = 0
+    const pageH = (A4_H * canvas.width) / A4_W
+    while (srcY < canvas.height) {
+      const slice = Math.min(pageH, canvas.height - srcY)
+      const pageCanvas = document.createElement("canvas")
+      pageCanvas.width  = canvas.width
+      pageCanvas.height = slice
+      const ctx = pageCanvas.getContext("2d")!
+      ctx.drawImage(canvas, 0, srcY, canvas.width, slice, 0, 0, canvas.width, slice)
+      const pageData = pageCanvas.toDataURL("image/jpeg", 0.92)
+      if (srcY > 0) doc.addPage()
+      doc.addImage(pageData, "JPEG", 0, 0, A4_W, (slice * A4_W) / canvas.width)
+      srcY += slice
+    }
   }
-
-  // Título serif
-  doc.setFont("times", "bold")
-  doc.setFontSize(21)
-  doc.setTextColor(...BROWN)
-  doc.text("BRECHÓ BELLASU", W / 2, hy, { align: "center", charSpace: 1.5 })
-  hy += 6
-
-  // Slogan
-  doc.setFont("times", "italic")
-  doc.setFontSize(9.5)
-  doc.setTextColor(...GOLD_D)
-  doc.text("O Desapego é o Esporte da Felicidade!", W / 2, hy, { align: "center" })
-  hy += 5.5
-
-  // Divisor
-  divider(doc, hy, M + 34, W - M - 34)
-  hy += 6.5
-
-  // Meta: Nº | Data | Tipo
-  const mc = [W / 6 + 6, W / 2, (5 * W) / 6 - 6]
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(6.5)
-  doc.setTextColor(...GOLD_D)
-  doc.text("Nº RECIBO", mc[0], hy, { align: "center", charSpace: 0.6 })
-  doc.text("DATA DA COMPRA", mc[1], hy, { align: "center", charSpace: 0.6 })
-  doc.text("TIPO",      mc[2], hy, { align: "center", charSpace: 0.6 })
-  hy += 4.5
-  doc.setFont("times", "normal")
-  doc.setFontSize(11)
-  doc.setTextColor(...BROWN)
-  doc.text(String(data.numero).padStart(3, "0"), mc[0], hy, { align: "center" })
-  doc.text(data.data, mc[1], hy, { align: "center" })
-  doc.text(data.tipo, mc[2], hy, { align: "center" })
-
-  // Conteúdo começa abaixo do header com folga
-  y = 4 + headerH + 10
-
-  // ══ CLIENTE ══
-  sectionTitle(doc, "Cliente", M, y, CW)
-  y += 7
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9.5)
-  doc.setTextColor(...MUTED)
-  doc.text("Nome", M, y)
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(10.5)
-  doc.setTextColor(...TEXT)
-  doc.text(data.cliente_nome.toUpperCase(), M, y + 5)
-  if (data.cliente_celular) {
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-    doc.setTextColor(...MUTED)
-    doc.text("WhatsApp", W / 2 + 6, y)
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(10.5)
-    doc.setTextColor(...TEXT)
-    doc.text(data.cliente_celular, W / 2 + 6, y + 5)
-  }
-  y += 11
-
-  // LGPD box
-  doc.setFillColor(255, 250, 239)
-  doc.setDrawColor(...GOLD_L)
-  doc.setLineWidth(0.4)
-  doc.roundedRect(M, y, CW, 10, 1.5, 1.5, "FD")
-  doc.setFillColor(...GOLD)
-  doc.rect(M, y + 1, 1.3, 8, "F")
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(6.3)
-  doc.setTextColor(...GOLD_D)
-  doc.text("LGPD – LEI 13.709/2018", M + 4, y + 4)
-  doc.setFont("helvetica", "normal")
-  doc.setTextColor(...BR2)
-  doc.text("Nome e telefone coletados exclusivamente para identificação desta transação. Não compartilhados com terceiros.", M + 4, y + 7.5)
-  y += 16
-
-  // ══ ITENS ══
-  sectionTitle(doc, "Itens", M, y, CW)
-  y += 6
-
-  // Posições das colunas (sem COR — modelo HTML oficial: Descrição | Tam. | Qtd. | Preço Unit. | Subtotal)
-  const cDesc = M + 3
-  const cMarca = M + 108
-  const cQtd  = M + 130
-  const cUnit = M + 153
-  const cSub  = W - M - 3
-
-  // Cabeçalho (marrom, cantos arredondados no topo)
-  doc.setFillColor(...BROWN)
-  doc.roundedRect(M, y, CW, 7.5, 1.5, 1.5, "F")
-  doc.rect(M, y + 3.75, CW, 3.75, "F") // tampa a parte de baixo dos cantos
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(7)
-  doc.setTextColor(...GOLD_L)
-  doc.text("DESCRIÇÃO",   cDesc, y + 5, { charSpace: 0.3 })
-  doc.text("MARCA",       cMarca,  y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("QTD",         cQtd,  y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("PREÇO UNIT.", cUnit, y + 5, { align: "center", charSpace: 0.3 })
-  doc.text("SUBTOTAL",    cSub,  y + 5, { align: "right", charSpace: 0.3 })
-  y += 7.5
-
-  const tableTop = y
-  const rowH = 7.5
-  data.itens.forEach((item, i) => {
-    doc.setFillColor(...(i % 2 === 0 ? WHITE : CREAM))
-    doc.rect(M, y, CW, rowH, "F")
-
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(8.5)
-    doc.setTextColor(...TEXT)
-    const nome = doc.splitTextToSize(item.nome, 90)[0]
-    doc.text(nome, cDesc, y + 5)
-
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(8.5)
-    doc.setTextColor(...BR2)
-    doc.text(item.marca || "—", cMarca, y + 5, { align: "center" })
-
-    doc.setTextColor(...TEXT)
-    doc.text(String(item.qtd), cQtd, y + 5, { align: "center" })
-    doc.setTextColor(...MUTED)
-    doc.text(fmtBRL(item.preco_unit), cUnit, y + 5, { align: "center" })
-
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(...BROWN)
-    doc.text(fmtBRL(item.subtotal), cSub, y + 5, { align: "right" })
-    y += rowH
-  })
-
-  // Borda externa + linhas verticais suaves
-  doc.setDrawColor(...LIGHT)
-  doc.setLineWidth(0.3)
-  doc.rect(M, tableTop, CW, data.itens.length * rowH, "S")
-  y += 9
-
-  // ══ PAGAMENTO + TOTAL ══
-  const colR = W / 2 + 8
-  sectionTitle(doc, "Pagamento", M, y, CW / 2 - 12)
-  sectionTitle(doc, "Resumo", colR, y, W - M - colR)
-  const blocoTop = y + 6
-  y += 6
-
-  // Chips de pagamento (2x2)
-  const formas = ["PIX", "Dinheiro", "Crédito", "Débito"]
-  const chipW = (CW / 2 - 16) / 2
-  const chipH = 9
-  formas.forEach((f, i) => {
-    const cx = M + (i % 2) * (chipW + 3)
-    const cy = blocoTop + Math.floor(i / 2) * (chipH + 3)
-    const sel = (data.forma_pagamento ?? "").toLowerCase().includes(f.toLowerCase())
-    const [fr, fg, fb] = sel ? BROWN : WHITE
-    doc.setFillColor(fr, fg, fb)
-    doc.setDrawColor(...(sel ? BROWN : GOLD_L))
-    doc.setLineWidth(0.4)
-    doc.roundedRect(cx, cy, chipW, chipH, 2, 2, "FD")
-    doc.setFont("helvetica", sel ? "bold" : "normal")
-    doc.setFontSize(8)
-    const [tr, tg, tb] = sel ? GOLD_L : MUTED
-    doc.setTextColor(tr, tg, tb)
-    doc.text(f, cx + chipW / 2, cy + 5.7, { align: "center" })
-  })
-
-  // Resumo financeiro (direita)
-  let ty = blocoTop + 2
-  const subtotal = data.itens.reduce((s, it) => s + it.subtotal, 0)
-  const linha = (label: string, valor: string) => {
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9)
-    doc.setTextColor(...MUTED)
-    doc.text(label, colR, ty)
-    doc.setTextColor(...TEXT)
-    doc.text(valor, W - M - 3, ty, { align: "right" })
-    ty += 5.5
-  }
-  linha("Subtotal", fmtBRL(subtotal))
-  if ((data.frete ?? 0) > 0)    linha("Frete", fmtBRL(data.frete ?? 0))
-  if ((data.desconto ?? 0) > 0) linha("Desconto", `– ${fmtBRL(data.desconto ?? 0)}`)
-
-  // Caixa TOTAL destacada
-  ty += 1.5
-  const totalBoxH = 11
-  doc.setFillColor(...BROWN)
-  doc.roundedRect(colR - 4, ty - 4, W - M - colR + 7, totalBoxH, 2, 2, "F")
-  doc.setFont("times", "bold")
-  doc.setFontSize(11)
-  doc.setTextColor(...GOLD_L)
-  doc.text("TOTAL", colR, ty + 3)
-  doc.setFontSize(14)
-  doc.setTextColor(...WHITE)
-  doc.text(fmtBRL(data.total), W - M - 3, ty + 3.2, { align: "right" })
-
-  y = Math.max(blocoTop + 2 * (chipH + 3) + 4, ty + totalBoxH)
-
-  // ══ RODAPÉ ══
-  // ══ RODAPÉ ══
-  const footerY = Math.max(y + 14, 248)
-
-  // Linha separadora dourada suave
-  doc.setDrawColor(...GOLD_L)
-  doc.setLineWidth(0.3)
-  doc.line(M, footerY, W - M, footerY)
-
-  // Fundo creme + barra dourada
-  const footerBg = footerY + 1
-  doc.setFillColor(252, 249, 242)
-  doc.rect(0, footerBg, W, 44, "F")
-  doc.setFillColor(...GOLD)
-  doc.rect(0, footerBg, W, 2.5, "F")
-
-  // ── "Obrigada pela sua compra!" centrado ──
-  const agradY = footerBg + 11
-  doc.setFont("times", "bolditalic")
-  doc.setFontSize(11.5)
-  doc.setTextColor(...GOLD_D)
-  doc.text("Obrigada pela sua compra!", W / 2, agradY, { align: "center" })
-
-  // ── Dois blocos de contato simetricamente centrados ──
-  // Bloco Esquerdo (WhatsApp) centrado em W/2 - 28, Bloco Direito (Instagram) em W/2 + 28
-  const ftColL = W / 2 - 28   // centro do bloco WhatsApp
-  const ftColR = W / 2 + 28   // centro do bloco Instagram
-  const lblY  = agradY + 9  // linha do label
-  const valY  = lblY + 5    // linha do valor (link)
-  const lineY = valY + 2.5  // linha do sublinhado
-
-  // Separador central ·
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9)
-  doc.setTextColor(...GOLD_L)
-  doc.text("·", W / 2, valY, { align: "center" })
-
-  // Label WhatsApp
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(6.5)
-  doc.setTextColor(...MUTED)
-  doc.text("W h a t s A p p", ftColL, lblY, { align: "center" })
-
-  // Valor WhatsApp (link clicável)
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8.5)
-  doc.setTextColor(...GOLD_D)
-  const wppLabel = "(16) 99455-6296"
-  const wppW = doc.getTextWidth(wppLabel)
-  const wppX = ftColL - wppW / 2
-  doc.textWithLink(wppLabel, wppX, valY, { url: "https://wa.me/5516994556296" })
-  // Sublinhado tracejado
-  doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.3)
-  doc.setLineDashPattern([0.8, 0.8], 0)
-  doc.line(wppX, lineY, wppX + wppW, lineY)
-  doc.setLineDashPattern([], 0)
-
-  // Label Instagram
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(6.5)
-  doc.setTextColor(...MUTED)
-  doc.text("I n s t a g r a m", ftColR, lblY, { align: "center" })
-
-  // Valor Instagram (link clicável)
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8.5)
-  doc.setTextColor(...GOLD_D)
-  const igLabel = "@brecho.bellasu"
-  const igW  = doc.getTextWidth(igLabel)
-  const igX  = ftColR - igW / 2
-  doc.textWithLink(igLabel, igX, valY, { url: "https://www.instagram.com/brecho.bellasu/" })
-  // Sublinhado tracejado
-  doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.3)
-  doc.setLineDashPattern([0.8, 0.8], 0)
-  doc.line(igX, lineY, igX + igW, lineY)
-  doc.setLineDashPattern([], 0)
-
-  // ── Nota final ──
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(7.5)
-  doc.setTextColor(...GOLD_D)
-  doc.text("TROCAS ACEITAS EM ATÉ 7 DIAS   ·   GUARDE ESTE RECIBO", W / 2, valY + 11, { align: "center", charSpace: 0.8 })
 
   return doc.output("blob")
 }
