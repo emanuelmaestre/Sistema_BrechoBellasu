@@ -38,8 +38,10 @@ function BadgeNotif({ status }: { status?: "pendente" | "enviado" | "erro" | nul
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  solicitado: "Solicitado", analisando: "Analisando",
-  aprovado: "Aprovado", recusado: "Recusado", concluido: "Concluído",
+  // Mapeamento de legado (registros antigos) — não usados em novos registros
+  solicitado: "Concluído", analisando: "Concluído",
+  aprovado: "Concluído", recusado: "Cancelado",
+  concluido: "Concluído",
 }
 
 interface TrocaForm {
@@ -936,11 +938,6 @@ export default function TrocasPage() {
     staleTime: 30_000,
   })
 
-  const mudarStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => apiPatch(`/trocas/${id}/status`, { status }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["trocas"] }),
-  })
-
   async function reenviarRecibo(t: Troca) {
     setEnviandoId(t.id); setNotifMsg(null)
     try {
@@ -975,11 +972,11 @@ export default function TrocasPage() {
   const { sel, onKeyDown: tableKeyDown, reset: resetSel } = useTableKeyNav(trocas, () => {})
 
   const statusColor: Record<string, string> = {
-    solicitado: "bg-blue-500/10 text-blue-400",
-    analisando: "bg-amber-500/10 text-amber-400",
+    solicitado: "bg-emerald-500/10 text-emerald-400",
+    analisando: "bg-emerald-500/10 text-emerald-400",
     aprovado:   "bg-emerald-500/10 text-emerald-400",
     recusado:   "bg-red-500/10 text-red-400",
-    concluido:  "bg-slate-500/15 text-slate-400",
+    concluido:  "bg-emerald-500/10 text-emerald-400",
   }
 
   return (
@@ -1013,7 +1010,8 @@ export default function TrocasPage() {
           className="ml-auto py-2 px-3 rounded-xl text-sm outline-none uppercase"
           style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
           <option value="">STATUS</option>
-          {Object.entries(STATUS_LABELS).map(([k,v]) => <option key={k} value={k}>{v.toUpperCase()}</option>)}
+          <option value="concluido">CONCLUÍDO</option>
+          <option value="recusado">CANCELADO</option>
         </select>
       </div>
 
