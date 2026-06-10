@@ -102,7 +102,7 @@ tbody tr.even{background:var(--cream)}
 tbody tr.odd{background:#fff}
 tbody td{padding:9px 12px;vertical-align:middle}
 tbody td.desc{color:var(--brown);font-weight:700}
-tbody td.c{color:#a08060;font-style:italic;text-align:center}
+tbody td.c{color:var(--brown);font-weight:400;text-align:center}
 tbody td.cq{color:var(--brown);text-align:center}
 tbody td.cp{color:#a08060;text-align:right}
 tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
