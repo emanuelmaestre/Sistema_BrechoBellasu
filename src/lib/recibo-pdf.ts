@@ -115,7 +115,7 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
 .tr:last-child{border:none}
 .ttotal{background:var(--brown);color:var(--gold-l);font-family:'Lato',sans-serif;font-size:16px;font-weight:700;padding:11px 12px}
 .ft{background:var(--cream);padding:16px 28px;text-align:center;border-top:3px solid var(--gold)}
-.ft-msg{font-family:'Playfair Display',serif;font-style:italic;font-size:13.5px;color:var(--brown);margin-bottom:8px}
+.ft-msg{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;font-size:13.5px;color:var(--brown);margin-bottom:8px}
 .ft-links{display:flex;justify-content:center;gap:22px;font-size:12px;flex-wrap:wrap;margin-bottom:8px}
 .ft-links a{color:var(--gold-d);text-decoration:none;border-bottom:1px dashed var(--gold)}
 .ft-note{font-size:10px;color:var(--gold-d);letter-spacing:1px;text-transform:uppercase;font-weight:700}
