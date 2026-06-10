@@ -4,6 +4,14 @@
 // Suporta emoji, fontes Google, CSS completo.
 // ══════════════════════════════════════════════════════════
 
+function formatarTelefone(tel: string): string {
+  if (!tel) return "—"
+  const d = tel.replace(/\D/g, "")
+  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return tel
+}
+
 export interface ReciboItem {
   nome: string
   cor?: string | null
@@ -157,7 +165,7 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
       </div>
       <div class="fg">
         <span class="flbl">WhatsApp</span>
-        <span class="fval">${data.cliente_celular || "—"}</span>
+        <span class="fval">${formatarTelefone(data.cliente_celular)}</span>
       </div>
     </div>
     <div class="lgpd">
