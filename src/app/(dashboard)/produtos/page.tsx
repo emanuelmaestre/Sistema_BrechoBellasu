@@ -745,7 +745,7 @@ export default function ProdutosPage() {
       controlar_estoque: p.controlar_estoque ?? true,
       cor: (p as unknown as { cor?: string }).cor ?? "",
     })
-    setEditInitStep(6)   // abre direto no resumo
+    setEditInitStep(7)   // abre direto no resumo (step 7 = TOTAL)
     setWizard(true)
   }
 
