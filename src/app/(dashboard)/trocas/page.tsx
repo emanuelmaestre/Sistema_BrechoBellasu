@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, RefreshCw, Check, Search, ChevronRight,
-  CheckCircle2, XCircle, Clock, Send,
+  CheckCircle2, XCircle, Clock, Send, Eye, Pencil,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -970,14 +970,179 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   )
 }
 
+// ─── Drawer de Visualização ───────────────────────────────
+function DrawerVerTroca({
+  troca,
+  onClose,
+  onEnviou,
+}: {
+  troca: Troca
+  onClose: () => void
+  onEnviou: () => void
+}) {
+  const [enviando, setEnviando] = useState(false)
+  const [notifMsg, setNotifMsg] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  const cor = troca.tipo === "troca" ? "#6366f1" : "#a855f7"
+
+  async function enviarRecibo() {
+    setEnviando(true); setNotifMsg(null)
+    try {
+      const tipoRecibo = troca.tipo === "devolucao" ? "Devolução" : "Troca"
+      const pdfBlob = await gerarReciboPDF({
+        numero: troca.id,
+        tipo: tipoRecibo as "Troca" | "Devolução",
+        data: fmtData(troca.created_at),
+        cliente_nome: troca.cliente_nome || "Cliente",
+        cliente_celular: "",
+        itens: troca.nome_produto ? [{ nome: troca.nome_produto, qtd: 1, preco_unit: 0, subtotal: 0 }] : [],
+        forma_pagamento: "—",
+        total: 0,
+      })
+      const arrayBuffer = await pdfBlob.arrayBuffer()
+      const uint8 = new Uint8Array(arrayBuffer)
+      let binary = ""
+      for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
+      const base64 = btoa(binary)
+      await apiPost("/trocas/recibo", { trocaId: troca.id, pdfBase64: base64, reenviar: troca.notificacao_status === "enviado" })
+      setNotifMsg({ ok: true, texto: "✅ Recibo enviado com sucesso!" })
+      onEnviou()
+    } catch (e: unknown) {
+      setNotifMsg({ ok: false, texto: (e as Error).message || "Erro ao enviar." })
+    } finally { setEnviando(false) }
+  }
+
+  const statusColor: Record<string, string> = {
+    concluido: "#10b981", recusado: "#f87171",
+    solicitado: "#10b981", analisando: "#10b981", aprovado: "#10b981",
+  }
+
+  const campos = [
+    { label: "Tipo",     value: troca.tipo === "troca" ? "Troca 🔄" : "Devolução ↩️" },
+    { label: "Cliente",  value: troca.cliente_nome ?? "—" },
+    { label: "Produto",  value: troca.nome_produto ?? "—" },
+    { label: "Motivo",   value: troca.motivo ?? "—", full: true },
+    { label: "Status",   value: STATUS_LABELS[troca.status] ?? troca.status },
+    { label: "Data",     value: fmtData(troca.created_at) },
+  ]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex justify-end"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", stiffness: 320, damping: 34 }}
+        className="w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden"
+        style={{ background: "var(--bg-base)", borderLeft: "1px solid var(--border)" }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: `${cor}22` }}>
+              <RefreshCw size={15} style={{ color: cor }} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                {troca.tipo === "troca" ? "Troca" : "Devolução"} #{troca.id}
+              </p>
+              <p className="text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
+                {troca.nome_produto || "—"}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="p-2 rounded-xl transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+          {/* Campos */}
+          <div className="grid grid-cols-2 gap-3">
+            {campos.map(({ label, value, full }) => (
+              <div key={label}
+                className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}` }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
+                <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Status da notificação */}
+          <div className="rounded-2xl p-4" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Recibo / Notificação</p>
+            <BadgeNotif status={troca.notificacao_status} />
+            {troca.notificacao_status === "enviado" && (
+              <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Recibo enviado via WhatsApp.</p>
+            )}
+            {troca.notificacao_status === "erro" && (
+              <p className="text-xs mt-2" style={{ color: "#f87171" }}>Houve um erro no envio anterior. Reenvie abaixo.</p>
+            )}
+          </div>
+
+          {/* Feedback envio */}
+          <AnimatePresence>
+            {notifMsg && (
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="px-4 py-3 rounded-2xl text-sm font-medium"
+                style={{
+                  background: notifMsg.ok ? "rgba(16,185,129,0.1)" : "rgba(248,113,113,0.1)",
+                  color: notifMsg.ok ? "#10b981" : "#f87171",
+                  border: `1px solid ${notifMsg.ok ? "rgba(16,185,129,0.3)" : "rgba(248,113,113,0.3)"}`,
+                }}>
+                {notifMsg.texto}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Footer — botão enviar */}
+        <div className="shrink-0 px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+          {troca.cliente_nome ? (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={enviarRecibo}
+              disabled={enviando}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-60"
+              style={{ background: "#25d366" }}>
+              {enviando
+                ? <><Loader2 size={15} className="animate-spin" /> Enviando...</>
+                : <><Send size={15} /> {troca.notificacao_status === "enviado" ? "Reenviar recibo" : "Enviar recibo"}</>}
+            </motion.button>
+          ) : (
+            <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>
+              Sem cliente vinculado — envio não disponível.
+            </p>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────
 export default function TrocasPage() {
   const qc = useQueryClient()
   const [wizard, setWizard] = useState(false)
   const [tipo, setTipo]     = useState("")
   const [status, setStatus] = useState("")
-  const [enviandoId, setEnviandoId] = useState<number | null>(null)
-  const [notifMsg, setNotifMsg] = useState<{ id: number; ok: boolean; texto: string } | null>(null)
+  const [verTroca, setVerTroca] = useState<Troca | null>(null)
 
   const { data, isLoading } = useQuery<{ data: Troca[]; total: number }>({
     queryKey: ["trocas", tipo, status],
@@ -987,34 +1152,6 @@ export default function TrocasPage() {
     },
     staleTime: 30_000,
   })
-
-  async function reenviarRecibo(t: Troca) {
-    setEnviandoId(t.id); setNotifMsg(null)
-    try {
-      const tipoRecibo = t.tipo === "devolucao" ? "Devolução" : "Troca"
-      const pdfBlob = await gerarReciboPDF({
-        numero: t.id,
-        tipo: tipoRecibo as "Troca" | "Devolução",
-        data: fmtData(t.created_at),
-        cliente_nome: t.cliente_nome || "Cliente",
-        cliente_celular: "",
-        itens: t.nome_produto ? [{ nome: t.nome_produto, qtd: 1, preco_unit: 0, subtotal: 0 }] : [],
-        forma_pagamento: "—",
-        total: 0,
-      })
-      const arrayBuffer = await pdfBlob.arrayBuffer()
-      const uint8 = new Uint8Array(arrayBuffer)
-      let binary = ""
-      for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
-      const base64 = btoa(binary)
-      await apiPost("/trocas/recibo", { trocaId: t.id, pdfBase64: base64, reenviar: true })
-      setNotifMsg({ id: t.id, ok: true, texto: "✅ Recibo enviado!" })
-      qc.invalidateQueries({ queryKey: ["trocas"] })
-    } catch (e: unknown) {
-      setNotifMsg({ id: t.id, ok: false, texto: (e as Error).message || "Erro ao enviar." })
-      qc.invalidateQueries({ queryKey: ["trocas"] })
-    } finally { setEnviandoId(null) }
-  }
 
   const trocas = data?.data ?? []
 
@@ -1073,7 +1210,7 @@ export default function TrocasPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Tipo","Produto","Cliente","Status","Data","Notificações","Ação"].map(h => (
+                {["Tipo","Produto","Cliente","Status","Data","Notificações","Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
               </tr>
@@ -1106,32 +1243,26 @@ export default function TrocasPage() {
                   <td className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>{fmtData(t.created_at)}</td>
                   <td className="px-4 py-3">
                     <BadgeNotif status={t.notificacao_status} />
-                    {notifMsg?.id === t.id && (
-                      <p className={cn("text-[10px] mt-1", notifMsg.ok ? "text-emerald-400" : "text-red-400")}>
-                        {notifMsg.texto}
-                      </p>
-                    )}
                   </td>
                   <td className="px-4 py-3">
-                    {/* Botão reenvio manual — só se não ENVIADO e tem cliente */}
-                    {t.cliente_nome && t.notificacao_status !== "enviado" && (
+                    <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => reenviarRecibo(t)}
-                        disabled={enviandoId === t.id}
-                        className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                        style={{ background: "rgba(37,211,102,0.08)", color: "#25d366", border: "1px solid rgba(37,211,102,0.25)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.15)" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,211,102,0.08)" }}>
-                        {enviandoId === t.id
-                          ? <><Loader2 size={10} className="animate-spin" /> Enviando</>
-                          : <><Send size={10} /> {t.notificacao_status === "erro" ? "Reenviar" : "Enviar"}</>}
+                        onClick={() => setVerTroca(t)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
+                        style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.8" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
+                        <Eye size={12} /> Ver
                       </button>
-                    )}
-                    {t.notificacao_status === "enviado" && (
-                      <span className="flex items-center gap-1 text-xs text-emerald-400">
-                        <CheckCircle2 size={11} /> Enviado
-                      </span>
-                    )}
+                      <button
+                        title="Editar"
+                        className="p-1.5 rounded-xl transition-colors"
+                        style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                        <Pencil size={12} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1152,6 +1283,20 @@ export default function TrocasPage() {
 
       <AnimatePresence>
         {wizard && <WizardTroca onClose={() => setWizard(false)} onSalvo={() => setWizard(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {verTroca && (
+          <DrawerVerTroca
+            troca={verTroca}
+            onClose={() => setVerTroca(null)}
+            onEnviou={() => {
+              qc.invalidateQueries({ queryKey: ["trocas"] })
+              // Atualiza o objeto local para refletir status enviado
+              setVerTroca(prev => prev ? { ...prev, notificacao_status: "enviado" } : null)
+            }}
+          />
+        )}
       </AnimatePresence>
     </div>
   )
