@@ -25,11 +25,12 @@ interface VendaListItem {
 }
 interface VendaDetalhe extends VendaListItem {
   desconto: number; observacoes: string | null
-  itens: { nome_produto: string; quantidade: number; preco_unitario: number; subtotal: number }[]
+  itens: { nome_produto: string; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
 }
 interface WizItem {
   produto_id: number | null; nome_produto: string
   quantidade: number; preco_unitario: number
+  marca?: string | null
 }
 
 const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Misto"]
@@ -111,6 +112,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
           qtd: it.quantidade,
           preco_unit: it.preco_unitario,
           subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
+          marca: it.marca ?? null,
         })),
         forma_pagamento: venda.forma_pagamento ?? "PIX",
         desconto: venda.desconto ?? 0,
@@ -209,6 +211,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                       qtd: it.quantidade,
                       preco_unit: it.preco_unitario,
                       subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
+                      marca: it.marca ?? null,
                     })),
                     forma_pagamento: venda.forma_pagamento ?? "PIX",
                     desconto: venda.desconto ?? 0,
@@ -365,7 +368,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   }
 
   function adicionarProduto(p: Produto) {
-    setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_unitario: p.preco_venda ?? 0 }])
+    setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_unitario: p.preco_venda ?? 0, marca: (p as { marca?: string }).marca ?? null }])
     setProdBusca(""); setProdRes([])
   }
 
@@ -468,6 +471,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
               qtd: it.quantidade,
               preco_unit: it.preco_unitario,
               subtotal: it.preco_unitario * it.quantidade,
+              marca: it.marca ?? null,
             })),
             forma_pagamento: forma,
             desconto: descontoVal,

@@ -17,7 +17,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: venda, error } = await sb.from("v_vendas").select("*").eq("id", id).single()
   if (error || !venda) return NextResponse.json({ erro: "Venda não encontrada." }, { status: 404 })
 
-  const { data: itensRaw } = await sb.from("venda_itens").select("*").eq("venda_id", id)
+  const { data: itensRaw } = await sb
+    .from("venda_itens")
+    .select("*, produtos(marca)")
+    .eq("venda_id", id)
 
   // Mapear itens para o formato esperado pelo frontend
   const itens = (itensRaw ?? []).map((it: Record<string, unknown>) => ({
@@ -25,6 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     quantidade:     it.qtd,
     preco_unitario: it.preco_unit,
     subtotal:       (it.preco_unit as number) * (it.qtd as number),
+    marca:          (it.produtos as { marca?: string } | null)?.marca ?? null,
   }))
 
   const v = venda as Record<string, unknown>

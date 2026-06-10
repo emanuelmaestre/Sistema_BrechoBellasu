@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 export interface ReciboItem {
   nome: string
   cor?: string | null
-  tamanho?: string | null
+  marca?: string | null
   qtd: number
   preco_unit: number
   subtotal: number
@@ -196,7 +196,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
 
   // Posições das colunas (sem COR — modelo HTML oficial: Descrição | Tam. | Qtd. | Preço Unit. | Subtotal)
   const cDesc = M + 3
-  const cTam  = M + 108
+  const cMarca = M + 108
   const cQtd  = M + 130
   const cUnit = M + 153
   const cSub  = W - M - 3
@@ -209,7 +209,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   doc.setFontSize(7)
   doc.setTextColor(...GOLD_L)
   doc.text("DESCRIÇÃO",   cDesc, y + 5, { charSpace: 0.3 })
-  doc.text("TAM.",        cTam,  y + 5, { align: "center", charSpace: 0.3 })
+  doc.text("MARCA",       cMarca,  y + 5, { align: "center", charSpace: 0.3 })
   doc.text("QTD",         cQtd,  y + 5, { align: "center", charSpace: 0.3 })
   doc.text("PREÇO UNIT.", cUnit, y + 5, { align: "center", charSpace: 0.3 })
   doc.text("SUBTOTAL",    cSub,  y + 5, { align: "right", charSpace: 0.3 })
@@ -230,7 +230,7 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8.5)
     doc.setTextColor(...BR2)
-    doc.text(item.tamanho || "—", cTam, y + 5, { align: "center" })
+    doc.text(item.marca || "—", cMarca, y + 5, { align: "center" })
 
     doc.setTextColor(...TEXT)
     doc.text(String(item.qtd), cQtd, y + 5, { align: "center" })

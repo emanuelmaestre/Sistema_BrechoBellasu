@@ -11,9 +11,9 @@ const EXEMPLO: ReciboData = {
   cliente_nome: "Maria Silva Santos",
   cliente_celular: "(16) 99999-9999",
   itens: [
-    { nome: "Blusa Floral Vintage", cor: "Rosa",   tamanho: "M",  qtd: 1, preco_unit: 45.00, subtotal: 45.00 },
-    { nome: "Calça Jeans Slim",     cor: "Azul",   tamanho: "38", qtd: 1, preco_unit: 89.90, subtotal: 89.90 },
-    { nome: "Cinto de Couro",       cor: "Marrom", tamanho: "U",  qtd: 2, preco_unit: 25.00, subtotal: 50.00 },
+    { nome: "Blusa Floral Vintage", cor: "Rosa",   marca: "FARM",  qtd: 1, preco_unit: 45.00, subtotal: 45.00 },
+    { nome: "Calça Jeans Slim",     cor: "Azul",   marca: "LEVI'S", qtd: 1, preco_unit: 89.90, subtotal: 89.90 },
+    { nome: "Cinto de Couro",       cor: "Marrom", marca: "AREZZO",  qtd: 2, preco_unit: 25.00, subtotal: 50.00 },
   ],
   forma_pagamento: "PIX",
   frete: 0,
