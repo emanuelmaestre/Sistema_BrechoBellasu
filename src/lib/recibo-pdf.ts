@@ -308,86 +308,89 @@ export async function gerarReciboPDF(data: ReciboData): Promise<Blob> {
   y = Math.max(blocoTop + 2 * (chipH + 3) + 4, ty + totalBoxH)
 
   // ══ RODAPÉ ══
-  // footerY garante ao menos 14mm de espaço após o último bloco
+  // ══ RODAPÉ ══
   const footerY = Math.max(y + 14, 248)
 
-  // ── Linha separadora antes do rodapé (sutil, não sobrepõe) ──
+  // Linha separadora dourada suave
   doc.setDrawColor(...GOLD_L)
   doc.setLineWidth(0.3)
   doc.line(M, footerY, W - M, footerY)
 
-  // Fundo creme claro para toda a área do rodapé
+  // Fundo creme + barra dourada
   const footerBg = footerY + 1
   doc.setFillColor(252, 249, 242)
-  doc.rect(0, footerBg, W, 40, "F")
-
-  // Barra dourada fina no topo do rodapé (só uma, sem sobreposição)
+  doc.rect(0, footerBg, W, 44, "F")
   doc.setFillColor(...GOLD)
   doc.rect(0, footerBg, W, 2.5, "F")
 
-  // "Obrigada pela sua compra!" — 8mm abaixo da barra
+  // ── "Obrigada pela sua compra!" centrado ──
+  const agradY = footerBg + 11
   doc.setFont("times", "bolditalic")
   doc.setFontSize(11.5)
   doc.setTextColor(...GOLD_D)
-  doc.text("Obrigada pela sua compra!", W / 2, footerBg + 10, { align: "center" })
+  doc.text("Obrigada pela sua compra!", W / 2, agradY, { align: "center" })
 
-  // Links clicáveis — sem emojis (jsPDF não suporta Unicode fora do BMP)
-  const linkY = footerBg + 20
-  const wppLabel = "(16) 99455-6296"
-  const igLabel  = "@brecho.bellasu"
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8.5)
-  const wppW = doc.getTextWidth(wppLabel)
-  const igW  = doc.getTextWidth(igLabel)
-  const gap  = 20
-  const lx   = (W - (wppW + gap + igW)) / 2
+  // ── Dois blocos de contato simetricamente centrados ──
+  // Bloco Esquerdo (WhatsApp) centrado em W/2 - 28, Bloco Direito (Instagram) em W/2 + 28
+  const ftColL = W / 2 - 28   // centro do bloco WhatsApp
+  const ftColR = W / 2 + 28   // centro do bloco Instagram
+  const lblY  = agradY + 9  // linha do label
+  const valY  = lblY + 5    // linha do valor (link)
+  const lineY = valY + 2.5  // linha do sublinhado
 
-  // Label "WhatsApp" acima do número
+  // Separador central ·
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(6.5)
-  doc.setTextColor(...MUTED)
-  doc.text("WhatsApp", lx + wppW / 2, linkY - 4, { align: "center", charSpace: 0.5 })
-
-  // Link WhatsApp
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8.5)
-  doc.setTextColor(...GOLD_D)
-  doc.textWithLink(wppLabel, lx, linkY, { url: "https://wa.me/5516994556296" })
-  doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.3)
-  doc.setLineDashPattern([0.7, 0.7], 0)
-  doc.line(lx, linkY + 2.2, lx + wppW, linkY + 2.2)
-  doc.setLineDashPattern([], 0)
-
-  // Separador central
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(10)
+  doc.setFontSize(9)
   doc.setTextColor(...GOLD_L)
-  doc.text("·", lx + wppW + gap / 2, linkY, { align: "center" })
+  doc.text("·", W / 2, valY, { align: "center" })
 
-  // Label "Instagram" acima do @
+  // Label WhatsApp
   doc.setFont("helvetica", "normal")
   doc.setFontSize(6.5)
   doc.setTextColor(...MUTED)
-  const ix = lx + wppW + gap
-  doc.text("Instagram", ix + igW / 2, linkY - 4, { align: "center", charSpace: 0.5 })
+  doc.text("W h a t s A p p", ftColL, lblY, { align: "center" })
 
-  // Link Instagram
+  // Valor WhatsApp (link clicável)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(8.5)
   doc.setTextColor(...GOLD_D)
-  doc.textWithLink(igLabel, ix, linkY, { url: "https://www.instagram.com/brecho.bellasu/" })
+  const wppLabel = "(16) 99455-6296"
+  const wppW = doc.getTextWidth(wppLabel)
+  const wppX = ftColL - wppW / 2
+  doc.textWithLink(wppLabel, wppX, valY, { url: "https://wa.me/5516994556296" })
+  // Sublinhado tracejado
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.3)
-  doc.setLineDashPattern([0.7, 0.7], 0)
-  doc.line(ix, linkY + 2.2, ix + igW, linkY + 2.2)
+  doc.setLineDashPattern([0.8, 0.8], 0)
+  doc.line(wppX, lineY, wppX + wppW, lineY)
   doc.setLineDashPattern([], 0)
 
-  // Nota final
+  // Label Instagram
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(6.5)
+  doc.setTextColor(...MUTED)
+  doc.text("I n s t a g r a m", ftColR, lblY, { align: "center" })
+
+  // Valor Instagram (link clicável)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...GOLD_D)
+  const igLabel = "@brecho.bellasu"
+  const igW  = doc.getTextWidth(igLabel)
+  const igX  = ftColR - igW / 2
+  doc.textWithLink(igLabel, igX, valY, { url: "https://www.instagram.com/brecho.bellasu/" })
+  // Sublinhado tracejado
+  doc.setDrawColor(...GOLD)
+  doc.setLineWidth(0.3)
+  doc.setLineDashPattern([0.8, 0.8], 0)
+  doc.line(igX, lineY, igX + igW, lineY)
+  doc.setLineDashPattern([], 0)
+
+  // ── Nota final ──
   doc.setFont("helvetica", "normal")
   doc.setFontSize(7.5)
   doc.setTextColor(...GOLD_D)
-  doc.text("TROCAS ACEITAS EM ATÉ 7 DIAS   ·   GUARDE ESTE RECIBO", W / 2, linkY + 10, { align: "center", charSpace: 0.8 })
+  doc.text("TROCAS ACEITAS EM ATÉ 7 DIAS   ·   GUARDE ESTE RECIBO", W / 2, valY + 11, { align: "center", charSpace: 0.8 })
 
   return doc.output("blob")
 }
