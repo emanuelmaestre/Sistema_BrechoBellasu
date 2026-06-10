@@ -102,9 +102,9 @@ tbody tr.even{background:var(--cream)}
 tbody tr.odd{background:#fff}
 tbody td{padding:9px 12px;vertical-align:middle}
 tbody td.desc{color:var(--brown);font-weight:700}
-tbody td.c{color:var(--brown);font-weight:400;text-align:center}
-tbody td.cq{color:var(--brown);text-align:center}
-tbody td.cp{color:#a08060;text-align:right}
+tbody td.c{color:var(--brown);font-weight:700;text-align:center}
+tbody td.cq{color:var(--brown);font-weight:700;text-align:center}
+tbody td.cp{color:var(--brown);font-weight:700;text-align:right}
 tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
 .bot{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;padding:16px 28px}
 .pay-col{display:flex;flex-direction:column;gap:7px}
