@@ -142,7 +142,7 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
       </div>
       <div class="mi">
         <span class="lbl">Tipo</span>
-        <span class="val">${data.tipo}</span>
+        <span class="val">${data.tipo.toUpperCase()}</span>
       </div>
     </div>
   </div>
