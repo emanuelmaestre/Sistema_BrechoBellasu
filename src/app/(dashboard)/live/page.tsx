@@ -14,6 +14,14 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 import DatePicker from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import {
+  buildCompleteMessage,
+  selectSmallTalkIndex,
+  CHAR_LIMIT,
+  CHAR_TARGET,
+  type CompraData,
+  type MessageResult,
+} from "@/lib/live-message-builder"
 import type { Live } from "@/types"
 
 // ─── Tipos ────────────────────────────────────────────────
@@ -1057,76 +1065,62 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   compras: Compra[]; onClose: () => void; onSuccess: () => void
 }) {
   type Fase = "preview" | "disparando" | "resultado"
-  const [fase, setFase] = useState<Fase>("preview")
+  const [fase, setFase]         = useState<Fase>("preview")
   const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> } | null>(null)
+  const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
+  const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
+
+  const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
+  const ex = pendentes[0]
+
+  // Gera preview sempre que a compra ou o índice mudarem
+  useEffect(() => {
+    if (!ex) { setMsgResult(null); return }
+    const compraData: CompraData = {
+      data_compra:      ex.data_compra ?? null,
+      data_live:        liveData,
+      numero_sacola:    ex.numero_sacola,
+      cor_sacola:       ex.cor_sacola,
+      quantidade_itens: ex.quantidade_itens,
+      valor_total:      ex.valor_total,
+      nome_cliente:     ex.nome_cliente,
+      link_pagamento:   ex.link_pagamento ?? null,
+    }
+    setMsgResult(buildCompleteMessage(compraData, stIdx))
+  }, [ex, stIdx, liveData])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase !== "disparando") onClose() }
     document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn)
   }, [onClose, fase])
 
-  const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
-  const ex = pendentes[0]
+  function gerarNovaVariacao() { setStIdx(selectSmallTalkIndex()) }
 
-  function fmtVal(v: number) { return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) }
-  function fmtD(d?: string) { return d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : new Date().toLocaleDateString("pt-BR") }
-
-  function prazo48h() {
-    const dias = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"]
-    const d = new Date()
-    d.setHours(d.getHours() + 48)
-    return dias[d.getDay()]
-  }
-
-  function msgPreview(c: typeof ex) {
-    if (!c) return ""
-    const linkPagamento = c.link_pagamento || ""
-    const diaPrazo = prazo48h()
-    return (
-`Olá! 💖
-
-Obrigada pela sua participação. Suas peças foram separadas com carinho. 🛍️
-
-📅 Data da compra: ${fmtD(c.data_compra)}
-🎥 Data da live: ${fmtD(liveData)}
-🛍️ Nº da sacola: ${c.numero_sacola ? c.numero_sacola.padStart(2, "0") : "—"}
-🎨 Cor da sacola: ${c.cor_sacola || "—"}
-📦 Quantidade de itens: ${c.quantidade_itens || 1} ${Number(c.quantidade_itens) === 1 ? "ITEM" : "ITENS"}
-💰 Valor total das compras: ${fmtVal(c.valor_total)}
-
-*Pagamento:*
-
-O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX ou cartão, para manter suas peças reservadas com carinho. 💖
-
-🔑 PIX: (16) 99134-7476
-👤 Nome: Emanuel Maestre dos Santos
-
-*End. p/ retirada:*
-
-📍 R. Barão do Amazonas, 1035 – Centro – Rib. Preto/SP
-
-⚠️ *ATENÇÃO:*
-
-Para entrega, envie o endereço completo apenas se for diferente do cadastrado. A taxa é de R$ 15,00. 🛵
-
-É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA.
-
-VOCÊ TAMBÉM PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.
-
-⚠️ *IMPORTANTE:*
-
-Peças de promoção não possuem troca.
-
-Obrigada pela sua compra. Espero que goste de tudo! 💖`
-    )
+  async function copiarMensagem() {
+    if (msgResult) await navigator.clipboard.writeText(msgResult.mensagem)
   }
 
   async function disparar() {
+    if (!msgResult?.valida) return
     setFase("disparando")
     try {
       const res = await apiPost<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> }>(`/live/${liveId}/disparar`, {})
       setResultado(res); setFase("resultado"); onSuccess()
     } catch { setFase("preview") }
+  }
+
+  // Cores do contador
+  const charColor = () => {
+    if (!msgResult) return "var(--text-muted)"
+    if (msgResult.chars > CHAR_LIMIT) return "#f87171"
+    if (msgResult.chars > CHAR_TARGET) return "#fb923c"
+    if (msgResult.chars > 900) return "#fbbf24"
+    return "var(--text-muted)"
+  }
+
+  const levelLabel: Record<string, string> = {
+    COMPLETO: "Intro completa", MEDIO: "Intro média",
+    CURTO: "Intro curta", FALLBACK: "Intro mínima",
   }
 
   function WhatsAppText({ text }: { text: string }) {
@@ -1149,10 +1143,14 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
     )
   }
 
+  const podeEnviar = !!pendentes.length && !!msgResult?.valida
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-x-0 bottom-0 z-[15] flex flex-col"
       style={{ top: "var(--topbar-height, 52px)", background: "var(--bg-base)" }}>
+
+      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: COR_LIVE }}>Disparar Mensagens</span>
@@ -1167,6 +1165,7 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
         )}
       </div>
 
+      {/* Disparando */}
       {fase === "disparando" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
@@ -1177,6 +1176,7 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
         </div>
       )}
 
+      {/* Resultado */}
       {fase === "resultado" && resultado && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", damping: 15 }}
@@ -1212,6 +1212,7 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
         </div>
       )}
 
+      {/* Preview */}
       {fase === "preview" && (
         <div className="flex-1 overflow-hidden flex">
           {/* Lista de clientes */}
@@ -1234,19 +1235,22 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
           </div>
 
           {/* Preview mensagem */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Barra do contato */}
             <div className="px-4 py-3 flex items-center gap-3 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
                 <p className="text-xs font-bold text-white">B</p>
               </div>
               <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Brechó Bellasu</p>
             </div>
+
+            {/* Balão WhatsApp */}
             <div className="flex-1 overflow-y-auto p-4" style={{ background: "#0b141a" }}>
-              {ex ? (
+              {ex && msgResult ? (
                 <div className="flex justify-end mb-2">
                   <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg" style={{ background: "#005c4b" }}>
                     <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#e9edef" }}>
-                      <WhatsAppText text={msgPreview(ex)}/>
+                      <WhatsAppText text={msgResult.mensagem}/>
                     </p>
                     <div className="flex items-center justify-end gap-1 mt-2">
                       <p className="text-[10px]" style={{ color: "rgba(233,237,239,0.55)" }}>
@@ -1260,25 +1264,64 @@ Obrigada pela sua compra. Espero que goste de tudo! 💖`
                 <p className="text-center text-sm" style={{ color: "rgba(233,237,239,0.4)" }}>Nenhuma compra pendente</p>
               )}
             </div>
-            <div className="px-4 py-3 shrink-0" style={{ background: "rgba(37,211,102,0.06)", borderTop: "1px solid var(--border)" }}>
-              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                ℹ️ Prévia baseada na 1ª compra pendente.
-              </p>
-            </div>
+
+            {/* Barra de status da mensagem */}
+            {msgResult && (
+              <div className="px-4 py-2.5 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1"
+                style={{ background: "var(--bg-surface)", borderTop: "1px solid var(--border)" }}>
+                {/* Contador de chars */}
+                <span className="text-[11px] font-mono font-semibold" style={{ color: charColor() }}>
+                  {msgResult.chars}/{CHAR_LIMIT} chars
+                  {msgResult.chars > CHAR_LIMIT && " ⚠️ ACIMA DO LIMITE"}
+                  {msgResult.chars > CHAR_TARGET && msgResult.chars <= CHAR_LIMIT && " ⚠️ próximo do limite"}
+                </span>
+                {/* Bytes */}
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  ~{msgResult.bytes} bytes UTF-8
+                </span>
+                {/* Nível */}
+                <span className="text-[11px] px-1.5 py-0.5 rounded font-medium"
+                  style={{ background: "var(--bg-hover)", color: "var(--text-secondary)" }}>
+                  {levelLabel[msgResult.level] ?? msgResult.level}
+                </span>
+                {/* Status validação */}
+                {msgResult.valida
+                  ? <span className="text-[11px] text-emerald-400">✓ Válida</span>
+                  : <span className="text-[11px] text-red-400">✗ {msgResult.erro}</span>}
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* Footer de ações */}
       {fase === "preview" && (
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            {pendentes.length} mensagem{pendentes.length !== 1 ? "s" : ""} será{pendentes.length !== 1 ? "ão" : ""} enviada{pendentes.length !== 1 ? "s" : ""}
-          </p>
-          <motion.button onClick={disparar} disabled={!pendentes.length} whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
-            style={{ background: "#25d366" }}>
-            <Send size={15}/> Disparar Agora
-          </motion.button>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2">
+            {/* Gerar outra variação */}
+            <button onClick={gerarNovaVariacao}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors"
+              style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
+              <RefreshCw size={12}/> Outra variação
+            </button>
+            {/* Copiar */}
+            <button onClick={copiarMensagem} disabled={!msgResult}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors disabled:opacity-40"
+              style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
+              <Check size={12}/> Copiar
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {pendentes.length} msg{pendentes.length !== 1 ? "s" : ""} será{pendentes.length !== 1 ? "ão" : ""} enviada{pendentes.length !== 1 ? "s" : ""}
+            </p>
+            <motion.button onClick={disparar} disabled={!podeEnviar} whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
+              style={{ background: podeEnviar ? "#25d366" : "var(--bg-surface)" }}>
+              <Send size={15}/> Disparar Agora
+            </motion.button>
+          </div>
         </div>
       )}
     </motion.div>
