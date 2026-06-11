@@ -18,8 +18,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const { data: liveRow } = await sb.from("lives").select("data_live, tipo").eq("id", live_id).single()
+  const { data: liveRow, error: liveErr } = await sb.from("lives").select("data_live, tipo, titulo").eq("id", live_id).single()
+  if (liveErr) console.error(`[disparar] Erro ao buscar live ${live_id}:`, liveErr.message)
   const tipoLive = ((liveRow as Record<string,unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
+  const dataLive: string | null = (liveRow as Record<string,unknown>)?.data_live as string | null ?? null
 
   // Busca CPFs dos clientes (necessário para Asaas)
   const { data: todasCompras } = await sb
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const nomeCliente = compra.cliente_id ? (nomeMap[compra.cliente_id] ?? compra.nome_cliente) : compra.nome_cliente
     const compraData: CompraData = {
       data_compra:      compra.data_compra,
-      data_live:        liveRow?.data_live ?? null,
+      data_live:        dataLive ?? compra.data_compra ?? null,
       numero_sacola:    compra.numero_sacola,
       cor_sacola:       compra.cor_sacola,
       quantidade_itens: compra.quantidade_itens,
