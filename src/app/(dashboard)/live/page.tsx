@@ -77,12 +77,12 @@ const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagr
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
   cor_sacola: "", numero_sacola: "",
-  quantidade_itens: "1",
+  quantidade_itens: "",
   valor_total: "", desconto: "", observacao: "",
   link_pagamento: "",
 }
 
-const CORES_SACOLA = ["Amarela","Azul","Bege","Branca","Cinza","Laranja","Lilás","Marrom","Preta","Rosa","Roxa","Verde","Vermelha"]
+const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
 
 function gerarArroba(nome: string): string {
   const palavras = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/\s+/).filter(Boolean)
@@ -499,7 +499,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                         <div>
                           <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>
                             {c.nome}
-                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--text-muted)" }}>
+                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--accent)" }}>
                               {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : gerarArroba(c.nome)}
                             </span>
                           </p>
@@ -561,7 +561,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                 <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Quantidade de itens nesta sacola.</p>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>QTD DE ITENS</p>
-                  <input ref={inputRef} type="number" min="1" value={form.quantidade_itens}
+                  <input ref={inputRef} type="number" min="1" inputMode="numeric" value={form.quantidade_itens}
                     onChange={e => set("quantidade_itens", e.target.value)}
                     className={iBase} style={iSt}/>
                 </div>
@@ -575,7 +575,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                    <input ref={inputRef} value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
+                    <input ref={inputRef} inputMode="decimal" value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
                       onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
                       placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
                   </div>
@@ -1486,7 +1486,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   }
 
   const live = data
-  const compras = live.compras ?? []
+  const compras = (live.compras ?? []).slice().sort((a, b) => a.nome_cliente.localeCompare(b.nome_cliente, "pt-BR"))
   const etapa = calcEtapa(live)
   const statusCfg = STATUS_LIVE[live.status ?? "aberta"] ?? STATUS_LIVE.aberta
 
