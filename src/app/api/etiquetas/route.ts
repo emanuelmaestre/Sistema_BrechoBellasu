@@ -123,6 +123,12 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     if (checkout_auto) {
       const fmt = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`
 
+      // Mensagem amigável para o limite de envios simultâneos do Melhor Envio
+      // (conta atingiu o teto de etiquetas geradas e ainda não postadas).
+      const MSG_LIMITE = "Limite de envios do Melhor Envio atingido. Você tem etiquetas já geradas que ainda não foram despachadas — poste-as na transportadora (ou cancele as que não vai usar) para liberar a geração de novas. Esse limite aumenta conforme você posta seus envios."
+      const ehLimiteEnvios = (s: string) =>
+        s.includes("limite de envios") || s.includes("simultane") || s.includes("simultâne") || s.includes("simultâneos")
+
       // ── Checagem proativa: o preço real do pedido (já no carrinho) pode ser
       //    maior que a cotação exibida (seguro, taxas). Comparamos com o saldo
       //    real e, se faltar, informamos o déficit EXATO e desfazemos o carrinho.
@@ -154,6 +160,9 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
               erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
             }, { status: 402 })
           }
+          if (ehLimiteEnvios(errMsg)) {
+            return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
+          }
           return NextResponse.json({ erro: `Erro no checkout: ${errStr}` }, { status: 422 })
         }
       } catch (e) {
@@ -165,6 +174,9 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
           return NextResponse.json({
             erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
           }, { status: 402 })
+        }
+        if (ehLimiteEnvios(ml)) {
+          return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
         }
         // Mostra o erro REAL do Melhor Envio em vez de mascarar como saldo.
         return NextResponse.json({
