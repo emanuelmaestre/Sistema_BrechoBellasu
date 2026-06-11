@@ -120,10 +120,21 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     // 2. Checkout (opcional via flag checkout_auto=true) — paga com saldo da carteira
     if (checkout_auto) {
       try {
-        await checkoutEtiquetas([pedido.id])
+        const checkout = await checkoutEtiquetas([pedido.id])
+        // ME às vezes retorna HTTP 200 mas com errors no corpo
+        const erros = checkout?.errors
+        if (Array.isArray(erros) && erros.length > 0) {
+          const errMsg = String(erros[0]).toLowerCase()
+          if (errMsg.includes("saldo") || errMsg.includes("insufficient") || errMsg.includes("balance") || errMsg.includes("funds")) {
+            return NextResponse.json({
+              erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
+            }, { status: 402 })
+          }
+          return NextResponse.json({ erro: `Erro no checkout: ${erros[0]}` }, { status: 422 })
+        }
       } catch (e) {
         const m = (e as Error).message.toLowerCase()
-        if (m.includes("saldo") || m.includes("insufficient") || m.includes("balance")) {
+        if (m.includes("saldo") || m.includes("insufficient") || m.includes("balance") || m.includes("funds") || m.includes("422")) {
           return NextResponse.json({
             erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
           }, { status: 402 })

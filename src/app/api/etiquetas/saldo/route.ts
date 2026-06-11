@@ -8,8 +8,10 @@ export const dynamic = "force-dynamic"
 export const GET = withAuth(async (_req: NextRequest) => {
   try {
     const data = await meSaldo()
-    const saldo = parseFloat(data.balance ?? data.wallet_balance ?? "0")
-    return NextResponse.json({ saldo })
+    const total    = parseFloat(data.balance ?? data.wallet_balance ?? "0")
+    const reservado = parseFloat(data.reserved_balance ?? "0")
+    const saldo    = Math.max(0, total - reservado)
+    return NextResponse.json({ saldo, saldo_total: total, saldo_reservado: reservado })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Não foi possível consultar o saldo. Verifique sua integração com o Melhor Envio."
     return NextResponse.json({ erro: msg }, { status: 500 })
