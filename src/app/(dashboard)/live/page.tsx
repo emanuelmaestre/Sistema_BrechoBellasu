@@ -1094,6 +1094,16 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn)
   }, [onClose, fase])
 
+  // Mantém tela acesa durante o disparo (Wake Lock API)
+  useEffect(() => {
+    if (fase !== "disparando") return
+    let lock: WakeLockSentinel | null = null
+    if ("wakeLock" in navigator) {
+      navigator.wakeLock.request("screen").then(l => { lock = l }).catch(() => {})
+    }
+    return () => { lock?.release().catch(() => {}) }
+  }, [fase])
+
   function gerarNovaVariacao() { setStIdx(selectSmallTalkIndex()) }
 
   async function copiarMensagem() {
