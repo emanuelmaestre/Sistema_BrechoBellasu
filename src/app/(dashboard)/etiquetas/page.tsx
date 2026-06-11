@@ -827,6 +827,12 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                     <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
                       Destino: <span style={{ color: "var(--text-secondary)" }}>{form.cidade}/{form.estado} · CEP {form.cep}</span>
                     </p>
+                    <button onClick={() => go(step - 1)} className="mt-3 flex items-center gap-1 text-sm font-medium transition-colors"
+                      style={{ color: "var(--text-muted)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                      <ChevronLeft size={15} /> Voltar
+                    </button>
                   </div>
 
                   {/* Erro */}
