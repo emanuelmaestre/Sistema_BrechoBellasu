@@ -194,6 +194,28 @@ export async function enviarLink(
   }
 }
 
+/**
+ * Verifica se o número possui WhatsApp ativo (endpoint phone-exists).
+ * Em caso de falha na consulta, retorna existe=true para não bloquear
+ * o envio por instabilidade da API (fail-open).
+ */
+export async function verificarNumeroExiste(telefone: string): Promise<{ existe: boolean; detalhe?: string }> {
+  const phone = formatarTelefone(telefone)
+  try {
+    const res = await fetch(`${BASE()}/phone-exists/${phone}`, {
+      headers: { "Client-Token": CLIENT_TOKEN() },
+      signal: AbortSignal.timeout(10000),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (typeof json.exists === "boolean") {
+      return { existe: json.exists, detalhe: json.exists ? undefined : "Número sem WhatsApp ativo" }
+    }
+    return { existe: true }
+  } catch {
+    return { existe: true }
+  }
+}
+
 /** Testa conexão da instância Z-API */
 export async function testarConexao(): Promise<{ conectado: boolean; detalhe: string }> {
   try {

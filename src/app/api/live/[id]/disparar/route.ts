@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { gerarLinkAsaas } from "@/lib/asaas"
-import { enviarTexto } from "@/lib/zapi"
+import { enviarTexto, verificarNumeroExiste } from "@/lib/zapi"
 import {
   buildCompleteMessage,
-  generateNotificationId,
   type CompraData,
 } from "@/lib/live-message-builder"
 import { gerarIntervaloAleatorio, estimarDuracao } from "@/lib/disparo-controlado"
@@ -36,11 +35,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const clienteIds = compras.map((c: Record<string, unknown>) => c.cliente_id).filter(Boolean)
   const cpfMap: Record<number, string | null> = {}
   const nomeMap: Record<number, string | null> = {}
+  const celularMap: Record<number, string | null> = {}
   if (clienteIds.length > 0) {
-    const { data: clientes } = await sb.from("clientes").select("id, cpf_cnpj, nome").in("id", clienteIds)
-    clientes?.forEach((c: { id: number; cpf_cnpj?: string | null; nome?: string | null }) => {
+    const { data: clientes } = await sb.from("clientes").select("id, cpf_cnpj, nome, celular").in("id", clienteIds)
+    clientes?.forEach((c: { id: number; cpf_cnpj?: string | null; nome?: string | null; celular?: string | null }) => {
       cpfMap[c.id] = c.cpf_cnpj ?? null
       nomeMap[c.id] = c.nome ?? null
+      celularMap[c.id] = c.celular ?? null
     })
   }
 
@@ -58,27 +59,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   for (const compra of compras) {
     posicao++
-    const numero = (compra.whatsapp || "").replace(/\D/g, "")
+    // Prefere o celular atual do cadastro da cliente — o whatsapp da compra
+    // é uma cópia feita na criação e pode estar desatualizado/corrigido depois.
+    const celularCadastro = compra.cliente_id ? (celularMap[compra.cliente_id] ?? null) : null
+    const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
     if (!numero) {
       await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
       resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
       continue
     }
 
-    // ── Idempotência: verifica se já foi enviado ──
-    const notifId = generateNotificationId(live_id, compra.id)
-    try {
-      const { data: jaEnviado } = await sb
-        .from("whatsapp_log")
-        .select("id")
-        .eq("notification_id", notifId)
-        .eq("status", "enviado")
-        .maybeSingle()
-      if (jaEnviado) {
-        resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "enviada", detalhe: "já enviado anteriormente" })
-        continue
-      }
-    } catch { /* se coluna ainda não existe, ignora */ }
+    // ── Valida se o número tem WhatsApp ativo antes de enviar ──
+    // O Z-API aceita envios para números inexistentes e responde sucesso,
+    // então sem essa checagem o sistema marcaria "enviada" sem entrega real.
+    const verificacao = await verificarNumeroExiste(numero)
+    if (!verificacao.existe) {
+      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
+      resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: "Número sem WhatsApp ativo — verifique o cadastro" })
+      continue
+    }
 
     // ── Garante link Asaas ──
     let linkPagamento: string = compra.link_pagamento || ""
@@ -146,15 +145,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
         continue
       }
-      // Registra notification_id para idempotência
-      try {
-        await sb.from("whatsapp_log")
-          .update({ notification_id: notifId })
-          .eq("telefone", `55${numero}`)
-          .eq("tipo", "aviso_live")
-          .order("created_at", { ascending: false })
-          .limit(1)
-      } catch { /* ignora — campo opcional */ }
     } catch { statusEnvio = "erro" }
 
     // ── UPDATE msg_status com fallback REST ──
