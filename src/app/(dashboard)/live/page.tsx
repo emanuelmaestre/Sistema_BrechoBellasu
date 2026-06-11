@@ -1085,40 +1085,39 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     return (
 `Olá! 💖
 
-Obrigada pela sua participação em nossa live. Suas peças foram separadas com carinho. 🛍️
-
-*Resumo da sua compra:*
+Obrigada pela sua participação. Suas peças foram separadas com carinho. 🛍️
 
 📅 Data da compra: ${fmtD(c.data_compra)}
 🎥 Data da live: ${fmtD(liveData)}
-🛍️ Sacola: ${c.numero_sacola || "—"}
-🎨 Cor da Sacola: ${c.cor_sacola || "—"}
-📦 Quantidade de Itens: ${c.quantidade_itens || 1}
-💰 Valor total: ${fmtVal(c.valor_total)}
+🛍️ Nº da sacola: ${c.numero_sacola ? c.numero_sacola.padStart(2, "0") : "—"}
+🎨 Cor da sacola: ${c.cor_sacola || "—"}
+📦 Quantidade de itens: ${c.quantidade_itens || 1} ${Number(c.quantidade_itens) === 1 ? "ITEM" : "ITENS"}
+💰 Valor total das compras: ${fmtVal(c.valor_total)}
 
 *Pagamento:*
 
-O pagamento deve ser realizado até ${diaPrazo} às 23:59, via PIX ou Cartão, para manter suas peças reservadas com carinho. 💖
+O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX ou cartão, para manter suas peças reservadas com carinho. 💖
 
-💳 Link para pagamento:
-${linkPagamento || "[link será gerado em breve]"}
+🔑 PIX: (16) 99134-7476
+👤 Nome: Emanuel Maestre dos Santos
 
-*Endereço para retirada:*
+*End. p/ retirada:*
 
-📍 Rua Barão do Amazonas, 1035 - Centro - Rib. Preto - SP
+📍 R. Barão do Amazonas, 1035 – Centro – Rib. Preto/SP
 
-*Entrega:*
+⚠️ *ATENÇÃO:*
 
-Caso queira receber por entrega, envie seu endereço completo e CEP.
-O valor fixo da entrega é de R$ 15,00. 🛵
+Para entrega, envie o endereço completo apenas se for diferente do cadastrado. A taxa é de R$ 15,00. 🛵
 
-⚠️ *ATENÇÃO*
-É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER O PEDIDO. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA PARA RETORNO. SE PREFERIR, VOCÊ PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.
+É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA.
 
-⚠️ *Importante:*
+VOCÊ TAMBÉM PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.
+
+⚠️ *IMPORTANTE:*
+
 Peças de promoção não possuem troca.
 
-Obrigada novamente pela sua compra. Espero que goste de tudo! 💖`
+Obrigada pela sua compra. Espero que goste de tudo! 💖`
     )
   }
 
