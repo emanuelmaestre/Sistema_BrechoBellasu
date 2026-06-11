@@ -95,9 +95,13 @@ export async function enviarTexto(
       await registrarLog(phone, tipo, mensagem, "erro", erro)
       return { ok: false, erro }
     }
-    const ok = res.ok && !json.error
-    await registrarLog(phone, tipo, mensagem, ok ? "enviado" : "erro", json.error as string, json.messageId as string)
-    return { ok, messageId: json.messageId as string, erro: json.error as string }
+    // Z-API pode retornar falha de duas formas:
+    // 1. json.error presente (erro explícito)
+    // 2. json.value === false (número sem WhatsApp, bloqueado, inválido)
+    const erroMsg = (json.error || json.message) as string | undefined
+    const ok = res.ok && !json.error && json.value !== false
+    await registrarLog(phone, tipo, mensagem, ok ? "enviado" : "erro", erroMsg, json.messageId as string)
+    return { ok, messageId: json.messageId as string, erro: erroMsg }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await registrarLog(phone, tipo, mensagem, "erro", msg)
@@ -136,9 +140,10 @@ export async function enviarDocumento(
       await registrarLog(phone, tipo, caption, "erro", erro)
       return { ok: false, erro }
     }
-    const ok = res.ok && !json.error
-    await registrarLog(phone, tipo, caption, ok ? "enviado" : "erro", json.error as string, json.messageId as string)
-    return { ok, messageId: json.messageId as string, erro: json.error as string }
+    const erroMsgDoc = (json.error || json.message) as string | undefined
+    const ok = res.ok && !json.error && json.value !== false
+    await registrarLog(phone, tipo, caption, ok ? "enviado" : "erro", erroMsgDoc, json.messageId as string)
+    return { ok, messageId: json.messageId as string, erro: erroMsgDoc }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await registrarLog(phone, tipo, caption, "erro", msg)
@@ -178,9 +183,10 @@ export async function enviarLink(
       await registrarLog(phone, tipo, mensagem, "erro", erro)
       return { ok: false, erro }
     }
-    const ok = res.ok && !json.error
-    await registrarLog(phone, tipo, mensagem, ok ? "enviado" : "erro", json.error as string, json.messageId as string)
-    return { ok, messageId: json.messageId as string, erro: json.error as string }
+    const erroMsgLink = (json.error || json.message) as string | undefined
+    const ok = res.ok && !json.error && json.value !== false
+    await registrarLog(phone, tipo, mensagem, ok ? "enviado" : "erro", erroMsgLink, json.messageId as string)
+    return { ok, messageId: json.messageId as string, erro: erroMsgLink }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await registrarLog(phone, tipo, mensagem, "erro", msg)
