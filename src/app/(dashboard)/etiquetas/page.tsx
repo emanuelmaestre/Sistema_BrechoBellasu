@@ -793,14 +793,6 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                             className="w-full px-4 py-4 text-xl font-bold rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
                             style={iSt} />
                         </div>
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Nº Venda (opcional)</p>
-                          <input type="number" value={form.venda_id}
-                            onChange={e => set("venda_id", e.target.value)}
-                            placeholder="—"
-                            className="w-full px-4 py-4 text-xl font-bold rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                            style={iSt} />
-                        </div>
                       </div>
 
                       {/* Botão continuar próprio */}
@@ -1632,7 +1624,7 @@ export default function EtiquetasPage() {
         {showWizard && (
           <WizardEtiqueta
             onClose={() => setWizard(false)}
-            onSalvo={() => { qc.invalidateQueries({ queryKey: ["etiquetas"] }) }}
+            onSalvo={() => { qc.invalidateQueries({ queryKey: ["etiquetas"] }); setWizard(false) }}
           />
         )}
         {rastreioId && <ModalRastreio orderId={rastreioId} onClose={() => setRastreio(null)} />}
