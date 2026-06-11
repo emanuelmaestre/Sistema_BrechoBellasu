@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { gerarLinkAsaas } from "@/lib/asaas"
-import { enviarTexto, verificarNumeroExiste } from "@/lib/zapi"
+import { enviarTexto } from "@/lib/zapi"
 import {
   buildCompleteMessage,
   type CompraData,
@@ -69,15 +69,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       continue
     }
 
-    // ── Valida se o número tem WhatsApp ativo antes de enviar ──
-    // O Z-API aceita envios para números inexistentes e responde sucesso,
-    // então sem essa checagem o sistema marcaria "enviada" sem entrega real.
-    const verificacao = await verificarNumeroExiste(numero)
-    if (!verificacao.existe) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
-      resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: "Número sem WhatsApp ativo — verifique o cadastro" })
-      continue
-    }
 
     // ── Garante link Asaas ──
     let linkPagamento: string = compra.link_pagamento || ""

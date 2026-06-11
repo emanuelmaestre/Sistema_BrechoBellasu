@@ -66,6 +66,43 @@ function formatarTelefone(tel: string): string {
   return digits
 }
 
+/**
+ * Resolve o número real do WhatsApp antes de enviar.
+ *
+ * O endpoint /phone-exists do Z-API faz duas coisas essenciais:
+ *  1. Diz se o número possui WhatsApp ativo (exists: true/false)
+ *  2. Devolve o número NORMALIZADO (phone) — corrige o 9º dígito faltante,
+ *     que o /send-text NÃO corrige sozinho.
+ *
+ * Sem isso, números mal formatados eram "enviados" com sucesso (messageId)
+ * mas nunca entregues, fazendo o sistema marcar "enviada" falsamente.
+ *
+ * - exists:true  → retorna { ok:true, phone: <normalizado> }
+ * - exists:false → retorna { ok:false } (número inválido / sem WhatsApp)
+ * - falha de rede → fail-open: { ok:true, phone: <bruto> } para não travar envios
+ */
+async function resolverNumeroWhatsApp(telefone: string): Promise<{ ok: boolean; phone: string; erro?: string }> {
+  const bruto = formatarTelefone(telefone)
+  try {
+    const res = await fetch(`${BASE()}/phone-exists/${bruto}`, {
+      headers: { "Client-Token": CLIENT_TOKEN() },
+      signal: AbortSignal.timeout(10000),
+    })
+    const json = await res.json().catch(() => ({})) as { exists?: boolean; phone?: string | null }
+    if (json.exists === true && typeof json.phone === "string" && json.phone) {
+      return { ok: true, phone: json.phone.replace(/\D/g, "") }
+    }
+    if (json.exists === false) {
+      return { ok: false, phone: bruto, erro: "Número sem WhatsApp ativo ou mal formatado — verifique o cadastro" }
+    }
+    // Resposta inesperada → não bloqueia, usa número bruto
+    return { ok: true, phone: bruto }
+  } catch {
+    // Instabilidade de rede não deve impedir o envio
+    return { ok: true, phone: bruto }
+  }
+}
+
 // ── API pública ──────────────────────────────────────────────
 
 /** Envia mensagem de texto simples */
@@ -74,7 +111,13 @@ export async function enviarTexto(
   mensagem: string,
   tipo: LogTipo = "outro",
 ): Promise<ZAPIResult> {
-  const phone = formatarTelefone(telefone)
+  // Resolve o número real (valida existência + corrige 9º dígito) antes de enviar
+  const resolvido = await resolverNumeroWhatsApp(telefone)
+  if (!resolvido.ok) {
+    await registrarLog(resolvido.phone, tipo, mensagem, "erro", resolvido.erro)
+    return { ok: false, erro: resolvido.erro }
+  }
+  const phone = resolvido.phone
   try {
     const res = await fetch(`${BASE()}/send-text`, {
       method: "POST",
@@ -117,7 +160,12 @@ export async function enviarDocumento(
   caption: string,
   tipo: LogTipo = "outro",
 ): Promise<ZAPIResult> {
-  const phone = formatarTelefone(telefone)
+  const resolvido = await resolverNumeroWhatsApp(telefone)
+  if (!resolvido.ok) {
+    await registrarLog(resolvido.phone, tipo, caption, "erro", resolvido.erro)
+    return { ok: false, erro: resolvido.erro }
+  }
+  const phone = resolvido.phone
   try {
     const res = await fetch(`${BASE()}/send-document/${encodeURIComponent(documentUrl)}`, {
       method: "POST",
@@ -159,7 +207,12 @@ export async function enviarLink(
   titulo: string,
   tipo: LogTipo = "outro",
 ): Promise<ZAPIResult> {
-  const phone = formatarTelefone(telefone)
+  const resolvido = await resolverNumeroWhatsApp(telefone)
+  if (!resolvido.ok) {
+    await registrarLog(resolvido.phone, tipo, mensagem, "erro", resolvido.erro)
+    return { ok: false, erro: resolvido.erro }
+  }
+  const phone = resolvido.phone
   try {
     const res = await fetch(`${BASE()}/send-link`, {
       method: "POST",
@@ -191,28 +244,6 @@ export async function enviarLink(
     const msg = e instanceof Error ? e.message : String(e)
     await registrarLog(phone, tipo, mensagem, "erro", msg)
     return { ok: false, erro: msg }
-  }
-}
-
-/**
- * Verifica se o número possui WhatsApp ativo (endpoint phone-exists).
- * Em caso de falha na consulta, retorna existe=true para não bloquear
- * o envio por instabilidade da API (fail-open).
- */
-export async function verificarNumeroExiste(telefone: string): Promise<{ existe: boolean; detalhe?: string }> {
-  const phone = formatarTelefone(telefone)
-  try {
-    const res = await fetch(`${BASE()}/phone-exists/${phone}`, {
-      headers: { "Client-Token": CLIENT_TOKEN() },
-      signal: AbortSignal.timeout(10000),
-    })
-    const json = await res.json().catch(() => ({}))
-    if (typeof json.exists === "boolean") {
-      return { existe: json.exists, detalhe: json.exists ? undefined : "Número sem WhatsApp ativo" }
-    }
-    return { existe: true }
-  } catch {
-    return { existe: true }
   }
 }
 
