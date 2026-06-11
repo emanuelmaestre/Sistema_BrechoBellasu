@@ -159,7 +159,7 @@ function notificacaoStatusInfo(status?: string | null) {
   }
 }
 
-function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean }[] }) {
+function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string }[] }) {
   const [tab, setTab] = useState<DrawerTab>("dados")
   const qc = useQueryClient()
 
@@ -265,17 +265,33 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
         transition={{ duration: 0.18 }}
         className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
         {/* Aba Dados */}
-        {tab === "dados" && info.map(({ icon, label, value }, i) => (
+        {tab === "dados" && info.map(({ icon, label, value, href }, i) => (
           <motion.div key={label}
             initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 + i * 0.03 }}
-            className="flex items-start gap-3 px-4 py-3 rounded-xl"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-            <div className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>{icon}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
-              <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
-            </div>
+            transition={{ delay: 0.05 + i * 0.03 }}>
+            {href ? (
+              <a href={href} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors group"
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#25d366" }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)" }}>
+                <div className="shrink-0" style={{ color: "#25d366" }}>{icon}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
+                  <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: "#25d366" }}>Abrir ›</span>
+              </a>
+            ) : (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <div className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>{icon}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
+                  <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
+                </div>
+              </div>
+            )}
           </motion.div>
         ))}
 
@@ -795,8 +811,12 @@ function DrawerCliente({
 
   const inicial = cliente.nome?.trim()[0]?.toUpperCase() ?? "?"
 
+  // Link do WhatsApp (wa.me) — número limpo com DDI 55
+  const celDigits = (cliente.celular ?? "").replace(/\D/g, "")
+  const waHref = celDigits ? `https://wa.me/${celDigits.startsWith("55") ? celDigits : `55${celDigits}`}` : undefined
+
   const INFO = [
-    { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—" },
+    { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—", href: waHref },
     { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—" },
     { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—" },
     { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—" },
