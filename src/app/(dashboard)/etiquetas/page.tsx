@@ -19,7 +19,7 @@ import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 // ── Tipos ─────────────────────────────────────────────────
 interface Cliente {
   id: number; nome: string; cpf_cnpj?: string | null
-  celular?: string | null; cep?: string | null; logradouro?: string | null
+  celular?: string | null; instagram?: string | null; cep?: string | null; logradouro?: string | null
   numero?: string | null; complemento?: string | null; bairro?: string | null
   cidade?: string | null; estado?: string | null
   // Endereço de entrega alternativo (opcional)
@@ -570,7 +570,10 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                             {c.nome[0]}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold uppercase truncate" style={{ color: cliHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{c.nome}</p>
+                            <p className="text-sm font-semibold uppercase truncate" style={{ color: cliHi === idx ? "var(--accent)" : "var(--text-primary)" }}>
+                              {c.nome}
+                              {c.instagram && <span className="ml-2 text-xs font-normal" style={{ color: "var(--accent)" }}>@{c.instagram.replace(/^@/, "")}</span>}
+                            </p>
                             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                               {[c.cpf_cnpj, c.celular].filter(Boolean).join(" · ") || "Sem CPF/Telefone"}
                             </p>
