@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
-import { enviarDocumento } from "@/lib/zapi"
+import { dispararDocumentoUnico } from "@/lib/disparo-controlado"
 
 export const dynamic = "force-dynamic"
 
@@ -69,13 +69,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // 8. Envia via Z-API como documento
   const caption = `✅ *Recibo — Brechó Bellasu*\nVenda #${vendaId} · Olá, ${cliente.nome.split(" ")[0]}! Segue seu recibo 💛`
-  const resultado = await enviarDocumento(
-    cliente.celular,
-    urlData.signedUrl,
-    `Recibo-Bellasu-${vendaId}.pdf`,
+  const resultado = await dispararDocumentoUnico({
+    clienteId: venda.cliente_id,
+    nome:      cliente.nome,
+    telefone:  cliente.celular,
+    docUrl:    urlData.signedUrl,
+    docNome:   `Recibo-Bellasu-${vendaId}.pdf`,
     caption,
-    "recibo_venda",
-  )
+    tipo:      "recibo_venda",
+    modulo:    "VENDAS",
+  })
 
   // 9. Deleta o arquivo do Storage após envio
   await sb.storage.from("recibos").remove([fileName])

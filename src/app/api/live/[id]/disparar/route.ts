@@ -8,6 +8,7 @@ import {
   generateNotificationId,
   type CompraData,
 } from "@/lib/live-message-builder"
+import { gerarIntervaloAleatorio, estimarDuracao } from "@/lib/disparo-controlado"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
@@ -43,7 +44,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> = []
 
+  // Log estimativa antes de iniciar
+  const { minutos_min, minutos_max } = estimarDuracao(compras.length)
+  console.log(`\n🚀 [LIVE #${live_id}] Iniciando disparo de ${compras.length} cliente(s)`)
+  if (compras.length > 1) {
+    console.log(`⏱ Estimativa: ${minutos_min}–${minutos_max} min (intervalos 8s–40s imprevisíveis)\n`)
+  }
+
+  let intervaloAnterior: number | undefined
+  let posicao = 0
+
   for (const compra of compras) {
+    posicao++
     const numero = (compra.whatsapp || "").replace(/\D/g, "")
     if (!numero) {
       await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
@@ -112,6 +124,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const mensagem = msgResult.mensagem
     let statusEnvio = "enviada"
+
+    // ── Intervalo controlado entre envios (não espera antes do primeiro) ──
+    if (posicao > 1) {
+      const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior)
+      intervaloAnterior = intervaloMs
+      console.log(`⏳ [${posicao}/${compras.length}] Aguardando ${(intervaloMs/1000).toFixed(1)}s antes de enviar para ${compra.nome_cliente}...`)
+      await new Promise(res => setTimeout(res, intervaloMs))
+    }
+
+    const horarioEnvio = new Date().toISOString()
+    console.log(`📺 LIVE [${posicao}/${compras.length}] 🛍️ compras_live | ${compra.nome_cliente} (${numero}) | 🕐 ${new Date(horarioEnvio).toLocaleTimeString("pt-BR")}`)
 
     try {
       const resultado = await enviarTexto(numero, mensagem, "aviso_live")

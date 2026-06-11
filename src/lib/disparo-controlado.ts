@@ -9,7 +9,38 @@
 //   "VENDAS"   → recibo de venda presencial
 // ══════════════════════════════════════════════════════════════════
 
-import { enviarTexto, type ZAPIResult } from "./zapi"
+import { enviarTexto, enviarDocumento, type ZAPIResult } from "./zapi"
+
+// ─── Log estruturado único (usado por todos os módulos) ──────────
+
+export interface LogEnvio {
+  modulo:       ModuloOrigem
+  tipo:         TipoMensagem
+  clienteId?:   number
+  nome:         string
+  telefone:     string
+  horario:      string
+  intervalo_ms: number
+  ok:           boolean
+  messageId?:   string
+  erro?:        string
+}
+
+function emitirLog(log: LogEnvio, pos?: number, total?: number): void {
+  const status   = log.ok ? "✅" : "❌"
+  const progresso = pos != null && total != null ? `[${pos}/${total}] ` : ""
+  const intervaloStr = log.intervalo_ms > 0 ? ` | ⏱ aguardou ${(log.intervalo_ms/1000).toFixed(1)}s` : ""
+  const horario  = new Date(log.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  const iconeModulo: Record<ModuloOrigem, string> = { CLIENTES: "👤", LIVE: "📺", VENDAS: "🏪" }
+  const iconeTipo:   Record<TipoMensagem, string> = { consentimento: "📋", compras_live: "🛍️", recibo_venda: "🧾" }
+
+  console.log(
+    `${status} ${progresso}${iconeModulo[log.modulo]} ${log.modulo} · ` +
+    `${iconeTipo[log.tipo]} ${log.tipo} | ${log.nome} (${log.telefone})` +
+    `${intervaloStr} | 🕐 ${horario}` +
+    (log.erro ? ` | ⚠️ ${log.erro}` : "")
+  )
+}
 
 // ─── Tipos ───────────────────────────────────────────────────────
 
@@ -260,6 +291,70 @@ export async function dispararMensagens(
   console.log(`─────────────────────────────────────────────\n`)
 
   return sessao
+}
+
+// ─── Envio único com log estruturado (CLIENTES / VENDAS) ─────────
+
+/** Envia uma única mensagem de texto com log estruturado */
+export async function dispararTextoUnico(params: {
+  clienteId?: number
+  nome:       string
+  telefone:   string
+  mensagem:   string
+  tipo:       TipoMensagem
+  modulo:     ModuloOrigem
+}): Promise<ZAPIResult> {
+  const zapiTipo = params.tipo === "consentimento" ? "consentimento"
+    : params.tipo === "compras_live"               ? "aviso_live"
+    : "recibo_venda" as const
+
+  const horario = new Date().toISOString()
+  const resultado = await enviarTexto(params.telefone, params.mensagem, zapiTipo)
+
+  emitirLog({
+    modulo:       params.modulo,
+    tipo:         params.tipo,
+    clienteId:    params.clienteId,
+    nome:         params.nome,
+    telefone:     params.telefone,
+    horario,
+    intervalo_ms: 0,
+    ok:           resultado.ok,
+    messageId:    resultado.messageId,
+    erro:         resultado.erro,
+  })
+
+  return resultado
+}
+
+/** Envia um único documento (PDF) com log estruturado */
+export async function dispararDocumentoUnico(params: {
+  clienteId?: number
+  nome:       string
+  telefone:   string
+  docUrl:     string
+  docNome:    string
+  caption:    string
+  tipo:       TipoMensagem
+  modulo:     ModuloOrigem
+}): Promise<ZAPIResult> {
+  const horario = new Date().toISOString()
+  const resultado = await enviarDocumento(params.telefone, params.docUrl, params.docNome, params.caption, "recibo_venda")
+
+  emitirLog({
+    modulo:       params.modulo,
+    tipo:         params.tipo,
+    clienteId:    params.clienteId,
+    nome:         params.nome,
+    telefone:     params.telefone,
+    horario,
+    intervalo_ms: 0,
+    ok:           resultado.ok,
+    messageId:    resultado.messageId,
+    erro:         resultado.erro,
+  })
+
+  return resultado
 }
 
 // ─── Utilitário: estima duração da sessão ────────────────────────

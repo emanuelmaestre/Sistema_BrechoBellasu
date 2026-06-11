@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
-import { enviarTexto } from "@/lib/zapi"
 import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
+import { dispararTextoUnico } from "@/lib/disparo-controlado"
 
 export const dynamic = "force-dynamic"
 
@@ -65,7 +65,14 @@ export const PATCH = withAuth(async (req: NextRequest, { params }: { params: Pro
     })
     .eq("id", clienteId)
 
-  const resultado = await enviarTexto(cliente.celular, mensagem, "consentimento")
+  const resultado = await dispararTextoUnico({
+    clienteId: clienteId,
+    nome:      cliente.nome ?? "Cliente",
+    telefone:  cliente.celular,
+    mensagem,
+    tipo:      "consentimento",
+    modulo:    "CLIENTES",
+  })
 
   if (!resultado.ok) {
     // Reverte flags em caso de falha
