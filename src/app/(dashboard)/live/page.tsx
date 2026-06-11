@@ -22,6 +22,7 @@ import {
   type CompraData,
   type MessageResult,
 } from "@/lib/live-message-builder"
+import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 import type { Live } from "@/types"
 
 // ─── Tipos ────────────────────────────────────────────────
@@ -1065,10 +1066,14 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   compras: Compra[]; onClose: () => void; onSuccess: () => void
 }) {
   type Fase = "preview" | "disparando" | "resultado"
+  type ItemResultado = { id: number; cliente: string; numero: string; status: string; detalhe?: string }
   const [fase, setFase]         = useState<Fase>("preview")
-  const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> } | null>(null)
+  const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: ItemResultado[] } | null>(null)
   const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
+  // Progresso do disparo orquestrado pelo navegador (1 envio por vez)
+  const [prog, setProg] = useState<{ atual: number; total: number; nome: string; aguardando: number }>({ atual: 0, total: 0, nome: "", aguardando: 0 })
+  const cancelarRef = useRef(false)
 
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
   const ex = pendentes[0]
@@ -1110,14 +1115,68 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     if (msgResult) await navigator.clipboard.writeText(msgResult.mensagem)
   }
 
+  // Disparo orquestrado pelo navegador: envia uma mensagem por vez, com
+  // intervalo aleatório de 8–40s entre elas. Cada chamada à API processa
+  // só uma compra, então nunca estoura o timeout do servidor.
   async function disparar() {
     if (!msgResult?.valida) return
+    cancelarRef.current = false
     setFase("disparando")
+
+    // 1. Busca a fila de pendentes no servidor
+    let fila: Array<{ id: number; nome: string }> = []
     try {
-      const res = await apiPost<{ enviadas: number; erros: number; resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> }>(`/live/${liveId}/disparar`, {})
-      setResultado(res); setFase("resultado"); onSuccess()
-    } catch { setFase("preview") }
+      const lista = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
+      fila = lista.pendentes ?? []
+    } catch {
+      setFase("preview"); return
+    }
+
+    const acumulado: ItemResultado[] = []
+    setProg({ atual: 0, total: fila.length, nome: "", aguardando: 0 })
+
+    let intervaloAnterior: number | undefined
+
+    // 2. Processa um por vez
+    for (let i = 0; i < fila.length; i++) {
+      if (cancelarRef.current) break
+      const item = fila[i]
+
+      // Intervalo imprevisível antes de enviar (exceto o primeiro)
+      if (i > 0) {
+        const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior)
+        intervaloAnterior = intervaloMs
+        // Contagem regressiva visível
+        let restante = Math.ceil(intervaloMs / 1000)
+        setProg(p => ({ ...p, nome: item.nome, aguardando: restante }))
+        while (restante > 0 && !cancelarRef.current) {
+          await new Promise(res => setTimeout(res, 1000))
+          restante--
+          setProg(p => ({ ...p, aguardando: restante }))
+        }
+        if (cancelarRef.current) break
+      }
+
+      setProg(p => ({ ...p, atual: i + 1, nome: item.nome, aguardando: 0 }))
+
+      try {
+        const r = await apiPost<ItemResultado>(`/live/${liveId}/disparar`, { compra_id: item.id })
+        acumulado.push(r)
+      } catch (e) {
+        acumulado.push({ id: item.id, cliente: item.nome, numero: "", status: "erro", detalhe: (e as Error).message || "Falha de rede" })
+      }
+    }
+
+    setResultado({
+      enviadas: acumulado.filter(r => r.status === "enviada").length,
+      erros:    acumulado.filter(r => r.status === "erro").length,
+      resultados: acumulado,
+    })
+    setFase("resultado")
+    onSuccess()
   }
+
+  function cancelarDisparo() { cancelarRef.current = true }
 
   // Cores do contador
   const charColor = () => {
@@ -1175,14 +1234,44 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
         )}
       </div>
 
-      {/* Disparando */}
+      {/* Disparando — progresso real */}
       {fase === "disparando" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6">
           <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
             <Send size={40} style={{ color: "var(--accent)" }}/>
           </motion.div>
-          <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Enviando mensagens...</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aguarde, estamos notificando todas as clientes.</p>
+
+          <div className="text-center">
+            <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              Enviando {prog.atual} de {prog.total}
+            </p>
+            {prog.aguardando > 0
+              ? <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                  Aguardando {prog.aguardando}s antes de enviar para <strong>{prog.nome}</strong>…
+                </p>
+              : <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                  {prog.nome ? <>Enviando para <strong>{prog.nome}</strong>…</> : "Preparando…"}
+                </p>}
+          </div>
+
+          {/* Barra de progresso */}
+          <div className="w-full max-w-md h-2.5 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+            <motion.div className="h-full rounded-full"
+              style={{ background: "#25d366" }}
+              animate={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }}
+              transition={{ ease: "easeOut" }} />
+          </div>
+
+          <p className="text-xs text-center max-w-sm" style={{ color: "var(--text-muted)" }}>
+            Mantenha esta tela aberta. O envio é espaçado de propósito (8–40s) para
+            parecer natural e não ser bloqueado pelo WhatsApp.
+          </p>
+
+          <button onClick={cancelarDisparo}
+            className="mt-2 flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl border"
+            style={{ borderColor: "var(--border)", color: "#f87171", background: "var(--bg-surface)" }}>
+            <X size={15}/> Parar disparo
+          </button>
         </div>
       )}
 

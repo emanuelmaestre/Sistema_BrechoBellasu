@@ -7,8 +7,39 @@ import {
   buildCompleteMessage,
   type CompraData,
 } from "@/lib/live-message-builder"
-import { gerarIntervaloAleatorio, estimarDuracao } from "@/lib/disparo-controlado"
 
+export const dynamic = "force-dynamic"
+// Cada chamada processa apenas UMA compra (1 envio), então o ritmo de 8–40s
+// fica no navegador. Isso evita o timeout do Vercel que cortava disparos longos.
+export const maxDuration = 60
+
+const PENDENTE = (c: Record<string, unknown>) =>
+  !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro"
+
+// GET — lista as compras pendentes desta live (o front orquestra o disparo).
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = verifyAuth(req)
+  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+
+  const { id } = await params
+  const live_id = parseInt(id)
+  const sb = createServerClient()
+
+  const { data: todas } = await sb
+    .from("live_compras")
+    .select("id, nome_cliente, msg_status")
+    .eq("live_id", live_id)
+    .order("nome_cliente")
+
+  const pendentes = (todas ?? [])
+    .filter(PENDENTE)
+    .map((c: Record<string, unknown>) => ({ id: c.id as number, nome: c.nome_cliente as string }))
+
+  return NextResponse.json({ ok: true, total: pendentes.length, pendentes })
+}
+
+// POST body { compra_id } — processa UMA compra: gera link Asaas, monta a
+// mensagem e envia via Z-API. Retorna o resultado individual.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -17,188 +48,120 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const { data: liveRow, error: liveErr } = await sb.from("lives").select("data_live, tipo, titulo").eq("id", live_id).single()
-  if (liveErr) console.error(`[disparar] Erro ao buscar live ${live_id}:`, liveErr.message)
-  const tipoLive = ((liveRow as Record<string,unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
-  const dataLive: string | null = (liveRow as Record<string,unknown>)?.data_live as string | null ?? null
-
-  // Busca CPFs dos clientes (necessário para Asaas)
-  const { data: todasCompras } = await sb
-    .from("live_compras").select("*").eq("live_id", live_id)
-
-  const compras = (todasCompras ?? []).filter((c: Record<string, unknown>) =>
-    !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro"
-  )
-
-  if (!compras.length) return NextResponse.json({ ok: true, enviadas: 0, mensagem: "Nenhuma compra pendente." })
-
-  const clienteIds = compras.map((c: Record<string, unknown>) => c.cliente_id).filter(Boolean)
-  const cpfMap: Record<number, string | null> = {}
-  const nomeMap: Record<number, string | null> = {}
-  const celularMap: Record<number, string | null> = {}
-  if (clienteIds.length > 0) {
-    const { data: clientes } = await sb.from("clientes").select("id, cpf_cnpj, nome, celular").in("id", clienteIds)
-    clientes?.forEach((c: { id: number; cpf_cnpj?: string | null; nome?: string | null; celular?: string | null }) => {
-      cpfMap[c.id] = c.cpf_cnpj ?? null
-      nomeMap[c.id] = c.nome ?? null
-      celularMap[c.id] = c.celular ?? null
-    })
+  const body = await req.json().catch(() => ({})) as { compra_id?: number }
+  const compraId = body.compra_id
+  if (!compraId) {
+    return NextResponse.json({ erro: "compra_id é obrigatório." }, { status: 400 })
   }
 
-  const resultados: Array<{ id: number; cliente: string; numero: string; status: string; detalhe?: string }> = []
+  // ── Dados da live (data e tipo) ──
+  const { data: liveRow } = await sb.from("lives").select("data_live, tipo").eq("id", live_id).single()
+  const tipoLive = ((liveRow as Record<string, unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
+  const dataLive = ((liveRow as Record<string, unknown>)?.data_live ?? null) as string | null
 
-  // Log estimativa antes de iniciar
-  const { minutos_min, minutos_max } = estimarDuracao(compras.length)
-  console.log(`\n🚀 [LIVE #${live_id}] Iniciando disparo de ${compras.length} cliente(s)`)
-  if (compras.length > 1) {
-    console.log(`⏱ Estimativa: ${minutos_min}–${minutos_max} min (intervalos 8s–40s imprevisíveis)\n`)
+  // ── A compra ──
+  const { data: compra } = await sb
+    .from("live_compras").select("*").eq("id", compraId).eq("live_id", live_id).single()
+  if (!compra) return NextResponse.json({ erro: "Compra não encontrada." }, { status: 404 })
+
+  if (!PENDENTE(compra as Record<string, unknown>)) {
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "enviada", detalhe: "já processada" })
   }
 
-  let intervaloAnterior: number | undefined
-  let posicao = 0
-
-  for (const compra of compras) {
-    posicao++
-    // Prefere o celular atual do cadastro da cliente — o whatsapp da compra
-    // é uma cópia feita na criação e pode estar desatualizado/corrigido depois.
-    const celularCadastro = compra.cliente_id ? (celularMap[compra.cliente_id] ?? null) : null
-    const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
-    if (!numero) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
-      resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
-      continue
-    }
-
-
-    // ── Garante link Asaas ──
-    let linkPagamento: string = compra.link_pagamento || ""
-    if (!linkPagamento) {
-      const valorFinal = parseFloat(String(compra.valor_total ?? 0)) - parseFloat(String(compra.desconto ?? 0))
-      if (valorFinal > 0) {
-        const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
-        const cpf = compra.cliente_id ? (cpfMap[compra.cliente_id] ?? null) : null
-        const resultado = await gerarLinkAsaas({
-          nome: compra.nome_cliente,
-          cpf,
-          valor: valorFinal,
-          descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
-          tipoLive,
-        })
-        if (resultado) {
-          linkPagamento = resultado.url
-          const upd: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
-          try { await sb.from("live_compras").update({ ...upd, asaas_payment_id: resultado.paymentId }).eq("id", compra.id) }
-          catch { await sb.from("live_compras").update(upd).eq("id", compra.id) }
-        }
-      }
-    }
-
-    // ── Monta mensagem via builder centralizado ──
-    const nomeCliente = compra.cliente_id ? (nomeMap[compra.cliente_id] ?? compra.nome_cliente) : compra.nome_cliente
-    const compraData: CompraData = {
-      data_compra:      compra.data_compra,
-      data_live:        dataLive ?? compra.data_compra ?? null,
-      numero_sacola:    compra.numero_sacola,
-      cor_sacola:       compra.cor_sacola,
-      quantidade_itens: compra.quantidade_itens,
-      valor_total:      compra.valor_total,
-      nome_cliente:     nomeCliente,
-      link_pagamento:   linkPagamento || null,
-    }
-
-    const msgResult = buildCompleteMessage(compraData)
-
-    if (!msgResult.valida) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
-      resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })
-      continue
-    }
-
-    const mensagem = msgResult.mensagem
-    let statusEnvio = "enviada"
-
-    // ── Intervalo controlado entre envios (não espera antes do primeiro) ──
-    if (posicao > 1) {
-      const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior)
-      intervaloAnterior = intervaloMs
-      console.log(`⏳ [${posicao}/${compras.length}] Aguardando ${(intervaloMs/1000).toFixed(1)}s antes de enviar para ${compra.nome_cliente}...`)
-      await new Promise(res => setTimeout(res, intervaloMs))
-    }
-
-    const horarioEnvio = new Date().toISOString()
-    console.log(`📺 LIVE [${posicao}/${compras.length}] 🛍️ compras_live | ${compra.nome_cliente} (${numero}) | 🕐 ${new Date(horarioEnvio).toLocaleTimeString("pt-BR")}`)
-
-    try {
-      const resultado = await enviarTexto(numero, mensagem, "aviso_live")
-      if (!resultado.ok) {
-        statusEnvio = "erro"
-        resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultado.erro ?? "Falha Z-API" })
-        await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compra.id)
-        continue
-      }
-    } catch { statusEnvio = "erro" }
-
-    // ── UPDATE msg_status com fallback REST ──
-    let updateOk = false
-    let debugInfo = ""
-
-    const { data: upd1, error: err1 } = await sb
-      .from("live_compras").update({ msg_status: statusEnvio }).eq("id", compra.id).select("id, msg_status")
-    if (err1) {
-      debugInfo += `T1 err: ${err1.message}. `
-    } else if (upd1?.length && upd1[0].msg_status === statusEnvio) {
-      updateOk = true
-    }
-
-    if (!updateOk) {
-      try {
-        const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-        const restResp = await fetch(
-          `${supaUrl}/rest/v1/live_compras?id=eq.${compra.id}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": supaKey!,
-              "Authorization": `Bearer ${supaKey}`,
-              "Prefer": "return=representation",
-            },
-            body: JSON.stringify({ msg_status: statusEnvio }),
-          }
-        )
-        if (restResp.ok) {
-          updateOk = true
-          debugInfo += `T2-REST ok. `
-        } else {
-          debugInfo += `T2-REST falhou: ${restResp.status}. `
-        }
-      } catch (e: unknown) {
-        debugInfo += `T2-REST exc: ${e instanceof Error ? e.message : String(e)}. `
-      }
-    }
-
-    if (updateOk) {
-      try {
-        await sb.from("live_compras").update({
-          msg_enviada_em: new Date().toISOString(),
-          msg_texto: mensagem,
-        }).eq("id", compra.id)
-      } catch { /* campos opcionais */ }
-    }
-
-    if (!updateOk) statusEnvio = "erro"
-
-    resultados.push({ id: compra.id, cliente: compra.nome_cliente, numero, status: statusEnvio, detalhe: debugInfo || undefined })
+  // ── Dados atuais do cliente (cadastro é a fonte de verdade do número) ──
+  let cpf: string | null = null
+  let nomeCadastro: string | null = null
+  let celularCadastro: string | null = null
+  if (compra.cliente_id) {
+    const { data: cli } = await sb.from("clientes").select("cpf_cnpj, nome, celular").eq("id", compra.cliente_id).single()
+    cpf = cli?.cpf_cnpj ?? null
+    nomeCadastro = cli?.nome ?? null
+    celularCadastro = cli?.celular ?? null
   }
 
-  const todosOk = resultados.every(r => r.status === "enviada")
-  if (todosOk) await sb.from("lives").update({ status: "disparada" }).eq("id", live_id)
+  const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
+  if (!numero) {
+    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
+  }
+
+  // ── Garante link Asaas ──
+  let linkPagamento: string = compra.link_pagamento || ""
+  if (!linkPagamento) {
+    const valorFinal = parseFloat(String(compra.valor_total ?? 0)) - parseFloat(String(compra.desconto ?? 0))
+    if (valorFinal > 0) {
+      const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
+      const resultado = await gerarLinkAsaas({
+        nome: compra.nome_cliente,
+        cpf,
+        valor: valorFinal,
+        descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
+        tipoLive,
+      })
+      if (resultado) {
+        linkPagamento = resultado.url
+        const upd: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
+        try { await sb.from("live_compras").update({ ...upd, asaas_payment_id: resultado.paymentId }).eq("id", compraId) }
+        catch { await sb.from("live_compras").update(upd).eq("id", compraId) }
+      }
+    }
+  }
+
+  // ── Monta a mensagem ──
+  const compraData: CompraData = {
+    data_compra:      compra.data_compra,
+    data_live:        dataLive ?? compra.data_compra ?? null,
+    numero_sacola:    compra.numero_sacola,
+    cor_sacola:       compra.cor_sacola,
+    quantidade_itens: compra.quantidade_itens,
+    valor_total:      compra.valor_total,
+    nome_cliente:     nomeCadastro ?? compra.nome_cliente,
+    link_pagamento:   linkPagamento || null,
+  }
+
+  const msgResult = buildCompleteMessage(compraData)
+  if (!msgResult.valida) {
+    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })
+  }
+
+  // ── Envia (zapi resolve o número real e valida WhatsApp internamente) ──
+  let resultadoZap
+  try {
+    resultadoZap = await enviarTexto(numero, msgResult.mensagem, "aviso_live")
+  } catch (e) {
+    resultadoZap = { ok: false, erro: e instanceof Error ? e.message : String(e) }
+  }
+
+  if (!resultadoZap.ok) {
+    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultadoZap.erro ?? "Falha Z-API" })
+  }
+
+  // ── Marca enviada + guarda messageId (para o webhook de entrega casar) ──
+  await sb.from("live_compras").update({ msg_status: "enviada" }).eq("id", compraId)
+  try {
+    await sb.from("live_compras").update({
+      msg_enviada_em: new Date().toISOString(),
+      msg_texto: msgResult.mensagem,
+      msg_zapi_id: resultadoZap.messageId ?? null,
+    }).eq("id", compraId)
+  } catch { /* campos opcionais — não bloqueiam o envio */ }
+
+  // ── Se não restam pendentes, marca a live como disparada ──
+  const { data: restantes } = await sb
+    .from("live_compras").select("msg_status").eq("live_id", live_id)
+  const aindaPendentes = (restantes ?? []).filter(PENDENTE).length
+  if (aindaPendentes === 0) {
+    await sb.from("lives").update({ status: "disparada" }).eq("id", live_id)
+  }
 
   return NextResponse.json({
-    ok: true,
-    enviadas: resultados.filter(r => r.status === "enviada").length,
-    erros:    resultados.filter(r => r.status === "erro").length,
-    resultados,
+    id: compraId,
+    cliente: compra.nome_cliente,
+    numero,
+    status: "enviada",
+    messageId: resultadoZap.messageId,
+    restantes: aindaPendentes,
   })
 }

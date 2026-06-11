@@ -10,6 +10,10 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { enviarTexto, enviarDocumento, type ZAPIResult } from "./zapi"
+import { gerarIntervaloAleatorio } from "./intervalo-aleatorio"
+
+// Re-exporta para manter compatibilidade com imports existentes.
+export { gerarIntervaloAleatorio }
 
 // ─── Log estruturado único (usado por todos os módulos) ──────────
 
@@ -81,73 +85,6 @@ export interface SessaoDisparo {
   inicio:       string
   fim?:         string
   resultados:   ResultadoDisparo[]
-}
-
-// ─── Gerador de Intervalo Imprevisível ───────────────────────────
-
-/**
- * Retorna um intervalo em ms entre 8.000 e 40.000 com máxima
- * imprevisibilidade. Algoritmo em 3 camadas:
- *
- * 1. Base aleatória via crypto (quando disponível) ou Math.random
- * 2. Perturbação por ruído gaussiano aproximado (soma de 6 uniformes)
- * 3. Inversão aleatória da zona (evita sequência crescente/decrescente)
- *
- * O valor anterior é passado para garantir delta mínimo de 4s,
- * impedindo repetição imediata do mesmo intervalo.
- */
-export function gerarIntervaloAleatorio(anteriorMs?: number): number {
-  const MIN = 8_000
-  const MAX = 40_000
-  const RANGE = MAX - MIN
-  const DELTA_MIN = 4_000 // diferença mínima do intervalo anterior
-
-  // Camada 1: aleatoriedade criptográfica quando disponível (Node.js / browser)
-  function rand(): number {
-    if (typeof globalThis.crypto?.getRandomValues === "function") {
-      const buf = new Uint32Array(1)
-      globalThis.crypto.getRandomValues(buf)
-      return buf[0] / 0xFFFFFFFF
-    }
-    return Math.random()
-  }
-
-  // Camada 2: distribuição gaussiana aproximada (Box-Muller simplificado)
-  // Soma 6 valores uniformes → distribuição em sino, mas re-escalada para [0,1]
-  function gaussianRand(): number {
-    let sum = 0
-    for (let i = 0; i < 6; i++) sum += rand()
-    // Normaliza de [0,6] para [0,1], depois distorce com raiz para achatar as caudas
-    const normalizado = sum / 6
-    // Inverte aleatoriamente a curva (50% de chance) para evitar tendência central
-    return rand() > 0.5 ? normalizado : 1 - normalizado
-  }
-
-  // Camada 3: gera candidato e verifica delta mínimo (até 8 tentativas)
-  let candidato: number
-  let tentativas = 0
-  do {
-    // Perturbação extra: escolhe aleatoriamente entre 3 estratégias
-    const estrategia = Math.floor(rand() * 3)
-    let base: number
-    if (estrategia === 0) {
-      base = gaussianRand()
-    } else if (estrategia === 1) {
-      // Duas amostras independentes interpoladas por fator aleatório
-      base = rand() * 0.4 + rand() * 0.6
-    } else {
-      // Raiz quadrada para concentrar levemente nos valores baixos
-      base = Math.sqrt(rand())
-    }
-    candidato = Math.round(MIN + base * RANGE)
-    tentativas++
-  } while (
-    anteriorMs !== undefined &&
-    Math.abs(candidato - anteriorMs) < DELTA_MIN &&
-    tentativas < 8
-  )
-
-  return candidato
 }
 
 // ─── Formatadores de Log ─────────────────────────────────────────
