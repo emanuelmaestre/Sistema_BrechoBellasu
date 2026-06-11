@@ -7,6 +7,8 @@ import {
   gerarEtiquetas,
   buscarPedido,
   imprimirEtiqueta,
+  cancelarEtiqueta,
+  meSaldo,
   cepOrigem,
   defaultVolume,
   type MECartItem,
@@ -119,27 +121,55 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
 
     // 2. Checkout (opcional via flag checkout_auto=true) — paga com saldo da carteira
     if (checkout_auto) {
+      const fmt = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`
+
+      // ── Checagem proativa: o preço real do pedido (já no carrinho) pode ser
+      //    maior que a cotação exibida (seguro, taxas). Comparamos com o saldo
+      //    real e, se faltar, informamos o déficit EXATO e desfazemos o carrinho.
+      const precoPedido = parseFloat(String(pedido.price ?? "0"))
+      if (precoPedido > 0) {
+        try {
+          const bal = await meSaldo()
+          const disponivel = Math.max(0, Number(bal.balance ?? 0) - Number(bal.debts ?? 0))
+          if (disponivel < precoPedido) {
+            await cancelarEtiqueta(pedido.id).catch(() => {})
+            const falta = precoPedido - disponivel
+            return NextResponse.json({
+              erro: `Saldo insuficiente. O frete custa ${fmt(precoPedido)} e seu saldo disponível é ${fmt(disponivel)} — faltam ${fmt(falta)}. Recarregue a carteira do Melhor Envio ou escolha um frete mais barato.`,
+            }, { status: 402 })
+          }
+        } catch { /* se a consulta de saldo falhar, deixa o checkout decidir */ }
+      }
+
       try {
         const checkout = await checkoutEtiquetas([pedido.id])
         // ME às vezes retorna HTTP 200 mas com errors no corpo
         const erros = checkout?.errors
         if (Array.isArray(erros) && erros.length > 0) {
-          const errMsg = String(erros[0]).toLowerCase()
-          if (errMsg.includes("saldo") || errMsg.includes("insufficient") || errMsg.includes("balance") || errMsg.includes("funds")) {
+          await cancelarEtiqueta(pedido.id).catch(() => {})
+          const errStr = typeof erros[0] === "string" ? erros[0] : JSON.stringify(erros[0])
+          const errMsg = errStr.toLowerCase()
+          if (errMsg.includes("saldo") || errMsg.includes("insufficient") || errMsg.includes("funds")) {
             return NextResponse.json({
               erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
             }, { status: 402 })
           }
-          return NextResponse.json({ erro: `Erro no checkout: ${erros[0]}` }, { status: 422 })
+          return NextResponse.json({ erro: `Erro no checkout: ${errStr}` }, { status: 422 })
         }
       } catch (e) {
-        const m = (e as Error).message.toLowerCase()
-        if (m.includes("saldo") || m.includes("insufficient") || m.includes("balance") || m.includes("funds") || m.includes("422")) {
+        // Rollback: remove o pedido órfão do carrinho para não acumular lixo.
+        await cancelarEtiqueta(pedido.id).catch(() => {})
+        const m  = (e as Error).message
+        const ml = m.toLowerCase()
+        if (ml.includes("saldo") || ml.includes("insufficient") || ml.includes("funds")) {
           return NextResponse.json({
             erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
           }, { status: 402 })
         }
-        throw e
+        // Mostra o erro REAL do Melhor Envio em vez de mascarar como saldo.
+        return NextResponse.json({
+          erro: `Não foi possível finalizar a compra da etiqueta: ${m.slice(0, 200)}`,
+        }, { status: 422 })
       }
 
       // Gera a etiqueta (dispara a geração; não dependemos do formato de retorno)

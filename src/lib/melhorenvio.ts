@@ -207,9 +207,10 @@ export function meUsuario() {
   return meRequest<{ id: number; firstname: string; lastname: string; email: string }>("GET", "/me")
 }
 
-/** Retorna saldo da carteira Melhor Envio */
+/** Retorna saldo da carteira Melhor Envio.
+ *  A API responde { balance, reserved, debts } como números. */
 export function meSaldo() {
-  return meRequest<{ balance: string; reserved_balance?: string; wallet_balance?: string }>("GET", "/me/balance")
+  return meRequest<{ balance: number; reserved?: number; debts?: number }>("GET", "/me/balance")
 }
 
 /** Cria recarga na carteira via PIX */
