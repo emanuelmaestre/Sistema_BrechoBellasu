@@ -39,6 +39,13 @@ export interface Cliente {
   notificacao_status?: "pendente" | "enviado" | "autorizado" | "recusado" | "erro" | null
   ativo: boolean
   created_at?: string
+  // Google Contacts
+  google_contact_id?: string | null
+  google_sync_status?: "pendente" | "sincronizando" | "sincronizado" | "erro" | null
+  google_sync_at?: string | null
+  google_sync_erro?: string | null
+  google_sync_tentativas?: number
+  saldo_credito?: number
 }
 
 export interface Categoria {
