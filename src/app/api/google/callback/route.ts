@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 
+// Deriva a base URL a partir do host real da requisição — deve bater
+// exatamente com o redirect_uri usado em /api/google/auth.
+function baseUrl(req: NextRequest): string {
+  const host  = req.headers.get("host")
+  const proto = req.headers.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https")
+  if (host) return `${proto}://${host}`
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"
+}
+
 // GET /api/google/callback — captura o refresh_token após autorização OAuth
 export async function GET(req: NextRequest) {
-  const code          = req.nextUrl.searchParams.get("code")
-  const clientId      = process.env.GOOGLE_CLIENT_ID
-  const clientSecret  = process.env.GOOGLE_CLIENT_SECRET
-  const appUrl        = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"
-  const redirectUri   = `${appUrl}/api/google/callback`
+  const code         = req.nextUrl.searchParams.get("code")
+  const clientId     = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  const redirectUri  = `${baseUrl(req)}/api/google/callback`
 
   if (!code) {
     return new NextResponse("Autorização negada ou código ausente.", { status: 400 })
@@ -17,9 +25,15 @@ export async function GET(req: NextRequest) {
   }
 
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
-  const { tokens } = await oauth2.getToken(code)
 
-  const refreshToken = tokens.refresh_token
+  let refreshToken: string | null | undefined
+  try {
+    const { tokens } = await oauth2.getToken(code)
+    refreshToken = tokens.refresh_token
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return new NextResponse(`Falha ao trocar o código por token: ${msg}`, { status: 400 })
+  }
 
   if (!refreshToken) {
     return new NextResponse(
