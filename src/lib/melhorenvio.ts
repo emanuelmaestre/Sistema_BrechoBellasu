@@ -191,18 +191,25 @@ export function listarEtiquetas(params?: { filter?: string; per_page?: number; p
 }
 
 /** Rastreia um pedido pelo orderId (ORD-...).
- *  A API do ME retorna { [orderId]: { tracking, events } } — extraímos o item. */
+ *  A API do ME retorna { [orderId]: { tracking, events } } — extraímos o item.
+ *  Retorna events vazio se etiqueta ainda não foi postada ou não tem rastreio. */
 export async function rastrearEtiqueta(
   orderId: string
 ): Promise<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }> {
-  const raw = await meRequest<Record<string, { tracking: string; events: Array<{ description: string; date: string; location: string }> }>>(
-    "GET", `/me/shipment/tracking?orders[]=${encodeURIComponent(orderId)}`
-  )
-  // Melhor Envio devolve { "ORD-xxx": { tracking, events } }
-  const item = raw[orderId] ?? Object.values(raw)[0]
-  // Etiqueta gerada mas ainda não postada — retorna events vazio
-  if (!item) return { tracking: orderId, events: [] }
-  return item
+  try {
+    // ME aceita tanto orders[]=X quanto orders%5B%5D=X — usar sem encode nos colchetes
+    const raw = await meRequest<Record<string, { tracking: string; events: Array<{ description: string; date: string; location: string }> }>>(
+      "GET", `/me/shipment/tracking?orders[]=${orderId}`
+    )
+    // Melhor Envio devolve { "ORD-xxx": { tracking, events } }
+    const item = raw[orderId] ?? Object.values(raw)[0]
+    // Etiqueta gerada mas ainda não postada — retorna events vazio
+    if (!item) return { tracking: orderId, events: [] }
+    return item
+  } catch {
+    // Etiqueta sem histórico de rastreio ainda (não postada/sem coleta registrada)
+    return { tracking: orderId, events: [] }
+  }
 }
 
 /** Cancela uma etiqueta */
