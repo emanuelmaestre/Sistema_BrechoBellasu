@@ -34,24 +34,52 @@ const EMPTY: ProdutoForm = {
   controlar_estoque: true, cor: "",
 }
 
-const CORES_PRODUTO = [
-  "AMARELO","AMEIXA","ANIMAL PRINT","AZUL",
-  "BEGE","BORDÔ","BRANCO","BRIM","BRONZE",
-  "CAFÉ","CAMUFLADO","CARAMELO","CEREJA","CHOCOLATE","CHUMBO","CINZA","COBRE","COLORIDO","CORAL",
-  "DOURADO",
-  "ESTAMPADO",
-  "FLORAL","FÚCSIA",
-  "JEANS",
-  "LARANJA","LAVANDA","LISTRADO",
-  "MAGENTA","MARROM","MOSTARDA",
-  "NUDE",
-  "OFF WHITE",
-  "PÊSSEGO","POÁ","PRATA","PRETO",
-  "ROSE GOLD","ROSA",
-  "SALMÃO",
-  "TERRACOTA","TIE DYE",
-  "VERMELHO","VERDE","VIOLETA",
-  "XADREZ",
+const CORES_PRODUTO: { nome: string; hex: string }[] = [
+  { nome: "AMARELO",      hex: "#fbbf24" },
+  { nome: "AMEIXA",       hex: "#7e1d5f" },
+  { nome: "ANIMAL PRINT", hex: "#c8953a" },
+  { nome: "AZUL",         hex: "#3b82f6" },
+  { nome: "BEGE",         hex: "#d4b896" },
+  { nome: "BORDÔ",        hex: "#7f1d1d" },
+  { nome: "BRANCO",       hex: "#f1f5f9" },
+  { nome: "BRIM",         hex: "#8a7560" },
+  { nome: "BRONZE",       hex: "#b45309" },
+  { nome: "CAFÉ",         hex: "#6f4e37" },
+  { nome: "CAMUFLADO",    hex: "#4a5e3a" },
+  { nome: "CARAMELO",     hex: "#d97706" },
+  { nome: "CEREJA",       hex: "#be123c" },
+  { nome: "CHOCOLATE",    hex: "#3d1f0d" },
+  { nome: "CHUMBO",       hex: "#475569" },
+  { nome: "CINZA",        hex: "#94a3b8" },
+  { nome: "COBRE",        hex: "#b87333" },
+  { nome: "COLORIDO",     hex: "linear-gradient(135deg,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa)" },
+  { nome: "CORAL",        hex: "#f97316" },
+  { nome: "DOURADO",      hex: "#eab308" },
+  { nome: "ESTAMPADO",    hex: "linear-gradient(135deg,#6366f1,#ec4899,#f97316)" },
+  { nome: "FLORAL",       hex: "#f9a8d4" },
+  { nome: "FÚCSIA",       hex: "#d946ef" },
+  { nome: "JEANS",        hex: "#1e40af" },
+  { nome: "LARANJA",      hex: "#f97316" },
+  { nome: "LAVANDA",      hex: "#a78bfa" },
+  { nome: "LISTRADO",     hex: "repeating-linear-gradient(90deg,#1e293b 0px,#1e293b 6px,#f1f5f9 6px,#f1f5f9 12px)" },
+  { nome: "MAGENTA",      hex: "#c026d3" },
+  { nome: "MARROM",       hex: "#78350f" },
+  { nome: "MOSTARDA",     hex: "#ca8a04" },
+  { nome: "NUDE",         hex: "#e8c9a0" },
+  { nome: "OFF WHITE",    hex: "#faf7f0" },
+  { nome: "PÊSSEGO",      hex: "#fdba74" },
+  { nome: "POÁ",          hex: "#1e293b" },
+  { nome: "PRATA",        hex: "#cbd5e1" },
+  { nome: "PRETO",        hex: "#0f172a" },
+  { nome: "ROSE GOLD",    hex: "#e8a598" },
+  { nome: "ROSA",         hex: "#f472b6" },
+  { nome: "SALMÃO",       hex: "#fb923c" },
+  { nome: "TERRACOTA",    hex: "#b45309" },
+  { nome: "TIE DYE",      hex: "linear-gradient(135deg,#f87171,#a78bfa,#34d399,#60a5fa)" },
+  { nome: "VERMELHO",     hex: "#ef4444" },
+  { nome: "VERDE",        hex: "#22c55e" },
+  { nome: "VIOLETA",      hex: "#7c3aed" },
+  { nome: "XADREZ",       hex: "repeating-conic-gradient(#1e293b 0% 25%,#94a3b8 0% 50%) 0 0/12px 12px" },
 ]
 
 // ─── Sugestão inteligente de categoria ───────────────────
@@ -229,7 +257,7 @@ function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }:
   )
 }
 
-// ─── Autocomplete Cor ────────────────────────────────────
+// ─── Seletor de Cor com chips visuais ────────────────────
 function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
   inputRef: React.RefObject<HTMLInputElement | null>
   value: string
@@ -238,72 +266,97 @@ function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
   inputBase: string
   inputSt: React.CSSProperties
 }) {
-  const [busca, setBusca] = useState(value)
-  const [open, setOpen] = useState(false)
+  const [busca, setBusca] = useState("")
 
-  const sugestoes = busca.trim().length === 0
-    ? CORES_PRODUTO.slice(0, 12)
-    : CORES_PRODUTO.filter(c => c.includes(busca.toUpperCase()))
+  const filtradas = busca.trim().length === 0
+    ? CORES_PRODUTO
+    : CORES_PRODUTO.filter(c => c.nome.includes(busca.toUpperCase()))
 
   function selecionar(cor: string) {
-    setBusca(cor); onChange(cor); setOpen(false)
-    setTimeout(() => onAdvance(), 120)
+    onChange(cor)
+    setTimeout(() => onAdvance(), 150)
   }
-
-  const sugestoesObj = sugestoes.map((c, i) => ({ id: i, nome: c }))
-  const { hi, onKeyDown: dropKeyDown, reset: resetHi } = useDropdownKeyNav(sugestoesObj, (m) => selecionar(m.nome), () => setOpen(false))
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault()
       const texto = busca.trim().toUpperCase()
-      if (!texto) { onAdvance(); return }
-      if (hi >= 0 && sugestoes[hi]) { selecionar(sugestoes[hi]); return }
-      const exata = CORES_PRODUTO.find(c => c === texto)
-      selecionar(exata ?? texto)
-      return
+      if (!texto && value) { onAdvance(); return }
+      const exata = CORES_PRODUTO.find(c => c.nome === texto)
+      if (exata) selecionar(exata.nome)
+      else if (filtradas.length === 1) selecionar(filtradas[0].nome)
+      else if (texto) selecionar(texto)
     }
-    dropKeyDown(e)
   }
+
+  const isGradient = (hex: string) => hex.startsWith("linear-gradient") || hex.startsWith("repeating")
 
   return (
     <>
       <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Cor?</h1>
-      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-        Digite para filtrar ou selecione uma sugestão.
+      <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
+        Selecione ou digite para filtrar.
       </p>
-      <div className="relative">
-        <input ref={inputRef} value={busca}
-          onChange={e => { const v = e.target.value; setBusca(v); onChange(v); setOpen(true); resetHi() }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onKeyDown={handleKeyDown}
-          placeholder="DIGITE PARA BUSCAR A COR..."
-          className={inputBase} style={inputSt} autoComplete="off" />
-        {open && sugestoes.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden shadow-lg z-50 max-h-64 overflow-y-auto"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            {sugestoes.map((c, idx) => (
-              <button key={c} onMouseDown={() => selecionar(c)}
-                className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
+
+      {/* Campo de busca */}
+      <input
+        ref={inputRef}
+        value={busca}
+        onChange={e => setBusca(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="BUSCAR COR..."
+        className={inputBase}
+        style={{ ...inputSt, marginBottom: "1.25rem" }}
+        autoComplete="off"
+      />
+
+      {/* Grade de chips */}
+      <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
+        {filtradas.map(c => {
+          const selecionado = value === c.nome
+          const claro = ["BRANCO","OFF WHITE","NUDE","BEGE","PRATA","PÊSSEGO","FLORAL","AMARELO","LAVANDA"].includes(c.nome)
+          return (
+            <motion.button
+              key={c.nome}
+              onClick={() => selecionar(c.nome)}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all"
+              style={{
+                background: selecionado ? "var(--accent)" : "var(--bg-surface)",
+                color: selecionado ? "#fff" : "var(--text-primary)",
+                border: selecionado ? "2px solid var(--accent)" : "1px solid var(--border)",
+                boxShadow: selecionado ? "0 0 12px var(--accent)" : "none",
+              }}
+            >
+              {/* Bolinha da cor */}
+              <span
+                className="w-4 h-4 rounded-full shrink-0 border"
                 style={{
-                  color: hi === idx ? "var(--accent)" : "var(--text-primary)",
-                  background: hi === idx ? "var(--accent-bg)" : "transparent",
-                  borderBottom: "1px solid var(--border)",
-                }}>
-                {c}
-              </button>
-            ))}
-          </div>
+                  background: isGradient(c.hex) ? c.hex : c.hex,
+                  borderColor: claro ? "#94a3b8" : "transparent",
+                  boxShadow: selecionado ? "none" : "inset 0 1px 2px rgba(0,0,0,0.3)",
+                }}
+              />
+              {c.nome}
+              {selecionado && <Check size={11} strokeWidth={3} />}
+            </motion.button>
+          )
+        })}
+
+        {/* Cor personalizada se busca não bate em nada */}
+        {busca.trim().length > 0 && filtradas.length === 0 && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            onClick={() => selecionar(busca.trim().toUpperCase())}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide"
+            style={{ background: "var(--accent)", color: "#fff", border: "none" }}
+          >
+            <Check size={11} strokeWidth={3} />
+            Usar &quot;{busca.toUpperCase()}&quot;
+          </motion.button>
         )}
       </div>
-      {value && (
-        <div className="mt-3 flex items-center gap-2">
-          <Check size={13} style={{ color: "var(--accent)" }} />
-          <span className="text-sm font-bold uppercase" style={{ color: "var(--accent)" }}>{value}</span>
-          <button onClick={() => { setBusca(""); onChange("") }} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>limpar</button>
-        </div>
-      )}
     </>
   )
 }
