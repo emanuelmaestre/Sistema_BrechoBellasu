@@ -200,7 +200,8 @@ export async function rastrearEtiqueta(
   )
   // Melhor Envio devolve { "ORD-xxx": { tracking, events } }
   const item = raw[orderId] ?? Object.values(raw)[0]
-  if (!item) throw new Error("Pedido não encontrado na resposta de rastreamento.")
+  // Etiqueta gerada mas ainda não postada — retorna events vazio
+  if (!item) return { tracking: orderId, events: [] }
   return item
 }
 
