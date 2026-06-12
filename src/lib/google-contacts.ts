@@ -84,7 +84,6 @@ export async function sincronizarContato(params: SincronizarParams): Promise<Sin
 
   const nomeMontado = montarNomeContato({
     nome:      params.nome,
-    apelido:   params.apelido,
     instagram: params.instagram,
   })
 

@@ -17,7 +17,7 @@ export const GET = withAuth(async () => {
 
   const preview = (clientes ?? []).map(c => {
     const tel  = normalizarTelefone(c.celular)
-    const nome = montarNomeContato({ nome: c.nome, apelido: c.apelido, instagram: c.instagram })
+    const nome = montarNomeContato({ nome: c.nome, instagram: c.instagram })
     const acao = c.google_contact_id ? "atualizar" : (tel.ok ? "criar" : "ignorar")
     return {
       id:          c.id,

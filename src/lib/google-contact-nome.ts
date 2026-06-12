@@ -33,16 +33,12 @@ export function normalizarTelefone(raw: string | null | undefined): { ok: boolea
  */
 export function montarNomeContato(params: {
   nome?:      string | null
-  apelido?:   string | null
   instagram?: string | null
 }): string {
   const partes: string[] = []
 
   const nome = params.nome?.trim().replace(/\s+/g, " ").toUpperCase()
   if (nome) partes.push(nome)
-
-  const apelido = params.apelido?.trim().replace(/\s+/g, " ").toUpperCase()
-  if (apelido) partes.push(apelido)
 
   const ig = formatarInstagram(params.instagram)
   if (ig) partes.push(ig)
