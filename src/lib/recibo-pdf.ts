@@ -52,13 +52,25 @@ function buildHTML(data: ReciboData): string {
   }).join("")
 
   const rowsHTML = data.itens.map((item, i) => `
-    <tr class="${i % 2 === 0 ? "odd" : "even"}">
-      <td class="desc">${item.nome.toUpperCase()}</td>
-      <td class="c">${item.marca || "—"}</td>
-      <td class="cq">${item.qtd}</td>
-      <td class="cp">${fmtBRL(item.preco_unit)}</td>
-      <td class="sv">${fmtBRL(item.subtotal)}</td>
-    </tr>`).join("")
+    <div class="icard${i % 2 === 0 ? "" : " icard-alt"}">
+      <div class="icard-name">${item.nome.toUpperCase()}</div>
+      <div class="icard-row">
+        <span class="icard-lbl">Marca</span>
+        <span class="icard-val">${item.marca || "—"}</span>
+      </div>
+      <div class="icard-row">
+        <span class="icard-lbl">Qtd.</span>
+        <span class="icard-val">${item.qtd}</span>
+      </div>
+      <div class="icard-row">
+        <span class="icard-lbl">Preço unit.</span>
+        <span class="icard-val">${fmtBRL(item.preco_unit)}</span>
+      </div>
+      <div class="icard-row icard-total">
+        <span class="icard-lbl">Subtotal</span>
+        <span class="icard-val">${fmtBRL(item.subtotal)}</span>
+      </div>
+    </div>`).join("")
 
   const linhasResumo = [
     `<div class="tr"><span>Subtotal</span><span>${fmtBRL(subtotal)}</span></div>`,
@@ -99,21 +111,16 @@ body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:
 .fval{font-size:13px;color:var(--brown);font-weight:700;word-break:break-word;word-spacing:4px;letter-spacing:0.3px}
 .lgpd{background:#fffaef;border-left:3px solid var(--gold);padding:8px 12px;font-size:10.5px;color:var(--br2);line-height:1.6;margin-top:12px}
 .lgpd b{color:var(--gold-d)}
-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-col.cd{width:40%}col.ct{width:12%}col.cq{width:10%}col.cp{width:16%}col.cs{width:22%}
-thead tr{background:var(--brown)}
-thead th{padding:10px 12px;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;color:var(--gold-l);font-weight:700;text-align:left;vertical-align:middle}
-thead th.c{text-align:center}
-thead th.r{text-align:right}
-tbody tr{border-bottom:1px solid #e8e0ce}
-tbody tr.even{background:var(--cream)}
-tbody tr.odd{background:#fff}
-tbody td{padding:9px 12px;vertical-align:middle;line-height:1.4}
-tbody td.desc{color:var(--brown);font-weight:700}
-tbody td.c{color:var(--brown);font-weight:700;text-align:center}
-tbody td.cq{color:var(--brown);font-weight:700;text-align:center}
-tbody td.cp{color:var(--brown);font-weight:700;text-align:right}
-tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
+.igrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.icard{background:#fff;border:1px solid var(--bd);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.icard-alt{background:var(--cream)}
+.icard-name{font-family:'Lato',sans-serif;font-size:13px;font-weight:700;color:var(--brown);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--bd);margin-bottom:2px}
+.icard-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px}
+.icard-lbl{color:var(--gold-d);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;font-size:9px}
+.icard-val{color:var(--brown);font-weight:700}
+.icard-total{border-top:1px solid var(--bd);margin-top:4px;padding-top:6px}
+.icard-total .icard-lbl{font-size:10px}
+.icard-total .icard-val{font-size:13px}
 .bot{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;padding:16px 28px}
 .pay-col{display:flex;flex-direction:column;gap:7px}
 .pt{display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--br2);padding:7px 10px;border:1px solid var(--bd);border-radius:2px;white-space:nowrap;line-height:1}
@@ -176,21 +183,7 @@ tbody td.sv{text-align:right;font-weight:700;color:var(--brown)}
   <!-- ITENS -->
   <div class="sec">
     <div class="stitle">Itens</div>
-    <table>
-      <colgroup>
-        <col class="cd"><col class="ct"><col class="cq"><col class="cp"><col class="cs">
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Descrição</th>
-          <th class="c">Marca</th>
-          <th class="c">Qtd.</th>
-          <th class="r">Preço Unit.</th>
-          <th class="r">Subtotal</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHTML}</tbody>
-    </table>
+    <div class="igrid">${rowsHTML}</div>
   </div>
 
   <!-- PAGAMENTO + RESUMO -->
