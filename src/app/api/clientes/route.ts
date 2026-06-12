@@ -6,6 +6,7 @@ import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 import { enviarTexto } from "@/lib/zapi"
 import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
+import { sincronizarContato } from "@/lib/google-contacts"
 
 export const dynamic = "force-dynamic"
 
@@ -87,6 +88,45 @@ export const POST = withAuth(async (req: NextRequest) => {
       await sb2.from("clientes")
         .update({ notificacao_status: envio.ok ? "enviado" : "erro" })
         .eq("id", clienteId)
+    }
+
+    // ── Sincronização Google Contacts (assíncrona, não bloqueia) ──
+    if (body.celular) {
+      sincronizarContato({
+        clienteId: clienteId as number,
+        nome:      body.nome,
+        apelido:   body.apelido,
+        instagram: body.instagram,
+        celular:   body.celular,
+      }).then(async result => {
+        const sb3 = createServerClient()
+        const now = new Date().toISOString()
+        if (result.ok) {
+          await sb3.from("clientes").update({
+            google_contact_id:  result.googleContactId,
+            google_sync_status: "sincronizado",
+            google_sync_at:     now,
+            google_sync_erro:   null,
+            google_sync_tentativas: 1,
+          }).eq("id", clienteId)
+        } else {
+          await sb3.from("clientes").update({
+            google_sync_status:    "erro",
+            google_sync_tentativa: now,
+            google_sync_erro:      result.erro,
+            google_sync_tentativas: 1,
+          }).eq("id", clienteId)
+        }
+        await sb3.from("google_contacts_log").insert({
+          cliente_id:        clienteId,
+          acao:              result.acao,
+          nome_montado:      result.nomeMontado,
+          telefone_norm:     result.telefoneNorm,
+          google_contact_id: result.googleContactId,
+          sucesso:           result.ok,
+          erro_msg:          result.erro ?? null,
+        })
+      }).catch(() => {})
     }
 
     return NextResponse.json({ id: clienteId }, { status: 201 })

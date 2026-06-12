@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/with-auth"
 import { AtualizarClienteUseCase } from "@/application/clientes/atualizar-cliente.use-case"
 import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
+import { sincronizarContato } from "@/lib/google-contacts"
 
 export const dynamic = "force-dynamic"
 
@@ -50,6 +51,55 @@ export const PUT = withAuth(async (req: NextRequest, { params }: { params: Promi
       const { status, body: erro } = apresentarErro(resultado.error)
       return NextResponse.json(erro, { status })
     }
+
+    // ── Sincronização Google Contacts (assíncrona, não bloqueia) ──
+    if (body.celular || body.nome || body.apelido || body.instagram) {
+      const sb2 = createServerClient()
+      const { data: clienteAtual } = await sb2
+        .from("clientes")
+        .select("google_contact_id,google_sync_tentativas")
+        .eq("id", id)
+        .single()
+
+      sincronizarContato({
+        clienteId:       parseInt(id),
+        nome:            body.nome,
+        apelido:         body.apelido,
+        instagram:       body.instagram,
+        celular:         body.celular,
+        googleContactId: clienteAtual?.google_contact_id,
+      }).then(async result => {
+        const sb3 = createServerClient()
+        const now = new Date().toISOString()
+        const tentativas = (clienteAtual?.google_sync_tentativas ?? 0) + 1
+        if (result.ok) {
+          await sb3.from("clientes").update({
+            google_contact_id:     result.googleContactId,
+            google_sync_status:    "sincronizado",
+            google_sync_at:        now,
+            google_sync_erro:      null,
+            google_sync_tentativas: tentativas,
+          }).eq("id", id)
+        } else {
+          await sb3.from("clientes").update({
+            google_sync_status:    "erro",
+            google_sync_tentativa: now,
+            google_sync_erro:      result.erro,
+            google_sync_tentativas: tentativas,
+          }).eq("id", id)
+        }
+        await sb3.from("google_contacts_log").insert({
+          cliente_id:        parseInt(id),
+          acao:              result.acao,
+          nome_montado:      result.nomeMontado,
+          telefone_norm:     result.telefoneNorm,
+          google_contact_id: result.googleContactId,
+          sucesso:           result.ok,
+          erro_msg:          result.erro ?? null,
+        })
+      }).catch(() => {})
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     const { status, body: erro } = apresentarErro(err)
