@@ -1575,7 +1575,7 @@ export default function EtiquetasPage() {
                           <Printer size={14} />
                         </button>
                       )}
-                      {(e.tracking || ["liberada","posted","received","delivered","undelivered"].includes(e.status)) && (
+                      {(e.tracking || ["released","generated","posted","received","delivered","undelivered"].includes(e.status)) && (
                         <button onClick={() => setRastreio(e.protocol)} className="p-1.5 rounded-lg transition-all"
                           style={{ color: "var(--text-muted)" }}
                           onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#4ade80" }}
