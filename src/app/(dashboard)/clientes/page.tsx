@@ -189,8 +189,15 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   const [creditoLoading, setCreditoLoading] = useState(false)
   const [creditoErro, setCreditoErro] = useState("")
 
+  function maskCurrency(raw: string): string {
+    const digits = raw.replace(/\D/g, "")
+    if (!digits) return ""
+    const num = parseInt(digits, 10) / 100
+    return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  }
+
   async function adicionarCredito() {
-    const v = parseFloat(creditoValor.replace(",", "."))
+    const v = parseFloat(creditoValor.replace(/[R$\s.]/g, "").replace(",", "."))
     if (!v || v <= 0) { setCreditoErro("Informe um valor válido."); return }
     setCreditoLoading(true); setCreditoErro("")
     try {
@@ -543,8 +550,9 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Valor (R$)</label>
-                    <input type="number" step="0.01" min="0.01" placeholder="0,00"
-                      value={creditoValor} onChange={e => setCreditoValor(e.target.value)}
+                    <input type="text" inputMode="numeric" placeholder="R$ 0,00"
+                      value={creditoValor}
+                      onChange={e => setCreditoValor(maskCurrency(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                       style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                   </div>
