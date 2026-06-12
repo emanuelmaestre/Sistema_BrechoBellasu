@@ -1228,16 +1228,16 @@ export default function TrocasPage() {
                   onMouseEnter={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "var(--bg-hover)" }}
                   onMouseLeave={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
                   <td className="px-4 py-3">
-                    <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full capitalize",
+                    <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full uppercase",
                       t.tipo === "troca" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400")}>
-                      {t.tipo}
+                      {t.tipo === "troca" ? "TROCA" : "DEVOLUÇÃO"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-primary)" }}>{t.nome_produto ?? "—"}</td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-secondary)" }}>{t.cliente_nome ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full", statusColor[t.status] ?? "bg-slate-500/15 text-slate-400")}>
-                      {STATUS_LABELS[t.status] ?? t.status}
+                    <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full uppercase", statusColor[t.status] ?? "bg-slate-500/15 text-slate-400")}>
+                      {(STATUS_LABELS[t.status] ?? t.status).toUpperCase()}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>{fmtData(t.created_at)}</td>
