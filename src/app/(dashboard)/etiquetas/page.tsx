@@ -1576,7 +1576,7 @@ export default function EtiquetasPage() {
                         </button>
                       )}
                       {(e.tracking || ["posted","received","delivered","undelivered"].includes(e.status)) && (
-                        <button onClick={() => setRastreio(e.id)} className="p-1.5 rounded-lg transition-all"
+                        <button onClick={() => setRastreio(e.protocol)} className="p-1.5 rounded-lg transition-all"
                           style={{ color: "var(--text-muted)" }}
                           onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#4ade80" }}
                           onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
