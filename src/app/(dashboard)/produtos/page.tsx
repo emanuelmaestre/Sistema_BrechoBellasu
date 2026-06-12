@@ -858,7 +858,7 @@ export default function ProdutosPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Código", "Produto", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
+                {["Código", "Produto", "Cor", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
@@ -866,11 +866,11 @@ export default function ProdutosPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center">
+                <tr><td colSpan={9} className="px-4 py-12 text-center">
                   <Loader2 size={24} className="animate-spin mx-auto" style={{ color: "var(--accent)" }} />
                 </td></tr>
               ) : produtos.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center">
+                <tr><td colSpan={9} className="px-4 py-12 text-center">
                   <Package size={32} className="mx-auto mb-2" style={{ color: "var(--border-hover)" }} />
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhum produto encontrado.</p>
                 </td></tr>
@@ -881,6 +881,25 @@ export default function ProdutosPage() {
                   <td className="px-4 py-3 font-mono text-xs uppercase" style={{ color: "var(--text-muted)" }}>{p.codigo ?? "—"}</td>
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{p.nome}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.cor ? (() => {
+                      const c = CORES_PRODUTO.find(x => x.nome === p.cor)
+                      const isGrad = c?.hex.startsWith("linear") || c?.hex.startsWith("repeating")
+                      const claro = ["BRANCO","OFF WHITE","NUDE","BEGE","PRATA","PÊSSEGO","FLORAL","AMARELO","LAVANDA"].includes(p.cor)
+                      return (
+                        <span className="flex items-center gap-1.5">
+                          {c && (
+                            <span className="w-3.5 h-3.5 rounded-full shrink-0 border"
+                              style={{
+                                background: isGrad ? c.hex : c.hex,
+                                borderColor: claro ? "#94a3b8" : "transparent",
+                              }} />
+                          )}
+                          <span className="text-xs uppercase" style={{ color: "var(--text-secondary)" }}>{p.cor}</span>
+                        </span>
+                      )
+                    })() : <span style={{ color: "var(--text-muted)" }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-muted)" }}>{p.marca ?? "—"}</td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-secondary)" }}>
