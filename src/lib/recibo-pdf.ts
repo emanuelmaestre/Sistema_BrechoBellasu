@@ -52,25 +52,13 @@ function buildHTML(data: ReciboData): string {
   }).join("")
 
   const rowsHTML = data.itens.map((item, i) => `
-    <div class="icard${i % 2 === 0 ? "" : " icard-alt"}">
-      <div class="icard-name">${item.nome.toUpperCase()}</div>
-      <div class="icard-row">
-        <span class="icard-lbl">Marca</span>
-        <span class="icard-val">${item.marca || "—"}</span>
-      </div>
-      <div class="icard-row">
-        <span class="icard-lbl">Qtd.</span>
-        <span class="icard-val">${item.qtd}</span>
-      </div>
-      <div class="icard-row">
-        <span class="icard-lbl">Preço unit.</span>
-        <span class="icard-val">${fmtBRL(item.preco_unit)}</span>
-      </div>
-      <div class="icard-row icard-total">
-        <span class="icard-lbl">Subtotal</span>
-        <span class="icard-val">${fmtBRL(item.subtotal)}</span>
-      </div>
-    </div>`).join("")
+    <tr class="${i % 2 === 0 ? "irow" : "irow irow-alt"}">
+      <td class="itd itd-name">${item.nome.toUpperCase()}${item.cor ? ` <span class="icor">${item.cor}</span>` : ""}</td>
+      <td class="itd">${item.marca || "—"}</td>
+      <td class="itd itd-c">${item.qtd}</td>
+      <td class="itd itd-r">${fmtBRL(item.preco_unit)}</td>
+      <td class="itd itd-r itd-sub">${fmtBRL(item.subtotal)}</td>
+    </tr>`).join("")
 
   const linhasResumo = [
     `<div class="tr"><span>Subtotal</span><span>${fmtBRL(subtotal)}</span></div>`,
@@ -111,17 +99,18 @@ body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:
 .fval{font-size:13px;color:var(--brown);font-weight:700;word-break:break-word;word-spacing:4px;letter-spacing:0.3px}
 .lgpd{background:#fffaef;border-left:3px solid var(--gold);padding:8px 12px;font-size:10.5px;color:var(--br2);line-height:1.6;margin-top:12px}
 .lgpd b{color:var(--gold-d)}
-.igrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.icard{background:#fff;border:1px solid var(--bd);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
-.icard-alt{background:var(--cream)}
-.icard-name{font-family:'Lato',sans-serif;font-size:13px;font-weight:700;color:var(--brown);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--bd);margin-bottom:2px}
-.icard-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px}
-.icard-lbl{color:var(--gold-d);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;font-size:9px}
-.icard-val{color:var(--brown);font-weight:700}
-.icard-total{border-top:1px solid var(--bd);margin-top:4px;padding-top:6px}
-.icard-total .icard-lbl{font-size:10px}
-.icard-total .icard-val{font-size:13px}
-.bot{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;padding:16px 28px}
+.itable{width:100%;border-collapse:collapse}
+.itable thead tr{background:var(--brown)}
+.itable thead th{color:var(--gold-l);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:7px 10px;text-align:left}
+.itable thead th.itd-c,.itable thead th.itd-r{text-align:center}
+.itd{padding:8px 10px;font-size:12.5px;color:var(--brown);font-weight:700;border-bottom:1px solid #ede5d5;vertical-align:middle}
+.itd-name{font-weight:700}
+.icor{font-size:10px;font-weight:400;color:var(--gold-d);margin-left:6px}
+.itd-c{text-align:center}
+.itd-r{text-align:right}
+.itd-sub{font-size:13px;font-weight:700}
+.irow-alt td{background:var(--cream)}
+.bot{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;padding:16px 28px}
 .pay-col{display:flex;flex-direction:column;gap:7px}
 .pt{display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--br2);padding:7px 10px;border:1px solid var(--bd);border-radius:2px;white-space:nowrap;line-height:1}
 .pt.sel{background:var(--brown);color:var(--gold-l);border-color:var(--brown);font-weight:700}
@@ -183,7 +172,16 @@ body{background:#fff;font-family:'Lato',sans-serif;display:flex;justify-content:
   <!-- ITENS -->
   <div class="sec">
     <div class="stitle">Itens</div>
-    <div class="igrid">${rowsHTML}</div>
+    <table class="itable">
+      <thead><tr>
+        <th>Produto</th>
+        <th>Marca</th>
+        <th class="itd-c">Qtd.</th>
+        <th class="itd-r">Preço unit.</th>
+        <th class="itd-r">Subtotal</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
   </div>
 
   <!-- PAGAMENTO + RESUMO -->
