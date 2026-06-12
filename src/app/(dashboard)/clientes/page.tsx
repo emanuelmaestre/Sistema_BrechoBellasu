@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -65,8 +65,7 @@ type CepStatus = "idle" | "buscando" | "encontrado" | "invalido" | "manual"
 const CONFETE_CORES = ["#a78bfa","#6366f1","#34d399","#f472b6","#fbbf24","#60a5fa","#f0abfc","#4ade80"]
 
 function Confete({ show }: { show: boolean }) {
-  if (!show) return null
-  const pieces = Array.from({ length: 48 }, (_, i) => {
+  const pieces = useMemo(() => Array.from({ length: 48 }, (_, i) => {
     const angle  = (i / 48) * 360
     const dist   = 120 + Math.random() * 180
     const rad    = (angle * Math.PI) / 180
@@ -76,8 +75,11 @@ function Confete({ show }: { show: boolean }) {
     const cor    = CONFETE_CORES[i % CONFETE_CORES.length]
     const size   = 6 + Math.random() * 8
     const shape  = i % 3 === 0 ? "50%" : i % 3 === 1 ? "2px" : "0%"
-    return { tx, ty, rotate, cor, size, shape, delay: Math.random() * 0.15 }
-  })
+    const duration = 0.9 + Math.random() * 0.4
+    return { tx, ty, rotate, cor, size, shape, delay: Math.random() * 0.15, duration }
+  }), [])
+
+  if (!show) return null
 
   return (
     <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
@@ -85,7 +87,7 @@ function Confete({ show }: { show: boolean }) {
         <motion.div key={i}
           initial={{ opacity: 1, x: 0, y: 0, rotate: 0, scale: 1 }}
           animate={{ opacity: 0, x: p.tx, y: p.ty, rotate: p.rotate, scale: 0.3 }}
-          transition={{ duration: 0.9 + Math.random() * 0.4, delay: p.delay, ease: [0.2, 0, 0.8, 1] }}
+          transition={{ duration: p.duration, delay: p.delay, ease: [0.2, 0, 0.8, 1] }}
           style={{
             position: "absolute",
             width: p.size, height: p.size,

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // Busca itens de todas as vendas
   const ids = (vendas ?? []).map(v => v.id)
-  let itensMap: Record<number, { nome: string; qtd: number; preco_unit: number; subtotal: number }[]> = {}
+  const itensMap: Record<number, { nome: string; qtd: number; preco_unit: number; subtotal: number }[]> = {}
 
   if (ids.length > 0) {
     const { data: itens } = await sb
