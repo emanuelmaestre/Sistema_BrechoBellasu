@@ -9,6 +9,7 @@ import {
   Check, ShieldCheck, UserPlus, Pencil, Power,
   Plug, RefreshCw, Wifi, WifiOff, Database, Truck,
   MessageCircle, Globe, MapPin, AlertCircle, Mail, Bot, DollarSign,
+  Play, RotateCcw, CheckCircle2, XCircle, Clock,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { cn } from "@/lib/utils"
@@ -27,7 +28,7 @@ interface Usuario {
   id: number; nome: string; email: string; perfil: string; ativo: boolean
 }
 
-type Tab = "empresa" | "usuarios" | "integracoes" | "alertas"
+type Tab = "empresa" | "usuarios" | "integracoes" | "alertas" | "google"
 
 interface IntegracaoStatus {
   id: string; nome: string; descricao: string
@@ -550,6 +551,251 @@ function AbaIntegracoes() {
   )
 }
 
+// ── Logo Google (SVG inline) ──────────────────────────────────
+function GoogleLogo({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+// ── Tipos para sync Google ────────────────────────────────────
+type PreviewCliente = {
+  id: number; nome: string; nomeMontado: string
+  telefone: string | null; telValido: boolean; telErro?: string | null
+  temId: boolean; status: string | null; acao: "criar" | "atualizar" | "ignorar"
+}
+type SyncResult = { id: number; ok: boolean; nome: string; nomeMontado?: string; acao?: string; erro?: string }
+
+const SYNC_STATUS_ICON: Record<string, React.ReactNode> = {
+  pendente:      <Clock         size={13} className="text-slate-400" />,
+  sincronizando: <Loader2       size={13} className="animate-spin text-blue-400" />,
+  sincronizado:  <CheckCircle2  size={13} className="text-emerald-400" />,
+  erro:          <XCircle       size={13} className="text-red-400" />,
+}
+
+const ACAO_COR: Record<string, string> = {
+  criar:     "text-emerald-400",
+  atualizar: "text-blue-400",
+  ignorar:   "text-slate-500",
+}
+
+function AbaGoogle() {
+  const qc = useQueryClient()
+  const [running, setRunning]       = useState(false)
+  const [resultados, setResultados] = useState<SyncResult[]>([])
+  const [progresso, setProgresso]   = useState(0)
+  const [totalSync, setTotalSync]   = useState(0)
+  const [concluido, setConcluido]   = useState(false)
+  const [filtro, setFiltro]         = useState<"todos" | "criar" | "atualizar" | "ignorar">("todos")
+
+  const { data, isLoading, refetch } = useQuery<{ totais: { total: number; criarNovos: number; atualizar: number; semTelefone: number; telInvalido: number; ignorados: number }; clientes: PreviewCliente[] }>({
+    queryKey: ["google-sync-preview"],
+    queryFn: () => apiGet("/admin/google-sync-mass"),
+    staleTime: 30_000,
+  })
+
+  const paraExecutar = (data?.clientes ?? []).filter(c => c.acao !== "ignorar")
+  const clientes = (data?.clientes ?? []).filter(c => filtro === "todos" ? true : c.acao === filtro)
+
+  async function iniciarSync() {
+    if (!paraExecutar.length) return
+    setRunning(true); setConcluido(false); setResultados([]); setProgresso(0)
+    setTotalSync(paraExecutar.length)
+
+    for (let i = 0; i < paraExecutar.length; i++) {
+      const c = paraExecutar[i]
+      try {
+        const r = await apiPost("/admin/google-sync-mass", { cliente_id: c.id }) as {
+          ok: boolean; nome: string; nomeMontado?: string; acao?: string; erro?: string
+        }
+        setResultados(prev => [...prev, { id: c.id, ok: r.ok, nome: r.nome, nomeMontado: r.nomeMontado, acao: r.acao, erro: r.erro }])
+      } catch (e) {
+        setResultados(prev => [...prev, { id: c.id, ok: false, nome: c.nome, erro: (e as Error).message }])
+      }
+      setProgresso(i + 1)
+    }
+    setRunning(false); setConcluido(true)
+    qc.invalidateQueries({ queryKey: ["clientes"] })
+    refetch()
+  }
+
+  const okCount   = resultados.filter(r => r.ok).length
+  const erroCount = resultados.filter(r => !r.ok).length
+  const pct       = totalSync > 0 ? Math.round((progresso / totalSync) * 100) : 0
+
+  return (
+    <div className="space-y-5">
+      {/* Cabeçalho da aba */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-base flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <GoogleLogo size={18} /> Google Contatos
+          </h3>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Sincronize clientes com a agenda <strong style={{ color: "var(--text-secondary)" }}>bellasu.brecho@gmail.com</strong>
+          </p>
+        </div>
+        {!running && (
+          <button onClick={() => { setConcluido(false); setResultados([]); refetch() }}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)" }}>
+            <RefreshCw size={14} /> Atualizar prévia
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 size={24} className="animate-spin" style={{ color: "var(--accent)" }} />
+        </div>
+      ) : data && (
+        <>
+          {/* Cards de totais */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Criar",     value: data.totais.criarNovos, color: "#10b981", bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.2)"  },
+              { label: "Atualizar", value: data.totais.atualizar,  color: "#60a5fa", bg: "rgba(96,165,250,0.08)",  border: "rgba(96,165,250,0.2)"  },
+              { label: "Ignorar",   value: data.totais.ignorados,  color: "#64748b", bg: "rgba(100,116,139,0.06)", border: "rgba(100,116,139,0.15)" },
+            ].map(s => (
+              <motion.div key={s.label}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl p-4 text-center"
+                style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+                <p className="text-3xl font-bold" style={{ color: s.color }}>{s.value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Aviso telefone inválido */}
+          {data.totais.telInvalido > 0 && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs"
+              style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.25)", color: "#fbbf24" }}>
+              <AlertCircle size={14} className="shrink-0" />
+              <span><strong>{data.totais.telInvalido}</strong> cliente(s) com telefone inválido serão ignorados automaticamente.</span>
+            </div>
+          )}
+
+          {/* Barra de progresso + resultados */}
+          {(running || concluido) && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl p-5 space-y-3"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between text-xs">
+                <span style={{ color: "var(--text-muted)" }}>
+                  {running
+                    ? <span className="flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" />Sincronizando {progresso} de {totalSync}…</span>
+                    : `Concluído — ${okCount} sincronizados${erroCount > 0 ? `, ${erroCount} erro(s)` : ""}`}
+                </span>
+                <span className="font-bold tabular-nums" style={{ color: "var(--text-primary)" }}>{pct}%</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+                <motion.div className="h-full rounded-full"
+                  style={{ background: running ? "var(--accent)" : erroCount > 0 ? "#f59e0b" : "#10b981" }}
+                  initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.25 }} />
+              </div>
+              {resultados.length > 0 && (
+                <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
+                  <AnimatePresence initial={false}>
+                    {resultados.map(r => (
+                      <motion.div key={r.id}
+                        initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center gap-2 py-1 text-xs"
+                        style={{ borderBottom: "1px solid var(--border)" }}>
+                        {r.ok
+                          ? <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                          : <XCircle      size={12} className="text-red-400 shrink-0" />}
+                        <span className="flex-1 truncate" style={{ color: r.ok ? "var(--text-primary)" : "#f87171" }}>
+                          {r.nome}{r.nomeMontado && r.nomeMontado !== r.nome ? ` → ${r.nomeMontado}` : ""}
+                        </span>
+                        {r.ok && r.acao && (
+                          <span className={cn("text-[10px] font-bold uppercase shrink-0", ACAO_COR[r.acao])}>{r.acao}</span>
+                        )}
+                        {r.erro && (
+                          <span className="text-[10px] text-red-400 shrink-0 truncate max-w-[140px]">{r.erro}</span>
+                        )}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Botão principal */}
+          {!running && (
+            <button
+              onClick={concluido
+                ? () => { setConcluido(false); setResultados([]); refetch() }
+                : iniciarSync}
+              disabled={!concluido && paraExecutar.length === 0}
+              className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+              style={concluido
+                ? { background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+                : { background: "var(--accent)", color: "#fff", border: "none" }}>
+              {concluido
+                ? <><RotateCcw size={14} /> Recarregar prévia</>
+                : <><Play size={14} /> Sincronizar {paraExecutar.length} cliente{paraExecutar.length !== 1 ? "s" : ""}</>}
+            </button>
+          )}
+
+          {/* Filtros da lista */}
+          <div className="flex gap-1.5 flex-wrap pt-1">
+            {(["todos", "criar", "atualizar", "ignorar"] as const).map(f => (
+              <button key={f} onClick={() => setFiltro(f)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize"
+                style={{
+                  background: filtro === f ? "var(--accent)" : "var(--bg-surface)",
+                  color:      filtro === f ? "#fff" : "var(--text-muted)",
+                  border:     "1px solid var(--border)",
+                }}>
+                {f}{f !== "todos" && ` (${(data.clientes ?? []).filter(c => c.acao === f).length})`}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista de clientes */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            {clientes.length === 0 ? (
+              <div className="py-10 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+                Nenhum cliente nesta categoria.
+              </div>
+            ) : clientes.map((c, i) => (
+              <div key={c.id}
+                className="flex items-center gap-3 px-4 py-3 transition-colors"
+                style={{
+                  borderBottom: i < clientes.length - 1 ? "1px solid var(--border)" : "none",
+                  background: "var(--bg-card)",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-hover)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-card)" }}>
+                {c.status
+                  ? (SYNC_STATUS_ICON[c.status] ?? <Clock size={13} className="text-slate-400" />)
+                  : <Clock size={13} className="text-slate-400" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.nomeMontado}</p>
+                  <p className="text-[11px] truncate" style={{ color: c.telValido ? "var(--text-muted)" : "#f87171" }}>
+                    {c.telefone
+                      ? `${c.telefone}${!c.telValido && c.telErro ? ` — ${c.telErro}` : ""}`
+                      : "sem telefone"}
+                  </p>
+                </div>
+                <span className={cn("text-[10px] font-bold uppercase shrink-0", ACAO_COR[c.acao])}>{c.acao}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Página Principal ──────────────────────────────────────────
 export default function ConfiguracoesPage() {
   const qc = useQueryClient()
@@ -584,6 +830,7 @@ export default function ConfiguracoesPage() {
     { key: "usuarios",     label: "Usuários",     icon: <Users size={14} /> },
     { key: "integracoes",  label: "Integrações",  icon: <Plug size={14} /> },
     { key: "alertas",      label: "Alertas",      icon: <AlertCircle size={14} /> },
+    { key: "google",       label: "Google",       icon: <GoogleLogo size={14} /> },
   ]
 
   if (isLoading) return (
@@ -786,6 +1033,12 @@ export default function ConfiguracoesPage() {
         {tab === "alertas" && (
           <motion.div key="alertas" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <AbaAlertas />
+          </motion.div>
+        )}
+
+        {tab === "google" && (
+          <motion.div key="google" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <AbaGoogle />
           </motion.div>
         )}
       </AnimatePresence>
