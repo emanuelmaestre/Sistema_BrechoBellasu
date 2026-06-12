@@ -618,6 +618,8 @@ function AbaGoogle() {
         setResultados(prev => [...prev, { id: c.id, ok: false, nome: c.nome, erro: (e as Error).message }])
       }
       setProgresso(i + 1)
+      // Pausa entre requisições para não exceder quota da Google People API (~90/min)
+      if (i < paraExecutar.length - 1) await new Promise(r => setTimeout(r, 700))
     }
     setRunning(false); setConcluido(true)
     qc.invalidateQueries({ queryKey: ["clientes"] })
