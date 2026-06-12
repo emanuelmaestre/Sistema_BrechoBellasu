@@ -190,11 +190,18 @@ export function listarEtiquetas(params?: { filter?: string; per_page?: number; p
   )
 }
 
-/** Rastreia um pedido pelo tracking code */
-export function rastrearEtiqueta(orderId: string) {
-  return meRequest<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }>(
-    "GET", `/me/shipment/tracking?orders=${orderId}`
+/** Rastreia um pedido pelo orderId (ORD-...).
+ *  A API do ME retorna { [orderId]: { tracking, events } } — extraímos o item. */
+export async function rastrearEtiqueta(
+  orderId: string
+): Promise<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }> {
+  const raw = await meRequest<Record<string, { tracking: string; events: Array<{ description: string; date: string; location: string }> }>>(
+    "GET", `/me/shipment/tracking?orders[]=${encodeURIComponent(orderId)}`
   )
+  // Melhor Envio devolve { "ORD-xxx": { tracking, events } }
+  const item = raw[orderId] ?? Object.values(raw)[0]
+  if (!item) throw new Error("Pedido não encontrado na resposta de rastreamento.")
+  return item
 }
 
 /** Cancela uma etiqueta */
