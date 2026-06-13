@@ -34,7 +34,7 @@ interface WizItem {
   marca?: string | null
 }
 
-const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Crédito", "Misto"]
+const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Crédito"]
 const PERIODO_OPTIONS = [
   { key: "hoje",   label: "Hoje" },
   { key: "semana", label: "7 dias" },
@@ -347,8 +347,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const [prodBusca, setProdBusca] = useState("")
   const [prodRes, setProdRes]     = useState<Produto[]>([])
 
-  // Step 3 — pagamento
-  const [forma, setForma]         = useState("Dinheiro")
+  // Step 3 — pagamento (multi-select)
+  const [formas, setFormas]       = useState<string[]>(["Dinheiro"])
   const [saldoCredito, setSaldoCredito] = useState(0)
   const [creditoUsar, setCreditoUsar]   = useState("")
 
@@ -407,12 +407,12 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const { hi: prodHi, onKeyDown: prodDropKeyDown, reset: resetProdHi } = useDropdownKeyNav(prodRes, adicionarProduto)
 
   // Step 3 — keyboard nav para grade 2 colunas de formas de pagamento
-  // formaIdx = item com foco de teclado (pode ou não estar selecionado)
   const COLS = 2
-  const [formaIdx, setFormaIdx] = useState(FORMAS.indexOf(forma))
+  const [formaIdx, setFormaIdx] = useState(0)
 
-  // Sincroniza formaIdx quando forma muda externamente (clique)
-  useEffect(() => { setFormaIdx(FORMAS.indexOf(forma)) }, [forma])
+  function toggleForma(f: string) {
+    setFormas(prev => prev.includes(f) ? (prev.length > 1 ? prev.filter(x => x !== f) : prev) : [...prev, f])
+  }
 
   useEffect(() => {
     if (step !== 3) return
@@ -421,32 +421,19 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
       const cols = COLS
       if (e.key === "ArrowRight") {
         e.preventDefault()
-        setFormaIdx(i => {
-          const ni = (i + 1) % len
-          setForma(FORMAS[ni])
-          return ni
-        })
+        setFormaIdx(i => (i + 1) % len)
       } else if (e.key === "ArrowLeft") {
         e.preventDefault()
-        setFormaIdx(i => {
-          const ni = (i - 1 + len) % len
-          setForma(FORMAS[ni])
-          return ni
-        })
+        setFormaIdx(i => (i - 1 + len) % len)
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
-        setFormaIdx(i => {
-          const ni = Math.min(i + cols, len - 1)
-          setForma(FORMAS[ni])
-          return ni
-        })
+        setFormaIdx(i => Math.min(i + cols, len - 1))
       } else if (e.key === "ArrowUp") {
         e.preventDefault()
-        setFormaIdx(i => {
-          const ni = Math.max(i - cols, 0)
-          setForma(FORMAS[ni])
-          return ni
-        })
+        setFormaIdx(i => Math.max(i - cols, 0))
+      } else if (e.key === " ") {
+        e.preventDefault()
+        toggleForma(FORMAS[formaIdx])
       } else if (e.key === "Enter") {
         e.preventDefault()
         go(4)
@@ -482,7 +469,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
       const creditoUsarVal = parseFloat(creditoUsar.replace(",", ".")) || 0
       const res = await apiPost<{ id: number; total: number }>("/vendas", {
         cliente_id: clienteId,
-        forma_pagamento: forma,
+        forma_pagamento: formas.join(" + "),
         desconto_geral: descontoVal,
         observacoes: obs || null,
         itens,
@@ -506,7 +493,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
               subtotal: it.preco_unitario * it.quantidade,
               marca: it.marca ?? null,
             })),
-            forma_pagamento: forma,
+            forma_pagamento: formas.join(" + "),
             desconto: descontoVal,
             total: totalFinal,
           })
@@ -535,7 +522,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
       e.preventDefault(); advance()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, itens, forma, obs])
+  }, [step, itens, formas, obs])
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
@@ -685,9 +672,10 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 {step === 3 && <>
                   <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Forma de pagamento?</h1>
                   <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Selecione como o cliente vai pagar.</p>
+                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Selecione uma ou mais formas de pagamento.</p>
                   <div className="grid grid-cols-2 gap-2.5">
                     {FORMAS.map((f, i) => {
-                      const isSelected = forma === f
+                      const isSelected = formas.includes(f)
                       const isFocused  = formaIdx === i
                       return (
                         <motion.button key={f}
@@ -696,10 +684,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                           transition={{ delay: i * 0.05, duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                           whileHover={{ scale: 1.03, y: -2 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            setForma(f); setFormaIdx(i)
-                            setTimeout(() => go(4), 220)
-                          }}
+                          onClick={() => { toggleForma(f); setFormaIdx(i) }}
                           className="relative py-4 px-4 rounded-2xl text-sm font-bold text-left uppercase overflow-hidden border-2"
                           style={{
                             background:  isSelected ? `${COR}18` : "var(--bg-surface)",
@@ -708,7 +693,6 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                             boxShadow:   isFocused && !isSelected ? `0 0 0 3px ${COR}30` : undefined,
                             transition:  "background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s",
                           }}>
-                          {/* Ripple de seleção */}
                           <AnimatePresence>
                             {isSelected && (
                               <motion.span
@@ -748,8 +732,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                           ✦ R$ {saldoCredito.toFixed(2).replace(".", ",")}
                         </p>
                       </div>
-                      {forma !== "Crédito" && (
-                        <button onClick={() => { setForma("Crédito"); setFormaIdx(FORMAS.indexOf("Crédito")) }}
+                      {!formas.includes("Crédito") && (
+                        <button onClick={() => { toggleForma("Crédito"); setFormaIdx(FORMAS.indexOf("Crédito")) }}
                           className="text-xs font-bold px-3 py-1.5 rounded-xl"
                           style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>
                           Usar crédito
@@ -759,7 +743,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                   )}
 
                   {/* Campos de uso de crédito */}
-                  {forma === "Crédito" && (
+                  {formas.includes("Crédito") && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                       className="mt-4 space-y-3">
                       <div>
@@ -959,7 +943,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: "Cliente",    value: clienteNome || "Venda avulsa", s: 1 },
-                    { label: "Pagamento",  value: forma,                         s: 3 },
+                    { label: "Pagamento",  value: formas.join(" + "),            s: 3 },
                     { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 4 },
                     { label: "Total",      value: fmtBRL(totalFinal),            s: null },
                     ...(obs ? [{ label: "Obs.", value: obs, s: 5, full: true }] : []),
