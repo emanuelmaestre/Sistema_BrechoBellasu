@@ -165,7 +165,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 {[
                   ["Data",      `${fmtData(venda.data_venda)} ${venda.hora_venda?.slice(0,5) ?? ""}`],
-                  ["Cliente",   (venda.cliente_nome ?? "Venda avulsa").toUpperCase()],
+                  ["Cliente",   (venda.cliente_nome ?? "Consumidor Final").toUpperCase()],
                   ["Pagamento", venda.forma_pagamento ?? "—"],
                   ["Desconto",  venda.desconto > 0 ? fmtBRL(venda.desconto) : "R$ 0,00"],
                   ["Itens",     String(venda.qtd_itens ?? 0)],
@@ -528,7 +528,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
 
   const enderecoResumo = [
-    clienteNome || "Venda avulsa",
+    clienteNome || "Consumidor Final",
     `${itens.length} produto(s)`,
     fmtBRL(totalFinal),
   ]
@@ -576,7 +576,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 {/* ── Step 1: Cliente ── */}
                 {step === 1 && <>
                   <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Buscar cliente?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco para venda avulsa.</p>
+                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco para Consumidor Final.</p>
                   <div className="relative">
                     <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
                     <input
@@ -890,7 +890,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     </div>
                   </div>
                   <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{clienteNome || "VENDA AVULSA"}</p>
+                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{clienteNome || "CONSUMIDOR FINAL"}</p>
                     <p className="text-lg md:text-2xl font-bold text-white mt-0.5 md:mt-1">{fmtBRL(totalFinal)}</p>
                     <p className="text-xs mt-0.5 md:mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.65)" }}>Revise antes de finalizar</p>
                   </div>
@@ -941,7 +941,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 {/* Demais campos */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Cliente",    value: clienteNome || "Venda avulsa", s: 1 },
+                    { label: "Cliente",    value: clienteNome || "Consumidor Final", s: 1 },
                     { label: "Pagamento",  value: formas.join(" + "),            s: 3 },
                     { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 4 },
                     { label: "Total",      value: fmtBRL(totalFinal),            s: null },
