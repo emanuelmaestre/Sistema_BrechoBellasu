@@ -1334,7 +1334,7 @@ function WizardCliente({
         setEndSugestoes(resultados)
         setEndAberto(resultados.length > 0)
       } catch { /* sem resultado */ } finally { setEndBuscando(false) }
-    }, 480)
+    }, 200)
     setEndTimerRef(timer)
   }
 
