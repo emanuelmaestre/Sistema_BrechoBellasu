@@ -840,8 +840,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     className="mt-2 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
                 </AnimatePresence>
 
-                {/* Botões — step 3 não mostra (auto-advance nos cards) */}
-                {step !== 3 && (
+                {(
                   <div className="flex items-center gap-4 mt-8">
                     <motion.button
                       whileHover={{ scale: 1.05, boxShadow: `0 8px 24px ${COR}55` }}
