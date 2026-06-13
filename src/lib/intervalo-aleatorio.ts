@@ -14,11 +14,14 @@
  * O valor anterior garante um delta mínimo de 4s, evitando repetição
  * imediata do mesmo intervalo.
  */
-export function gerarIntervaloAleatorio(anteriorMs?: number): number {
-  const MIN = 8_000
-  const MAX = 40_000
+export function gerarIntervaloAleatorio(
+  anteriorMs?: number,
+  opts?: { minMs?: number; maxMs?: number; deltaMinMs?: number },
+): number {
+  const MIN = opts?.minMs ?? 8_000
+  const MAX = opts?.maxMs ?? 40_000
   const RANGE = MAX - MIN
-  const DELTA_MIN = 4_000
+  const DELTA_MIN = opts?.deltaMinMs ?? 4_000
 
   function rand(): number {
     if (typeof globalThis.crypto?.getRandomValues === "function") {

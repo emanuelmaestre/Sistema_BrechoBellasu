@@ -93,6 +93,7 @@ function gerarArroba(nome: string): string {
   return "@" + first + last
 }
 const COR_LIVE = "#e11d48"
+const LIVE_SAFE_INTERVAL = { minMs: 45_000, maxMs: 120_000, deltaMinMs: 10_000 }
 
 // ─── Status colors (lista) ────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -963,6 +964,7 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
   const [link, setLink] = useState(linkAtual)
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [progresso, setProgresso] = useState<{ atual: number; total: number; nome: string; aguardando: number }>({ atual: 0, total: 0, nome: "", aguardando: 0 })
 
   const reenvio = numeroEnvio > 0
 
@@ -975,7 +977,7 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
       ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
       : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
 
-  async function disparar() {
+  async function dispararLegado() {
     if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
     setEnviando(true); setResultado(null)
     try {
@@ -986,6 +988,49 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
         setResultado({ ok: true, texto: `✅ Aviso enviado para ${res.enviados} cliente(s)!${res.erros ? ` (${res.erros} falha(s))` : ""}` })
         setTimeout(() => { onSuccess(res.enviados, link.trim()) }, 1500)
       }
+    } catch (e) {
+      setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
+    } finally { setEnviando(false) }
+  }
+
+  async function disparar() {
+    if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
+    setEnviando(true); setResultado(null)
+    try {
+      const fila = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number; mensagem?: string }>(`/live/${liveId}/aviso`)
+      const clientes = fila.clientes ?? []
+      if (clientes.length === 0) {
+        setResultado({ ok: false, texto: fila.mensagem ?? "Nenhum cliente com opt-in para lives. Verifique se alguma cliente confirmou o consentimento." })
+        return
+      }
+
+      let enviados = 0
+      let erros = 0
+      let intervaloAnterior: number | undefined
+      setProgresso({ atual: 0, total: clientes.length, nome: "", aguardando: 0 })
+
+      for (let i = 0; i < clientes.length; i++) {
+        const cliente = clientes[i]
+        if (i > 0) {
+          const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
+          intervaloAnterior = intervaloMs
+          let restante = Math.ceil(intervaloMs / 1000)
+          setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
+          while (restante > 0) {
+            await new Promise(res => setTimeout(res, 1000))
+            restante--
+            setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
+          }
+        }
+
+        setProgresso({ atual: i + 1, total: clientes.length, nome: cliente.nome, aguardando: 0 })
+        const res = await apiPost<{ status: string }>(`/live/${liveId}/aviso`, { link, cliente_id: cliente.id })
+        if (res.status === "enviado") enviados++
+        else erros++
+      }
+
+      setResultado({ ok: enviados > 0, texto: `Aviso enviado para ${enviados} cliente(s).${erros ? ` ${erros} falha(s).` : ""}` })
+      if (enviados > 0) setTimeout(() => { onSuccess(enviados, link.trim()) }, 1500)
     } catch (e) {
       setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
     } finally { setEnviando(false) }
@@ -1044,6 +1089,14 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
             <p className={cn("text-xs px-3 py-2 rounded-lg", resultado.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
               {resultado.texto}
             </p>
+          )}
+
+          {enviando && progresso.total > 0 && (
+            <div className="rounded-lg px-3 py-2 text-xs"
+              style={{ background: "var(--bg-base)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+              <p className="font-bold">Enviando {progresso.atual}/{progresso.total}</p>
+              <p>{progresso.aguardando > 0 ? `Aguardando ${progresso.aguardando}s para ${progresso.nome}` : `Enviando para ${progresso.nome}`}</p>
+            </div>
           )}
 
           <button onClick={disparar} disabled={enviando}
@@ -1144,7 +1197,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
       // Intervalo imprevisível antes de enviar (exceto o primeiro)
       if (i > 0) {
-        const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior)
+        const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
         intervaloAnterior = intervaloMs
         // Contagem regressiva visível
         let restante = Math.ceil(intervaloMs / 1000)
