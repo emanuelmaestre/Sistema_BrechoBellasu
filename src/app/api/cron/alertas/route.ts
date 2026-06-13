@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
+import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
@@ -108,7 +108,7 @@ async function processarFollowupConsentimento() {
   let erros = 0
 
   for (const cliente of clientes) {
-    const resultado = await enviarConsentimentoCliente({
+    const resultado = await orquestrarEnvioConsentimentoCliente({
       clienteId: cliente.id,
       nome: cliente.nome ?? "Cliente",
       celular: cliente.celular,

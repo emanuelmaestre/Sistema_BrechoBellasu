@@ -4,7 +4,7 @@ import { withAuth } from "@/lib/with-auth"
 import { CriarClienteUseCase } from "@/application/clientes/criar-cliente.use-case"
 import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
-import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
+import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 import { sincronizarContato } from "@/lib/google-contacts"
 
 export const dynamic = "force-dynamic"
@@ -74,7 +74,7 @@ export const POST = withAuth(async (req: NextRequest) => {
     // ── Envio automático da mensagem de consentimento ──────
     // Só envia se o cliente tem celular cadastrado
     if (body.celular) {
-      await enviarConsentimentoCliente({
+      await orquestrarEnvioConsentimentoCliente({
         clienteId: clienteId as number,
         nome: body.nome,
         celular: body.celular,
