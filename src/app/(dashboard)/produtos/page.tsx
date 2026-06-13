@@ -8,6 +8,7 @@ import {
   X, ChevronLeft, ArrowRight, Check, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiDelete } from "@/services/api"
+import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
 import type { Produto, Categoria } from "@/types"
@@ -160,14 +161,15 @@ function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }:
 }) {
   const qc = useQueryClient()
   const [busca, setBusca] = useState(value)
+  const buscaDebounced = useDebounce(busca, 350)
   const [open, setOpen] = useState(false)
   const [cadastrando, setCadastrando] = useState(false)
   const [novaCadastrada, setNovaCadastrada] = useState(false)
 
   const { data: sugestoes = [] } = useQuery<{ id: number; nome: string }[]>({
-    queryKey: ["marcas-busca", busca],
-    queryFn: () => apiGet(`/produtos/meta/marcas?busca=${encodeURIComponent(busca)}`),
-    enabled: busca.length >= 1,
+    queryKey: ["marcas-busca", buscaDebounced],
+    queryFn: () => apiGet(`/produtos/meta/marcas?busca=${encodeURIComponent(buscaDebounced)}`),
+    enabled: buscaDebounced.length >= 1,
     staleTime: 60_000,
   })
 

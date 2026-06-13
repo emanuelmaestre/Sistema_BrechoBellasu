@@ -11,6 +11,7 @@ import {
   Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
+import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
@@ -1762,6 +1763,7 @@ function BadgeNotificacao({ status }: { status?: string | null }) {
 export default function ClientesPage() {
   const qc = useQueryClient()
   const [busca, setBusca]         = useState("")
+  const buscaDebounced            = useDebounce(busca, 350)
   const [status, setStatus]       = useState("ativos")
   const [wizard, setWizard]       = useState(false)
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
@@ -1788,11 +1790,11 @@ export default function ClientesPage() {
   const statusParam = status === "inativos" ? "inativo" : status === "todos" ? "todos" : undefined
 
   const { data, isLoading } = useQuery<{ data: Cliente[]; total: number }>({
-    queryKey: ["clientes", busca, statusParam],
+    queryKey: ["clientes", buscaDebounced, statusParam],
     queryFn: () => {
       const qs = new URLSearchParams({
         limit: "100",
-        ...(busca && { busca }),
+        ...(buscaDebounced && { busca: buscaDebounced }),
         ...(statusParam && { status: statusParam }),
       }).toString()
       return apiGet(`/clientes?${qs}`)

@@ -1028,8 +1028,7 @@ export default function VendasPage() {
       const qs = new URLSearchParams({ limit: "100", ...params as Record<string, string> }).toString()
       return apiGet(`/vendas?${qs}`)
     },
-    staleTime: 0,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
   })
 
   const vendas   = data?.data ?? []
