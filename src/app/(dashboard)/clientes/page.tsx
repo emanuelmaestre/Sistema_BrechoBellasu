@@ -618,7 +618,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
               </button>
             ) : (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl p-4 space-y-3"
+                className="rounded-2xl p-4 space-y-2.5"
                 style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)" }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Adicionar Crédito Manual</p>
 
@@ -675,7 +675,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                         className="grid grid-cols-1 sm:grid-cols-2 overflow-y-auto overscroll-contain pr-1"
                         style={{
                           background: "var(--bg-card)",
-                          maxHeight: "clamp(220px, 42vh, 360px)",
+                          maxHeight: "clamp(180px, 34dvh, 320px)",
                           overscrollBehavior: "contain",
                         }}>
                         {creditoMotivoTopico?.motivos.map(m => (
@@ -1058,7 +1058,7 @@ function DrawerCliente({
         className="relative w-full flex flex-col overflow-hidden"
         style={{
           maxWidth: 860,
-          maxHeight: "90vh",
+          maxHeight: "96dvh",
           background: "var(--bg-card)",
           border: "1px solid var(--border)",
           borderRadius: 24,
@@ -1066,7 +1066,7 @@ function DrawerCliente({
         }}>
 
         {/* ── HERO ── */}
-        <div className="relative shrink-0 overflow-hidden" style={{ minHeight: 180 }}>
+        <div className="relative shrink-0 overflow-hidden" style={{ minHeight: "clamp(150px, 22dvh, 180px)" }}>
           {/* Gradiente de fundo */}
           <div className="absolute inset-0" style={{
             background: `linear-gradient(135deg, ${avatarBg}28 0%, ${avatarBg}08 50%, transparent 100%)`,
@@ -1101,7 +1101,7 @@ function DrawerCliente({
           </motion.button>
 
           {/* Conteúdo hero */}
-          <div className="relative z-10 px-8 pt-8 pb-6 flex items-end gap-6">
+          <div className="relative z-10 px-8 pt-6 pb-5 flex items-end gap-6">
             {/* Avatar grande com ilustração */}
             <motion.div
               initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
@@ -1223,7 +1223,7 @@ function DrawerCliente({
         {/* ── CORPO COM ABAS ── */}
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
-          className="flex-1 overflow-hidden">
+          className="flex-1 min-h-0 overflow-hidden">
           <DrawerContent cliente={cliente} info={INFO} />
         </motion.div>
       </motion.div>
