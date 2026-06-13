@@ -699,15 +699,17 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                     style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
                 {creditoErro && <p className="text-xs text-red-400">{creditoErro}</p>}
-                <div className="flex gap-2">
+                <div
+                  className="sticky bottom-0 z-10 flex gap-2 pt-2"
+                  style={{ background: "linear-gradient(180deg, transparent 0%, var(--bg-surface) 28%)" }}>
                   <button onClick={adicionarCredito} disabled={creditoLoading}
-                    className="flex-1 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     style={{ background: "#fbbf24", color: "#1a0f00" }}>
                     {creditoLoading ? <Loader2 size={14} className="animate-spin" /> : null}
                     Confirmar
                   </button>
                   <button onClick={() => { setCreditoForm(false); setCreditoErro(""); setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null) }}
-                    className="px-4 py-2 rounded-xl text-sm transition-colors"
+                    className="px-4 py-2.5 rounded-xl text-sm transition-colors"
                     style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                     Cancelar
                   </button>
@@ -1058,6 +1060,7 @@ function DrawerCliente({
         className="relative w-full flex flex-col overflow-hidden"
         style={{
           maxWidth: 860,
+          height: "96dvh",
           maxHeight: "96dvh",
           background: "var(--bg-card)",
           border: "1px solid var(--border)",
