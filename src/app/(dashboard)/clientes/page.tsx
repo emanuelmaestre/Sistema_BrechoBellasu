@@ -1274,10 +1274,15 @@ function WizardCliente({
           } catch { /* continua */ }
         }
 
-        // ── 2ª FONTE: Nominatim com query sem número ───────────
+        // ── 2ª FONTE: Nominatim — tenta COM número (mais preciso) e SEM número ──
         if (resultados.length < 3 && somenteRua.length >= 4) {
+          // Query com número primeiro (localiza trecho exato da rua), depois sem número
+          const queriesNominatim = numero
+            ? [`${somenteRua.replace(/^(rua|avenida|av\.?|r\.?)\s+/i, "")} ${numero}, ${cidadeDetect}`, `${somenteRua}, ${cidadeDetect}`]
+            : [`${somenteRua}, ${cidadeDetect}`]
+          for (const queryText of queriesNominatim) {
           try {
-            const q = encodeURIComponent(`${somenteRua}, ${cidadeDetect}, Brasil`)
+            const q = encodeURIComponent(`${queryText}, Brasil`)
             const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=5&accept-language=pt-BR`
             const r = await fetch(url, { headers: { "User-Agent": "Brecho Bellasu App" } })
             const items = await r.json() as Array<{ address: Record<string, string> }>
@@ -1307,6 +1312,8 @@ function WizardCliente({
               adicionar(s)
             }
           } catch { /* continua */ }
+          if (resultados.length >= 6) break
+          } // end for queriesNominatim
         }
 
         // Salva número para injetar no form ao selecionar
