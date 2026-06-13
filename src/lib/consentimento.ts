@@ -102,6 +102,108 @@ export function buildConsentMessage(nome: string, idx?: number): string {
 }
 
 // Mantém retrocompatibilidade com chamadas existentes
+function primeiroNomeSeguro(nome: string): string {
+  return nome.trim().split(/\s+/)[0] || "cliente"
+}
+
+const BLOCO_AUTORIZACAO = `O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:
+
+* 🛍️ Novidades, promoções e ofertas exclusivas
+* 🎥 Avisos das nossas lives com peças selecionadas
+
+Você pode cancelar quando quiser, é só nos avisar.
+
+Responda:
+✅ SIM — Autorizo
+❌ NÃO — Não autorizo`
+
+const BLOCO_FOLLOWUP = `Ainda precisamos da sua autorização para te enviar mensagens pelo WhatsApp sobre:
+
+* 🛍️ Novidades, promoções e ofertas exclusivas
+* 🎥 Avisos das nossas lives com peças selecionadas
+
+Se preferir não receber, tudo bem também.
+
+Responda:
+✅ SIM — Autorizo
+❌ NÃO — Não autorizo`
+
+function sanitizarParteIA(texto: string): string {
+  return texto
+    .replace(/\bSIM\b.*$/gim, "")
+    .replace(/\bN[ÃA]O\b.*$/gim, "")
+    .replace(/autorizo.*$/gim, "")
+    .replace(/```/g, "")
+    .trim()
+    .slice(0, 280)
+}
+
+async function gerarParteIA(nome: string, tipo: "inicial" | "followup"): Promise<string | null> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) return null
+
+  const nomeCurto = primeiroNomeSeguro(nome)
+  const instrucao = tipo === "followup"
+    ? "Crie uma frase curta e educada de follow-up para pedir resposta a uma autorização de WhatsApp ainda pendente."
+    : "Crie uma abertura curta e calorosa para pedir autorização de WhatsApp."
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_CONSENT_MODEL ?? "gpt-4o-mini",
+        temperature: 0.9,
+        max_tokens: 90,
+        messages: [
+          {
+            role: "system",
+            content: "Voce escreve mensagens curtas em portugues do Brasil para WhatsApp de uma loja chamada Brecho Bellasu. Nao inclua listas, links, SIM, NAO, Autorizo ou texto juridico. Nao use mais de um emoji.",
+          },
+          {
+            role: "user",
+            content: `${instrucao} Use o primeiro nome "${nomeCurto}". Retorne somente a frase.`,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const data = await res.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }> } | null
+    const texto = data?.choices?.[0]?.message?.content
+    if (!texto) return null
+    const limpo = sanitizarParteIA(texto)
+    return limpo.length >= 12 ? limpo : null
+  } catch {
+    return null
+  }
+}
+
+export function buildConsentFollowUpMessage(nome: string, idx?: number): string {
+  const nomeCurto = primeiroNomeSeguro(nome)
+  const chosenIdx = idx ?? selectConsentIndex()
+  const { s, f } = indexToComponents(chosenIdx)
+  const saudacao = SAUDACOES_CONSENT[s](nomeCurto)
+  const fechamento = FECHAMENTOS_CONSENT[f]
+
+  return `${saudacao}\n\nPassando rapidinho para saber se podemos te manter na nossa lista de avisos do WhatsApp. ${fechamento}\n\n${BLOCO_FOLLOWUP}`
+}
+
+export async function buildConsentMessageWithAI(nome: string): Promise<string> {
+  const parteIA = await gerarParteIA(nome, "inicial")
+  if (!parteIA) return buildConsentMessage(nome)
+  return `${parteIA}\n\n${BLOCO_AUTORIZACAO}`
+}
+
+export async function buildConsentFollowUpMessageWithAI(nome: string): Promise<string> {
+  const parteIA = await gerarParteIA(nome, "followup")
+  if (!parteIA) return buildConsentFollowUpMessage(nome)
+  return `${parteIA}\n\n${BLOCO_FOLLOWUP}`
+}
+
 export function MENSAGEM_CONSENTIMENTO(nome: string): string {
   return buildConsentMessage(nome)
 }

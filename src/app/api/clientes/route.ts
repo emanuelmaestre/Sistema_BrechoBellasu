@@ -4,8 +4,7 @@ import { withAuth } from "@/lib/with-auth"
 import { CriarClienteUseCase } from "@/application/clientes/criar-cliente.use-case"
 import { ClienteRepositorySupabase } from "@/infrastructure/repositories/cliente.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
-import { enviarTexto } from "@/lib/zapi"
-import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
+import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
 import { sincronizarContato } from "@/lib/google-contacts"
 
 export const dynamic = "force-dynamic"
@@ -71,23 +70,15 @@ export const POST = withAuth(async (req: NextRequest) => {
     }
 
     const clienteId = resultado.value.id
-    const sb2 = createServerClient()
 
     // ── Envio automático da mensagem de consentimento ──────
     // Só envia se o cliente tem celular cadastrado
     if (body.celular) {
-      const nome = (body.nome as string).split(" ")[0]
-      const mensagem = MENSAGEM_CONSENTIMENTO(nome)
-
-      // Marca como pendente antes de enviar
-      await sb2.from("clientes").update({ notificacao_status: "pendente" }).eq("id", clienteId)
-
-      const envio = await enviarTexto(body.celular, mensagem, "consentimento_novidades")
-
-      // Atualiza status conforme resultado
-      await sb2.from("clientes")
-        .update({ notificacao_status: envio.ok ? "enviado" : "erro" })
-        .eq("id", clienteId)
+      await enviarConsentimentoCliente({
+        clienteId: clienteId as number,
+        nome: body.nome,
+        celular: body.celular,
+      })
     }
 
     // ── Sincronização Google Contacts (assíncrona, não bloqueia) ──

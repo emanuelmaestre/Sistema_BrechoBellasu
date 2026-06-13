@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
-import { MENSAGEM_CONSENTIMENTO } from "@/lib/consentimento"
-import { dispararTextoUnico } from "@/lib/disparo-controlado"
+import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
 
 export const dynamic = "force-dynamic"
 
@@ -53,45 +52,18 @@ export const PATCH = withAuth(async (req: NextRequest, { params }: { params: Pro
     }, { status: 409 })
   }
 
-  const nome = (cliente.nome ?? "").split(" ")[0]
-  const mensagem = MENSAGEM_CONSENTIMENTO(nome)
-
-  // Marca como pendente enquanto envia
-  await sb.from("clientes")
-    .update({
-      aceita_novidades: "aguardando",
-      aceita_lives: "aguardando",
-      notificacao_status: "pendente",
-    })
-    .eq("id", clienteId)
-
-  const resultado = await dispararTextoUnico({
+  const resultado = await enviarConsentimentoCliente({
     clienteId: clienteId,
-    nome:      cliente.nome ?? "Cliente",
-    telefone:  cliente.celular,
-    mensagem,
-    tipo:      "consentimento",
-    modulo:    "CLIENTES",
+    nome: cliente.nome ?? "Cliente",
+    celular: cliente.celular,
   })
 
   if (!resultado.ok) {
-    // Reverte flags em caso de falha
-    await sb.from("clientes")
-      .update({
-        aceita_novidades: "nao",
-        aceita_lives: "nao",
-        notificacao_status: "erro",
-      })
-      .eq("id", clienteId)
     return NextResponse.json({
       erro: `Falha ao enviar WhatsApp: ${resultado.erro}`,
       notificacao_status: "erro",
     }, { status: 502 })
   }
-
-  await sb.from("clientes")
-    .update({ notificacao_status: "enviado" })
-    .eq("id", clienteId)
 
   return NextResponse.json({
     ok: true,

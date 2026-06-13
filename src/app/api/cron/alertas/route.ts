@@ -1,26 +1,40 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
+type ConfigFollowup = {
+  ativo: boolean
+  horas: number
+  max: number
+}
+
 // GET /api/cron/alertas — Vercel Cron: roda todo dia às 8h (UTC-3 = 11:00 UTC)
 // Vercel Cron envia header Authorization com CRON_SECRET
 export async function GET(req: NextRequest) {
-  // Valida que é chamada pelo Vercel Cron ou manualmente com token
   const authHeader = req.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
   }
 
+  const [financeiro, consentimentoFollowup] = await Promise.all([
+    processarAlertasFinanceiros(),
+    processarFollowupConsentimento(),
+  ])
+
+  return NextResponse.json({ ok: true, financeiro, consentimento_followup: consentimentoFollowup })
+}
+
+async function processarAlertasFinanceiros() {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
   em3dias.setDate(hoje.getDate() + 3)
   const em3diasStr = em3dias.toISOString().split("T")[0]
 
-  // Contas a pagar pendentes vencendo nos próximos 3 dias
   const { data: pagar } = await sb
     .from("contas_pagar")
     .select("descricao, valor, vencimento")
@@ -28,16 +42,15 @@ export async function GET(req: NextRequest) {
     .lte("vencimento", em3diasStr)
     .order("vencimento")
 
-  if (!pagar?.length) return NextResponse.json({ ok: true, mensagem: "Nenhuma conta a vencer." })
+  if (!pagar?.length) return { contas: 0, numeros: 0, mensagem: "Nenhuma conta a vencer." }
 
-  // Busca números de alerta
   const { data: configs } = await sb
     .from("config_alertas")
     .select("chave, valor")
     .in("chave", ["alerta_numero_1", "alerta_numero_2"])
 
   const numeros = (configs ?? []).map(c => c.valor?.trim()).filter(Boolean)
-  if (numeros.length === 0) return NextResponse.json({ ok: true, mensagem: "Sem números de alerta configurados." })
+  if (numeros.length === 0) return { contas: pagar.length, numeros: 0, mensagem: "Sem números de alerta configurados." }
 
   const lista = pagar.map(c => {
     const dt = new Date(c.vencimento + "T12:00:00").toLocaleDateString("pt-BR")
@@ -51,5 +64,66 @@ export async function GET(req: NextRequest) {
     numeros.map(n => enviarTexto(n, msg, "alerta_financeiro"))
   )
 
-  return NextResponse.json({ ok: true, contas: pagar.length, numeros: numeros.length })
+  return { contas: pagar.length, numeros: numeros.length }
+}
+
+async function carregarConfigFollowup(): Promise<ConfigFollowup> {
+  const sb = createServerClient()
+  const { data } = await sb
+    .from("config_alertas")
+    .select("chave, valor")
+    .in("chave", ["consentimento_followup_ativo", "consentimento_followup_horas", "consentimento_followup_max"])
+
+  const cfg: Record<string, string> = {}
+  for (const row of data ?? []) cfg[row.chave] = row.valor
+
+  return {
+    ativo: cfg.consentimento_followup_ativo !== "false",
+    horas: Math.max(1, Number(cfg.consentimento_followup_horas ?? 24) || 24),
+    max: Math.max(0, Number(cfg.consentimento_followup_max ?? 1) || 1),
+  }
+}
+
+async function processarFollowupConsentimento() {
+  const cfg = await carregarConfigFollowup()
+  if (!cfg.ativo || cfg.max <= 0) return { enviados: 0, erros: 0, total: 0, pulado: true }
+
+  const sb = createServerClient()
+  const limite = new Date(Date.now() - cfg.horas * 60 * 60 * 1000).toISOString()
+
+  const { data: clientes, error } = await sb
+    .from("clientes")
+    .select("id, nome, celular, consentimento_followup_count")
+    .eq("notificacao_status", "enviado")
+    .eq("aceita_novidades", "aguardando")
+    .eq("aceita_lives", "aguardando")
+    .lte("consentimento_enviado_em", limite)
+    .lt("consentimento_followup_count", cfg.max)
+    .not("celular", "is", null)
+    .limit(30)
+
+  if (error || !clientes?.length) return { enviados: 0, erros: 0, total: 0 }
+
+  let enviados = 0
+  let erros = 0
+
+  for (const cliente of clientes) {
+    const resultado = await enviarConsentimentoCliente({
+      clienteId: cliente.id,
+      nome: cliente.nome ?? "Cliente",
+      celular: cliente.celular,
+      tipo: "followup",
+    })
+
+    if (resultado.ok) {
+      enviados++
+      await sb.from("clientes")
+        .update({ consentimento_followup_count: Number(cliente.consentimento_followup_count ?? 0) + 1 })
+        .eq("id", cliente.id)
+    } else {
+      erros++
+    }
+  }
+
+  return { enviados, erros, total: clientes.length }
 }
