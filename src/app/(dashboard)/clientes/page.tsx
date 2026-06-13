@@ -1220,114 +1220,109 @@ function WizardCliente({
     setEndBuscando(true)
     const timer = setTimeout(async () => {
       try {
-        // CEP completo (8 dígitos) → ViaCEP direto
+        // ── CEP completo (8 dígitos) → ViaCEP direto ──────────
         if (limpo.length === 8) {
           const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
           const d = await r.json()
           if (!d.erro) {
             const cepFmt = limpo.replace(/^(\d{5})(\d{3})$/, "$1-$2")
-            setEndSugestoes([{
-              label: [d.logradouro, d.bairro, d.localidade, d.uf].filter(Boolean).join(", ") + ` — ${cepFmt}`,
-              cep: cepFmt, logradouro: d.logradouro ?? "", bairro: d.bairro ?? "",
-              cidade: d.localidade ?? "", estado: d.uf ?? "",
-            }])
+            setEndSugestoes([{ label: "", cep: cepFmt, logradouro: d.logradouro ?? "", bairro: d.bairro ?? "", cidade: d.localidade ?? "", estado: d.uf ?? "" }])
             setEndAberto(true)
           } else { setEndSugestoes([]); setEndAberto(false) }
           return
         }
 
-        if (valor.trim().length < 4) return
+        if (valor.trim().length < 3) return
 
-        // Normaliza: remove acentos para melhorar busca, extrai número de casa
-        const normalizar = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
-        // Remove número de casa do meio do texto (ex: "rua ceara 1687 campos" → "rua ceara campos")
-        const semNumero = valor.replace(/\b\d{1,6}\b/g, " ").replace(/\s+/g, " ").trim()
-        const numero    = valor.match(/\b(\d{1,6})\b/)?.[1] ?? ""
+        const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
+        // Extrai número de casa (ex: "291"), cidade mencionada, UF
+        const numero   = valor.match(/\b(\d{1,5})\b/)?.[1] ?? ""
+        const ufDetect = valor.match(/\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF|SE|TO|RO|AC|AP|AM|RR)\b/i)?.[1]?.toUpperCase() ?? "SP"
 
-        // Detecta cidade/estado mencionados no texto
-        const ufDetect  = valor.match(/\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF|SE|TO|RO|AC|AP|AM|RR)\b/i)?.[1]?.toUpperCase()
-
-        // Monta 2 queries para Nominatim: com e sem número
-        const queries = [semNumero, valor].filter((q, i, a) => a.indexOf(q) === i)
-        const headers = { "User-Agent": "Brecho Bellasu App" }
-        const normResultado = (res: { display_name: string; address: Record<string, string> }): EndSugestao => {
-          const a = res.address
-          const estadoNome = a.state ?? ""
-          const uf = ESTADO_SIGLA[estadoNome] ?? (ufDetect ?? estadoNome.slice(0, 2).toUpperCase())
-          const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
-          return {
-            label: res.display_name,
-            cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
-            logradouro: a.road ?? a.pedestrian ?? a.footway ?? a.path ?? "",
-            bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? a.county ?? "",
-            cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
-            estado: uf,
-          }
+        // Detecta cidade no texto (palavras com 5+ chars que não são tipo de logradouro)
+        const CIDADES_CONHECIDAS: Record<string, string> = {
+          "ribeirao preto": "Ribeirão Preto", "sao paulo": "São Paulo", "campinas": "Campinas",
+          "sorocaba": "Sorocaba", "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
         }
-        const key = (s: EndSugestao) => normalizar(`${s.logradouro}${s.bairro}${s.cidade}`)
+        const valorNorm = norm(valor)
+        const cidadeDetect = Object.entries(CIDADES_CONHECIDAS).find(([k]) => valorNorm.includes(k))?.[1] ?? "Ribeirão Preto"
+
+        // Limpa o texto para busca: remove número, UF, cidade conhecida, prefixo tipo logradouro mantido
+        const semNumero = valor.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
+        const somenteRua = semNumero
+          .replace(new RegExp(`\\b(${Object.keys(CIDADES_CONHECIDAS).join("|")}|${ufDetect})\\b`, "gi"), " ")
+          .replace(/\s+/g, " ").trim()
+        // Nome sem prefixo (rua, av, etc) para ViaCEP
+        const nomeRua = somenteRua.replace(/^(rua|avenida|av\.?|r\.?|estr\.?|estrada|travessa|tv\.?|alameda|al\.?|praça|pc\.?|rod\.?|rodovia)\s+/i, "").trim()
 
         const resultados: EndSugestao[] = []
-        for (const q of queries) {
-          try {
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ", Brasil")}&format=json&addressdetails=1&countrycodes=br&limit=5&accept-language=pt-BR`
-            const r = await fetch(url, { headers })
-            const items = await r.json() as Array<{ display_name: string; address: Record<string, string> }>
-            for (const item of items) {
-              if (!item.address) continue
-              const mapped = normResultado(item)
-              if (!resultados.find(x => key(x) === key(mapped))) resultados.push(mapped)
-            }
-          } catch { /* tenta próxima query */ }
-          if (resultados.length >= 6) break
-        }
+        const chave = (s: EndSugestao) => norm(`${s.logradouro}|${s.bairro}|${s.cidade}`)
+        const adicionar = (s: EndSugestao) => { if (!resultados.find(x => chave(x) === chave(s))) resultados.push(s) }
 
-        // Se ainda sem resultado e temos rua + número, tenta buscar o CEP via ViaCEP text
-        // viacep: /ws/{UF}/{cidade}/{logradouro}/json/ — usa SP como fallback
-        if (resultados.length === 0 && semNumero.length >= 4) {
-          const uf = ufDetect ?? "SP"
-          const partes = semNumero.replace(/^(rua|avenida|av|r|estr|estrada|travessa|tv|al|alameda|pc|praça)\b\.?\s*/i, "").trim()
+        // ── 1ª FONTE: ViaCEP text (mais preciso para Brasil) ──
+        // Tenta com a cidade detectada e SP como UF
+        if (nomeRua.length >= 3) {
           try {
-            const url = `https://viacep.com.br/ws/${uf}/${encodeURIComponent("Ribeirão Preto")}/${encodeURIComponent(partes)}/json/`
+            const url = `https://viacep.com.br/ws/${ufDetect}/${encodeURIComponent(cidadeDetect)}/${encodeURIComponent(nomeRua)}/json/`
             const r = await fetch(url)
             const items = await r.json() as Array<{ logradouro: string; bairro: string; localidade: string; uf: string; cep: string }>
             if (Array.isArray(items)) {
-              for (const it of items.slice(0, 5)) {
-                const s: EndSugestao = {
-                  label: [it.logradouro, it.bairro, it.localidade, it.uf, it.cep].filter(Boolean).join(", "),
-                  cep: it.cep, logradouro: it.logradouro, bairro: it.bairro,
-                  cidade: it.localidade, estado: it.uf,
-                }
-                if (!resultados.find(x => key(x) === key(s))) resultados.push(s)
+              for (const it of items.slice(0, 6)) {
+                adicionar({ label: "", cep: it.cep, logradouro: it.logradouro, bairro: it.bairro, cidade: it.localidade, estado: it.uf })
               }
             }
-          } catch { /* sem resultado */ }
+          } catch { /* continua */ }
         }
 
-        // Enriquece: se resultado sem CEP, busca pelo endereço completo para obter o CEP
-        for (const s of resultados.filter((x: EndSugestao) => !x.cep && x.logradouro && x.cidade)) {
+        // ── 2ª FONTE: Nominatim com query sem número ───────────
+        if (resultados.length < 3 && somenteRua.length >= 4) {
           try {
-            const logPartes = s.logradouro.replace(/^(rua|avenida|av)\s+/i, "").trim()
-            const r = await fetch(`https://viacep.com.br/ws/${s.estado || "SP"}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(logPartes)}/json/`)
-            const items = await r.json() as Array<{ logradouro: string; bairro: string; localidade: string; uf: string; cep: string }>
-            if (Array.isArray(items) && items[0]) { s.cep = items[0].cep; if (!s.bairro) s.bairro = items[0].bairro }
-          } catch { /* ignora */ }
+            const q = encodeURIComponent(`${somenteRua}, ${cidadeDetect}, Brasil`)
+            const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=5&accept-language=pt-BR`
+            const r = await fetch(url, { headers: { "User-Agent": "Brecho Bellasu App" } })
+            const items = await r.json() as Array<{ address: Record<string, string> }>
+            for (const item of items) {
+              if (!item.address) continue
+              const a = item.address
+              const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
+              const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
+              const s: EndSugestao = {
+                label: "",
+                cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
+                logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
+                bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
+                cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
+                estado: uf,
+              }
+              if (!s.logradouro) continue
+              // Enriquece com CEP real via ViaCEP se Nominatim não trouxe
+              if (!s.cep && s.cidade) {
+                try {
+                  const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
+                  const vr = await fetch(`https://viacep.com.br/ws/${s.estado}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
+                  const vi = await vr.json() as Array<{ cep: string; bairro: string }>
+                  if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
+                } catch { /* sem cep */ }
+              }
+              adicionar(s)
+            }
+          } catch { /* continua */ }
         }
 
-        // Injeta número capturado nos resultados
-        if (numero) {
-          for (const s of resultados) { if (!s.logradouro.includes(numero)) s.logradouro = s.logradouro }
-        }
+        // Salva número para injetar no form ao selecionar
+        if (numero) resultados.forEach(s => { (s as EndSugestao & { _numero?: string })._numero = numero })
 
         setEndSugestoes(resultados)
         setEndAberto(resultados.length > 0)
       } catch { /* sem resultado */ } finally { setEndBuscando(false) }
-    }, 500)
+    }, 480)
     setEndTimerRef(timer)
   }
 
   function selecionarEndereco(s: EndSugestao) {
-    setForm(f => ({ ...f, cep: s.cep, logradouro: s.logradouro, bairro: s.bairro, cidade: s.cidade, estado: s.estado }))
-    setEndTexto(s.label)
+    const numero = (s as EndSugestao & { _numero?: string })._numero ?? ""
+    setForm(f => ({ ...f, cep: s.cep, logradouro: s.logradouro, bairro: s.bairro, cidade: s.cidade, estado: s.estado, ...(numero ? { numero } : {}) }))
+    setEndTexto([s.logradouro, s.bairro, s.cidade, s.estado, s.cep].filter(Boolean).join(", "))
     setEndSugestoes([]); setEndAberto(false)
     setCepStatus("encontrado")
     setTimeout(() => go(8), 180)
