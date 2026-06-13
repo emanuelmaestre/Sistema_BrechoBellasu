@@ -1257,10 +1257,50 @@ function WizardCliente({
 
         const resultados: EndSugestao[] = []
         const chave = (s: EndSugestao) => norm(`${s.logradouro}|${s.bairro}|${s.cidade}`)
-        const adicionar = (s: EndSugestao) => { if (!resultados.find(x => chave(x) === chave(s))) resultados.push(s) }
+        const adicionar = (s: EndSugestao, inicio = false) => {
+          if (resultados.find(x => chave(x) === chave(s))) return
+          if (inicio) resultados.unshift(s); else resultados.push(s)
+        }
 
-        // ── 1ª FONTE: ViaCEP text (mais preciso para Brasil) ──
-        // Tenta com a cidade detectada e SP como UF
+        const nomHeaders = { "User-Agent": "Brecho Bellasu App" }
+        const nomResultado = async (a: Record<string, string>): Promise<EndSugestao | null> => {
+          if (!a.road && !a.pedestrian && !a.footway) return null
+          const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
+          const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
+          const s: EndSugestao = {
+            label: "",
+            cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
+            logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
+            bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
+            cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
+            estado: uf,
+          }
+          // Enriquece com CEP real via ViaCEP quando Nominatim não trouxe
+          if (!s.cep && s.cidade) {
+            try {
+              const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
+              const vr = await fetch(`https://viacep.com.br/ws/${s.estado}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
+              const vi = await vr.json() as Array<{ cep: string; bairro: string }>
+              if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
+            } catch { /* sem cep */ }
+          }
+          return s
+        }
+
+        // ── 1ª FONTE: Nominatim COM número → bairro exato do endereço ──
+        if (numero && nomeRua.length >= 3) {
+          try {
+            const q = encodeURIComponent(`${nomeRua} ${numero}, ${cidadeDetect}, Brasil`)
+            const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=3&accept-language=pt-BR`, { headers: nomHeaders })
+            const items = await r.json() as Array<{ address: Record<string, string> }>
+            for (const item of items) {
+              const s = await nomResultado(item.address ?? {})
+              if (s) adicionar(s, true) // vai para o topo
+            }
+          } catch { /* continua */ }
+        }
+
+        // ── 2ª FONTE: ViaCEP text → todos os trechos da rua (por bairro/CEP) ──
         if (nomeRua.length >= 3) {
           try {
             const url = `https://viacep.com.br/ws/${ufDetect}/${encodeURIComponent(cidadeDetect)}/${encodeURIComponent(nomeRua)}/json/`
@@ -1274,49 +1314,21 @@ function WizardCliente({
           } catch { /* continua */ }
         }
 
-        // ── 2ª FONTE: Nominatim — tenta COM número (mais preciso) e SEM número ──
+        // ── 3ª FONTE: Nominatim SEM número como complemento ──
         if (resultados.length < 3 && somenteRua.length >= 4) {
-          // Query com número primeiro (localiza trecho exato da rua), depois sem número
-          const queriesNominatim = numero
-            ? [`${somenteRua.replace(/^(rua|avenida|av\.?|r\.?)\s+/i, "")} ${numero}, ${cidadeDetect}`, `${somenteRua}, ${cidadeDetect}`]
-            : [`${somenteRua}, ${cidadeDetect}`]
-          for (const queryText of queriesNominatim) {
           try {
-            const q = encodeURIComponent(`${queryText}, Brasil`)
-            const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=5&accept-language=pt-BR`
-            const r = await fetch(url, { headers: { "User-Agent": "Brecho Bellasu App" } })
+            const q = encodeURIComponent(`${somenteRua}, ${cidadeDetect}, Brasil`)
+            const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=4&accept-language=pt-BR`, { headers: nomHeaders })
             const items = await r.json() as Array<{ address: Record<string, string> }>
             for (const item of items) {
-              if (!item.address) continue
-              const a = item.address
-              const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
-              const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
-              const s: EndSugestao = {
-                label: "",
-                cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
-                logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
-                bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
-                cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
-                estado: uf,
-              }
-              if (!s.logradouro) continue
-              // Enriquece com CEP real via ViaCEP se Nominatim não trouxe
-              if (!s.cep && s.cidade) {
-                try {
-                  const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
-                  const vr = await fetch(`https://viacep.com.br/ws/${s.estado}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
-                  const vi = await vr.json() as Array<{ cep: string; bairro: string }>
-                  if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
-                } catch { /* sem cep */ }
-              }
-              adicionar(s)
+              const s = await nomResultado(item.address ?? {})
+              if (s) adicionar(s)
+              if (resultados.length >= 6) break
             }
           } catch { /* continua */ }
-          if (resultados.length >= 6) break
-          } // end for queriesNominatim
         }
 
-        // Salva número para injetar no form ao selecionar
+        // Salva número capturado para injetar no campo Número ao selecionar
         if (numero) resultados.forEach(s => { (s as EndSugestao & { _numero?: string })._numero = numero })
 
         setEndSugestoes(resultados)
@@ -1623,7 +1635,11 @@ function WizardCliente({
                                 <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                                    {[s.logradouro, s.bairro].filter(Boolean).join(", ") || s.label.split(",")[0]}
+                                    {(() => {
+                                      const num = (s as EndSugestao & { _numero?: string })._numero
+                                      const partes = [s.logradouro, num, s.bairro].filter(Boolean)
+                                      return partes.length ? partes.join(", ") : s.label.split(",")[0]
+                                    })()}
                                   </p>
                                   <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
                                     {[s.cidade, s.estado, s.cep].filter(Boolean).join(" · ")}
