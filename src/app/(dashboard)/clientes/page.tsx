@@ -62,6 +62,54 @@ const variants = {
 
 type CepStatus = "idle" | "buscando" | "encontrado" | "invalido" | "manual"
 
+// ─── Motivos para crédito manual ─────────────────────────────────────────────
+type MotivoCredito = { topico: string; emoji: string; cor: string; origem: string; motivos: string[] }
+const MOTIVOS_CREDITO: MotivoCredito[] = [
+  {
+    topico: "Troca", emoji: "🔄", cor: "#6366f1", origem: "troca",
+    motivos: [
+      "Tamanho pequeno", "Tamanho grande", "Modelagem não serviu",
+      "Peça ficou apertada", "Peça ficou larga", "Comprimento inadequado",
+      "Caimento não agradou", "Cliente prefere outro modelo", "Cliente prefere outra cor",
+      "Peça não combinou com a cliente", "Peça não atendeu à expectativa",
+      "Produto com defeito", "Produto com avaria", "Produto com mancha",
+      "Produto com rasgo", "Costura solta", "Zíper com problema",
+      "Produto separado errado", "Produto entregue errado",
+      "Peça não correspondeu à expectativa da live", "Cliente confundiu a peça durante a live",
+    ],
+  },
+  {
+    topico: "Devolução", emoji: "↩️", cor: "#f59e0b", origem: "devolucao",
+    motivos: [
+      "Cliente desistiu da compra", "Arrependimento da compra",
+      "Cliente mudou de ideia", "Compra realizada por engano",
+      "Produto com defeito", "Produto com avaria", "Produto diferente do anunciado",
+      "Produto em condição diferente da informada", "Produto não atendeu à expectativa",
+      "Produto errado entregue", "Pedido incompleto", "Extravio na entrega",
+      "Atraso na entrega", "Pagamento duplicado", "Cobrança indevida",
+      "Valor cobrado incorretamente", "Cliente solicitou estorno",
+      "Cliente não retirou no prazo", "Produto retornou para a loja",
+    ],
+  },
+  {
+    topico: "Cortesia", emoji: "🎁", cor: "#10b981", origem: "manual",
+    motivos: [
+      "Cortesia pela fidelidade", "Acordo com cliente", "Compensação por atraso",
+      "Compensação por falha no atendimento", "Presente da loja",
+      "Programa de fidelidade", "Bônus especial", "Desconto combinado",
+    ],
+  },
+  {
+    topico: "Ajuste", emoji: "⚙️", cor: "#8b5cf6", origem: "ajuste",
+    motivos: [
+      "Correção de lançamento", "Ajuste interno de estoque",
+      "Cancelamento administrativo", "Lançamento feito em duplicidade",
+      "Venda registrada incorretamente", "Tratativa excepcional",
+      "Autorizado pela gerência", "Motivo não informado pela cliente",
+    ],
+  },
+]
+
 const ESTADO_SIGLA: Record<string, string> = {
   "Acre":"AC","Alagoas":"AL","Amapá":"AP","Amazonas":"AM","Bahia":"BA","Ceará":"CE",
   "Distrito Federal":"DF","Espírito Santo":"ES","Goiás":"GO","Maranhão":"MA",
@@ -205,6 +253,9 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   const [creditoValor, setCreditoValor] = useState("")
   const [creditoOrigem, setCreditoOrigem] = useState("manual")
   const [creditoObs, setCreditoObs] = useState("")
+  const [creditoMotivo, setCreditoMotivo] = useState("")
+  const [creditoMotivoFase, setCreditoMotivoFase] = useState<"topicos" | "motivos">("topicos")
+  const [creditoMotivoTopico, setCreditoMotivoTopico] = useState<typeof MOTIVOS_CREDITO[0] | null>(null)
   const [creditoLoading, setCreditoLoading] = useState(false)
   const [creditoErro, setCreditoErro] = useState("")
 
@@ -218,12 +269,16 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   async function adicionarCredito() {
     const v = parseFloat(creditoValor.replace(/[R$\s.]/g, "").replace(",", "."))
     if (!v || v <= 0) { setCreditoErro("Informe um valor válido."); return }
+    if (!creditoMotivo) { setCreditoErro("Selecione um motivo."); return }
+    const origem = creditoMotivoTopico?.origem ?? creditoOrigem
+    const obs = creditoMotivo + (creditoObs ? ` — ${creditoObs}` : "")
     setCreditoLoading(true); setCreditoErro("")
     try {
       await apiPost(`/clientes/${cliente.id}/creditos`, {
-        valor: v, origem: creditoOrigem, obs: creditoObs || null,
+        valor: v, origem, obs,
       })
       setCreditoForm(false); setCreditoValor(""); setCreditoObs("")
+      setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null)
       qc.invalidateQueries({ queryKey: ["clientes"] })
       refetchCreditos()
     } catch (e) {
@@ -566,30 +621,73 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                 className="rounded-2xl p-4 space-y-3"
                 style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)" }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Adicionar Crédito Manual</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Valor (R$)</label>
-                    <input type="text" inputMode="numeric" placeholder="R$ 0,00"
-                      value={creditoValor}
-                      onChange={e => setCreditoValor(maskCurrency(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Origem</label>
-                    <select value={creditoOrigem} onChange={e => setCreditoOrigem(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                      <option value="manual">Ajuste manual</option>
-                      <option value="ajuste">Correção de valor</option>
-                      <option value="devolucao">Devolução fora do fluxo</option>
-                      <option value="troca">Troca fora do fluxo</option>
-                    </select>
-                  </div>
+
+                {/* Valor */}
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Valor (R$)</label>
+                  <input type="text" inputMode="numeric" placeholder="R$ 0,00"
+                    value={creditoValor}
+                    onChange={e => setCreditoValor(maskCurrency(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
                 </div>
+
+                {/* Seletor de Motivo */}
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>Motivo</label>
+
+                  {creditoMotivo ? (
+                    /* Motivo selecionado — pill com X */
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                      style={{ background: "var(--bg-card)", border: `1px solid ${creditoMotivoTopico?.cor ?? "var(--border)"}33` }}>
+                      <span className="text-base">{creditoMotivoTopico?.emoji}</span>
+                      <span className="flex-1 text-sm truncate" style={{ color: "var(--text-primary)" }}>{creditoMotivo}</span>
+                      <button onClick={() => { setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null) }}
+                        className="shrink-0 p-0.5 rounded-full hover:bg-white/10 transition-colors">
+                        <X size={12} style={{ color: "var(--text-muted)" }} />
+                      </button>
+                    </div>
+                  ) : creditoMotivoFase === "topicos" ? (
+                    /* Grade de tópicos */
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {MOTIVOS_CREDITO.map(t => (
+                        <button key={t.topico}
+                          onClick={() => { setCreditoMotivoTopico(t); setCreditoMotivoFase("motivos") }}
+                          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          style={{ background: `${t.cor}12`, border: `1px solid ${t.cor}33` }}>
+                          <span className="text-lg leading-none">{t.emoji}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate" style={{ color: t.cor }}>{t.topico}</p>
+                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.motivos.length} motivos</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Lista de motivos do tópico */
+                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                      <button onClick={() => setCreditoMotivoFase("topicos")}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold transition-colors hover:opacity-80"
+                        style={{ background: `${creditoMotivoTopico?.cor}18`, color: creditoMotivoTopico?.cor, borderBottom: "1px solid var(--border)" }}>
+                        <ChevronLeft size={12} /> {creditoMotivoTopico?.emoji} {creditoMotivoTopico?.topico}
+                      </button>
+                      <div className="max-h-40 overflow-y-auto" style={{ background: "var(--bg-card)" }}>
+                        {creditoMotivoTopico?.motivos.map(m => (
+                          <button key={m} onClick={() => { setCreditoMotivo(m); setCreditoMotivoFase("topicos") }}
+                            className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5 border-b last:border-b-0"
+                            style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Observação */}
                 <div>
                   <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Observação (opcional)</label>
-                  <input type="text" placeholder="Ex: Cortesia, acordo com cliente..."
+                  <input type="text" placeholder="Ex: Acordo com cliente, autorizado pela gerência..."
                     value={creditoObs} onChange={e => setCreditoObs(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                     style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
@@ -602,7 +700,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                     {creditoLoading ? <Loader2 size={14} className="animate-spin" /> : null}
                     Confirmar
                   </button>
-                  <button onClick={() => { setCreditoForm(false); setCreditoErro("") }}
+                  <button onClick={() => { setCreditoForm(false); setCreditoErro(""); setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null) }}
                     className="px-4 py-2 rounded-xl text-sm transition-colors"
                     style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                     Cancelar
