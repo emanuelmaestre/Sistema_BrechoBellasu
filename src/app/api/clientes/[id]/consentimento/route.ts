@@ -64,6 +64,12 @@ export const PATCH = withAuth(async (req: NextRequest, { params }: { params: Pro
       notificacao_status: "erro",
     }, { status: 502 })
   }
+  if (resultado.skipped) {
+    return NextResponse.json({
+      erro: resultado.motivo ?? "Mensagem de consentimento ja esta em processamento ou ja foi enviada.",
+      notificacao_status: "pendente",
+    }, { status: 409 })
+  }
 
   return NextResponse.json({
     ok: true,

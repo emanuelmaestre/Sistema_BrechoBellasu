@@ -7,6 +7,10 @@ import {
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 
 type ConsentimentoTipo = "inicial" | "followup"
+type ConsentimentoResultado = Awaited<ReturnType<typeof dispararTextoUnico>> & {
+  skipped?: boolean
+  motivo?: string
+}
 
 const CONSENTIMENTO_INTERVALO_SEGURO = {
   minMs: 45_000,
@@ -27,7 +31,7 @@ export async function enviarConsentimentoCliente(params: {
   nome: string
   celular: string
   tipo?: ConsentimentoTipo
-}) {
+}): Promise<ConsentimentoResultado> {
   const tipo = params.tipo ?? "inicial"
   const sb = createServerClient()
   const agora = new Date().toISOString()
@@ -35,13 +39,33 @@ export async function enviarConsentimentoCliente(params: {
     ? await buildConsentFollowUpMessageWithAI(params.nome)
     : await buildConsentMessageWithAI(params.nome)
 
-  await sb.from("clientes")
+  let reserva = sb.from("clientes")
     .update({
       aceita_novidades: "aguardando",
       aceita_lives: "aguardando",
       notificacao_status: "pendente",
     })
     .eq("id", params.clienteId)
+    .select("id")
+
+  if (tipo === "followup") {
+    reserva = reserva
+      .eq("notificacao_status", "enviado")
+      .eq("aceita_novidades", "aguardando")
+      .eq("aceita_lives", "aguardando")
+  } else {
+    reserva = reserva.or("notificacao_status.is.null,notificacao_status.eq.erro")
+  }
+
+  const { data: reservado, error: reservaError } = await reserva
+  if (reservaError) return { ok: false, erro: reservaError.message }
+  if (!reservado?.length) {
+    return {
+      ok: true,
+      skipped: true,
+      motivo: "Consentimento ja reservado, enviado, autorizado ou recusado para este cliente.",
+    }
+  }
 
   const resultado = await dispararTextoUnico({
     clienteId: params.clienteId,
