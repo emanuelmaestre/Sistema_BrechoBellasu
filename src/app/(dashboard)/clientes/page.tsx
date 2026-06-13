@@ -366,7 +366,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
         key={tab}
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
         transition={{ duration: 0.18 }}
-        className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pt-5 pb-10 space-y-3">
         {/* Aba Dados — Card Google Sync */}
         {tab === "dados" && (() => {
           const gs = cliente.google_sync_status
@@ -593,7 +593,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 
         {/* Aba Créditos */}
         {tab === "creditos" && (
-          <div className="space-y-3">
+          <div className="space-y-3 pb-4">
             {/* Card de saldo */}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl p-5 flex items-center justify-between"
@@ -671,10 +671,16 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                         style={{ background: `${creditoMotivoTopico?.cor}18`, color: creditoMotivoTopico?.cor, borderBottom: "1px solid var(--border)" }}>
                         <ChevronLeft size={12} /> {creditoMotivoTopico?.emoji} {creditoMotivoTopico?.topico}
                       </button>
-                      <div className="max-h-40 overflow-y-auto" style={{ background: "var(--bg-card)" }}>
+                      <div
+                        className="grid grid-cols-1 sm:grid-cols-2 overflow-y-auto overscroll-contain pr-1"
+                        style={{
+                          background: "var(--bg-card)",
+                          maxHeight: "clamp(220px, 42vh, 360px)",
+                          overscrollBehavior: "contain",
+                        }}>
                         {creditoMotivoTopico?.motivos.map(m => (
                           <button key={m} onClick={() => { setCreditoMotivo(m); setCreditoMotivoFase("topicos") }}
-                            className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5 border-b last:border-b-0"
+                            className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 border-b sm:odd:border-r"
                             style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}>
                             {m}
                           </button>
