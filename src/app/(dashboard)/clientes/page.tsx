@@ -62,6 +62,24 @@ const variants = {
 
 type CepStatus = "idle" | "buscando" | "encontrado" | "invalido" | "manual"
 
+const ESTADO_SIGLA: Record<string, string> = {
+  "Acre":"AC","Alagoas":"AL","Amapá":"AP","Amazonas":"AM","Bahia":"BA","Ceará":"CE",
+  "Distrito Federal":"DF","Espírito Santo":"ES","Goiás":"GO","Maranhão":"MA",
+  "Mato Grosso":"MT","Mato Grosso do Sul":"MS","Minas Gerais":"MG","Pará":"PA",
+  "Paraíba":"PB","Paraná":"PR","Pernambuco":"PE","Piauí":"PI","Rio de Janeiro":"RJ",
+  "Rio Grande do Norte":"RN","Rio Grande do Sul":"RS","Rondônia":"RO","Roraima":"RR",
+  "Santa Catarina":"SC","São Paulo":"SP","Sergipe":"SE","Tocantins":"TO",
+}
+
+interface EndSugestao {
+  label: string
+  cep: string
+  logradouro: string
+  bairro: string
+  cidade: string
+  estado: string
+}
+
 // ─── Confete ──────────────────────────────────────────────
 const CONFETE_CORES = ["#a78bfa","#6366f1","#34d399","#f472b6","#fbbf24","#60a5fa","#f0abfc","#4ade80"]
 
@@ -1129,6 +1147,11 @@ function WizardCliente({
   const [cepStatus, setCepStatus] = useState<CepStatus>(
     inicial?.logradouro ? "encontrado" : "idle"
   )
+  const [endTexto, setEndTexto]         = useState("")
+  const [endSugestoes, setEndSugestoes] = useState<EndSugestao[]>([])
+  const [endBuscando, setEndBuscando]   = useState(false)
+  const [endAberto, setEndAberto]       = useState(false)
+  const [endTimerRef, setEndTimerRef]   = useState<ReturnType<typeof setTimeout> | null>(null)
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const [mostrarEntrega, setMostrarEntrega] = useState(
     !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
@@ -1187,16 +1210,71 @@ function WizardCliente({
     }
   }
 
+  function onEndTextoChange(valor: string) {
+    setEndTexto(valor)
+    setEndSugestoes([])
+    setEndAberto(false)
+    if (endTimerRef) clearTimeout(endTimerRef)
+    const limpo = valor.replace(/\D/g, "")
+    if (!valor.trim()) { setEndBuscando(false); return }
+    setEndBuscando(true)
+    const timer = setTimeout(async () => {
+      try {
+        // CEP completo → ViaCEP
+        if (limpo.length === 8) {
+          const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
+          const d = await r.json()
+          if (!d.erro) {
+            const sug: EndSugestao = {
+              label: [d.logradouro, d.bairro, d.localidade, d.uf].filter(Boolean).join(", ") + ` — ${valor.trim()}`,
+              cep: valor.trim(), logradouro: d.logradouro ?? "", bairro: d.bairro ?? "",
+              cidade: d.localidade ?? "", estado: d.uf ?? "",
+            }
+            setEndSugestoes([sug]); setEndAberto(true)
+          } else {
+            setEndSugestoes([]); setEndAberto(false)
+          }
+        } else if (valor.trim().length >= 4) {
+          // Texto livre → Nominatim
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(valor + ", Brasil")}&format=json&addressdetails=1&countrycodes=br&limit=6&accept-language=pt-BR`
+          const r = await fetch(url, { headers: { "User-Agent": "Brecho Bellasu App" } })
+          const resultados = await r.json() as Array<{ display_name: string; address: Record<string, string> }>
+          const sugestoes: EndSugestao[] = resultados
+            .filter(res => res.address)
+            .map(res => {
+              const a = res.address
+              const estadoNome = a.state ?? ""
+              const uf = ESTADO_SIGLA[estadoNome] ?? estadoNome.slice(0, 2).toUpperCase()
+              return {
+                label: res.display_name.replace(/, Brasil$/, "").replace(/, Brasil,/, ","),
+                cep: (a.postcode ?? "").replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2"),
+                logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
+                bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
+                cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
+                estado: uf,
+              }
+            })
+          setEndSugestoes(sugestoes); setEndAberto(sugestoes.length > 0)
+        }
+      } catch { /* sem resultado */ } finally { setEndBuscando(false) }
+    }, 420)
+    setEndTimerRef(timer)
+  }
+
+  function selecionarEndereco(s: EndSugestao) {
+    setForm(f => ({ ...f, cep: s.cep, logradouro: s.logradouro, bairro: s.bairro, cidade: s.cidade, estado: s.estado }))
+    setEndTexto(s.label)
+    setEndSugestoes([]); setEndAberto(false)
+    setCepStatus("encontrado")
+    setTimeout(() => go(8), 180)
+  }
+
   async function advanceCep() {
-    const limpo = form.cep.replace(/\D/g, "")
-    // CEP vazio → avança para step 8 (endereço manual)
-    if (!limpo) { go(8); return }
-    // já validado → avança para step 8 (conferência)
+    // Já selecionou endereço via sugestão → step 8
     if (cepStatus === "encontrado" || cepStatus === "manual") { go(8); return }
-    // CEP inválido → avança para step 8 (preenchimento manual)
-    if (cepStatus === "invalido") { go(8); return }
-    // ainda idle → buscar agora e avança independente do resultado
-    await buscarCep(form.cep)
+    // Campo vazio → avança para preenchimento manual
+    if (!endTexto.trim()) { go(8); return }
+    // Aguardando busca → avança mesmo assim
     go(8)
   }
 
@@ -1434,41 +1512,62 @@ function WizardCliente({
                 {step === 7 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Qual o CEP?
+                      Qual o endereço?
                     </h1>
                     <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      Buscamos o endereço automaticamente. Você poderá conferir e editar na próxima etapa.
+                      Digite o CEP ou comece a digitar o endereço. Vamos buscar automaticamente.
                     </p>
 
                     <div className="relative">
                       <input
                         ref={inputRef}
-                        value={form.cep}
-                        onChange={e => {
-                          set("cep", e.target.value)
-                          setCepStatus("idle")
-                        }}
-                        onBlur={e => {
-                          const limpo = e.target.value.replace(/\D/g, "")
-                          if (limpo.length === 8 && cepStatus === "idle") buscarCep(e.target.value)
-                        }}
-                        placeholder="00000-000"
+                        value={endTexto}
+                        onChange={e => onEndTextoChange(e.target.value)}
+                        onFocus={() => { if (endSugestoes.length > 0) setEndAberto(true) }}
+                        onBlur={() => setTimeout(() => setEndAberto(false), 180)}
+                        placeholder="CEP, rua, bairro ou endereço completo"
                         className={inputBase}
                         style={{
                           ...inputStyle,
-                          borderColor: cepStatus === "encontrado" ? "#10b981"
-                            : cepStatus === "invalido" ? "#f87171"
-                            : "var(--border)",
+                          borderColor: cepStatus === "encontrado" ? "#10b981" : "var(--border)",
                         }}
-                        maxLength={9}
+                        autoComplete="off"
                       />
-                      {cepStatus === "buscando" && (
+                      {endBuscando && (
                         <Loader2 size={18} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2"
                           style={{ color: "var(--accent)" }} />
                       )}
-                      {cepStatus === "encontrado" && (
+                      {cepStatus === "encontrado" && !endBuscando && (
                         <Check size={18} className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "#10b981" }} />
                       )}
+
+                      {/* Dropdown de sugestões */}
+                      <AnimatePresence>
+                        {endAberto && endSugestoes.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-2xl overflow-hidden shadow-xl"
+                            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                            {endSugestoes.map((s, i) => (
+                              <button key={i} onMouseDown={() => selecionarEndereco(s)}
+                                className="w-full text-left px-4 py-3 flex items-start gap-3 transition-colors"
+                                style={{ borderBottom: i < endSugestoes.length - 1 ? "1px solid var(--border)" : "none" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-surface)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                                <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                                    {[s.logradouro, s.bairro].filter(Boolean).join(", ") || s.label.split(",")[0]}
+                                  </p>
+                                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+                                    {[s.cidade, s.estado, s.cep].filter(Boolean).join(" · ")}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <AnimatePresence>
@@ -1487,13 +1586,13 @@ function WizardCliente({
                           </div>
                         </motion.div>
                       )}
-                      {cepStatus === "invalido" && (
+                      {endTexto.length > 3 && !endBuscando && endSugestoes.length === 0 && cepStatus !== "encontrado" && !endAberto && (
                         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                           className="mt-4 flex items-center gap-2 px-4 py-3 rounded-2xl"
                           style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
                           <AlertCircle size={15} style={{ color: "#f87171" }} />
                           <p className="text-sm" style={{ color: "#f87171" }}>
-                            CEP não encontrado — você poderá preencher o endereço manualmente na próxima etapa.
+                            Endereço não encontrado — você poderá preencher manualmente na próxima etapa.
                           </p>
                         </motion.div>
                       )}
