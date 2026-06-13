@@ -115,7 +115,7 @@ async function processarFollowupConsentimento() {
       tipo: "followup",
     })
 
-    if (resultado.ok) {
+    if (resultado.ok && !resultado.skipped) {
       enviados++
       await sb.from("clientes")
         .update({ consentimento_followup_count: Number(cliente.consentimento_followup_count ?? 0) + 1 })
