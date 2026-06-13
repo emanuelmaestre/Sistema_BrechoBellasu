@@ -1052,6 +1052,9 @@ export default function ConfiguracoesPage() {
 function AbaAlertas() {
   const [num1, setNum1] = useState("")
   const [num2, setNum2] = useState("")
+  const [followupAtivo, setFollowupAtivo] = useState(true)
+  const [followupHoras, setFollowupHoras] = useState("24")
+  const [followupMax, setFollowupMax] = useState("1")
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState("")
   const [zapiStatus, setZapiStatus] = useState<{ conectado: boolean; detalhe: string } | null>(null)
@@ -1063,6 +1066,9 @@ function AbaAlertas() {
       const d = data as Record<string, string>
       setNum1(d.alerta_numero_1 ?? "")
       setNum2(d.alerta_numero_2 ?? "")
+      setFollowupAtivo(d.consentimento_followup_ativo !== "false")
+      setFollowupHoras(d.consentimento_followup_horas ?? "24")
+      setFollowupMax(d.consentimento_followup_max ?? "1")
     }).catch(() => {})
   }, [])
 
@@ -1072,6 +1078,9 @@ function AbaAlertas() {
       await import("@/services/api").then(m => m.apiPut("/configuracoes/alertas", {
         alerta_numero_1: num1.replace(/\D/g, ""),
         alerta_numero_2: num2.replace(/\D/g, ""),
+        consentimento_followup_ativo: followupAtivo ? "true" : "false",
+        consentimento_followup_horas: followupHoras,
+        consentimento_followup_max: followupMax,
       }))
       setMsg("✅ Números salvos!")
     } catch { setMsg("❌ Erro ao salvar.") }
@@ -1135,6 +1144,36 @@ function AbaAlertas() {
             <input value={num2} onChange={e => setNum2(e.target.value)} placeholder="16999999999" className={iBase} style={iSt} />
           </div>
         </div>
+        <div className="mt-5 rounded-2xl p-4" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <h4 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Follow-up de consentimento</h4>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                Reenvia uma mensagem para novos clientes que ainda nÃ£o responderam SIM ou NÃƒO.
+              </p>
+            </div>
+            <button type="button" onClick={() => setFollowupAtivo(v => !v)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase"
+              style={{ background: followupAtivo ? "rgba(16,185,129,0.12)" : "rgba(100,116,139,0.12)", color: followupAtivo ? "#10b981" : "var(--text-muted)" }}>
+              {followupAtivo ? "Ativo" : "Inativo"}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
+                Aguardar horas
+              </label>
+              <input type="number" min="1" value={followupHoras} onChange={e => setFollowupHoras(e.target.value)} className={iBase} style={iSt} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
+                MÃ¡ximo de follow-ups
+              </label>
+              <input type="number" min="0" value={followupMax} onChange={e => setFollowupMax(e.target.value)} className={iBase} style={iSt} />
+            </div>
+          </div>
+        </div>
+
         <button onClick={salvar} disabled={saving}
           className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-50"
           style={{ background: "var(--accent)" }}>
