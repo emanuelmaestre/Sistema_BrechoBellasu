@@ -4,8 +4,23 @@ import {
   buildConsentFollowUpMessageWithAI,
   buildConsentMessageWithAI,
 } from "@/lib/consentimento"
+import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 
 type ConsentimentoTipo = "inicial" | "followup"
+
+const CONSENTIMENTO_INTERVALO_SEGURO = {
+  minMs: 45_000,
+  maxMs: 120_000,
+  deltaMinMs: 10_000,
+}
+
+let filaConsentimento = Promise.resolve()
+let ultimoEnvioConsentimentoMs = 0
+let ultimoIntervaloConsentimentoMs: number | undefined
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 export async function enviarConsentimentoCliente(params: {
   clienteId: number
@@ -63,4 +78,32 @@ export async function enviarConsentimentoCliente(params: {
     .eq("id", params.clienteId)
 
   return resultado
+}
+
+export async function orquestrarEnvioConsentimentoCliente(params: {
+  clienteId: number
+  nome: string
+  celular: string
+  tipo?: ConsentimentoTipo
+}) {
+  const tarefa = filaConsentimento.then(async () => {
+    if (ultimoEnvioConsentimentoMs > 0) {
+      const intervaloMs = gerarIntervaloAleatorio(
+        ultimoIntervaloConsentimentoMs,
+        CONSENTIMENTO_INTERVALO_SEGURO,
+      )
+      ultimoIntervaloConsentimentoMs = intervaloMs
+
+      const decorridoMs = Date.now() - ultimoEnvioConsentimentoMs
+      const esperaMs = Math.max(0, intervaloMs - decorridoMs)
+      if (esperaMs > 0) await sleep(esperaMs)
+    }
+
+    const resultado = await enviarConsentimentoCliente(params)
+    ultimoEnvioConsentimentoMs = Date.now()
+    return resultado
+  })
+
+  filaConsentimento = tarefa.then(() => undefined, () => undefined)
+  return tarefa
 }

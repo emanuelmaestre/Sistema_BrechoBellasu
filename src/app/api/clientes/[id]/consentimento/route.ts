@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
-import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
+import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 
 export const dynamic = "force-dynamic"
 
@@ -52,7 +52,7 @@ export const PATCH = withAuth(async (req: NextRequest, { params }: { params: Pro
     }, { status: 409 })
   }
 
-  const resultado = await enviarConsentimentoCliente({
+  const resultado = await orquestrarEnvioConsentimentoCliente({
     clienteId: clienteId,
     nome: cliente.nome ?? "Cliente",
     celular: cliente.celular,
