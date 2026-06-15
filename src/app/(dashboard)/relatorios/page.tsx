@@ -11,6 +11,7 @@ import {
 import { apiGet } from "@/services/api"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import { exportExcelProfissional, exportPdfProfissional } from "@/lib/export-helpers"
 
 // ─── Tipos ────────────────────────────────────────────────
 type VendasPeriodo   = { dia: string; qtd: number; total: number }
@@ -46,31 +47,15 @@ function getPeriodo(key: string, de: string, ate: string) {
   return { de, ate }
 }
 
-// ─── Export helpers ────────────────────────────────────────
-async function exportXLSX(filename: string, headers: string[], rows: (string | number)[][]) {
-  const XLSX = await import("xlsx")
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, "Relatório")
-  XLSX.writeFile(wb, `${filename}.xlsx`)
-}
-
-async function exportPDF(title: string, headers: string[], rows: (string | number)[][]) {
-  const { default: jsPDF } = await import("jspdf")
-  const { default: autoTable } = await import("jspdf-autotable")
-  const doc = new jsPDF({ orientation: "landscape" })
-  doc.setFontSize(14)
-  doc.text(title, 14, 16)
-  doc.setFontSize(9)
-  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 22)
-  autoTable(doc, {
-    head: [headers],
-    body: rows.map(r => r.map(String)),
-    startY: 28,
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [37, 99, 235] },
-  })
-  doc.save(`${title}.pdf`)
+// helpers locais reutilizando getPeriodo
+function periodoLabel(qs: string): string {
+  try {
+    const p = Object.fromEntries(new URLSearchParams(qs))
+    const fmt = (s: string) => { const [y,m,d] = s.split("-"); return `${d}/${m}/${y}` }
+    if (p.de && p.ate && p.de !== p.ate) return `${fmt(p.de)} a ${fmt(p.ate)}`
+    if (p.de) return fmt(p.de)
+    return "—"
+  } catch { return "—" }
 }
 
 // ─── Componentes base ─────────────────────────────────────
@@ -198,11 +183,16 @@ function RelVendasPeriodo({ qs }: { qs: string }) {
   const qtd   = data?.reduce((s, d) => s + d.qtd,   0) ?? 0
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
     const headers = ["Data", "Qtd. Vendas", "Total (R$)"]
-    const rows = data.map(d => [fmtData(d.dia), d.qtd, fmtBRL(d.total)])
-    if (fmt === "xlsx") exportXLSX("vendas-por-periodo", headers, rows)
-    else exportPDF("Vendas por Período", headers, rows)
+    const rows = (data ?? []).map(d => [fmtData(d.dia), d.qtd, fmtBRL(d.total)])
+    const totais = ["TOTAL", qtd, fmtBRL(total)]
+    const periodoStr = periodoLabel(qs)
+    const resumo = [
+      { label: "Total em R$", valor: fmtBRL(total), destaque: true },
+      { label: "Qtd. de Vendas", valor: String(qtd) },
+    ]
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Vendas por Período", headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: "Vendas por Período", headers, rows, totais, periodoStr, resumo, colAligns: ["left","center","right"] })
   }
 
   return (
@@ -242,24 +232,27 @@ function RelVendasProduto({ qs }: { qs: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
     const headers = ["#", "Produto", "Qtd. Vendida", "Total (R$)"]
-    const rows = data.map((p, i) => [i + 1, p.nome_produto, p.total_quantidade, fmtBRL(p.total_valor)])
-    if (fmt === "xlsx") exportXLSX("vendas-por-produto", headers, rows)
-    else exportPDF("Vendas por Produto", headers, rows)
+    const rows = (data ?? []).map((p, i) => [i + 1, p.nome_produto, p.total_quantidade, fmtBRL(p.total_valor)])
+    const totalQtd = data?.reduce((s, p) => s + p.total_quantidade, 0) ?? 0
+    const totalVal = data?.reduce((s, p) => s + p.total_valor, 0) ?? 0
+    const totais = ["", "TOTAL", totalQtd, fmtBRL(totalVal)]
+    const periodoStr = periodoLabel(qs)
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Vendas por Produto", headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: "Vendas por Produto", headers, rows, totais, periodoStr, colAligns: ["center","left","center","right"] })
   }
 
   return (
     <DataPanel title="Vendas por Produto" loading={isLoading}
       exportBar={<ExportBar onXLSX={() => doExport("xlsx")} onPDF={() => doExport("pdf")} loading={isLoading}/>}>
       {!data?.length ? <SemDados /> : (
-        <div className="space-y-1 max-h-80 overflow-y-auto">
-          <div className="grid grid-cols-12 text-[10px] font-bold uppercase tracking-wider pb-2 px-2" style={{ color: "var(--text-muted)" }}>
+        <div className="space-y-1 max-h-80 overflow-y-auto overflow-x-auto">
+          <div className="grid grid-cols-12 text-[10px] font-bold uppercase tracking-wider pb-2 px-2 min-w-[320px]" style={{ color: "var(--text-muted)" }}>
             <span className="col-span-1">#</span><span className="col-span-7">Produto</span>
             <span className="col-span-2 text-center">Qtd</span><span className="col-span-2 text-right">Total</span>
           </div>
           {data.map((p, i) => (
-            <div key={p.nome_produto} className="grid grid-cols-12 items-center px-2 py-2.5 rounded-lg"
+            <div key={p.nome_produto} className="grid grid-cols-12 items-center px-2 py-2.5 rounded-lg min-w-[320px]"
               style={{ borderBottom: "1px solid var(--border)" }}>
               <span className="col-span-1 text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold"
                 style={{ background: i < 3 ? "var(--accent)" : "var(--bg-surface)", color: i < 3 ? "#fff" : "var(--text-muted)" }}>
@@ -283,24 +276,32 @@ function RelVendasCliente({ qs }: { qs: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
     const headers = ["#", "Cliente", "Compras", "Total Gasto (R$)"]
-    const rows = data.map((c, i) => [i + 1, c.nome, c.total_compras, fmtBRL(c.total_gasto)])
-    if (fmt === "xlsx") exportXLSX("vendas-por-cliente", headers, rows)
-    else exportPDF("Vendas por Cliente", headers, rows)
+    const rows = (data ?? []).map((c, i) => [i + 1, c.nome.toUpperCase(), c.total_compras, fmtBRL(c.total_gasto)])
+    const totalCompras = data?.reduce((s, c) => s + c.total_compras, 0) ?? 0
+    const totalGasto   = data?.reduce((s, c) => s + c.total_gasto,   0) ?? 0
+    const totais = ["", "TOTAL", totalCompras, fmtBRL(totalGasto)]
+    const periodoStr = periodoLabel(qs)
+    const resumo = [
+      { label: "Clientes Ativos", valor: String(data?.length ?? 0) },
+      { label: "Total de Compras", valor: String(totalCompras) },
+      { label: "Total Faturado", valor: fmtBRL(totalGasto), destaque: true },
+    ]
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Vendas por Cliente", headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: "Vendas por Cliente", headers, rows, totais, periodoStr, resumo, colAligns: ["center","left","center","right"] })
   }
 
   return (
     <DataPanel title="Vendas por Cliente" loading={isLoading}
       exportBar={<ExportBar onXLSX={() => doExport("xlsx")} onPDF={() => doExport("pdf")} loading={isLoading}/>}>
       {!data?.length ? <SemDados /> : (
-        <div className="space-y-1 max-h-80 overflow-y-auto">
-          <div className="grid grid-cols-12 text-[10px] font-bold uppercase tracking-wider pb-2 px-2" style={{ color: "var(--text-muted)" }}>
+        <div className="space-y-1 max-h-80 overflow-y-auto overflow-x-auto">
+          <div className="grid grid-cols-12 text-[10px] font-bold uppercase tracking-wider pb-2 px-2 min-w-[320px]" style={{ color: "var(--text-muted)" }}>
             <span className="col-span-1">#</span><span className="col-span-7">Cliente</span>
             <span className="col-span-2 text-center">Compras</span><span className="col-span-2 text-right">Total</span>
           </div>
           {data.map((c, i) => (
-            <div key={c.nome} className="grid grid-cols-12 items-center px-2 py-2.5 rounded-lg"
+            <div key={c.nome} className="grid grid-cols-12 items-center px-2 py-2.5 rounded-lg min-w-[320px]"
               style={{ borderBottom: "1px solid var(--border)" }}>
               <span className="col-span-1 text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold"
                 style={{ background: i < 3 ? "var(--accent)" : "var(--bg-surface)", color: i < 3 ? "#fff" : "var(--text-muted)" }}>
@@ -324,11 +325,18 @@ function RelTicket({ qs }: { qs: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data) return
     const headers = ["Indicador", "Valor"]
-    const rows = [["Ticket Médio", fmtBRL(data.ticket_medio)], ["Total de Vendas", String(data.total_vendas)], ["Total em R$", fmtBRL(data.total_valor)]]
-    if (fmt === "xlsx") exportXLSX("ticket-medio", headers, rows)
-    else exportPDF("Ticket Médio", headers, rows)
+    const rows = data
+      ? [["Ticket Médio", fmtBRL(data.ticket_medio)], ["Total de Vendas", String(data.total_vendas)], ["Total Faturado", fmtBRL(data.total_valor)]]
+      : []
+    const periodoStr = periodoLabel(qs)
+    const resumo = data ? [
+      { label: "Ticket Médio", valor: fmtBRL(data.ticket_medio), destaque: true },
+      { label: "Total de Vendas", valor: String(data.total_vendas) },
+      { label: "Total Faturado", valor: fmtBRL(data.total_valor) },
+    ] : []
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Ticket Médio", headers, rows, periodoStr })
+    else exportPdfProfissional({ relatorio: "Ticket Médio", headers, rows, periodoStr, resumo, orientation: "portrait" })
   }
 
   return (
@@ -359,11 +367,17 @@ function RelFormasPagamento({ qs }: { qs: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
-    const headers = ["Forma de Pagamento", "Qtd.", "Total (R$)"]
-    const rows = data.map(f => [f.forma_pagamento, f.qtd, fmtBRL(f.total)])
-    if (fmt === "xlsx") exportXLSX("formas-pagamento", headers, rows)
-    else exportPDF("Formas de Pagamento", headers, rows)
+    const headers = ["Forma de Pagamento", "Qtd.", "Total (R$)", "Participação (%)"]
+    const totalGeral = data?.reduce((s, f) => s + f.total, 0) ?? 0
+    const rows = (data ?? []).map(f => [
+      f.forma_pagamento, f.qtd, fmtBRL(f.total),
+      totalGeral > 0 ? `${((f.total / totalGeral) * 100).toFixed(1)}%` : "0,0%",
+    ])
+    const totalQtd = data?.reduce((s, f) => s + f.qtd, 0) ?? 0
+    const totais = ["TOTAL", totalQtd, fmtBRL(totalGeral), "100%"]
+    const periodoStr = periodoLabel(qs)
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Formas de Pagamento", headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: "Formas de Pagamento", headers, rows, totais, periodoStr, colAligns: ["left","center","right","center"], orientation: "portrait" })
   }
 
   const maxVal = Math.max(...(data?.map(f => f.total) ?? [1]))
@@ -405,11 +419,14 @@ function RelMaisVendidos({ qs }: { qs: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
     const headers = ["#", "Produto", "Qtd. Vendida", "Total (R$)"]
-    const rows = data.map((p, i) => [i + 1, p.nome_produto, p.total_quantidade, fmtBRL(p.total_valor)])
-    if (fmt === "xlsx") exportXLSX("mais-vendidos", headers, rows)
-    else exportPDF("Produtos Mais Vendidos", headers, rows)
+    const rows = (data ?? []).map((p, i) => [i + 1, p.nome_produto, p.total_quantidade, fmtBRL(p.total_valor)])
+    const totalQtd = data?.reduce((s, p) => s + p.total_quantidade, 0) ?? 0
+    const totalVal = data?.reduce((s, p) => s + p.total_valor, 0) ?? 0
+    const totais = ["", "TOTAL", totalQtd, fmtBRL(totalVal)]
+    const periodoStr = periodoLabel(qs)
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: "Produtos Mais Vendidos", headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: "Produtos Mais Vendidos", headers, rows, totais, periodoStr, colAligns: ["center","left","center","right"] })
   }
 
   return (
@@ -442,11 +459,18 @@ function RelFluxoCaixa({ qs, title }: { qs: string; title: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data) return
     const headers = ["Indicador", "Valor (R$)"]
-    const rows = [["Entradas", fmtBRL(data.entradas)], ["Saídas", fmtBRL(data.saidas)], ["Saldo", fmtBRL(data.saldo)]]
-    if (fmt === "xlsx") exportXLSX(title.toLowerCase().replace(/ /g, "-"), headers, rows)
-    else exportPDF(title, headers, rows)
+    const rows = data
+      ? [["Entradas", fmtBRL(data.entradas)], ["Saídas", fmtBRL(data.saidas)], ["Saldo Líquido", fmtBRL(data.saldo)]]
+      : []
+    const periodoStr = periodoLabel(qs)
+    const resumo = data ? [
+      { label: "Entradas", valor: fmtBRL(data.entradas), destaque: false },
+      { label: "Saídas",   valor: fmtBRL(data.saidas),   destaque: false },
+      { label: "Saldo",    valor: fmtBRL(data.saldo),     destaque: true  },
+    ] : []
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: title, headers, rows, periodoStr })
+    else exportPdfProfissional({ relatorio: title, headers, rows, periodoStr, resumo, orientation: "portrait" })
   }
 
   return (
@@ -480,11 +504,17 @@ function RelTrocas({ qs, title }: { qs: string; title: string }) {
   })
 
   const doExport = (fmt: "xlsx" | "pdf") => {
-    if (!data?.length) return
-    const headers = ["Motivo", "Qtd."]
-    const rows = data.map(m => [m.motivo, m.qtd])
-    if (fmt === "xlsx") exportXLSX("trocas", headers, rows)
-    else exportPDF(title, headers, rows)
+    const headers = ["Motivo", "Qtd.", "Participação (%)"]
+    const totalQtd = data?.reduce((s, m) => s + m.qtd, 0) ?? 0
+    const rows = (data ?? []).map(m => [
+      m.motivo, m.qtd,
+      totalQtd > 0 ? `${((m.qtd / totalQtd) * 100).toFixed(1)}%` : "0,0%",
+    ])
+    const totais = ["TOTAL", totalQtd, "100%"]
+    const periodoStr = periodoLabel(qs)
+    const resumo = [{ label: "Total de Trocas/Dev.", valor: String(totalQtd), destaque: true }]
+    if (fmt === "xlsx") exportExcelProfissional({ relatorio: title, headers, rows, totais, periodoStr })
+    else exportPdfProfissional({ relatorio: title, headers, rows, totais, periodoStr, resumo, orientation: "portrait", colAligns: ["left","center","center"] })
   }
 
   return (

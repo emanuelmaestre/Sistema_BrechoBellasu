@@ -608,6 +608,48 @@ function WizardProduto({
                           className={cn(inputBase, "pl-12 !text-base !py-3")} style={inputSt} />
                       </div>
                     </div>
+
+                    {/* ── Painel de inteligência de precificação ── */}
+                    {(() => {
+                      const venda = parseFloat(String(form.preco_venda).replace(",",".")) || 0
+                      const custo = parseFloat(String(form.preco_custo).replace(",",".")) || 0
+                      if (venda <= 0 || custo <= 0) return null
+
+                      const lucro  = venda - custo
+                      const margem = (lucro / venda) * 100
+                      const cor    = margem >= 50 ? "#10b981" : margem >= 30 ? "#f59e0b" : "#f87171"
+                      const emoji  = margem >= 50 ? "🟢" : margem >= 30 ? "🟡" : "🔴"
+                      const sugestao = margem < 30
+                        ? `Ideal: R$ ${(custo / 0.7).toFixed(2).replace(".",",")} (margem 30%)`
+                        : margem < 50
+                        ? `Ideal: R$ ${(custo / 0.5).toFixed(2).replace(".",",")} (margem 50%)`
+                        : null
+
+                      return (
+                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-4"
+                          style={{ background: "var(--bg-surface)", border: `1.5px solid ${cor}33` }}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm leading-none">{emoji}</span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black" style={{ color: cor }}>
+                                Lucro R$ {lucro.toFixed(2).replace(".",",")} · margem {margem.toFixed(0)}%
+                              </p>
+                              {sugestao && (
+                                <p className="text-[10px] mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{sugestao}</p>
+                              )}
+                            </div>
+                          </div>
+                          {/* Mini barra */}
+                          <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "var(--border)" }}>
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(margem, 100)}%` }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="h-full rounded-full" style={{ background: cor }}/>
+                          </div>
+                        </motion.div>
+                      )
+                    })()}
                   </>
                 )}
 
@@ -868,7 +910,7 @@ export default function ProdutosPage() {
           onBlur={() => { setTableFocused(false); resetSel() }}
           className="overflow-x-auto outline-none"
         >
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Código", "Produto", "Cor", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (

@@ -341,7 +341,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
   return (
     <div className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
       {/* Tab bar */}
-      <div className="flex gap-1 px-6 pt-4 pb-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div className="flex gap-1 px-4 sm:px-6 pt-4 pb-2 shrink-0 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)" }}>
         {TABS.map((t, i) => (
           <motion.button
             key={t.key}
@@ -349,7 +349,7 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 + i * 0.04 }}
-            className="relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+            className="relative shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap"
             style={{
               background: tab === t.key ? "var(--accent)" : "transparent",
               color: tab === t.key ? "#fff" : "var(--text-muted)",
@@ -366,7 +366,8 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
         key={tab}
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
         transition={{ duration: 0.18 }}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pt-5 pb-10 space-y-3">
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 pt-5 pb-6 space-y-3 drawer-scroll"
+      >
         {/* Aba Dados — Card Google Sync */}
         {tab === "dados" && (() => {
           const gs = cliente.google_sync_status
@@ -593,18 +594,23 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 
         {/* Aba Créditos */}
         {tab === "creditos" && (
-          <div className="space-y-3 pb-4">
-            {/* Card de saldo */}
+          <div className="space-y-2 pb-4">
+            {/* Card de saldo — compacto quando form aberto */}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl p-5 flex items-center justify-between"
-              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.04))", border: "1px solid rgba(251,191,36,0.3)" }}>
+              className="rounded-xl flex items-center justify-between"
+              style={{
+                padding: creditoForm ? "10px 16px" : "16px 20px",
+                background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.04))",
+                border: "1px solid rgba(251,191,36,0.3)",
+                transition: "padding 0.2s",
+              }}>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "rgba(251,191,36,0.7)" }}>Saldo disponível</p>
-                <p className="text-3xl font-bold" style={{ color: "#fbbf24" }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "rgba(251,191,36,0.7)" }}>Saldo disponível</p>
+                <p className={creditoForm ? "text-xl font-bold" : "text-3xl font-bold"} style={{ color: "#fbbf24", transition: "font-size 0.2s" }}>
                   R$ {(creditosData?.saldo ?? (cliente as Cliente & { saldo_credito?: number }).saldo_credito ?? 0).toFixed(2).replace(".", ",")}
                 </p>
               </div>
-              <Wallet size={32} style={{ color: "rgba(251,191,36,0.4)" }} />
+              <Wallet size={creditoForm ? 20 : 32} style={{ color: "rgba(251,191,36,0.4)", transition: "all 0.2s" }} />
             </motion.div>
 
             {/* Botão + Adicionar crédito */}
@@ -618,8 +624,8 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
               </button>
             ) : (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl p-4 space-y-2.5"
-                style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                className="rounded-2xl p-3 space-y-2 overflow-y-auto drawer-scroll"
+                style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)", maxHeight: "380px" }}>
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Adicionar Crédito Manual</p>
 
                 {/* Valor */}
@@ -634,10 +640,9 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
 
                 {/* Seletor de Motivo */}
                 <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>Motivo</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Motivo</label>
 
                   {creditoMotivo ? (
-                    /* Motivo selecionado — pill com X */
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
                       style={{ background: "var(--bg-card)", border: `1px solid ${creditoMotivoTopico?.cor ?? "var(--border)"}33` }}>
                       <span className="text-base">{creditoMotivoTopico?.emoji}</span>
@@ -648,14 +653,14 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                       </button>
                     </div>
                   ) : creditoMotivoFase === "topicos" ? (
-                    /* Grade de tópicos */
+                    /* Grade 2×2 compacta — cabe sempre sem scroll */
                     <div className="grid grid-cols-2 gap-1.5">
                       {MOTIVOS_CREDITO.map(t => (
                         <button key={t.topico}
                           onClick={() => { setCreditoMotivoTopico(t); setCreditoMotivoFase("motivos") }}
-                          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
                           style={{ background: `${t.cor}12`, border: `1px solid ${t.cor}33` }}>
-                          <span className="text-lg leading-none">{t.emoji}</span>
+                          <span className="text-base leading-none">{t.emoji}</span>
                           <div className="min-w-0">
                             <p className="text-xs font-bold truncate" style={{ color: t.cor }}>{t.topico}</p>
                             <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.motivos.length} motivos</p>
@@ -664,23 +669,19 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                       ))}
                     </div>
                   ) : (
-                    /* Lista de motivos do tópico */
+                    /* Lista de motivos — grid 2 colunas com scroll interno limitado */
                     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                       <button onClick={() => setCreditoMotivoFase("topicos")}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold transition-colors hover:opacity-80"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
                         style={{ background: `${creditoMotivoTopico?.cor}18`, color: creditoMotivoTopico?.cor, borderBottom: "1px solid var(--border)" }}>
                         <ChevronLeft size={12} /> {creditoMotivoTopico?.emoji} {creditoMotivoTopico?.topico}
                       </button>
                       <div
-                        className="grid grid-cols-1 sm:grid-cols-2 overflow-y-auto overscroll-contain pr-1"
-                        style={{
-                          background: "var(--bg-card)",
-                          maxHeight: "clamp(180px, 34dvh, 320px)",
-                          overscrollBehavior: "contain",
-                        }}>
+                        className="grid grid-cols-2 overflow-y-auto overscroll-contain"
+                        style={{ background: "var(--bg-card)", maxHeight: "160px" }}>
                         {creditoMotivoTopico?.motivos.map(m => (
                           <button key={m} onClick={() => { setCreditoMotivo(m); setCreditoMotivoFase("topicos") }}
-                            className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 border-b sm:odd:border-r"
+                            className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/5 border-b odd:border-r"
                             style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}>
                             {m}
                           </button>
@@ -690,18 +691,10 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                   )}
                 </div>
 
-                {/* Observação */}
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Observação (opcional)</label>
-                  <input type="text" placeholder="Ex: Acordo com cliente, autorizado pela gerência..."
-                    value={creditoObs} onChange={e => setCreditoObs(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                </div>
                 {creditoErro && <p className="text-xs text-red-400">{creditoErro}</p>}
-                <div
-                  className="sticky bottom-0 z-10 flex gap-2 pt-2"
-                  style={{ background: "linear-gradient(180deg, transparent 0%, var(--bg-surface) 28%)" }}>
+
+                {/* Botões sempre visíveis */}
+                <div className="flex gap-2 pt-1">
                   <button onClick={adicionarCredito} disabled={creditoLoading}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     style={{ background: "#fbbf24", color: "#1a0f00" }}>
@@ -717,54 +710,58 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
               </motion.div>
             )}
 
-            {/* Histórico de movimentações */}
-            <p className="text-[10px] font-bold uppercase tracking-wider pt-1" style={{ color: "var(--text-muted)" }}>Movimentações</p>
-            {loadCreditos ? (
-              <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
-            ) : (creditosData?.data ?? []).length === 0 ? (
-              <div className="py-10 text-center">
-                <Wallet size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma movimentação de crédito ainda.</p>
-              </div>
-            ) : (creditosData?.data ?? []).map((mov, i) => {
-              const entrada = mov.tipo === "entrada"
-              const origemLabel: Record<string, string> = {
-                devolucao: "Devolução", troca: "Troca", venda: "Venda",
-                manual: "Manual", ajuste: "Ajuste",
-              }
-              return (
-                <motion.div key={mov.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="flex items-start gap-3 px-4 py-3 rounded-xl"
-                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                  <div className="mt-0.5 p-1.5 rounded-lg shrink-0"
-                    style={{ background: entrada ? "rgba(16,185,129,0.12)" : "rgba(248,113,113,0.12)" }}>
-                    {entrada
-                      ? <TrendingUp size={13} style={{ color: "#10b981" }} />
-                      : <TrendingDown size={13} style={{ color: "#f87171" }} />}
+            {/* Histórico de movimentações — oculto quando formulário de crédito está aberto */}
+            {!creditoForm && (
+              <>
+                <p className="text-[10px] font-bold uppercase tracking-wider pt-1" style={{ color: "var(--text-muted)" }}>Movimentações</p>
+                {loadCreditos ? (
+                  <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+                ) : (creditosData?.data ?? []).length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Wallet size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma movimentação de crédito ainda.</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase" style={{ color: entrada ? "#10b981" : "#f87171" }}>
-                        {entrada ? "+" : "–"} R$ {mov.valor.toFixed(2).replace(".", ",")}
-                      </span>
-                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        {new Date(mov.created_at).toLocaleDateString("pt-BR")}
-                      </span>
-                    </div>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                      {origemLabel[mov.origem] ?? mov.origem}
-                      {mov.operacao_id ? ` #${mov.operacao_id}` : ""}
-                      {mov.obs ? ` — ${mov.obs}` : ""}
-                    </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                      Saldo: R$ {mov.saldo_antes.toFixed(2).replace(".", ",")} → R$ {mov.saldo_depois.toFixed(2).replace(".", ",")}
-                      {mov.usuarios?.nome ? ` · ${mov.usuarios.nome}` : ""}
-                    </p>
-                  </div>
-                </motion.div>
-              )
-            })}
+                ) : (creditosData?.data ?? []).map((mov, i) => {
+                  const entrada = mov.tipo === "entrada"
+                  const origemLabel: Record<string, string> = {
+                    devolucao: "Devolução", troca: "Troca", venda: "Venda",
+                    manual: "Manual", ajuste: "Ajuste",
+                  }
+                  return (
+                    <motion.div key={mov.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div className="mt-0.5 p-1.5 rounded-lg shrink-0"
+                        style={{ background: entrada ? "rgba(16,185,129,0.12)" : "rgba(248,113,113,0.12)" }}>
+                        {entrada
+                          ? <TrendingUp size={13} style={{ color: "#10b981" }} />
+                          : <TrendingDown size={13} style={{ color: "#f87171" }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold uppercase" style={{ color: entrada ? "#10b981" : "#f87171" }}>
+                            {entrada ? "+" : "–"} R$ {mov.valor.toFixed(2).replace(".", ",")}
+                          </span>
+                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            {new Date(mov.created_at).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                          {origemLabel[mov.origem] ?? mov.origem}
+                          {mov.operacao_id ? ` #${mov.operacao_id}` : ""}
+                          {mov.obs ? ` — ${mov.obs}` : ""}
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                          Saldo: R$ {mov.saldo_antes.toFixed(2).replace(".", ",")} → R$ {mov.saldo_depois.toFixed(2).replace(".", ",")}
+                          {mov.usuarios?.nome ? ` · ${mov.usuarios.nome}` : ""}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </>
+            )}
           </div>
         )}
 
@@ -1041,35 +1038,22 @@ function DrawerCliente({
   const avatarBg = AVATAR_COLORS[inicial.charCodeAt(0) % AVATAR_COLORS.length]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop animado */}
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 flex">
 
-      {/* Modal centralizado */}
+      {/* Modal tela cheia */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 24 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.94, y: 16 }}
-        transition={{ type: "spring", stiffness: 340, damping: 30 }}
-        className="relative w-full flex flex-col overflow-hidden"
+        initial={{ opacity: 0, y: 32 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        transition={{ type: "spring", stiffness: 320, damping: 30 }}
+        className="relative w-full h-full flex flex-col overflow-hidden"
         style={{
-          maxWidth: 860,
-          height: "96dvh",
-          maxHeight: "96dvh",
           background: "var(--bg-card)",
-          border: "1px solid var(--border)",
-          borderRadius: 24,
-          boxShadow: "0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)",
+          borderRadius: 0,
         }}>
 
         {/* ── HERO ── */}
-        <div className="relative shrink-0 overflow-hidden" style={{ minHeight: "clamp(150px, 22dvh, 180px)" }}>
+        <div className="relative shrink-0 overflow-hidden">
           {/* Gradiente de fundo */}
           <div className="absolute inset-0" style={{
             background: `linear-gradient(135deg, ${avatarBg}28 0%, ${avatarBg}08 50%, transparent 100%)`,
@@ -1092,128 +1076,116 @@ function DrawerCliente({
             backgroundSize: "32px 32px",
           }} />
 
-          {/* Botão fechar */}
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 rounded-xl transition-all"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text-muted)" }}
-            whileHover={{ scale: 1.1, background: "rgba(248,113,113,0.15)" }}
-            whileTap={{ scale: 0.95 }}>
-            <X size={16} />
-          </motion.button>
-
-          {/* Conteúdo hero */}
-          <div className="relative z-10 px-8 pt-6 pb-5 flex items-end gap-6">
-            {/* Avatar grande com ilustração */}
+          {/* Conteúdo hero — linha única compacta */}
+          <div className="relative z-10 px-4 sm:px-6 py-3 flex items-center gap-3">
+            {/* Avatar */}
             <motion.div
               initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 22 }}
               className="relative shrink-0">
-              <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shadow-xl"
-                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, color: "#fff", boxShadow: `0 8px 32px ${avatarBg}55` }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, color: "#fff", boxShadow: `0 4px 16px ${avatarBg}55` }}>
                 {inicial}
               </div>
-              {/* Badge de status flutuante */}
               <motion.div
                 initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.22, type: "spring" }}
-                className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 flex items-center justify-center"
                 style={{ borderColor: "var(--bg-card)", background: cliente.ativo ? "#10b981" : "#64748b" }}>
-                <div className="w-2 h-2 rounded-full bg-white" />
+                <div className="w-1.5 h-1.5 rounded-full bg-white" />
               </motion.div>
             </motion.div>
 
-            {/* Nome + info básica */}
+            {/* Nome + badges */}
             <motion.div
-              initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.12 }}
-              className="flex-1 min-w-0 pb-1">
-              <p className="text-2xl font-black uppercase leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
+              className="flex-1 min-w-0">
+              <p className="text-base sm:text-lg font-black uppercase leading-tight tracking-tight truncate" style={{ color: "var(--text-primary)" }}>
                 {cliente.nome}
               </p>
               {cliente.apelido && (
-                <motion.p
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }}
-                  className="text-sm font-semibold mt-0.5"
-                  style={{ color: avatarBg }}>
-                  &ldquo;{cliente.apelido}&rdquo;
-                </motion.p>
+                <p className="text-xs font-semibold truncate" style={{ color: avatarBg }}>&ldquo;{cliente.apelido}&rdquo;</p>
               )}
-              <motion.div
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="flex flex-wrap items-center gap-2 mt-3">
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 <span className={cn(
-                  "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full uppercase",
+                  "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
                   cliente.ativo ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-500/15 text-slate-400"
                 )}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: cliente.ativo ? "#10b981" : "#64748b" }} />
                   {cliente.ativo ? "Ativa" : "Inativa"}
                 </span>
                 {cliente.celular && (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full"
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
                     style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)" }}>
-                    <Phone size={11} /> {cliente.celular}
+                    <Phone size={9} /> {cliente.celular}
                   </span>
                 )}
                 {cliente.cidade && (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full"
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
                     style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)" }}>
-                    <MapPin size={11} /> {cliente.cidade}{cliente.estado ? `/${cliente.estado}` : ""}
+                    <MapPin size={9} /> {cliente.cidade}{cliente.estado ? `/${cliente.estado}` : ""}
                   </span>
                 )}
-              </motion.div>
+              </div>
             </motion.div>
 
-            {/* Ações rápidas — lado direito do hero */}
+            {/* Ações + X — tudo em uma única linha */}
             <motion.div
-              initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.18 }}
-              className="shrink-0 flex flex-col gap-2 pb-1">
+              className="shrink-0 flex items-center gap-1.5">
               <motion.button onClick={onEditar} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
-                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, boxShadow: `0 4px 16px ${avatarBg}44` }}>
-                <Pencil size={14} /> Editar dados
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white whitespace-nowrap transition-all"
+                style={{ background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}cc 100%)`, boxShadow: `0 4px 12px ${avatarBg}44` }}>
+                <Pencil size={12} /> Editar
               </motion.button>
 
-              {/* Botão Notificar — único ponto de envio da mensagem de consentimento */}
               {cliente.celular && !["enviado", "autorizado"].includes(cliente.notificacao_status ?? "") && (
                 <motion.button onClick={onReenviarNotificacao} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all"
                   style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
-                  <Send size={13} />
+                  <Send size={11} />
                   {cliente.notificacao_status === "erro" ? "Reenviar" : "Notificar"}
                 </motion.button>
               )}
               {cliente.notificacao_status === "enviado" && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap"
                   style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
-                  <Clock size={13} /> Aguardando
+                  <Clock size={11} /> Aguardando
                 </div>
               )}
               {cliente.notificacao_status === "autorizado" && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap"
                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}>
-                  <CheckCircle2 size={13} /> Autorizado
+                  <CheckCircle2 size={11} /> Autorizado
                 </div>
               )}
               {cliente.notificacao_status === "recusado" && (
                 <motion.button onClick={onReenviarNotificacao} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all"
                   style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}>
-                  <Send size={13} /> Reenviar
+                  <Send size={11} /> Reenviar
                 </motion.button>
               )}
-
               <motion.button onClick={onToggleStatus} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all"
                 style={{
                   background: cliente.ativo ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
                   border: `1px solid ${cliente.ativo ? "rgba(248,113,113,0.3)" : "rgba(74,222,128,0.3)"}`,
                   color: cliente.ativo ? "#f87171" : "#4ade80",
                 }}>
-                <Power size={13} />
+                <Power size={11} />
                 {cliente.ativo ? "Desativar" : "Ativar"}
+              </motion.button>
+
+              {/* X na mesma linha */}
+              <motion.button onClick={onClose}
+                className="p-1.5 rounded-xl transition-all"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text-muted)" }}
+                whileHover={{ scale: 1.1, background: "rgba(248,113,113,0.15)" }}
+                whileTap={{ scale: 0.95 }}>
+                <X size={15} />
               </motion.button>
             </motion.div>
           </div>
@@ -1342,25 +1314,46 @@ function WizardCliente({
         if (valor.trim().length < 3) return
 
         const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
-        // Extrai número de casa (ex: "291"), cidade mencionada, UF
-        const numero   = valor.match(/\b(\d{1,5})\b/)?.[1] ?? ""
+
+        // ── 1. Extrai e remove complementos antes de qualquer parse ──
+        // Ex: "CASA 57", "APTO 3", "BL A", "BLOCO B AP 12", "LOTE 5", etc.
+        const RE_COMPLEMENTO = /\b(casa|apto?|ap|bloco|bl|lote|lt|sala|sl|conj|cj|andar|pavimento|pav|kit|kf)\s*\.?\s*[\d\w]*/gi
+        const complementoExtraido = (valor.match(RE_COMPLEMENTO) ?? []).join(" ").trim()
+        const valorSemCompl = valor.replace(RE_COMPLEMENTO, " ").replace(/\s+/g, " ").trim()
+
+        // ── 2. Extrai número de rua (primeiro número numérico no texto limpo) ──
+        const numero = valorSemCompl.match(/\b(\d{1,5})\b/)?.[1] ?? ""
+
+        // ── 3. Detecta UF ──
         const ufDetect = valor.match(/\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF|SE|TO|RO|AC|AP|AM|RR)\b/i)?.[1]?.toUpperCase() ?? "SP"
 
-        // Detecta cidade no texto (palavras com 5+ chars que não são tipo de logradouro)
+        // ── 4. Detecta cidade — lista expandida + fallback para cidade da loja ──
         const CIDADES_CONHECIDAS: Record<string, string> = {
-          "ribeirao preto": "Ribeirão Preto", "sao paulo": "São Paulo", "campinas": "Campinas",
-          "sorocaba": "Sorocaba", "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
+          "ribeirao preto": "Ribeirão Preto", "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
+          "sao paulo": "São Paulo", "sp": "São Paulo",
+          "campinas": "Campinas", "sorocaba": "Sorocaba",
+          "santos": "Santos", "guarulhos": "Guarulhos", "osasco": "Osasco",
+          "bauru": "Bauru", "sao jose do rio preto": "São José do Rio Preto",
+          "franca": "Franca", "araras": "Araras", "araraquara": "Araraquara",
+          "belo horizonte": "Belo Horizonte", "bh": "Belo Horizonte",
+          "rio de janeiro": "Rio de Janeiro", "rj": "Rio de Janeiro",
+          "curitiba": "Curitiba", "florianopolis": "Florianópolis", "porto alegre": "Porto Alegre",
+          "goiania": "Goiânia", "brasilia": "Brasília", "salvador": "Salvador",
+          "recife": "Recife", "fortaleza": "Fortaleza", "manaus": "Manaus",
         }
         const valorNorm = norm(valor)
         const cidadeDetect = Object.entries(CIDADES_CONHECIDAS).find(([k]) => valorNorm.includes(k))?.[1] ?? "Ribeirão Preto"
 
-        // Limpa o texto para busca: remove número, UF, cidade conhecida, prefixo tipo logradouro mantido
-        const semNumero = valor.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
+        // ── 5. Monta texto limpo apenas com tipo + nome da rua ──
+        const semNumero = valorSemCompl.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
         const somenteRua = semNumero
           .replace(new RegExp(`\\b(${Object.keys(CIDADES_CONHECIDAS).join("|")}|${ufDetect})\\b`, "gi"), " ")
           .replace(/\s+/g, " ").trim()
-        // Nome sem prefixo (rua, av, etc) para ViaCEP
+        // Nome sem prefixo de logradouro para ViaCEP
         const nomeRua = somenteRua.replace(/^(rua|avenida|av\.?|r\.?|estr\.?|estrada|travessa|tv\.?|alameda|al\.?|praça|pc\.?|rod\.?|rodovia)\s+/i, "").trim()
+
+        // Guarda complemento para preencher campo automaticamente ao selecionar
+        if (complementoExtraido) (window as unknown as Record<string, unknown>).__endComplemento = complementoExtraido
 
         const resultados: EndSugestao[] = []
         const chave = (s: EndSugestao) => norm(`${s.logradouro}|${s.bairro}|${s.cidade}`)
@@ -1447,9 +1440,20 @@ function WizardCliente({
 
   function selecionarEndereco(s: EndSugestao) {
     const numero = (s as EndSugestao & { _numero?: string })._numero ?? ""
-    setForm(f => ({ ...f, cep: s.cep, logradouro: s.logradouro, bairro: s.bairro, cidade: s.cidade, estado: s.estado, ...(numero ? { numero } : {}) }))
+    const complementoAuto = ((window as unknown as Record<string, unknown>).__endComplemento as string | undefined) ?? ""
+    setForm(f => ({
+      ...f,
+      cep: s.cep,
+      logradouro: s.logradouro,
+      bairro: s.bairro,
+      cidade: s.cidade,
+      estado: s.estado,
+      ...(numero ? { numero } : {}),
+      ...(complementoAuto && !f.complemento ? { complemento: complementoAuto.toUpperCase() } : {}),
+    }))
     setEndTexto([s.logradouro, s.bairro, s.cidade, s.estado, s.cep].filter(Boolean).join(", "))
     setEndSugestoes([]); setEndAberto(false)
+    delete (window as unknown as Record<string, unknown>).__endComplemento
     setCepStatus("encontrado")
     setTimeout(() => go(8), 180)
   }
@@ -1700,7 +1704,7 @@ function WizardCliente({
                       Qual o endereço?
                     </h1>
                     <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      Digite o CEP ou comece a digitar o endereço. Vamos buscar automaticamente.
+                      CEP, nome da rua, endereço completo com número ou complemento — buscamos automaticamente.
                     </p>
 
                     <div className="relative">
@@ -1710,7 +1714,7 @@ function WizardCliente({
                         onChange={e => onEndTextoChange(e.target.value)}
                         onFocus={() => { if (endSugestoes.length > 0) setEndAberto(true) }}
                         onBlur={() => setTimeout(() => setEndAberto(false), 180)}
-                        placeholder="CEP, rua, bairro ou endereço completo"
+                        placeholder="Ex: 14085-520 · Rua Ceará 1687 Casa 57 · Av. Brasil 200 Apto 3"
                         className={inputBase}
                         style={{
                           ...inputStyle,
@@ -2176,7 +2180,7 @@ export default function ClientesPage() {
           onBlur={() => { setTableFocused(false); resetSel() }}
           className="overflow-x-auto outline-none"
         >
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Nome", "WhatsApp", "Instagram", "Status", "Notificações", "Ações"].map(h => (

@@ -69,6 +69,34 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   }
 
+  // Valida limites de quantidade e valor da compra
+  {
+    const compraIdNum = parseInt(compraId)
+    const [{ data: compraLimites }, { data: jaVinculados }] = await Promise.all([
+      sb.from("live_compras").select("quantidade_itens, valor_total").eq("id", compraIdNum).single(),
+      sb.from("live_compra_produtos").select("quantidade, preco_live, preco_original").eq("compra_id", compraIdNum),
+    ])
+
+    const qtdEsperada = Number(compraLimites?.quantidade_itens ?? 0)
+    const valorTotal  = parseFloat(String(compraLimites?.valor_total ?? 0))
+    const qtdAtual    = (jaVinculados ?? []).reduce((s, p) => s + Number(p.quantidade ?? 1), 0)
+    const valorAtual  = (jaVinculados ?? []).reduce((s, p) => s + parseFloat(String(p.preco_live ?? p.preco_original ?? 0)) * Number(p.quantidade ?? 1), 0)
+    const precoLvNovo = parseFloat(String(preco_live ?? preco_original ?? 0))
+    const qtdNova     = quantidade ?? 1
+
+    if (qtdEsperada > 0 && qtdAtual + qtdNova > qtdEsperada) {
+      return NextResponse.json({
+        erro: `LIMITE DE ITENS ATINGIDO. ESTA COMPRA POSSUI ${qtdEsperada} ITEM(NS) E JÁ FORAM VINCULADOS ${qtdAtual}.`,
+      }, { status: 422 })
+    }
+    if (valorTotal > 0 && valorAtual + precoLvNovo * qtdNova > valorTotal) {
+      const fmtVal = (v: number) => "R$ " + v.toFixed(2).replace(".", ",")
+      return NextResponse.json({
+        erro: `VALOR LIMITE ATINGIDO. ESTA COMPRA TEM TOTAL DE ${fmtVal(valorTotal)} E OS ITENS JÁ VINCULADOS SOMAM ${fmtVal(valorAtual)}. NÃO É POSSÍVEL ADICIONAR MAIS ${fmtVal(precoLvNovo * qtdNova)}.`,
+      }, { status: 422 })
+    }
+  }
+
   // Insere na tabela dedicada live_compra_produtos
   const compraIdNum = parseInt(compraId)
   const qtd = quantidade ?? 1

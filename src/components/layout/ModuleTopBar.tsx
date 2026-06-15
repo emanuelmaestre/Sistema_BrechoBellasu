@@ -6,8 +6,9 @@ import {
   LayoutGrid, LogOut, Sun, Moon, Palette,
   ShoppingCart, Users, Package, Wallet,
   RefreshCw, BarChart2, Radio, Tag, Globe, Settings,
+  Calculator, Delete, CalendarDays, ChevronLeft, ChevronRight,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
 
@@ -36,6 +37,296 @@ function ThemeIcon({ theme }: { theme: Theme }) {
   return                        <Sun     size={14} />
 }
 
+// ── Shared: relógio ao vivo ───────────────────────────────
+const DIAS_SEMANA  = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
+const DIAS_SEMANA_FULL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]
+const MESES_ABREV  = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+const MESES_FULL   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+
+function useClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id) }, [])
+  return now
+}
+
+function usePopover() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener("mousedown", fn)
+    return () => document.removeEventListener("mousedown", fn)
+  }, [open])
+  return { open, setOpen, ref }
+}
+
+// ── Widget 1: Calendário ─────────────────────────────────
+function CalendarioWidget() {
+  const now = useClock()
+  const { open, setOpen, ref } = usePopover()
+  const [viewYear,  setViewYear]  = useState(now.getFullYear())
+  const [viewMonth, setViewMonth] = useState(now.getMonth())
+
+  const hh = now.getHours().toString().padStart(2,"0")
+  const mm = now.getMinutes().toString().padStart(2,"0")
+  const ss = now.getSeconds().toString().padStart(2,"0")
+
+  const hoje = new Date()
+  const primeiroDia = new Date(viewYear, viewMonth, 1).getDay()
+  const diasNoMes   = new Date(viewYear, viewMonth + 1, 0).getDate()
+
+  function navMes(dir: number) {
+    const d = new Date(viewYear, viewMonth + dir, 1)
+    setViewYear(d.getFullYear()); setViewMonth(d.getMonth())
+  }
+
+  const cells: (number | null)[] = [
+    ...Array.from({ length: primeiroDia }, (): null => null),
+    ...Array.from({ length: diasNoMes }, (_, i) => i + 1),
+  ]
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button onClick={() => setOpen(o => !o)}
+        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all select-none"
+        style={{
+          background: open ? "var(--accent-bg)" : "var(--bg-surface)",
+          border: `1px solid ${open ? "var(--accent)" : "var(--border)"}`,
+          color: open ? "var(--accent)" : "var(--text-secondary)",
+        }}>
+        <CalendarDays size={12} style={{ opacity: 0.7 }}/>
+        <span className="text-xs font-black tabular-nums tracking-wider">{hh}:{mm}</span>
+        <span className="text-[10px] font-medium hidden sm:block" style={{ color: "var(--text-muted)", opacity: 0.8 }}>
+          {DIAS_SEMANA[now.getDay()]}, {now.getDate().toString().padStart(2,"0")} {MESES_ABREV[now.getMonth()]} {now.getFullYear()}
+        </span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+            style={{ width: 286, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+
+            {/* Header com relógio */}
+            <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(135deg,var(--accent-bg),var(--bg-surface))" }}>
+              <div className="flex items-end justify-between">
+                <div>
+                  <motion.p key={`${hh}:${mm}`} initial={{ opacity: 0.4, y: 3 }} animate={{ opacity: 1, y: 0 }}
+                    className="text-3xl font-black tabular-nums leading-none"
+                    style={{ color: "var(--text-primary)", letterSpacing: "-1px" }}>
+                    {hh}:{mm}
+                    <span className="text-sm font-semibold ml-1" style={{ color: "var(--text-muted)" }}>:{ss}</span>
+                  </motion.p>
+                  <p className="text-[11px] font-semibold mt-1.5 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    {DIAS_SEMANA_FULL[now.getDay()]}, {now.getDate()} de {MESES_FULL[now.getMonth()].toLowerCase()} de {now.getFullYear()}
+                  </p>
+                </div>
+                <CalendarDays size={28} style={{ color: "var(--accent)", opacity: 0.35 }}/>
+              </div>
+            </div>
+
+            {/* Navegação de mês */}
+            <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+              <motion.button onClick={() => navMes(-1)} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
+                <ChevronLeft size={13}/>
+              </motion.button>
+              <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--text-primary)" }}>
+                {MESES_FULL[viewMonth]} {viewYear}
+              </p>
+              <motion.button onClick={() => navMes(1)} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
+                <ChevronRight size={13}/>
+              </motion.button>
+            </div>
+
+            {/* Grid do calendário */}
+            <div className="px-4 py-3">
+              {/* Cabeçalho dias da semana */}
+              <div className="grid grid-cols-7 mb-1">
+                {["D","S","T","Q","Q","S","S"].map((d, i) => (
+                  <div key={i} className="text-center text-[9px] font-black uppercase tracking-widest py-1"
+                    style={{ color: i === 0 || i === 6 ? "var(--accent)" : "var(--text-muted)" }}>{d}</div>
+                ))}
+              </div>
+              {/* Dias */}
+              <div className="grid grid-cols-7 gap-0.5">
+                {cells.map((dia, i) => {
+                  if (!dia) return <div key={i}/>
+                  const isHoje = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
+                  const isSun  = (primeiroDia + dia - 1) % 7 === 0
+                  const isSat  = (primeiroDia + dia - 1) % 7 === 6
+                  return (
+                    <motion.div key={dia} whileHover={{ scale: 1.2 }}
+                      className="flex items-center justify-center h-8 rounded-lg text-xs font-bold cursor-default"
+                      style={{
+                        background: isHoje ? "var(--accent)" : "transparent",
+                        color: isHoje ? "#fff" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
+                        fontWeight: isHoje ? 900 : undefined,
+                        boxShadow: isHoje ? "0 2px 8px var(--accent-bg)" : undefined,
+                      }}>
+                      {dia}
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Rodapé: voltar para hoje */}
+            <div className="px-4 pb-4">
+              <motion.button onClick={() => { setViewYear(hoje.getFullYear()); setViewMonth(hoje.getMonth()) }}
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                className="w-full py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors"
+                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                Hoje
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Widget 2: Calculadora ────────────────────────────────
+type CalcState = { display: string; prev: string; op: string | null; fresh: boolean }
+const CALC_INIT: CalcState = { display: "0", prev: "", op: null, fresh: false }
+
+function CalculadoraWidget() {
+  const { open, setOpen, ref } = usePopover()
+  const [calc, setCalc]  = useState<CalcState>(CALC_INIT)
+  const [flash, setFlash] = useState(false)
+
+  const calcInput = useCallback((val: string) => {
+    setCalc(prev => {
+      if (["+","-","×","÷"].includes(val)) {
+        const cur = parseFloat(prev.display) || 0
+        return { display: prev.display, prev: String(cur), op: val, fresh: true }
+      }
+      if (val === "=") {
+        if (!prev.op || !prev.prev) return prev
+        const a = parseFloat(prev.prev), b = parseFloat(prev.display)
+        let res = 0
+        if (prev.op === "+") res = a + b
+        if (prev.op === "-") res = a - b
+        if (prev.op === "×") res = a * b
+        if (prev.op === "÷") res = b !== 0 ? a / b : 0
+        const disp = parseFloat(res.toFixed(10)).toString()
+        setFlash(true); setTimeout(() => setFlash(false), 300)
+        return { display: disp, prev: "", op: null, fresh: true }
+      }
+      if (val === "C") return CALC_INIT
+      if (val === "⌫") { const d = prev.display.length > 1 ? prev.display.slice(0,-1) : "0"; return { ...prev, display: d } }
+      if (val === ".") { const d = prev.fresh ? "0." : prev.display.includes(".") ? prev.display : prev.display + "."; return { ...prev, display: d, fresh: false } }
+      const d = prev.fresh || prev.display === "0" ? val : prev.display + val
+      return { ...prev, display: d.slice(0,12), fresh: false }
+    })
+  }, [])
+
+  const BTNS = [
+    ["C","⌫","÷","×"],
+    ["7","8","9","-"],
+    ["4","5","6","+"],
+    ["1","2","3","="],
+    ["0",".","",""],
+  ]
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button onClick={() => setOpen(o => !o)}
+        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+        title="Calculadora"
+        className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+        style={{
+          background: open ? "var(--accent-bg)" : "var(--bg-surface)",
+          border: `1px solid ${open ? "var(--accent)" : "var(--border)"}`,
+          color: open ? "var(--accent)" : "var(--text-muted)",
+        }}>
+        <Calculator size={14}/>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+            style={{ width: 240, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+
+            {/* Header */}
+            <div className="px-4 py-3 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg,var(--accent-bg),var(--bg-surface))", borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <Calculator size={14} style={{ color: "var(--accent)" }}/>
+                <span className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>Calculadora</span>
+              </div>
+              <motion.button onClick={() => setCalc(CALC_INIT)} whileHover={{ scale: 1.1 }}
+                className="text-[9px] font-black uppercase px-2 py-1 rounded-lg"
+                style={{ background: "var(--bg-hover)", color: "var(--text-muted)" }}>
+                limpar
+              </motion.button>
+            </div>
+
+            {/* Display */}
+            <div className="px-4 pt-3 pb-2">
+              <motion.div animate={flash ? { scale: [1,1.03,1] } : {}} transition={{ duration: 0.2 }}
+                className="rounded-xl px-4 py-3 text-right"
+                style={{ background: "var(--bg-surface)", border: "1.5px solid var(--border)" }}>
+                {calc.op && (
+                  <p className="text-[10px] font-bold mb-0.5 tabular-nums" style={{ color: "var(--accent)", opacity: 0.7 }}>
+                    {calc.prev} {calc.op}
+                  </p>
+                )}
+                <motion.p key={calc.display} initial={{ opacity: 0.5, x: 3 }} animate={{ opacity: 1, x: 0 }}
+                  className="text-2xl font-black tabular-nums truncate"
+                  style={{ color: flash ? "#10b981" : "var(--text-primary)", letterSpacing: "-0.5px" }}>
+                  {calc.display}
+                </motion.p>
+              </motion.div>
+            </div>
+
+            {/* Botões */}
+            <div className="px-4 pb-4 space-y-1.5">
+              {BTNS.map((row, ri) => (
+                <div key={ri} className="grid grid-cols-4 gap-1.5">
+                  {row.map((btn, bi) => {
+                    if (!btn) return <div key={bi}/>
+                    const isOp  = ["+","-","×","÷"].includes(btn)
+                    const isEq  = btn === "="
+                    const isClr = btn === "C"
+                    const isDel = btn === "⌫"
+                    const isZero = btn === "0"
+                    return (
+                      <motion.button key={bi} onClick={() => calcInput(btn)}
+                        whileHover={{ scale: 1.09 }} whileTap={{ scale: 0.87 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                        className={`${isZero ? "col-span-2" : ""} h-10 rounded-xl text-sm font-black flex items-center justify-center`}
+                        style={{
+                          background: isEq  ? "var(--accent)" : isOp ? "var(--accent-bg)" : isClr ? "rgba(239,68,68,0.1)" : "var(--bg-surface)",
+                          color:      isEq  ? "#fff" : isOp ? "var(--accent)" : isClr ? "#f87171" : "var(--text-primary)",
+                          border:     `1px solid ${isEq ? "var(--accent)" : isOp ? "var(--accent)" : "var(--border)"}`,
+                          boxShadow:  isEq ? "0 2px 10px var(--accent-bg)" : "none",
+                        }}>
+                        {isDel ? <Delete size={13}/> : btn}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 export function ModuleTopBar() {
   const router   = useRouter()
   const pathname = usePathname()
@@ -60,7 +351,7 @@ export function ModuleTopBar() {
   return (
     <div
       id="module-topbar"
-      className="flex items-center gap-3 px-5 py-3 shrink-0 relative z-20"
+      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 shrink-0 relative z-20"
       style={{
         background:   "var(--bg-card)",
         borderBottom: "1px solid var(--border)",
@@ -94,6 +385,12 @@ export function ModuleTopBar() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Calendário (com relógio) */}
+      <CalendarioWidget />
+
+      {/* Calculadora */}
+      <CalculadoraWidget />
 
       {/* Voltar ao Menu */}
       <motion.button
