@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
+import { CalendarioWidget, CalculadoraWidget } from "@/components/layout/ModuleTopBar"
 
 // ─── Módulos ──────────────────────────────────────────────
 const LEFT = [
@@ -191,6 +192,10 @@ export default function MenuPage() {
         </div>
 
         <div className="flex-1" />
+
+        {/* Calendário e Calculadora */}
+        <CalendarioWidget />
+        <CalculadoraWidget />
 
         {/* Saudação: md+ only */}
         <div className="hidden md:flex flex-col items-end mr-1">

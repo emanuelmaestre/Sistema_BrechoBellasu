@@ -625,7 +625,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
 
-      <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} subtitulo={form.nome_produto || ""} />
+      <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>

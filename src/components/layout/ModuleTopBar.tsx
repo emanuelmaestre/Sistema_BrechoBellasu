@@ -62,7 +62,7 @@ function usePopover() {
 }
 
 // ── Widget 1: Calendário ─────────────────────────────────
-function CalendarioWidget() {
+export function CalendarioWidget() {
   const now = useClock()
   const { open, setOpen, ref } = usePopover()
   const [viewYear,  setViewYear]  = useState(now.getFullYear())
@@ -198,7 +198,7 @@ function CalendarioWidget() {
 type CalcState = { display: string; prev: string; op: string | null; fresh: boolean }
 const CALC_INIT: CalcState = { display: "0", prev: "", op: null, fresh: false }
 
-function CalculadoraWidget() {
+export function CalculadoraWidget() {
   const { open, setOpen, ref } = usePopover()
   const [calc, setCalc]  = useState<CalcState>(CALC_INIT)
   const [flash, setFlash] = useState(false)
@@ -208,6 +208,18 @@ function CalculadoraWidget() {
       if (["+","-","×","÷"].includes(val)) {
         const cur = parseFloat(prev.display) || 0
         return { display: prev.display, prev: String(cur), op: val, fresh: true }
+      }
+      if (val === "%") {
+        const cur = parseFloat(prev.display) || 0
+        if (prev.op && prev.prev) {
+          // Percentual relativo: 200 + 10% → 200 + 20
+          const base = parseFloat(prev.prev)
+          const pct  = base * cur / 100
+          return { ...prev, display: parseFloat(pct.toFixed(10)).toString(), fresh: false }
+        }
+        // Percentual simples: 50% → 0.5
+        const disp = parseFloat((cur / 100).toFixed(10)).toString()
+        return { ...prev, display: disp, fresh: true }
       }
       if (val === "=") {
         if (!prev.op || !prev.prev) return prev
@@ -225,16 +237,21 @@ function CalculadoraWidget() {
       if (val === "⌫") { const d = prev.display.length > 1 ? prev.display.slice(0,-1) : "0"; return { ...prev, display: d } }
       if (val === ".") { const d = prev.fresh ? "0." : prev.display.includes(".") ? prev.display : prev.display + "."; return { ...prev, display: d, fresh: false } }
       const d = prev.fresh || prev.display === "0" ? val : prev.display + val
-      return { ...prev, display: d.slice(0,12), fresh: false }
+      return { ...prev, display: d.slice(0,14), fresh: false }
     })
   }, [])
 
+  // Layout: C | ⌫ | % | ÷
+  //         7 | 8 | 9 | ×
+  //         4 | 5 | 6 | -
+  //         1 | 2 | 3 | +
+  //         0(x2) | . | =
   const BTNS = [
-    ["C","⌫","÷","×"],
-    ["7","8","9","-"],
-    ["4","5","6","+"],
-    ["1","2","3","="],
-    ["0",".","",""],
+    ["C","⌫","%","÷"],
+    ["7","8","9","×"],
+    ["4","5","6","-"],
+    ["1","2","3","+"],
+    ["0","0",".","="],
   ]
 
   return (
@@ -257,7 +274,7 @@ function CalculadoraWidget() {
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 240, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+            style={{ width: 340, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
 
             {/* Header */}
             <div className="px-4 py-3 flex items-center justify-between"
@@ -274,17 +291,17 @@ function CalculadoraWidget() {
             </div>
 
             {/* Display */}
-            <div className="px-4 pt-3 pb-2">
+            <div className="px-4 pt-4 pb-2">
               <motion.div animate={flash ? { scale: [1,1.03,1] } : {}} transition={{ duration: 0.2 }}
                 className="rounded-xl px-4 py-3 text-right"
                 style={{ background: "var(--bg-surface)", border: "1.5px solid var(--border)" }}>
                 {calc.op && (
-                  <p className="text-[10px] font-bold mb-0.5 tabular-nums" style={{ color: "var(--accent)", opacity: 0.7 }}>
+                  <p className="text-xs font-bold mb-0.5 tabular-nums" style={{ color: "var(--accent)", opacity: 0.7 }}>
                     {calc.prev} {calc.op}
                   </p>
                 )}
                 <motion.p key={calc.display} initial={{ opacity: 0.5, x: 3 }} animate={{ opacity: 1, x: 0 }}
-                  className="text-2xl font-black tabular-nums truncate"
+                  className="text-4xl font-black tabular-nums truncate"
                   style={{ color: flash ? "#10b981" : "var(--text-primary)", letterSpacing: "-0.5px" }}>
                   {calc.display}
                 </motion.p>
@@ -292,28 +309,39 @@ function CalculadoraWidget() {
             </div>
 
             {/* Botões */}
-            <div className="px-4 pb-4 space-y-1.5">
+            <div className="px-4 pb-4 pt-2 space-y-2">
               {BTNS.map((row, ri) => (
-                <div key={ri} className="grid grid-cols-4 gap-1.5">
+                <div key={ri} className="grid grid-cols-4 gap-2">
                   {row.map((btn, bi) => {
-                    if (!btn) return <div key={bi}/>
-                    const isOp  = ["+","-","×","÷"].includes(btn)
-                    const isEq  = btn === "="
-                    const isClr = btn === "C"
-                    const isDel = btn === "⌫"
-                    const isZero = btn === "0"
+                    // Última linha: 0 ocupa 2 colunas, então pula o segundo "0"
+                    if (ri === 4 && bi === 1) return null
+                    const isOp   = ["+","-","×","÷"].includes(btn)
+                    const isEq   = btn === "="
+                    const isClr  = btn === "C"
+                    const isDel  = btn === "⌫"
+                    const isPct  = btn === "%"
+                    const isZero = ri === 4 && bi === 0
                     return (
-                      <motion.button key={bi} onClick={() => calcInput(btn)}
-                        whileHover={{ scale: 1.09 }} whileTap={{ scale: 0.87 }}
+                      <motion.button key={`${ri}-${bi}`} onClick={() => calcInput(btn)}
+                        whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.88 }}
                         transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                        className={`${isZero ? "col-span-2" : ""} h-10 rounded-xl text-sm font-black flex items-center justify-center`}
+                        className={`${isZero ? "col-span-2" : ""} h-14 rounded-xl text-lg font-black flex items-center justify-center`}
                         style={{
-                          background: isEq  ? "var(--accent)" : isOp ? "var(--accent-bg)" : isClr ? "rgba(239,68,68,0.1)" : "var(--bg-surface)",
-                          color:      isEq  ? "#fff" : isOp ? "var(--accent)" : isClr ? "#f87171" : "var(--text-primary)",
-                          border:     `1px solid ${isEq ? "var(--accent)" : isOp ? "var(--accent)" : "var(--border)"}`,
-                          boxShadow:  isEq ? "0 2px 10px var(--accent-bg)" : "none",
+                          background: isEq  ? "var(--accent)"
+                                    : isOp  ? "var(--accent-bg)"
+                                    : isPct ? "rgba(99,102,241,0.08)"
+                                    : isClr ? "rgba(239,68,68,0.1)"
+                                    : "var(--bg-surface)",
+                          color: isEq  ? "#fff"
+                               : isOp  ? "var(--accent)"
+                               : isPct ? "var(--accent)"
+                               : isClr ? "#f87171"
+                               : "var(--text-primary)",
+                          border: `1px solid ${isEq ? "var(--accent)" : isOp || isPct ? "var(--accent)" : "var(--border)"}`,
+                          boxShadow: isEq ? "0 2px 12px var(--accent-bg)" : "none",
+                          fontSize: isDel ? undefined : undefined,
                         }}>
-                        {isDel ? <Delete size={13}/> : btn}
+                        {isDel ? <Delete size={15}/> : btn}
                       </motion.button>
                     )
                   })}

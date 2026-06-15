@@ -1329,8 +1329,9 @@ function WizardCliente({
 
         // ── 4. Detecta cidade — lista expandida + fallback para cidade da loja ──
         const CIDADES_CONHECIDAS: Record<string, string> = {
-          "ribeirao preto": "Ribeirão Preto", "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
-          "sao paulo": "São Paulo", "sp": "São Paulo",
+          "ribeirao preto": "Ribeirão Preto", "ribeirão preto": "Ribeirão Preto",
+          "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
+          "sao paulo": "São Paulo", "são paulo": "São Paulo",
           "campinas": "Campinas", "sorocaba": "Sorocaba",
           "santos": "Santos", "guarulhos": "Guarulhos", "osasco": "Osasco",
           "bauru": "Bauru", "sao jose do rio preto": "São José do Rio Preto",
@@ -1340,14 +1341,25 @@ function WizardCliente({
           "curitiba": "Curitiba", "florianopolis": "Florianópolis", "porto alegre": "Porto Alegre",
           "goiania": "Goiânia", "brasilia": "Brasília", "salvador": "Salvador",
           "recife": "Recife", "fortaleza": "Fortaleza", "manaus": "Manaus",
+          "jardinopolis": "Jardinópolis", "serrana": "Serrana", "pontal": "Pontal",
+          "brodowski": "Brodowski", "sertaozinho": "Sertãozinho", "barrinha": "Barrinha",
+          "dumont": "Dumont", "cravinhos": "Cravinhos", "luis antonio": "Luís Antônio",
+          "santa rosa de viterbo": "Santa Rosa de Viterbo", "serra azul": "Serra Azul",
         }
         const valorNorm = norm(valor)
-        const cidadeDetect = Object.entries(CIDADES_CONHECIDAS).find(([k]) => valorNorm.includes(k))?.[1] ?? "Ribeirão Preto"
+        // Ordena chaves por comprimento decrescente para evitar match parcial errado
+        const cidadeDetect = Object.entries(CIDADES_CONHECIDAS)
+          .sort((a, b) => b[0].length - a[0].length)
+          .find(([k]) => valorNorm.includes(norm(k)))?.[1] ?? "Ribeirão Preto"
 
-        // ── 5. Monta texto limpo apenas com tipo + nome da rua ──
+        // ── 5. Remove cidade/UF do texto para isolar só o logradouro ──
         const semNumero = valorSemCompl.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
+        // Remove qualquer menção à cidade e UF do texto antes de passar para a API
+        const cidadeParaRemover = norm(cidadeDetect).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
         const somenteRua = semNumero
-          .replace(new RegExp(`\\b(${Object.keys(CIDADES_CONHECIDAS).join("|")}|${ufDetect})\\b`, "gi"), " ")
+          .replace(new RegExp(`(${cidadeParaRemover}|${Object.keys(CIDADES_CONHECIDAS).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|ribeirão\\s+preto|ribeirao\\s+preto)`, "gi"), " ")
+          .replace(new RegExp(`\\b(${ufDetect}|SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE)\\b`, "gi"), " ")
+          .replace(/[,-]/g, " ")
           .replace(/\s+/g, " ").trim()
         // Nome sem prefixo de logradouro para ViaCEP
         const nomeRua = somenteRua.replace(/^(rua|avenida|av\.?|r\.?|estr\.?|estrada|travessa|tv\.?|alameda|al\.?|praça|pc\.?|rod\.?|rodovia)\s+/i, "").trim()
@@ -1430,6 +1442,14 @@ function WizardCliente({
 
         // Salva número capturado para injetar no campo Número ao selecionar
         if (numero) resultados.forEach(s => { (s as EndSugestao & { _numero?: string })._numero = numero })
+
+        // Prioriza Ribeirão Preto no topo
+        const rpNorm = (s: EndSugestao) => norm(s.cidade).includes("ribeirao preto") || norm(s.cidade).includes("ribeirão preto")
+        resultados.sort((a, b) => {
+          if (rpNorm(a) && !rpNorm(b)) return -1
+          if (!rpNorm(a) && rpNorm(b)) return 1
+          return 0
+        })
 
         setEndSugestoes(resultados)
         setEndAberto(resultados.length > 0)
@@ -2057,6 +2077,8 @@ export default function ClientesPage() {
   const [busca, setBusca]         = useState("")
   const buscaDebounced            = useDebounce(busca, 350)
   const [status, setStatus]       = useState("ativos")
+  const [toggleLoadingId, setToggleLoadingId] = useState<number | null>(null)
+  const [toggleToast, setToggleToast] = useState<{ ativo: boolean } | null>(null)
   const [wizard, setWizard]       = useState(false)
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
@@ -2097,7 +2119,13 @@ export default function ClientesPage() {
   const toggleStatus = useMutation({
     mutationFn: ({ id, ativo }: { id: number; ativo: boolean }) =>
       apiPatch(`/clientes/${id}/status`, { ativo }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["clientes"] }),
+    onMutate: ({ id }) => setToggleLoadingId(id),
+    onSettled: () => setToggleLoadingId(null),
+    onSuccess: (_data, { ativo }) => {
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      setToggleToast({ ativo })
+      setTimeout(() => setToggleToast(null), 3000)
+    },
   })
 
   function abrirDrawer(c: Cliente) {
@@ -2247,12 +2275,33 @@ export default function ClientesPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => toggleStatus.mutate({ id: c.id, ativo: !c.ativo })}
-                        className="p-1.5 rounded-lg transition-colors"
-                        style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = c.ativo ? "#f87171" : "#4ade80" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                        {c.ativo ? <UserX size={14} /> : <UserCheck size={14} />}
+                      <button
+                        onClick={() => toggleStatus.mutate({ id: c.id, ativo: !c.ativo })}
+                        disabled={toggleLoadingId === c.id}
+                        title={c.ativo ? "Desativar cliente" : "Ativar cliente"}
+                        className="relative p-1.5 rounded-lg transition-all duration-200 group overflow-hidden"
+                        style={{
+                          color: toggleLoadingId === c.id ? (c.ativo ? "#f87171" : "#4ade80") : "var(--text-muted)",
+                          background: toggleLoadingId === c.id ? (c.ativo ? "rgba(248,113,113,0.15)" : "rgba(74,222,128,0.15)") : "transparent",
+                          transform: toggleLoadingId === c.id ? "scale(1.15)" : "scale(1)",
+                        }}
+                        onMouseEnter={e => {
+                          const b = e.currentTarget
+                          b.style.color = c.ativo ? "#f87171" : "#4ade80"
+                          b.style.background = c.ativo ? "rgba(248,113,113,0.12)" : "rgba(74,222,128,0.12)"
+                          b.style.transform = "scale(1.1)"
+                        }}
+                        onMouseLeave={e => {
+                          const b = e.currentTarget
+                          if (toggleLoadingId !== c.id) {
+                            b.style.color = "var(--text-muted)"
+                            b.style.background = "transparent"
+                            b.style.transform = "scale(1)"
+                          }
+                        }}>
+                        {toggleLoadingId === c.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : c.ativo ? <UserX size={14} /> : <UserCheck size={14} />}
                       </button>
                     </div>
                   </td>
@@ -2284,6 +2333,54 @@ export default function ClientesPage() {
             onClose={() => { setWizard(false); setEditForm(null); setEditId(null) }}
             onSalvo={() => { setWizard(false); setEditForm(null); setEditId(null) }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Toast ativar/inativar */}
+      <AnimatePresence>
+        {toggleToast && (
+          <motion.div
+            key="toggle-toast"
+            initial={{ opacity: 0, y: 60, scale: 0.85 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            className="fixed bottom-6 left-1/2 z-[999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl select-none"
+            style={{
+              transform: "translateX(-50%)",
+              background: toggleToast.ativo
+                ? "linear-gradient(135deg, #16a34a, #22c55e)"
+                : "linear-gradient(135deg, #dc2626, #ef4444)",
+              boxShadow: toggleToast.ativo
+                ? "0 8px 32px rgba(22,163,74,0.45), 0 2px 8px rgba(0,0,0,0.2)"
+                : "0 8px 32px rgba(220,38,38,0.45), 0 2px 8px rgba(0,0,0,0.2)",
+            }}>
+            <motion.div
+              initial={{ scale: 0 }} animate={{ scale: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 500 }}
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255,255,0.22)" }}>
+              {toggleToast.ativo
+                ? <UserCheck size={16} color="#fff" strokeWidth={2.5} />
+                : <UserX     size={16} color="#fff" strokeWidth={2.5} />}
+            </motion.div>
+            <div>
+              <p className="text-sm font-bold text-white leading-tight">
+                {toggleToast.ativo ? "Cliente ativado!" : "Cliente inativado!"}
+              </p>
+              <p className="text-[11px] text-white/70 leading-tight">
+                {toggleToast.ativo ? "Status atualizado para ativo" : "Status atualizado para inativo"}
+              </p>
+            </div>
+            {/* Barra de progresso */}
+            <motion.div
+              className="absolute bottom-0 left-0 h-[3px] rounded-b-2xl"
+              style={{ background: "rgba(255,255,255,0.4)" }}
+              initial={{ width: "100%" }}
+              animate={{ width: "0%" }}
+              transition={{ duration: 3, ease: "linear" }}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
 
