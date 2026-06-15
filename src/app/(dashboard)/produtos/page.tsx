@@ -846,10 +846,12 @@ export default function ProdutosPage() {
     } catch { alert("Erro ao excluir produto.") } finally { setExcluindoId(null) }
   }
 
+  const buscaDebounced = useDebounce(busca, 300)
+
   const { data, isLoading } = useQuery<{ data: Produto[]; total: number }>({
-    queryKey: ["produtos", busca, catFiltro],
+    queryKey: ["produtos", buscaDebounced, catFiltro],
     queryFn: () => {
-      const qs = new URLSearchParams({ limit: "100", ...(busca && { busca }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
+      const qs = new URLSearchParams({ limit: "100", ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
       return apiGet(`/produtos?${qs}`)
     },
     staleTime: 30_000,
