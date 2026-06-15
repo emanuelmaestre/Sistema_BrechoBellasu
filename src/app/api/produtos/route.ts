@@ -32,11 +32,23 @@ export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const sb = createServerClient()
+
+    // Auto-gerar código sequencial com 4 dígitos se não informado
+    let codigo: string | null = body.codigo?.trim() || null
+    if (!codigo) {
+      const { data: existing } = await sb.from("produtos").select("codigo").not("codigo", "is", null)
+      const maxNum = (existing ?? [])
+        .map((p: { codigo: string | null }) => parseInt(p.codigo ?? "0", 10))
+        .filter((n: number) => !isNaN(n) && n > 0)
+        .reduce((max: number, n: number) => Math.max(max, n), 0)
+      codigo = String(maxNum + 1).padStart(4, "0")
+    }
+
     const useCase = new CriarProdutoUseCase(new ProdutoRepositorySupabase(sb))
 
     const resultado = await useCase.execute({
       nome: body.nome,
-      codigo: body.codigo ?? null,
+      codigo,
       categoriaId: body.categoria_id ?? null,
       marca: body.marca ?? null,
       precoVenda: body.preco_venda ?? 0,
