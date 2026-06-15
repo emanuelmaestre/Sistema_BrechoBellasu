@@ -350,17 +350,19 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   // Step 3 — pagamento (multi-select)
   const [formas, setFormas]       = useState<string[]>(["Dinheiro"])
   const [saldoCredito, setSaldoCredito] = useState(0)
-  const [creditoUsar, setCreditoUsar]   = useState("")
 
-  // Step 4 — desconto
+  // Step 4 — divisão do pagamento (só quando formas.length > 1)
+  const [divisao, setDivisao]     = useState<Record<string, number>>({})
+
+  // Step 5 — desconto
   const [desconto, setDesconto]   = useState("")
 
-  // Step 5 — observações
+  // Step 6 — observações
   const [obs, setObs]             = useState("")
 
   const inputRef   = useRef<HTMLInputElement>(null)
   const obsRef     = useRef<HTMLTextAreaElement>(null)
-  const TOTAL = 6
+  const TOTAL = 7
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 280)
@@ -436,7 +438,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
         toggleForma(FORMAS[formaIdx])
       } else if (e.key === "Enter") {
         e.preventDefault()
-        go(4)
+        advance()
       }
     }
     document.addEventListener("keydown", handlePayKey)
@@ -456,6 +458,23 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 
   function advance() {
     if (step === 2 && itens.length === 0) { setErro("Adicione pelo menos um produto"); return }
+    if (step === 3) {
+      if (formas.length === 1 && formas[0] === "Crédito" && totalFinal > saldoCredito) {
+        setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
+      }
+      go(formas.length > 1 ? 4 : 5); return
+    }
+    if (step === 4) {
+      const soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
+      const diff = soma - totalFinal
+      if (Math.abs(diff) > 0.01) {
+        setErro(diff < 0 ? `Falta distribuir ${fmtBRL(totalFinal - soma)}` : `Soma ultrapassa o total em ${fmtBRL(diff)}`); return
+      }
+      if (formas.includes("Crédito") && (divisao["Crédito"] ?? 0) > saldoCredito) {
+        setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
+      }
+      go(5); return
+    }
     if (step < TOTAL) go(step + 1)
   }
 
@@ -466,7 +485,10 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
-      const creditoUsarVal = parseFloat(creditoUsar.replace(",", ".")) || 0
+      let creditoUsarVal = 0
+      if (formas.includes("Crédito")) {
+        creditoUsarVal = formas.length === 1 ? totalFinal : (divisao["Crédito"] ?? 0)
+      }
       const res = await apiPost<{ id: number; total: number }>("/vendas", {
         cliente_id: clienteId,
         forma_pagamento: formas.join(" + "),
@@ -516,13 +538,11 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && step < TOTAL && step !== 2) {
-      // No step 5 (observações): Enter avança se obs estiver vazia
-      // Se obs tiver texto e o textarea estiver focado, Enter adiciona nova linha
-      if (step === 5 && document.activeElement === obsRef.current && obs.trim() !== "") return
+      if (step === 6 && document.activeElement === obsRef.current && obs.trim() !== "") return
       e.preventDefault(); advance()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, itens, formas, obs])
+  }, [step, itens, formas, obs, divisao, saldoCredito, totalFinal])
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
@@ -548,7 +568,9 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Nova Venda</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>{step} / {TOTAL}</span>
+          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>
+            {step > 4 && formas.length === 1 ? step - 1 : step} / {formas.length > 1 ? TOTAL : TOTAL - 1}
+          </span>
           <button onClick={onClose}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
             style={{ color: "var(--text-secondary)" }}
@@ -742,37 +764,24 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     </motion.div>
                   )}
 
-                  {/* Campos de uso de crédito */}
-                  {formas.includes("Crédito") && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 space-y-3">
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>
-                          Valor em crédito (máx. R$ {Math.min(saldoCredito, totalFinal).toFixed(2).replace(".", ",")})
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
-                          <input
-                            value={creditoUsar}
-                            onChange={e => setCreditoUsar(e.target.value)}
-                            placeholder="0,00"
-                            inputMode="decimal"
-                            className={cn(iBase, "pl-12 text-base py-3")} style={iSt} />
-                        </div>
-                      </div>
-                      {(() => {
-                        const cu = parseFloat(creditoUsar.replace(",", ".")) || 0
-                        const restante = Math.max(0, totalFinal - cu)
-                        return restante > 0 && (
-                          <div className="px-4 py-3 rounded-2xl flex items-center justify-between"
-                            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                            <span className="text-sm" style={{ color: "var(--text-muted)" }}>Restante a cobrar</span>
-                            <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                              R$ {restante.toFixed(2).replace(".", ",")}
-                            </span>
-                          </div>
-                        )
-                      })()}
+                  {/* Aviso: crédito único — validação feita no advance */}
+                  {formas.includes("Crédito") && formas.length === 1 && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 px-4 py-3 rounded-2xl"
+                      style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
+                      <p className="text-xs font-semibold" style={{ color: "#fbbf24" }}>
+                        O valor total ({fmtBRL(totalFinal)}) será cobrado em crédito.
+                      </p>
+                    </motion.div>
+                  )}
+                  {/* Aviso: crédito + outras formas */}
+                  {formas.includes("Crédito") && formas.length > 1 && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 px-4 py-3 rounded-2xl"
+                      style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
+                      <p className="text-xs font-semibold" style={{ color: "#fbbf24" }}>
+                        Na próxima etapa você define quanto será pago em crédito.
+                      </p>
                     </motion.div>
                   )}
 
@@ -795,8 +804,76 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                   </p>
                 </>}
 
-                {/* ── Step 4: Desconto ── */}
+                {/* ── Step 4: Divisão do pagamento ── */}
                 {step === 4 && <>
+                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Divisão do pagamento</h1>
+                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Informe quanto será pago em cada forma selecionada.</p>
+
+                  {/* Resumo distribuição */}
+                  {(() => {
+                    const soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
+                    const falta = totalFinal - soma
+                    return (
+                      <div className="mb-5 grid grid-cols-3 gap-3 px-4 py-3 rounded-2xl"
+                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
+                          <p className="text-base font-bold" style={{ color: COR }}>{fmtBRL(totalFinal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Distribuído</p>
+                          <p className="text-base font-bold" style={{ color: soma > totalFinal + 0.01 ? "#f87171" : "var(--text-primary)" }}>{fmtBRL(soma)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Falta</p>
+                          <p className="text-base font-bold" style={{ color: falta <= 0.01 ? "#10b981" : "#fbbf24" }}>{fmtBRL(Math.max(0, falta))}</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Inputs por forma */}
+                  <div className="space-y-3">
+                    {formas.map((f, i) => {
+                      const isCredito = f === "Crédito"
+                      const maxVal = isCredito ? Math.min(saldoCredito, totalFinal) : undefined
+                      const rawVal = divisao[f]
+                      const displayVal = rawVal !== undefined && rawVal > 0 ? String(rawVal).replace(".", ",") : ""
+                      return (
+                        <div key={f}>
+                          <label className="text-xs font-bold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>
+                            {f}{isCredito && saldoCredito > 0 ? ` (máx. ${fmtBRL(Math.min(saldoCredito, totalFinal))})` : ""}
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
+                            <input
+                              value={displayVal}
+                              autoFocus={i === 0}
+                              onChange={e => {
+                                const raw = e.target.value.replace(",", ".")
+                                const val = parseFloat(raw)
+                                const newVal = isNaN(val) ? 0 : maxVal !== undefined ? Math.min(val, maxVal) : val
+                                const updated = { ...divisao, [f]: parseFloat(newVal.toFixed(2)) }
+                                // Ao digitar o primeiro campo de dois: preenche o restante automaticamente
+                                if (formas.length === 2 && i === 0) {
+                                  const other = formas[1]
+                                  const rem = Math.max(0, totalFinal - newVal)
+                                  updated[other] = parseFloat((other === "Crédito" ? Math.min(saldoCredito, rem) : rem).toFixed(2))
+                                }
+                                setDivisao(updated)
+                              }}
+                              placeholder="0,00"
+                              inputMode="decimal"
+                              className={cn(iBase, "pl-12 text-base py-3")} style={iSt} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>}
+
+                {/* ── Step 5: Desconto ── */}
+                {step === 5 && <>
                   <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Desconto geral?</h1>
                   <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco se não houver.</p>
                   <div className="relative">
@@ -825,8 +902,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                   )}
                 </>}
 
-                {/* ── Step 5: Observações ── */}
-                {step === 5 && <>
+                {/* ── Step 6: Observações ── */}
+                {step === 6 && <>
                   <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Observações?</h1>
                   <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — anotações internas sobre esta venda.</p>
                   <textarea ref={obsRef} value={obs} onChange={e => setObs(e.target.value)} rows={4}
@@ -851,11 +928,11 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                       style={{ background: COR }}>
                       {step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} />
                     </motion.button>
-                    {step > 1 && (
+                    {step > 1 && step !== 4 && (
                       <motion.button
                         whileHover={{ x: 3 }}
                         whileTap={{ scale: 0.96 }}
-                        onClick={() => go(step + 1)}
+                        onClick={() => step === 3 ? go(formas.length > 1 ? 4 : 5) : go(step + 1)}
                         className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
@@ -868,7 +945,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
             </motion.div>
 
           ) : (
-            /* ── Step 6: Revisão ── */
+            /* ── Step 7: Revisão ── */
             <motion.div key="revisao" custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
               transition={{ duration: 0.22, ease: "easeInOut" }}
               className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
@@ -942,10 +1019,17 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: "Cliente",    value: clienteNome || "Consumidor Final", s: 1 },
-                    { label: "Pagamento",  value: formas.join(" + "),            s: 3 },
-                    { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 4 },
+                    {
+                      label: "Pagamento",
+                      value: formas.length === 1
+                        ? formas[0]
+                        : formas.map(f => `${f}: ${fmtBRL(divisao[f] ?? 0)}`).join(" · "),
+                      s: 3,
+                      full: formas.length > 1,
+                    },
+                    { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 5 },
                     { label: "Total",      value: fmtBRL(totalFinal),            s: null },
-                    ...(obs ? [{ label: "Obs.", value: obs, s: 5, full: true }] : []),
+                    ...(obs ? [{ label: "Obs.", value: obs, s: 6, full: true }] : []),
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${COR}` }}>
@@ -973,7 +1057,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
         <div className="flex items-center justify-between px-6 py-3 shrink-0"
           style={{ borderTop: "1px solid var(--border)" }}>
           {step > 1 ? (
-            <button onClick={() => go(step - 1)}
+            <button onClick={() => go(step === 5 && formas.length === 1 ? 3 : step - 1)}
               className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
