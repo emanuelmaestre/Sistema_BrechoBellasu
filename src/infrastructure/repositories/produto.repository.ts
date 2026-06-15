@@ -13,8 +13,16 @@ export class ProdutoRepositorySupabase implements IProdutoRepository {
   async criar(produto: Produto): Promise<{ id: number }> {
     let codigo = produto.codigo
     if (!codigo) {
-      const { data } = await this.sb.rpc("fn_next_produto_codigo")
-      codigo = String(data ?? "00001")
+      const { data: existing } = await this.sb
+        .from("produtos")
+        .select("codigo")
+        .not("codigo", "is", null)
+        .limit(10000)
+      const maxNum = (existing ?? [])
+        .map((p: { codigo: string | null }) => parseInt(p.codigo ?? "0", 10))
+        .filter((n: number) => !isNaN(n) && n > 0)
+        .reduce((max: number, n: number) => Math.max(max, n), 0)
+      codigo = String(maxNum + 1).padStart(4, "0")
     }
 
     const { data, error } = await this.sb
