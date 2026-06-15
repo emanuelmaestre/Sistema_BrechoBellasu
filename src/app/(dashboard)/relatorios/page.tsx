@@ -566,15 +566,11 @@ export default function RelatoriosPage() {
         <ReportCard icon={CreditCard} title="Formas de pagamento" desc="Distribuição por método"         active={active==="formas-pagamento"} onClick={() => toggle("formas-pagamento")} />
       </Section>
 
-      {active && ["vendas-periodo","vendas-produto","vendas-cliente","ticket","formas-pagamento"].includes(active) && (
-        <div>
-          {active === "vendas-periodo"   && <RelVendasPeriodo   qs={qs} />}
-          {active === "vendas-produto"   && <RelVendasProduto   qs={qs} />}
-          {active === "vendas-cliente"   && <RelVendasCliente   qs={qs} />}
-          {active === "ticket"           && <RelTicket          qs={qs} />}
-          {active === "formas-pagamento" && <RelFormasPagamento qs={qs} />}
-        </div>
-      )}
+      {active === "vendas-periodo"   && <RelVendasPeriodo   key="vendas-periodo"   qs={qs} />}
+      {active === "vendas-produto"   && <RelVendasProduto   key="vendas-produto"   qs={qs} />}
+      {active === "vendas-cliente"   && <RelVendasCliente   key="vendas-cliente"   qs={qs} />}
+      {active === "ticket"           && <RelTicket          key="ticket"           qs={qs} />}
+      {active === "formas-pagamento" && <RelFormasPagamento key="formas-pagamento" qs={qs} />}
 
       {/* ── PRODUTOS ── */}
       <Section title="Produtos" desc="Análises de estoque e giro" cols={2}>
