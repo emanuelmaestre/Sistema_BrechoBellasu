@@ -476,6 +476,18 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
                   <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
                 </div>
                 <span className="text-[10px] font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: "#25d366" }}>Abrir ›</span>
+                {step && onEditarCampo && (
+                  <motion.button
+                    whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                    onClick={e => { e.preventDefault(); onEditarCampo(step) }}
+                    title={`Editar ${label}`}
+                    className="shrink-0 transition-all p-1.5 rounded-lg"
+                    style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-surface)" }}>
+                    <Pencil size={13} />
+                  </motion.button>
+                )}
               </a>
             ) : (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl transition-all"
@@ -498,19 +510,6 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
                   </motion.button>
                 )}
               </div>
-            )}
-            {/* Pencil para campos com href (WhatsApp) */}
-            {href && step && onEditarCampo && (
-              <motion.button
-                whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-                onClick={e => { e.preventDefault(); onEditarCampo(step) }}
-                title={`Editar ${label}`}
-                className="absolute right-10 top-1/2 -translate-y-1/2 transition-all p-1.5 rounded-lg z-10"
-                style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}
-                onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
-                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-surface)" }}>
-                <Pencil size={13} />
-              </motion.button>
             )}
           </motion.div>
         ))}

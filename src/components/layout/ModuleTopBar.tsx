@@ -109,7 +109,7 @@ export function CalendarioWidget() {
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 380, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+            style={{ width: 460, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
 
             {/* Header com relógio */}
             <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(135deg,var(--accent-bg),var(--bg-surface))" }}>
@@ -151,7 +151,7 @@ export function CalendarioWidget() {
               {/* Cabeçalho dias da semana */}
               <div className="grid grid-cols-7 mb-1">
                 {["D","S","T","Q","Q","S","S"].map((d, i) => (
-                  <div key={i} className="text-center text-[9px] font-black uppercase tracking-widest py-1"
+                  <div key={i} className="text-center text-[11px] font-black uppercase tracking-widest py-1.5"
                     style={{ color: i === 0 || i === 6 ? "var(--accent)" : "var(--text-muted)" }}>{d}</div>
                 ))}
               </div>
@@ -164,7 +164,7 @@ export function CalendarioWidget() {
                   const isSat  = (primeiroDia + dia - 1) % 7 === 6
                   return (
                     <motion.div key={dia} whileHover={{ scale: 1.2 }}
-                      className="flex items-center justify-center h-10 rounded-lg text-sm font-bold cursor-default"
+                      className="flex items-center justify-center h-12 rounded-xl text-base font-bold cursor-default"
                       style={{
                         background: isHoje ? "var(--accent)" : "transparent",
                         color: isHoje ? "#fff" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
