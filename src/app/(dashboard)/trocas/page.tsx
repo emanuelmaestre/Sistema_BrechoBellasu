@@ -430,11 +430,11 @@ function ModalProdutosCliente({
               <div>
                 <p className="text-sm font-semibold uppercase" style={{ color: "var(--text-primary)" }}>{p.nome}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {p.qtd_compras}× comprado{p.qtd_compras > 1 ? "s" : ""}
+                  {p.qtd_compras}× COMPRADO{p.qtd_compras > 1 ? "S" : ""}
                 </p>
               </div>
               <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: `${cor}22`, color: cor }}>
-                Selecionar
+                SELECIONAR
               </span>
             </button>
           ))}
@@ -752,7 +752,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                           style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
                           {prodRes.map((p, idx) => (
                             <button key={idx} type="button"
-                              onMouseDown={() => { set("nome_produto", p.nome); set("produto_id", p.produto_id); setProdBusca(""); setProdOpen(false) }}
+                              onMouseDown={() => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setProdBusca(""); setProdOpen(false) }}
                               className="w-full text-left px-4 py-3 text-sm font-medium uppercase transition-colors flex items-center justify-between"
                               style={{ color: "var(--text-primary)" }}
                               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
@@ -961,7 +961,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
       {modalProd && form.cliente_id && (
         <ModalProdutosCliente
           clienteId={form.cliente_id} clienteNome={form.cliente_nome} cor={cor}
-          onSelect={p => { set("nome_produto", p.nome); set("produto_id", p.produto_id) }}
+          onSelect={p => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setModalProd(false) }}
           onClose={() => setModalProd(false)}
         />
       )}
@@ -1207,7 +1207,7 @@ export default function TrocasPage() {
           onFocus={() => setTableFocused(true)}
           onBlur={() => { setTableFocused(false); resetSel() }}
           className="overflow-x-auto outline-none">
-          <table className="w-full">
+          <table className="w-full min-w-[620px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Tipo","Produto","Cliente","Status","Data","Notificações","Ações"].map(h => (
