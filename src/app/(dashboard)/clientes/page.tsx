@@ -260,7 +260,7 @@ function notificacaoStatusInfo(status?: string | null) {
   }
 }
 
-function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string }[] }) {
+function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number }[]; onEditarCampo?: (step: number) => void }) {
   const [tab, setTab] = useState<DrawerTab>("dados")
   const qc = useQueryClient()
 
@@ -459,10 +459,11 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
         )}
 
         {/* Aba Dados */}
-        {tab === "dados" && info.map(({ icon, label, value, href }, i) => (
+        {tab === "dados" && info.map(({ icon, label, value, href, step }, i) => (
           <motion.div key={label}
             initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 + i * 0.03 }}>
+            transition={{ delay: 0.05 + i * 0.03 }}
+            className="group/card relative">
             {href ? (
               <a href={href} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors group"
@@ -477,14 +478,39 @@ function DrawerContent({ cliente, info }: { cliente: Cliente; info: { icon: Reac
                 <span className="text-[10px] font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: "#25d366" }}>Abrir ›</span>
               </a>
             ) : (
-              <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl transition-all"
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                 <div className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>{icon}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{label}</p>
                   <p className="text-sm font-medium uppercase leading-snug" style={{ color: "var(--text-primary)" }}>{value}</p>
                 </div>
+                {step && onEditarCampo && (
+                  <motion.button
+                    whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                    onClick={() => onEditarCampo(step)}
+                    title={`Editar ${label}`}
+                    className="shrink-0 opacity-0 group-hover/card:opacity-100 transition-all p-1.5 rounded-lg ml-1"
+                    style={{ color: "var(--text-muted)", background: "transparent" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent" }}>
+                    <Pencil size={13} />
+                  </motion.button>
+                )}
               </div>
+            )}
+            {/* Pencil para campos com href (WhatsApp) */}
+            {href && step && onEditarCampo && (
+              <motion.button
+                whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                onClick={e => { e.preventDefault(); onEditarCampo(step) }}
+                title={`Editar ${label}`}
+                className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-100 transition-all p-1.5 rounded-lg z-10"
+                style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-surface)" }}>
+                <Pencil size={13} />
+              </motion.button>
             )}
           </motion.div>
         ))}
@@ -1028,13 +1054,14 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
 }
 
 function DrawerCliente({
-  cliente, onClose, onEditar, onToggleStatus, onReenviarNotificacao,
+  cliente, onClose, onEditar, onToggleStatus, onReenviarNotificacao, onEditarCampo,
 }: {
   cliente: Cliente
   onClose: () => void
   onEditar: () => void
   onToggleStatus: () => void
   onReenviarNotificacao: () => void
+  onEditarCampo?: (step: number) => void
 }) {
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -1058,11 +1085,11 @@ function DrawerCliente({
   const waHref = celDigits ? `https://wa.me/${celDigits.startsWith("55") ? celDigits : `55${celDigits}`}` : undefined
 
   const INFO = [
-    { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—", href: waHref },
-    { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—" },
-    { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—" },
-    { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—" },
-    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—", full: true },
+    { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—", href: waHref,   step: 5 },
+    { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—", step: 6 },
+    { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—",                step: 3 },
+    { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—",               step: 4 },
+    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—",    full: true,           step: 7 },
   ]
 
   // Cores do avatar baseadas na inicial
@@ -1231,7 +1258,7 @@ function DrawerCliente({
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
           className="flex-1 min-h-0 overflow-hidden">
-          <DrawerContent cliente={cliente} info={INFO} />
+          <DrawerContent cliente={cliente} info={INFO} onEditarCampo={onEditarCampo} />
         </motion.div>
       </motion.div>
     </div>
@@ -1240,15 +1267,17 @@ function DrawerCliente({
 
 // ─── Wizard ───────────────────────────────────────────────
 function WizardCliente({
-  inicial, editandoId, onClose, onSalvo,
+  inicial, editandoId, onClose, onSalvo, quickEdit, initialStep,
 }: {
   inicial: ClienteForm | null
   editandoId: number | null
   onClose: () => void
   onSalvo: () => void
+  quickEdit?: boolean
+  initialStep?: number
 }) {
   const qc = useQueryClient()
-  const [step, setStep]         = useState(1)
+  const [step, setStep]         = useState(initialStep ?? 1)
   const [dir, setDir]           = useState(1)
   const [form, setForm]         = useState<ClienteForm>(inicial ?? EMPTY)
   const [erro, setErro]         = useState("")
@@ -1258,12 +1287,16 @@ function WizardCliente({
   const [cepStatus, setCepStatus] = useState<CepStatus>(
     inicial?.logradouro ? "encontrado" : "idle"
   )
-  const [endTexto, setEndTexto]         = useState("")
+  const [endTexto, setEndTexto]         = useState(
+    inicial?.logradouro
+      ? [inicial.logradouro, inicial.bairro, inicial.cidade, inicial.estado, inicial.cep].filter(Boolean).join(", ")
+      : ""
+  )
   const [endSugestoes, setEndSugestoes] = useState<EndSugestao[]>([])
   const [endBuscando, setEndBuscando]   = useState(false)
   const [endAberto, setEndAberto]       = useState(false)
   const [endTimerRef, setEndTimerRef]   = useState<ReturnType<typeof setTimeout> | null>(null)
-  const [returnToRevisao, setReturnToRevisao] = useState(false)
+  const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
   const [mostrarEntrega, setMostrarEntrega] = useState(
     !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
   )
@@ -1571,7 +1604,10 @@ function WizardCliente({
     }
     if (step === 7) { advanceCep(); return }
     if (step === 9 && !form.numero.trim()) { setErro("Número é obrigatório."); return }
-    if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL); return }
+    if (returnToRevisao) {
+      if (quickEdit) { handleSalvar(); return }
+      setReturnToRevisao(false); go(TOTAL); return
+    }
     if (step < TOTAL) go(step + 1)
   }
 
@@ -1604,6 +1640,11 @@ function WizardCliente({
       if (editandoId) await apiPut(`/clientes/${editandoId}`, payload)
       else            await apiPost("/clientes", payload)
       qc.invalidateQueries({ queryKey: ["clientes"] })
+      if (quickEdit) {
+        // Modo edição rápida: salva silenciosamente e fecha imediatamente
+        onSalvo()
+        return
+      }
       // Celebração ✨
       setSalvoOk(true)
       setConfete(true)
@@ -1999,9 +2040,11 @@ function WizardCliente({
                     style={{ background: "var(--accent)" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                    {cepStatus === "buscando" ? <><Loader2 size={14} className="animate-spin" /> Buscando...</> : (
-                      <>{step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} /></>
-                    )}
+                    {cepStatus === "buscando" ? <><Loader2 size={14} className="animate-spin" /> Buscando...</> :
+                     saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> :
+                     quickEdit && returnToRevisao ? <><Check size={14} /> Salvar alteração</> :
+                     step === 1 ? <>OK, continuar <ArrowRight size={15} /></> :
+                     <>Continuar <ArrowRight size={15} /></>}
                   </button>
                   {step > 1 && cepStatus !== "buscando" && (
                     <button onClick={() => { if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL) } else go(step + 1) }}
@@ -2168,6 +2211,7 @@ export default function ClientesPage() {
   const [status, setStatus]       = useState("ativos")
   const [toggleLoadingId, setToggleLoadingId] = useState<number | null>(null)
   const [toggleToast, setToggleToast] = useState<{ ativo: boolean } | null>(null)
+  const [quickEditStep, setQuickEditStep] = useState<number | null>(null)
   const [wizard, setWizard]       = useState(false)
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
@@ -2221,10 +2265,8 @@ export default function ClientesPage() {
     setDrawer(c)
   }
 
-  function abrirEdicao(c: Cliente) {
-    setDrawer(null)
-    setEditId(c.id)
-    setEditForm({
+  function buildEditForm(c: Cliente): ClienteForm {
+    return {
       nome: c.nome, apelido: c.apelido ?? "", cpf_cnpj: c.cpf_cnpj ?? "", data_nasc: c.data_nasc ?? "",
       celular: c.celular ?? "", instagram: c.instagram ?? "",
       cep: c.cep ?? "", logradouro: c.logradouro ?? "", numero: c.numero ?? "",
@@ -2234,7 +2276,21 @@ export default function ClientesPage() {
       entrega_numero: c.entrega_numero ?? "", entrega_complemento: c.entrega_complemento ?? "",
       entrega_bairro: c.entrega_bairro ?? "", entrega_cidade: c.entrega_cidade ?? "",
       entrega_estado: c.entrega_estado ?? "",
-    })
+    }
+  }
+
+  function abrirEdicao(c: Cliente) {
+    setDrawer(null)
+    setQuickEditStep(null)
+    setEditId(c.id)
+    setEditForm(buildEditForm(c))
+    setWizard(true)
+  }
+
+  function abrirEdicaoRapida(c: Cliente, step: number) {
+    setQuickEditStep(step)
+    setEditId(c.id)
+    setEditForm(buildEditForm(c))
     setWizard(true)
   }
 
@@ -2357,13 +2413,6 @@ export default function ClientesPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.1)" }}>
                         <Eye size={12} /> Ver
                       </button>
-                      <button onClick={() => abrirEdicao(c)}
-                        className="p-1.5 rounded-lg transition-colors"
-                        style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                        <Pencil size={14} />
-                      </button>
                       <button
                         onClick={() => toggleStatus.mutate({ id: c.id, ativo: !c.ativo })}
                         disabled={toggleLoadingId === c.id}
@@ -2419,8 +2468,13 @@ export default function ClientesPage() {
           <WizardCliente
             inicial={editForm}
             editandoId={editId}
-            onClose={() => { setWizard(false); setEditForm(null); setEditId(null) }}
-            onSalvo={() => { setWizard(false); setEditForm(null); setEditId(null) }}
+            quickEdit={!!quickEditStep}
+            initialStep={quickEditStep ?? undefined}
+            onClose={() => { setWizard(false); setEditForm(null); setEditId(null); setQuickEditStep(null) }}
+            onSalvo={() => {
+              setWizard(false); setEditForm(null); setEditId(null)
+              if (quickEditStep) { setQuickEditStep(null); setDrawer(null) }
+            }}
           />
         )}
       </AnimatePresence>
@@ -2485,6 +2539,7 @@ export default function ClientesPage() {
               setDrawer(null)
             }}
             onReenviarNotificacao={() => reenviarNotificacao(drawer)}
+            onEditarCampo={(step) => abrirEdicaoRapida(drawer, step)}
           />
         )}
       </AnimatePresence>
