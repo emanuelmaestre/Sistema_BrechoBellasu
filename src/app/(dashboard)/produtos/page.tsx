@@ -26,14 +26,17 @@ interface ProdutoForm {
   unidade_medida: string
   controlar_estoque: boolean
   cor: string
+  tamanho: string
 }
 
 const EMPTY: ProdutoForm = {
   nome: "", codigo: "", categoria_id: "", marca: "",
   preco_venda: "", preco_custo: "",
   estoque_atual: "", unidade_medida: "pc",
-  controlar_estoque: true, cor: "",
+  controlar_estoque: true, cor: "", tamanho: "",
 }
+
+const TAMANHOS = ["PP", "P", "M", "G", "GG", "EG", "EXG"]
 
 const CORES_PRODUTO: { nome: string; hex: string }[] = [
   // ── Neutros claros ──────────────────────────────────────
@@ -402,7 +405,7 @@ function WizardProduto({
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const TOTAL = 7
+  const TOTAL = 8
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -415,9 +418,9 @@ function WizardProduto({
     return () => clearTimeout(t)
   }, [step])
 
-  // ── Auto-sugestão de categoria ao entrar no step 3 ──
+  // ── Auto-sugestão de categoria ao entrar no step 5 ──
   useEffect(() => {
-    if (step !== 4) return
+    if (step !== 5) return
     if (form.categoria_id) { setCatSugerida(false); return }  // já tem categoria, não sobrescreve
     const sugestao = sugerirCategoria(form.nome, categorias)
     if (sugestao) {
@@ -443,7 +446,11 @@ function WizardProduto({
       setErro("Nome do produto é obrigatório")
       return
     }
-    if (step === 5 && Number(form.preco_venda) < 0) {
+    if (step === 4 && !form.tamanho) {
+      setErro("Selecione o tamanho do produto")
+      return
+    }
+    if (step === 6 && Number(form.preco_venda) < 0) {
       setErro("Preço inválido")
       return
     }
@@ -466,6 +473,7 @@ function WizardProduto({
         unidade_medida:    form.unidade_medida,
         controlar_estoque: form.controlar_estoque,
         cor:               form.cor || null,
+        tamanho:           form.tamanho || null,
       }
       if (editandoId) await apiPut(`/produtos/${editandoId}`, payload)
       else            await apiPost("/produtos", payload)
@@ -482,6 +490,7 @@ function WizardProduto({
   const handleKey = useCallback((e: React.KeyboardEvent) => {
     if (step === 2) return // MarcaStep gerencia seu próprio Enter
     if (step === 3) return // CorStep gerencia seu próprio Enter
+    if (step === 4) return // TamanhoStep gerencia com chips
     if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); handleSalvar(); return }
     if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -558,6 +567,39 @@ function WizardProduto({
                 {step === 4 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+                      Qual é o tamanho do produto?
+                    </h1>
+                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Campo obrigatório. Selecione um tamanho.</p>
+                    <div className="flex flex-wrap gap-3">
+                      {TAMANHOS.map(t => {
+                        const sel = form.tamanho === t
+                        return (
+                          <motion.button
+                            key={t}
+                            onClick={() => { set("tamanho", t); setTimeout(() => advance(), 150) }}
+                            whileHover={{ scale: 1.06 }}
+                            whileTap={{ scale: 0.94 }}
+                            className="px-6 py-4 rounded-2xl text-lg font-black uppercase tracking-wide transition-all"
+                            style={{
+                              background: sel ? "var(--accent)" : "var(--bg-surface)",
+                              color: sel ? "#fff" : "var(--text-primary)",
+                              border: sel ? "2px solid var(--accent)" : "2px solid var(--border)",
+                              boxShadow: sel ? "0 0 16px var(--accent)" : "none",
+                              minWidth: "80px",
+                            }}
+                          >
+                            {t}
+                            {sel && <span className="ml-2 text-base">✓</span>}
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {step === 5 && (
+                  <>
+                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Categoria?
                     </h1>
                     <div className="flex items-center gap-3 mb-6">
@@ -587,7 +629,7 @@ function WizardProduto({
                   </>
                 )}
 
-                {step === 5 && (
+                {step === 6 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Preço de venda?
@@ -672,7 +714,7 @@ function WizardProduto({
                   </>
                 )}
 
-                {step === 6 && (
+                {step === 7 && (
                   <>
                     <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                       Estoque inicial?
@@ -779,10 +821,11 @@ function WizardProduto({
                     { label: "Nome",           value: form.nome || "—",                                    s: 1, full: true },
                     { label: "Marca",          value: form.marca || "—",                                   s: 2 },
                     { label: "Cor",            value: form.cor || "—",                                     s: 3 },
-                    { label: "Categoria",      value: catNome,                                             s: 4 },
-                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 5 },
-                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 5 },
-                    { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 6 },
+                    { label: "Tamanho",        value: form.tamanho || "—",                                 s: 4 },
+                    { label: "Categoria",      value: catNome,                                             s: 5 },
+                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 6 },
+                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 6 },
+                    { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 7 },
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)" }}>
@@ -881,8 +924,9 @@ export default function ProdutosPage() {
       unidade_medida: p.unidade_medida ?? "un",
       controlar_estoque: p.controlar_estoque ?? true,
       cor: (p as unknown as { cor?: string }).cor ?? "",
+      tamanho: (p as unknown as { tamanho?: string | null }).tamanho ?? "",
     })
-    setEditInitStep(7)   // abre direto no resumo (step 7 = TOTAL)
+    setEditInitStep(8)   // abre direto no resumo (step 8 = TOTAL)
     setWizard(true)
   }
 
@@ -934,7 +978,7 @@ export default function ProdutosPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Código", "Produto", "Cor", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
+                {["Código", "Produto", "Cor", "Tamanho", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
@@ -942,11 +986,11 @@ export default function ProdutosPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center">
+                <tr><td colSpan={10} className="px-4 py-12 text-center">
                   <Loader2 size={24} className="animate-spin mx-auto" style={{ color: "var(--accent)" }} />
                 </td></tr>
               ) : produtos.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center">
+                <tr><td colSpan={10} className="px-4 py-12 text-center">
                   <Package size={32} className="mx-auto mb-2" style={{ color: "var(--border-hover)" }} />
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhum produto encontrado.</p>
                 </td></tr>
@@ -976,6 +1020,14 @@ export default function ProdutosPage() {
                         </span>
                       )
                     })() : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(p as unknown as { tamanho?: string | null }).tamanho ? (
+                      <span className="text-xs font-black px-2.5 py-1 rounded-lg uppercase tracking-wide"
+                        style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid rgba(99,102,241,0.3)" }}>
+                        {(p as unknown as { tamanho?: string | null }).tamanho}
+                      </span>
+                    ) : <span style={{ color: "var(--text-muted)" }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-muted)" }}>{p.marca ?? "—"}</td>
                   <td className="px-4 py-3 text-sm uppercase" style={{ color: "var(--text-secondary)" }}>

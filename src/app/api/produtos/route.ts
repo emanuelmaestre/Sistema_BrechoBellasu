@@ -57,6 +57,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       controlarEstoque: body.controlar_estoque,
       unidadeMedida: body.unidade_medida,
       cor: body.cor ?? null,
+      tamanho: body.tamanho ?? null,
     })
 
     if (!resultado.ok) {

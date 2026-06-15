@@ -21,13 +21,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await req.json()
-  const { nome, codigo, categoria_id, marca, preco_venda, preco_custo, estoque_atual, controlar_estoque, unidade_medida, cor } = body
+  const { nome, codigo, categoria_id, marca, preco_venda, preco_custo, estoque_atual, controlar_estoque, unidade_medida, cor, tamanho } = body
 
   if (!nome) return NextResponse.json({ erro: "Nome é obrigatório." }, { status: 400 })
 
   const sb = createServerClient()
   const { data, error } = await sb.from("produtos")
-    .update({ nome, codigo: codigo ?? null, categoria_id: categoria_id ?? null, marca: marca ?? null, preco_venda: preco_venda ?? 0, preco_custo: preco_custo ?? 0, estoque_atual: estoque_atual ?? 0, controlar_estoque: controlar_estoque !== false, unidade_medida: unidade_medida ?? "un", cor: cor ?? null })
+    .update({ nome, codigo: codigo ?? null, categoria_id: categoria_id ?? null, marca: marca ?? null, preco_venda: preco_venda ?? 0, preco_custo: preco_custo ?? 0, estoque_atual: estoque_atual ?? 0, controlar_estoque: controlar_estoque !== false, unidade_medida: unidade_medida ?? "un", cor: cor ?? null, tamanho: tamanho ?? null })
     .eq("id", id).select().single()
 
   if (error) {

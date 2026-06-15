@@ -17,6 +17,7 @@ export interface ProdutoInput {
   controlarEstoque?: boolean
   unidadeMedida?: string | null
   cor?: string | null
+  tamanho?: string | null
 }
 
 export class Produto {
@@ -31,6 +32,7 @@ export class Produto {
     readonly controlarEstoque: boolean,
     readonly unidadeMedida: string,
     readonly cor: string | null,
+    readonly tamanho: string | null,
   ) {}
 
   static criar(input: ProdutoInput): Result<Produto> {
@@ -66,6 +68,7 @@ export class Produto {
         input.controlarEstoque !== false,
         input.unidadeMedida || "un",
         input.cor?.trim() || null,
+        input.tamanho?.trim() || null,
       ),
     )
   }

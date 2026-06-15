@@ -66,6 +66,7 @@ export interface Produto {
   controlar_estoque: boolean
   unidade_medida?: string
   cor?: string | null
+  tamanho?: string | null
   created_at: string
 }
 
