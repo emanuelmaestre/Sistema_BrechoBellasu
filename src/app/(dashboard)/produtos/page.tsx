@@ -252,17 +252,23 @@ function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }:
         {open && sugestoes.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden shadow-lg z-50"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            {sugestoes.map((m, idx) => (
-              <button key={m.id} onMouseDown={() => { selecionar(m); onAdvance() }}
-                className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
-                style={{
-                  color: hi === idx ? "var(--accent)" : "var(--text-primary)",
-                  background: hi === idx ? "var(--accent-bg)" : "transparent",
-                  borderBottom: "1px solid var(--border)",
-                }}>
-                {m.nome}
-              </button>
-            ))}
+            <div className="overflow-y-auto" style={{
+              maxHeight: "calc(4 * 49px)",
+              scrollbarWidth: "thin",
+              scrollbarColor: "var(--accent) var(--bg-surface)",
+            }}>
+              {sugestoes.map((m, idx) => (
+                <button key={m.id} onMouseDown={() => { selecionar(m); onAdvance() }}
+                  className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
+                  style={{
+                    color: hi === idx ? "var(--accent)" : "var(--text-primary)",
+                    background: hi === idx ? "var(--accent-bg)" : "transparent",
+                    borderBottom: "1px solid var(--border)",
+                  }}>
+                  {m.nome}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -592,8 +598,14 @@ function WizardProduto({
                         style={{ color: "var(--text-muted)" }}>R$</span>
                       <input ref={inputRef} type="text" inputMode="decimal"
                         value={form.preco_venda}
-                        onChange={e => set("preco_venda", e.target.value.replace(",", "."))}
-                        onBlur={e => { const v = parseFloat(e.target.value.replace(",",".")); set("preco_venda", isNaN(v) ? "0,00" : v.toFixed(2).replace(".",",")) }}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^0-9.,]/g, "")
+                          set("preco_venda", v)
+                        }}
+                        onBlur={e => {
+                          const v = parseFloat(e.target.value.replace(",", "."))
+                          set("preco_venda", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
+                        }}
                         className={cn(inputBase, "pl-14")} style={inputSt} />
                     </div>
                     <div className="mt-4">
@@ -603,8 +615,15 @@ function WizardProduto({
                           style={{ color: "var(--text-muted)" }}>R$</span>
                         <input type="text" inputMode="decimal"
                           value={form.preco_custo}
-                          onChange={e => set("preco_custo", e.target.value.replace(",", "."))}
-                          onBlur={e => { const v = parseFloat(e.target.value.replace(",",".")); set("preco_custo", isNaN(v) ? "0,00" : v.toFixed(2).replace(".",",")) }}
+                          onChange={e => {
+                            // Permite vírgula e ponto durante a digitação — não substitui enquanto digita
+                            const v = e.target.value.replace(/[^0-9.,]/g, "")
+                            set("preco_custo", v)
+                          }}
+                          onBlur={e => {
+                            const v = parseFloat(e.target.value.replace(",", "."))
+                            set("preco_custo", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
+                          }}
                           className={cn(inputBase, "pl-12 !text-base !py-3")} style={inputSt} />
                       </div>
                     </div>
