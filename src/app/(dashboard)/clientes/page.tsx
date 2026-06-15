@@ -126,6 +126,38 @@ interface EndSugestao {
   bairro: string
   cidade: string
   estado: string
+  _score?: number
+  _numero?: string
+  _isRP?: boolean
+}
+
+// ── Normalização de texto para busca ─────────────────────────
+function normAddr(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim()
+}
+
+// Expande abreviações comuns de logradouro
+function expandAbrev(s: string): string {
+  return s
+    .replace(/\bR\.\s*/gi, "Rua ")
+    .replace(/\bAv\.\s*/gi, "Avenida ")
+    .replace(/\bTrav\.\s*/gi, "Travessa ")
+    .replace(/\bTv\.\s*/gi, "Travessa ")
+    .replace(/\bAl\.\s*/gi, "Alameda ")
+    .replace(/\bPr?\.\s*/gi, "Praça ")
+    .replace(/\bEstr\.\s*/gi, "Estrada ")
+    .replace(/\bRod\.\s*/gi, "Rodovia ")
+    .replace(/\bCon[dj]\.\s*/gi, "Condomínio ")
+    .replace(/\bDr\.\s*/gi, "Doutor ")
+    .replace(/\bDra\.\s*/gi, "Doutora ")
+    .replace(/\bProf\.\s*/gi, "Professor ")
+    .replace(/\bProfa\.\s*/gi, "Professora ")
+    .replace(/\bEng\.\s*/gi, "Engenheiro ")
+    .replace(/\bDep\.\s*/gi, "Deputado ")
+    .replace(/\bVer\.\s*/gi, "Vereador ")
+    .replace(/\bCel\.\s*/gi, "Coronel ")
+    .replace(/\bCap\.\s*/gi, "Capitão ")
+    .replace(/\s+/g, " ").trim()
 }
 
 // ─── Confete ──────────────────────────────────────────────
@@ -1297,41 +1329,49 @@ function WizardCliente({
     const limpo = valor.replace(/\D/g, "")
     if (!valor.trim()) { setEndBuscando(false); return }
     setEndBuscando(true)
+
     const timer = setTimeout(async () => {
       try {
-        // ── CEP completo (8 dígitos) → ViaCEP direto ──────────
+        // ── CEP completo (8 dígitos, com ou sem hífen) → ViaCEP direto ──
         if (limpo.length === 8) {
           const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
           const d = await r.json()
           if (!d.erro) {
             const cepFmt = limpo.replace(/^(\d{5})(\d{3})$/, "$1-$2")
-            setEndSugestoes([{ label: "", cep: cepFmt, logradouro: d.logradouro ?? "", bairro: d.bairro ?? "", cidade: d.localidade ?? "", estado: d.uf ?? "" }])
+            const isRP = normAddr(d.localidade ?? "").includes("ribeirao preto")
+            setEndSugestoes([{
+              label: "", cep: cepFmt,
+              logradouro: d.logradouro ?? "", bairro: d.bairro ?? "",
+              cidade: d.localidade ?? "", estado: d.uf ?? "",
+              _isRP: isRP, _score: isRP ? 200 : 100,
+            }])
             setEndAberto(true)
           } else { setEndSugestoes([]); setEndAberto(false) }
           return
         }
 
-        if (valor.trim().length < 3) return
+        if (valor.trim().length < 3) { setEndBuscando(false); return }
 
-        const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
+        // ── Normalização e expansão de abreviações ──────────────
+        const valorExpandido = expandAbrev(valor)
+        const valorNorm      = normAddr(valorExpandido)
 
-        // ── 1. Extrai e remove complementos antes de qualquer parse ──
-        // Ex: "CASA 57", "APTO 3", "BL A", "BLOCO B AP 12", "LOTE 5", etc.
-        const RE_COMPLEMENTO = /\b(casa|apto?|ap|bloco|bl|lote|lt|sala|sl|conj|cj|andar|pavimento|pav|kit|kf)\s*\.?\s*[\d\w]*/gi
-        const complementoExtraido = (valor.match(RE_COMPLEMENTO) ?? []).join(" ").trim()
-        const valorSemCompl = valor.replace(RE_COMPLEMENTO, " ").replace(/\s+/g, " ").trim()
+        // ── Extrai complemento (APTO, CASA, BL, etc.) ──────────
+        const RE_COMPL = /\b(casa|apto?|ap|bloco|bl|lote|lt|sala|sl|conj|cj|andar|pavimento|pav|kit|kf)\s*\.?\s*[\d\w]*/gi
+        const complementoExtraido = (valorExpandido.match(RE_COMPL) ?? []).join(" ").trim()
+        const valorSemCompl = valorExpandido.replace(RE_COMPL, " ").replace(/\s+/g, " ").trim()
 
-        // ── 2. Extrai número de rua (primeiro número numérico no texto limpo) ──
+        // ── Extrai número de rua ─────────────────────────────────
         const numero = valorSemCompl.match(/\b(\d{1,5})\b/)?.[1] ?? ""
 
-        // ── 3. Detecta UF ──
+        // ── Detecta UF ──────────────────────────────────────────
         const ufDetect = valor.match(/\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF|SE|TO|RO|AC|AP|AM|RR)\b/i)?.[1]?.toUpperCase() ?? "SP"
 
-        // ── 4. Detecta cidade — lista expandida + fallback para cidade da loja ──
-        const CIDADES_CONHECIDAS: Record<string, string> = {
+        // ── Detecta cidade ──────────────────────────────────────
+        const CIDADES: Record<string, string> = {
           "ribeirao preto": "Ribeirão Preto", "ribeirão preto": "Ribeirão Preto",
           "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
-          "sao paulo": "São Paulo", "são paulo": "São Paulo",
+          "sao paulo": "São Paulo", "são paulo": "São Paulo", "sp": "São Paulo",
           "campinas": "Campinas", "sorocaba": "Sorocaba",
           "santos": "Santos", "guarulhos": "Guarulhos", "osasco": "Osasco",
           "bauru": "Bauru", "sao jose do rio preto": "São José do Rio Preto",
@@ -1345,116 +1385,142 @@ function WizardCliente({
           "brodowski": "Brodowski", "sertaozinho": "Sertãozinho", "barrinha": "Barrinha",
           "dumont": "Dumont", "cravinhos": "Cravinhos", "luis antonio": "Luís Antônio",
           "santa rosa de viterbo": "Santa Rosa de Viterbo", "serra azul": "Serra Azul",
+          "pradopolis": "Pradópolis", "guatapara": "Guatapará", "motuca": "Motuca",
+          "pitangueiras": "Pitangueiras", "sertanopolis": "Sertanópolis",
         }
-        const valorNorm = norm(valor)
-        // Ordena chaves por comprimento decrescente para evitar match parcial errado
-        const cidadeDetect = Object.entries(CIDADES_CONHECIDAS)
+        // Verifica se usuário especificou explicitamente uma cidade
+        const cidadeExplicita = Object.entries(CIDADES)
           .sort((a, b) => b[0].length - a[0].length)
-          .find(([k]) => valorNorm.includes(norm(k)))?.[1] ?? "Ribeirão Preto"
+          .find(([k]) => valorNorm.includes(normAddr(k)))?.[1] ?? null
 
-        // ── 5. Remove cidade/UF do texto para isolar só o logradouro ──
+        // ── Isola logradouro removendo números, cidade, UF, complemento ──
         const semNumero = valorSemCompl.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
-        // Remove qualquer menção à cidade e UF do texto antes de passar para a API
-        const cidadeParaRemover = norm(cidadeDetect).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-        const somenteRua = semNumero
-          .replace(new RegExp(`(${cidadeParaRemover}|${Object.keys(CIDADES_CONHECIDAS).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|ribeirão\\s+preto|ribeirao\\s+preto)`, "gi"), " ")
-          .replace(new RegExp(`\\b(${ufDetect}|SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE)\\b`, "gi"), " ")
-          .replace(/[,-]/g, " ")
-          .replace(/\s+/g, " ").trim()
-        // Nome sem prefixo de logradouro para ViaCEP
-        const nomeRua = somenteRua.replace(/^(rua|avenida|av\.?|r\.?|estr\.?|estrada|travessa|tv\.?|alameda|al\.?|praça|pc\.?|rod\.?|rodovia)\s+/i, "").trim()
+        const escapeRe  = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        const todasCidadesRe = Object.keys(CIDADES).map(k => escapeRe(normAddr(k))).join("|")
+        const somenteRua = normAddr(semNumero)
+          .replace(new RegExp(`(${todasCidadesRe})`, "gi"), " ")
+          .replace(new RegExp(`\\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF)\\b`, "gi"), " ")
+          .replace(/[,.\-]/g, " ").replace(/\s+/g, " ").trim()
 
-        // Guarda complemento para preencher campo automaticamente ao selecionar
+        // Remove prefixo de tipo de logradouro para ViaCEP (que busca só pelo nome)
+        const nomeRua = somenteRua
+          .replace(/^(rua|avenida|travessa|alameda|praca|estrada|rodovia|largo|beco|viela|vila)\s+/i, "")
+          .trim()
+
+        if (nomeRua.length < 3) { setEndBuscando(false); return }
+
         if (complementoExtraido) (window as unknown as Record<string, unknown>).__endComplemento = complementoExtraido
 
+        // ── Pontuação de relevância ─────────────────────────────
+        function scoreSugestao(s: EndSugestao, query: string): number {
+          let sc = 0
+          const cn = normAddr(s.cidade)
+          const ln = normAddr(s.logradouro)
+          const bn = normAddr(s.bairro)
+          const qn = normAddr(query)
+          if (cn.includes("ribeirao preto")) sc += 200
+          if (ln.includes(qn) || qn.includes(ln.replace(/^(rua|avenida|travessa|alameda) /, ""))) sc += 80
+          if (ln.startsWith(qn.split(" ").slice(0, 2).join(" "))) sc += 40
+          if (bn && qn.includes(bn)) sc += 20
+          if (s.cep) sc += 10
+          return sc
+        }
+
+        // ── Dedup + coletor ─────────────────────────────────────
+        const seen = new Set<string>()
         const resultados: EndSugestao[] = []
-        const chave = (s: EndSugestao) => norm(`${s.logradouro}|${s.bairro}|${s.cidade}`)
-        const adicionar = (s: EndSugestao, inicio = false) => {
-          if (resultados.find(x => chave(x) === chave(s))) return
-          if (inicio) resultados.unshift(s); else resultados.push(s)
+        function addResult(s: EndSugestao) {
+          const k = normAddr(`${s.logradouro}|${s.bairro}|${s.cidade}`)
+          if (seen.has(k) || !s.logradouro) return
+          seen.add(k)
+          s._score = scoreSugestao(s, somenteRua)
+          s._isRP  = normAddr(s.cidade).includes("ribeirao preto")
+          resultados.push(s)
         }
 
-        const nomHeaders = { "User-Agent": "Brecho Bellasu App" }
-        const nomResultado = async (a: Record<string, string>): Promise<EndSugestao | null> => {
-          if (!a.road && !a.pedestrian && !a.footway) return null
-          const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
-          const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
-          const s: EndSugestao = {
-            label: "",
-            cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
-            logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
-            bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
-            cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
-            estado: uf,
-          }
-          // Enriquece com CEP real via ViaCEP quando Nominatim não trouxe
-          if (!s.cep && s.cidade) {
-            try {
-              const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
-              const vr = await fetch(`https://viacep.com.br/ws/${s.estado}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
-              const vi = await vr.json() as Array<{ cep: string; bairro: string }>
-              if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
-            } catch { /* sem cep */ }
-          }
-          return s
-        }
-
-        // ── 1ª FONTE: Nominatim COM número → bairro exato do endereço ──
-        if (numero && nomeRua.length >= 3) {
+        // ── FONTE A: ViaCEP – Ribeirão Preto (sempre) ──────────
+        const fetchViaCEP = async (uf: string, cidade: string, rua: string) => {
           try {
-            const q = encodeURIComponent(`${nomeRua} ${numero}, ${cidadeDetect}, Brasil`)
-            const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=3&accept-language=pt-BR`, { headers: nomHeaders })
-            const items = await r.json() as Array<{ address: Record<string, string> }>
-            for (const item of items) {
-              const s = await nomResultado(item.address ?? {})
-              if (s) adicionar(s, true) // vai para o topo
-            }
-          } catch { /* continua */ }
-        }
-
-        // ── 2ª FONTE: ViaCEP text → todos os trechos da rua (por bairro/CEP) ──
-        if (nomeRua.length >= 3) {
-          try {
-            const url = `https://viacep.com.br/ws/${ufDetect}/${encodeURIComponent(cidadeDetect)}/${encodeURIComponent(nomeRua)}/json/`
+            const url = `https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(rua)}/json/`
             const r = await fetch(url)
             const items = await r.json() as Array<{ logradouro: string; bairro: string; localidade: string; uf: string; cep: string }>
             if (Array.isArray(items)) {
-              for (const it of items.slice(0, 6)) {
-                adicionar({ label: "", cep: it.cep, logradouro: it.logradouro, bairro: it.bairro, cidade: it.localidade, estado: it.uf })
-              }
+              for (const it of items.slice(0, 8))
+                addResult({ label: "", cep: it.cep, logradouro: it.logradouro, bairro: it.bairro, cidade: it.localidade, estado: it.uf })
             }
           } catch { /* continua */ }
         }
 
-        // ── 3ª FONTE: Nominatim SEM número como complemento ──
-        if (resultados.length < 3 && somenteRua.length >= 4) {
+        // ── FONTE B: Nominatim nacional (sem restrição de cidade) ──
+        const nomHeaders = { "User-Agent": "Brecho Bellasu App" }
+        const fetchNominatim = async (query: string, limit = 6) => {
           try {
-            const q = encodeURIComponent(`${somenteRua}, ${cidadeDetect}, Brasil`)
-            const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=4&accept-language=pt-BR`, { headers: nomHeaders })
+            const q = encodeURIComponent(`${query}, Brasil`)
+            const r = await fetch(
+              `https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=${limit}&accept-language=pt-BR`,
+              { headers: nomHeaders }
+            )
             const items = await r.json() as Array<{ address: Record<string, string> }>
             for (const item of items) {
-              const s = await nomResultado(item.address ?? {})
-              if (s) adicionar(s)
-              if (resultados.length >= 6) break
+              const a = item.address ?? {}
+              if (!a.road && !a.pedestrian && !a.footway) continue
+              const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
+              const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
+              const s: EndSugestao = {
+                label: "",
+                cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
+                logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
+                bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
+                cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
+                estado: uf,
+              }
+              // Enriquece CEP quando Nominatim não trouxe
+              if (!s.cep && s.cidade && s.logradouro) {
+                try {
+                  const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
+                  const vr = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
+                  const vi = await vr.json() as Array<{ cep: string; bairro: string }>
+                  if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
+                } catch { /* sem cep */ }
+              }
+              addResult(s)
             }
           } catch { /* continua */ }
         }
 
-        // Salva número capturado para injetar no campo Número ao selecionar
-        if (numero) resultados.forEach(s => { (s as EndSugestao & { _numero?: string })._numero = numero })
+        // Executa buscas em paralelo:
+        // 1. ViaCEP Ribeirão Preto (sempre)
+        // 2. ViaCEP cidade explícita (se diferente de RP)
+        // 3. Nominatim nacional
+        const promises: Promise<void>[] = [
+          fetchViaCEP("SP", "Ribeirão Preto", nomeRua),
+          fetchNominatim(numero ? `${somenteRua} ${numero}` : somenteRua, 8),
+        ]
+        if (cidadeExplicita && normAddr(cidadeExplicita) !== "ribeirao preto") {
+          promises.push(fetchViaCEP(ufDetect, cidadeExplicita, nomeRua))
+        }
 
-        // Prioriza Ribeirão Preto no topo
-        const rpNorm = (s: EndSugestao) => norm(s.cidade).includes("ribeirao preto") || norm(s.cidade).includes("ribeirão preto")
+        await Promise.all(promises)
+
+        // Salva número para injetar no campo ao selecionar
+        if (numero) resultados.forEach(s => { s._numero = numero })
+
+        // ── Ordenação final por score (RP sempre no topo) ───────
         resultados.sort((a, b) => {
-          if (rpNorm(a) && !rpNorm(b)) return -1
-          if (!rpNorm(a) && rpNorm(b)) return 1
-          return 0
+          if (a._isRP && !b._isRP) return -1
+          if (!a._isRP && b._isRP) return 1
+          return (b._score ?? 0) - (a._score ?? 0)
         })
 
-        setEndSugestoes(resultados)
-        setEndAberto(resultados.length > 0)
+        // Remove duplicatas residuais com mesmo logradouro+bairro+cidade
+        const final = resultados.filter((s, i, arr) =>
+          arr.findIndex(x => normAddr(`${x.logradouro}|${x.bairro}|${x.cidade}`) === normAddr(`${s.logradouro}|${s.bairro}|${s.cidade}`)) === i
+        )
+
+        setEndSugestoes(final)
+        setEndAberto(final.length > 0)
       } catch { /* sem resultado */ } finally { setEndBuscando(false) }
-    }, 200)
+    }, 350)
     setEndTimerRef(timer)
   }
 
@@ -1755,29 +1821,52 @@ function WizardCliente({
                         {endAberto && endSugestoes.length > 0 && (
                           <motion.div
                             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-2xl overflow-hidden shadow-xl"
+                            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-2xl shadow-xl overflow-hidden"
                             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                            {endSugestoes.map((s, i) => (
-                              <button key={i} onMouseDown={() => selecionarEndereco(s)}
-                                className="w-full text-left px-4 py-3 flex items-start gap-3 transition-colors"
-                                style={{ borderBottom: i < endSugestoes.length - 1 ? "1px solid var(--border)" : "none" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-surface)")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                                <MapPin size={14} className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                                    {(() => {
-                                      const num = (s as EndSugestao & { _numero?: string })._numero
-                                      const partes = [s.logradouro, num, s.bairro].filter(Boolean)
-                                      return partes.length ? partes.join(", ") : s.label.split(",")[0]
-                                    })()}
-                                  </p>
-                                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
-                                    {[s.cidade, s.estado, s.cep].filter(Boolean).join(" · ")}
-                                  </p>
-                                </div>
-                              </button>
-                            ))}
+                            {/* Cabeçalho com contador */}
+                            {endSugestoes.length > 1 && (
+                              <div className="px-4 py-2 flex items-center justify-between"
+                                style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+                                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                                  {endSugestoes.length} resultado{endSugestoes.length > 1 ? "s" : ""} encontrado{endSugestoes.length > 1 ? "s" : ""}
+                                </span>
+                                {endSugestoes.some(s => s._isRP) && (
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                    style={{ background: "rgba(var(--accent-rgb,99,102,241),0.12)", color: "var(--accent)" }}>
+                                    RP prioridade
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {/* Lista com scroll após 3 itens */}
+                            <div style={{ maxHeight: "calc(3 * 68px)", overflowY: "auto" }}>
+                              {endSugestoes.map((s, i) => (
+                                <button key={i} onMouseDown={() => selecionarEndereco(s)}
+                                  className="w-full text-left px-4 py-3 flex items-start gap-3 transition-colors"
+                                  style={{ borderBottom: i < endSugestoes.length - 1 ? "1px solid var(--border)" : "none" }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-surface)")}
+                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                                  <MapPin size={14} className="mt-0.5 shrink-0"
+                                    style={{ color: s._isRP ? "var(--accent)" : "var(--text-muted)" }} />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                                        {[s.logradouro, s._numero, s.bairro].filter(Boolean).join(", ") || s.label.split(",")[0]}
+                                      </p>
+                                      {s._isRP && (
+                                        <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                                          style={{ background: "rgba(var(--accent-rgb,99,102,241),0.15)", color: "var(--accent)" }}>
+                                          RP
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+                                      {[s.cidade, s.estado, s.cep].filter(Boolean).join(" · ")}
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
