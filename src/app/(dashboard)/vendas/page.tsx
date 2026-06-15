@@ -805,72 +805,133 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                 </>}
 
                 {/* ── Step 4: Divisão do pagamento ── */}
-                {step === 4 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Divisão do pagamento</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Informe quanto será pago em cada forma selecionada.</p>
+                {step === 4 && (() => {
+                  const soma       = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
+                  const diff       = parseFloat((soma - totalFinal).toFixed(2))
+                  const excedente  = diff > 0.01
+                  const incompleto = diff < -0.01
+                  const correto    = !excedente && !incompleto
+                  const creditoInvalido = formas.includes("Crédito") && saldoCredito > 0 && (divisao["Crédito"] ?? 0) > saldoCredito
+                  const temZero    = formas.some(f => (divisao[f] ?? 0) <= 0)
+                  return <>
+                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Divisão do pagamento</h1>
+                    <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>Informe quanto será pago em cada forma selecionada.</p>
 
-                  {/* Resumo distribuição */}
-                  {(() => {
-                    const soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
-                    const falta = totalFinal - soma
-                    return (
-                      <div className="mb-5 grid grid-cols-3 gap-3 px-4 py-3 rounded-2xl"
-                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
-                          <p className="text-base font-bold" style={{ color: COR }}>{fmtBRL(totalFinal)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Distribuído</p>
-                          <p className="text-base font-bold" style={{ color: soma > totalFinal + 0.01 ? "#f87171" : "var(--text-primary)" }}>{fmtBRL(soma)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Falta</p>
-                          <p className="text-base font-bold" style={{ color: falta <= 0.01 ? "#10b981" : "#fbbf24" }}>{fmtBRL(Math.max(0, falta))}</p>
-                        </div>
+                    {/* Painel resumo */}
+                    <div className="mb-4 grid grid-cols-3 gap-3 px-4 py-3 rounded-2xl"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
+                        <p className="text-base font-bold" style={{ color: COR }}>{fmtBRL(totalFinal)}</p>
                       </div>
-                    )
-                  })()}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Distribuído</p>
+                        <p className="text-base font-bold" style={{ color: excedente ? "#f87171" : correto && soma > 0 ? "#10b981" : "var(--text-primary)" }}>{fmtBRL(soma)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: excedente ? "#f87171" : incompleto ? "#fbbf24" : "var(--text-muted)" }}>
+                          {excedente ? "Excedente" : incompleto ? "Falta" : "Falta"}
+                        </p>
+                        <p className="text-base font-bold" style={{ color: excedente ? "#f87171" : correto && soma > 0 ? "#10b981" : "#fbbf24" }}>
+                          {correto && soma > 0 ? "✓ R$ 0,00" : excedente ? fmtBRL(diff) : fmtBRL(Math.abs(diff))}
+                        </p>
+                      </div>
+                    </div>
 
-                  {/* Inputs por forma */}
-                  <div className="space-y-3">
-                    {formas.map((f, i) => {
-                      const isCredito = f === "Crédito"
-                      const maxVal = isCredito ? Math.min(saldoCredito, totalFinal) : undefined
-                      const rawVal = divisao[f]
-                      const displayVal = rawVal !== undefined && rawVal > 0 ? String(rawVal).replace(".", ",") : ""
-                      return (
-                        <div key={f}>
-                          <label className="text-xs font-bold uppercase tracking-wide block mb-1.5" style={{ color: "var(--text-muted)" }}>
-                            {f}{isCredito && saldoCredito > 0 ? ` (máx. ${fmtBRL(Math.min(saldoCredito, totalFinal))})` : ""}
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
-                            <input
-                              value={displayVal}
-                              autoFocus={i === 0}
-                              onChange={e => {
-                                const raw = e.target.value.replace(",", ".")
-                                const val = parseFloat(raw)
-                                const newVal = isNaN(val) ? 0 : maxVal !== undefined ? Math.min(val, maxVal) : val
-                                const updated = { ...divisao, [f]: parseFloat(newVal.toFixed(2)) }
-                                // Ao digitar o primeiro campo de dois: preenche o restante automaticamente
-                                if (formas.length === 2 && i === 0) {
-                                  const other = formas[1]
-                                  const rem = Math.max(0, totalFinal - newVal)
-                                  updated[other] = parseFloat((other === "Crédito" ? Math.min(saldoCredito, rem) : rem).toFixed(2))
-                                }
-                                setDivisao(updated)
-                              }}
-                              placeholder="0,00"
-                              inputMode="decimal"
-                              className={cn(iBase, "pl-12 text-base py-3")} style={iSt} />
+                    {/* Banner de status em tempo real */}
+                    <AnimatePresence mode="wait">
+                      {creditoInvalido && (
+                        <motion.div key="credito-inv"
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
+                          style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.4)" }}>
+                          <span style={{ color: "#f87171", fontSize: 15 }}>⚠</span>
+                          <p className="text-sm font-semibold" style={{ color: "#f87171" }}>
+                            O valor em crédito ultrapassa o saldo disponível do cliente ({fmtBRL(saldoCredito)}).
+                          </p>
+                        </motion.div>
+                      )}
+                      {!creditoInvalido && excedente && (
+                        <motion.div key="excedente"
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
+                          style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.4)" }}>
+                          <span style={{ color: "#f87171", fontSize: 15 }}>⚠</span>
+                          <p className="text-sm font-semibold" style={{ color: "#f87171" }}>
+                            A soma ultrapassa o total da venda em {fmtBRL(diff)}. Ajuste os valores.
+                          </p>
+                        </motion.div>
+                      )}
+                      {!creditoInvalido && incompleto && soma > 0 && (
+                        <motion.div key="incompleto"
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
+                          style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.4)" }}>
+                          <span style={{ color: "#fbbf24", fontSize: 15 }}>◎</span>
+                          <p className="text-sm font-semibold" style={{ color: "#fbbf24" }}>
+                            Ainda falta distribuir {fmtBRL(Math.abs(diff))} para completar o total.
+                          </p>
+                        </motion.div>
+                      )}
+                      {!creditoInvalido && correto && soma > 0 && !temZero && (
+                        <motion.div key="correto"
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
+                          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.4)" }}>
+                          <span style={{ color: "#10b981", fontSize: 15 }}>✓</span>
+                          <p className="text-sm font-semibold" style={{ color: "#10b981" }}>
+                            Pagamento distribuído corretamente. Você pode continuar.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Inputs por forma */}
+                    <div className="space-y-3">
+                      {formas.map((f, i) => {
+                        const isCredito  = f === "Crédito"
+                        const maxCredito = isCredito ? Math.min(saldoCredito, totalFinal) : undefined
+                        const val        = divisao[f] ?? 0
+                        const strVal     = val > 0 ? String(val).replace(".", ",") : ""
+                        const isErr      = isCredito && creditoInvalido
+                        return (
+                          <div key={f}>
+                            <label className="text-xs font-bold uppercase tracking-wide block mb-1.5"
+                              style={{ color: isErr ? "#f87171" : "var(--text-muted)" }}>
+                              {f}{isCredito && saldoCredito > 0 ? ` (saldo: ${fmtBRL(saldoCredito)})` : ""}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none"
+                                style={{ color: "var(--text-muted)" }}>R$</span>
+                              <input
+                                value={strVal}
+                                autoFocus={i === 0}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(",", ".")
+                                  const parsed = parseFloat(raw)
+                                  const newVal = isNaN(parsed) || parsed < 0 ? 0
+                                    : maxCredito !== undefined ? Math.min(parsed, maxCredito)
+                                    : parsed
+                                  const updated = { ...divisao, [f]: parseFloat(newVal.toFixed(2)) }
+                                  if (formas.length === 2 && i === 0) {
+                                    const other = formas[1]
+                                    const rem = Math.max(0, totalFinal - newVal)
+                                    const otherMax = other === "Crédito" ? Math.min(saldoCredito, rem) : rem
+                                    updated[other] = parseFloat(otherMax.toFixed(2))
+                                  }
+                                  setDivisao(updated)
+                                }}
+                                placeholder="0,00"
+                                inputMode="decimal"
+                                className={cn(iBase, "pl-12 text-base py-3")}
+                                style={{ ...iSt, borderColor: isErr ? "#f87171" : val > 0 && correto ? "#10b98166" : "var(--border)" }} />
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>}
+                        )
+                      })}
+                    </div>
+                  </>
+                })()}
 
                 {/* ── Step 5: Desconto ── */}
                 {step === 5 && <>
@@ -917,15 +978,23 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     className="mt-2 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
                 </AnimatePresence>
 
-                {(
+                {(() => {
+                  const div4Soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
+                  const div4Ok = step !== 4 || (
+                    Math.abs(div4Soma - totalFinal) <= 0.01 &&
+                    formas.every(f => (divisao[f] ?? 0) > 0) &&
+                    (!formas.includes("Crédito") || (divisao["Crédito"] ?? 0) <= saldoCredito)
+                  )
+                  return (
                   <div className="flex items-center gap-4 mt-8">
                     <motion.button
-                      whileHover={{ scale: 1.05, boxShadow: `0 8px 24px ${COR}55` }}
-                      whileTap={{ scale: 0.94 }}
+                      whileHover={div4Ok ? { scale: 1.05, boxShadow: `0 8px 24px ${COR}55` } : {}}
+                      whileTap={div4Ok ? { scale: 0.94 } : {}}
                       transition={{ type: "spring", stiffness: 400, damping: 18 }}
                       onClick={advance}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg"
-                      style={{ background: COR }}>
+                      disabled={!div4Ok}
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg transition-opacity"
+                      style={{ background: COR, opacity: div4Ok ? 1 : 0.4, cursor: div4Ok ? "pointer" : "not-allowed" }}>
                       {step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} />
                     </motion.button>
                     {step > 1 && step !== 4 && (
@@ -940,7 +1009,8 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                       </motion.button>
                     )}
                   </div>
-                )}
+                  )
+                })()}
               </div>
             </motion.div>
 
