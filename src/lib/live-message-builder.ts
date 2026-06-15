@@ -183,6 +183,16 @@ export function buildFixedContent(compra: CompraData, diaPrazo: string): string 
   const qtd = compra.quantidade_itens ?? 1
   const qtdLabel = Number(qtd) === 1 ? "ITEM" : "ITENS"
 
+  const blocoPagemento = compra.link_pagamento
+    ? `💳 Link de pagamento (PIX ou cartão):
+${compra.link_pagamento}
+
+O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas peças reservadas. 💖`
+    : `O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX, para manter suas peças reservadas. 💖
+
+🔑 PIX: (16) 99134-7476
+👤 Nome: Emanuel Maestre dos Santos`
+
   return `📅 Data da compra: ${fmtData(compra.data_compra)}
 🎥 Data da live: ${fmtData(compra.data_live)}
 🛍️ Nº da sacola: ${num}
@@ -192,10 +202,7 @@ export function buildFixedContent(compra: CompraData, diaPrazo: string): string 
 
 Pagamento:
 
-O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX ou cartão, para manter suas peças reservadas. 💖
-
-🔑 PIX: (16) 99134-7476
-👤 Nome: Emanuel Maestre dos Santos
+${blocoPagemento}
 
 End. p/ retirada:
 

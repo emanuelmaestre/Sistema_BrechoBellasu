@@ -12,7 +12,7 @@ interface PageLayoutProps {
 
 export function PageLayout({ title, subtitle, actions, children, className }: PageLayoutProps) {
   return (
-    <div className={cn("flex flex-col gap-6 p-6", className)}>
+    <div className={cn("flex flex-col gap-4 sm:gap-6 p-4 sm:p-6", className)}>
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>

@@ -242,9 +242,9 @@ function AbaUsuarios() {
         </button>
       </div>
 
-      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
         {/* Cabeçalho */}
-        <div className="grid grid-cols-12 gap-3 px-5 py-3"
+        <div className="grid grid-cols-12 gap-3 px-5 py-3 min-w-[560px]"
           style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
           {[["col-span-4","NOME"], ["col-span-4","E-MAIL"], ["col-span-2","PERFIL"], ["col-span-1","STATUS"], ["col-span-1",""]].map(([cls, lbl]) => (
             <div key={lbl} className={cls}>
@@ -271,7 +271,7 @@ function AbaUsuarios() {
             <motion.div key={u.id}
               initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className="grid grid-cols-12 gap-3 items-center px-5 py-3.5 transition-colors"
+              className="grid grid-cols-12 gap-3 items-center px-5 py-3.5 transition-colors min-w-[560px]"
               style={{ borderBottom: i < usuarios.length - 1 ? "1px solid var(--border)" : "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg-hover)" }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent" }}>
@@ -658,7 +658,7 @@ function AbaGoogle() {
       ) : data && (
         <>
           {/* Cards de totais */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { label: "Criar",     value: data.totais.criarNovos, color: "#10b981", bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.2)"  },
               { label: "Atualizar", value: data.totais.atualizar,  color: "#60a5fa", bg: "rgba(96,165,250,0.08)",  border: "rgba(96,165,250,0.2)"  },
@@ -878,7 +878,7 @@ export default function ConfiguracoesPage() {
             <form onSubmit={handleSubmit(v => salvar.mutate(v))}>
 
               {/* ── Grid 2 colunas ── */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 {/* ── Coluna esquerda: Dados da Empresa + Endereço ── */}
                 <div className="rounded-2xl p-6 space-y-4"
@@ -921,12 +921,12 @@ export default function ConfiguracoesPage() {
                       style={{ color: "var(--text-muted)" }}>
                       📍 Endereço
                     </h3>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className={labelClass} style={{ color: "var(--text-muted)" }}>CEP</label>
                         <input {...register("cep")} className={iBase} style={iSt} placeholder="00000-000" />
                       </div>
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         <label className={labelClass} style={{ color: "var(--text-muted)" }}>Logradouro</label>
                         <input {...register("logradouro")} className={iBase} style={iSt} />
                       </div>

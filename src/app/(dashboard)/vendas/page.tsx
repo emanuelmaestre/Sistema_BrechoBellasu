@@ -1100,7 +1100,7 @@ export default function VendasPage() {
           onBlur={() => { setTableFocused(false); resetSel() }}
           className="overflow-x-auto outline-none"
         >
-          <table className="w-full">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["", "#", "Data", "Hora", "Itens", "Cliente", "Pagamento", "Total", "Notificações"].map(h => (

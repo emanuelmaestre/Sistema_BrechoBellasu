@@ -563,7 +563,7 @@ export default function FinanceiroPage() {
           onBlur={() => { setTableFocused(false); resetSel() }}
           className="overflow-x-auto outline-none"
         >
-          <table className="w-full">
+          <table className="w-full min-w-[560px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Descrição","Valor","Vencimento","Status","Categoria","Ações"].map(h => (

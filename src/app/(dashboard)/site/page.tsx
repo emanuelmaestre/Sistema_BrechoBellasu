@@ -86,8 +86,8 @@ export default function SitePage() {
         <p className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-3">
           Pedidos recentes {pedidos ? `(${pedidos.total ?? 0})` : ""}
         </p>
-        <div className="bg-slate-800/40 border border-white/5 rounded-2xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-slate-800/40 border border-white/5 rounded-2xl overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-white/5">
                 {["#","Cliente","Total","Status","Data"].map(h => (
