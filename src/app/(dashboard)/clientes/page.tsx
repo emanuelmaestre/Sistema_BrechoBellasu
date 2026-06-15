@@ -490,7 +490,7 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
                     whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                     onClick={() => onEditarCampo(step)}
                     title={`Editar ${label}`}
-                    className="shrink-0 opacity-0 group-hover/card:opacity-100 transition-all p-1.5 rounded-lg ml-1"
+                    className="shrink-0 transition-all p-1.5 rounded-lg ml-1"
                     style={{ color: "var(--text-muted)", background: "transparent" }}
                     onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
                     onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent" }}>
@@ -505,7 +505,7 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
                 whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                 onClick={e => { e.preventDefault(); onEditarCampo(step) }}
                 title={`Editar ${label}`}
-                className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-100 transition-all p-1.5 rounded-lg z-10"
+                className="absolute right-10 top-1/2 -translate-y-1/2 transition-all p-1.5 rounded-lg z-10"
                 style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; e.currentTarget.style.background = "var(--accent-bg)" }}
                 onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-surface)" }}>

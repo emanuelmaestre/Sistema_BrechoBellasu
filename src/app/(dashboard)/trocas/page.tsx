@@ -1126,7 +1126,7 @@ function DrawerVerTroca({
                     whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                     onClick={() => onEditarCampo(step)}
                     title={`Editar ${label}`}
-                    className="absolute top-3 right-3 opacity-0 group-hover/f:opacity-100 transition-all p-1.5 rounded-lg"
+                    className="absolute top-3 right-3 transition-all p-1.5 rounded-lg"
                     style={{ color: "var(--text-muted)" }}
                     onMouseEnter={e => { e.currentTarget.style.color = cor; e.currentTarget.style.background = `${cor}18` }}
                     onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent" }}>
