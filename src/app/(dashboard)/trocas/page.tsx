@@ -7,7 +7,7 @@ import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, RefreshCw, Check, Search, ChevronRight,
   CheckCircle2, XCircle, Clock, Send, Eye, Pencil,
 } from "lucide-react"
-import { apiGet, apiPost, apiPatch } from "@/services/api"
+import { apiGet, apiPost, apiPatch, apiPut } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtData, cn } from "@/lib/utils"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
@@ -25,9 +25,9 @@ type Troca = {
 function BadgeNotif({ status }: { status?: "pendente" | "enviado" | "erro" | null }) {
   if (!status) return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400">—</span>
   const map = {
-    pendente: { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Clock size={9} />,         label: "Pendente" },
-    enviado:  { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={9} />,  label: "Enviado"  },
-    erro:     { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={9} />,       label: "Erro"     },
+    pendente: { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Clock size={9} />,         label: "PENDENTE" },
+    enviado:  { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={9} />,  label: "ENVIADO"  },
+    erro:     { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={9} />,       label: "ERRO"     },
   }
   const { bg, text, icon, label } = map[status]
   return (
@@ -445,11 +445,18 @@ function ModalProdutosCliente({
 }
 
 // ─── Wizard ───────────────────────────────────────────────
-function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {
+function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editandoId }: {
+  onClose: () => void
+  onSalvo: () => void
+  quickEdit?: boolean
+  initialStep?: number
+  inicial?: TrocaForm
+  editandoId?: number
+}) {
   const qc = useQueryClient()
-  const [step, setStep]   = useState(1)
+  const [step, setStep]   = useState(initialStep ?? 1)
   const [dir, setDir]     = useState(1)
-  const [form, setForm]   = useState<TrocaForm>(EMPTY)
+  const [form, setForm]   = useState<TrocaForm>(inicial ?? EMPTY)
   const [erro, setErro]   = useState("")
   const [saving, setSaving] = useState(false)
   const [salvoOk, setSalvoOk] = useState(false)
@@ -525,12 +532,27 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
 
   function advance() {
     if (step === 4 && !form.motivo.trim()) { setErro("Selecione um motivo para continuar"); return }
+    if (quickEdit) { handleSalvar(); return }
     if (step < TOTAL) go(step + 1)
   }
 
   async function handleSalvar() {
     setSaving(true); setErro("")
     try {
+      if (quickEdit && editandoId) {
+        // Modo edição rápida: só atualiza os campos editados
+        await apiPut(`/trocas/${editandoId}`, {
+          tipo: form.tipo,
+          nome_produto: form.nome_produto || null,
+          produto_id: form.produto_id || null,
+          cliente_id: form.cliente_id || null,
+          cliente_nome: form.cliente_nome || null,
+          motivo: form.motivo || null,
+        })
+        qc.invalidateQueries({ queryKey: ["trocas"] })
+        onSalvo()
+        return
+      }
       const res = await apiPost<{ id: number; credito_gerado?: number }>("/trocas", {
         tipo: form.tipo,
         nome_produto: form.nome_produto || null,
@@ -623,7 +645,17 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
   return (
     <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ type: "spring", stiffness: 340, damping: 30 }}
+        className="relative w-full max-w-2xl flex flex-col rounded-3xl overflow-hidden shadow-2xl"
+        style={{ background: "var(--bg-base)", border: "1px solid var(--border)", maxHeight: "92vh" }}>
 
       <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} />
 
@@ -632,10 +664,12 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
           <span style={{ color: "var(--border-hover)" }}>|</span>
-          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Registrar Troca / Devolução</span>
+          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            {quickEdit ? "Editar" : "Registrar"} Troca / Devolução
+          </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>{step} / {TOTAL}</span>
+          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>{quickEdit ? "Edição rápida" : `${step} / ${TOTAL}`}</span>
           <button onClick={onClose}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
@@ -646,7 +680,7 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
       </div>
 
       {/* Conteúdo */}
-      <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
+      <div className="flex-1 overflow-hidden relative" style={{ minHeight: 0 }} onKeyDown={handleKey}>
         <AnimatePresence custom={dir} mode="wait">
           {step < TOTAL ? (
             <motion.div key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
@@ -849,16 +883,21 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
                 {step > 1 && (
                   <div className="flex items-center gap-4 mt-8">
                     <motion.button onClick={advance} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg"
+                      disabled={saving}
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg disabled:opacity-50"
                       style={{ background: "var(--accent)" }}>
-                      Continuar <ArrowRight size={15} />
+                      {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> :
+                       quickEdit ? <><Check size={14} /> Salvar alteração</> :
+                       <>Continuar <ArrowRight size={15} /></>}
                     </motion.button>
-                    <button onClick={() => go(step + 1)}
-                      className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                      Pular →
-                    </button>
+                    {!quickEdit && (
+                      <button onClick={() => go(step + 1)}
+                        className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                        Pular →
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -954,7 +993,8 @@ function WizardTroca({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
           </p>
         </div>
       )}
-    </motion.div>
+      </motion.div>{/* inner card */}
+    </motion.div>{/* overlay */}
 
     {/* Modal produtos comprados */}
     <AnimatePresence>
@@ -975,10 +1015,12 @@ function DrawerVerTroca({
   troca,
   onClose,
   onEnviou,
+  onEditarCampo,
 }: {
   troca: Troca
   onClose: () => void
   onEnviou: () => void
+  onEditarCampo?: (step: number) => void
 }) {
   const [enviando, setEnviando] = useState(false)
   const [notifMsg, setNotifMsg] = useState<{ ok: boolean; texto: string } | null>(null)
@@ -1018,10 +1060,10 @@ function DrawerVerTroca({
   }
 
   const campos = [
-    { label: "Tipo",     value: troca.tipo === "troca" ? "Troca 🔄" : "Devolução ↩️" },
-    { label: "Cliente",  value: troca.cliente_nome ?? "—" },
-    { label: "Produto",  value: troca.nome_produto ?? "—" },
-    { label: "Motivo",   value: troca.motivo ?? "—", full: true },
+    { label: "Tipo",     value: troca.tipo === "troca" ? "Troca 🔄" : "Devolução ↩️", step: 1 },
+    { label: "Cliente",  value: troca.cliente_nome ?? "—",                              step: 2 },
+    { label: "Produto",  value: troca.nome_produto ?? "—",                              step: 3 },
+    { label: "Motivo",   value: troca.motivo ?? "—",          full: true,               step: 4 },
     { label: "Status",   value: STATUS_LABELS[troca.status] ?? troca.status },
     { label: "Data",     value: fmtData(troca.created_at) },
   ]
@@ -1073,12 +1115,24 @@ function DrawerVerTroca({
 
           {/* Campos */}
           <div className="grid grid-cols-2 gap-3">
-            {campos.map(({ label, value, full }) => (
+            {campos.map(({ label, value, full, step }) => (
               <div key={label}
-                className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
+                className={cn("rounded-2xl p-4 group/f relative", full ? "col-span-2" : "")}
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}` }}>
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
                 <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
+                {step && onEditarCampo && (
+                  <motion.button
+                    whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                    onClick={() => onEditarCampo(step)}
+                    title={`Editar ${label}`}
+                    className="absolute top-3 right-3 opacity-0 group-hover/f:opacity-100 transition-all p-1.5 rounded-lg"
+                    style={{ color: "var(--text-muted)" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = cor; e.currentTarget.style.background = `${cor}18` }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent" }}>
+                    <Pencil size={12} />
+                  </motion.button>
+                )}
               </div>
             ))}
           </div>
@@ -1143,6 +1197,22 @@ export default function TrocasPage() {
   const [tipo, setTipo]     = useState("")
   const [status, setStatus] = useState("")
   const [verTroca, setVerTroca] = useState<Troca | null>(null)
+  const [quickEditStep, setQuickEditStep] = useState<number | null>(null)
+  const [editTrocaInitial, setEditTrocaInitial] = useState<TrocaForm | null>(null)
+  const [editTrocaId, setEditTrocaId] = useState<number | null>(null)
+
+  function abrirEdicaoRapida(t: Troca, step: number) {
+    setEditTrocaInitial({
+      tipo: t.tipo,
+      nome_produto: t.nome_produto ?? "",
+      produto_id: null,
+      cliente_nome: t.cliente_nome ?? "",
+      cliente_id: t.cliente_id ?? null,
+      motivo: t.motivo ?? "",
+    })
+    setEditTrocaId(t.id)
+    setQuickEditStep(step)
+  }
 
   const { data, isLoading } = useQuery<{ data: Troca[]; total: number }>({
     queryKey: ["trocas", tipo, status],
@@ -1254,14 +1324,6 @@ export default function TrocasPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
                         <Eye size={12} /> Ver
                       </button>
-                      <button
-                        title="Editar"
-                        className="p-1.5 rounded-xl transition-colors"
-                        style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                        <Pencil size={12} />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1282,7 +1344,25 @@ export default function TrocasPage() {
       </div>
 
       <AnimatePresence>
-        {wizard && <WizardTroca onClose={() => setWizard(false)} onSalvo={() => setWizard(false)} />}
+        {wizard && <WizardTroca onClose={() => setWizard(false)} onSalvo={() => { qc.invalidateQueries({ queryKey: ["trocas"] }); setWizard(false) }} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {quickEditStep !== null && editTrocaInitial && editTrocaId && (
+          <WizardTroca
+            onClose={() => { setQuickEditStep(null); setEditTrocaInitial(null); setEditTrocaId(null) }}
+            onSalvo={() => {
+              qc.invalidateQueries({ queryKey: ["trocas"] })
+              setQuickEditStep(null)
+              setEditTrocaInitial(null)
+              setEditTrocaId(null)
+            }}
+            quickEdit
+            initialStep={quickEditStep}
+            inicial={editTrocaInitial}
+            editandoId={editTrocaId}
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -1292,8 +1372,11 @@ export default function TrocasPage() {
             onClose={() => setVerTroca(null)}
             onEnviou={() => {
               qc.invalidateQueries({ queryKey: ["trocas"] })
-              // Atualiza o objeto local para refletir status enviado
               setVerTroca(prev => prev ? { ...prev, notificacao_status: "enviado" } : null)
+            }}
+            onEditarCampo={(step) => {
+              abrirEdicaoRapida(verTroca, step)
+              setVerTroca(null)
             }}
           />
         )}
