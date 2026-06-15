@@ -22,9 +22,6 @@ interface ProdutoForm {
   marca: string
   preco_venda: string
   preco_custo: string
-  estoque_atual: string
-  unidade_medida: string
-  controlar_estoque: boolean
   cor: string
   tamanho: string
 }
@@ -32,8 +29,7 @@ interface ProdutoForm {
 const EMPTY: ProdutoForm = {
   nome: "", codigo: "", categoria_id: "", marca: "",
   preco_venda: "", preco_custo: "",
-  estoque_atual: "", unidade_medida: "pc",
-  controlar_estoque: true, cor: "", tamanho: "",
+  cor: "", tamanho: "",
 }
 
 const TAMANHOS = ["PP", "P", "M", "G", "GG", "EG", "EXG"]
@@ -405,7 +401,7 @@ function WizardProduto({
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const TOTAL = 8
+  const TOTAL = 7
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -450,7 +446,7 @@ function WizardProduto({
       setErro("Selecione o tamanho do produto")
       return
     }
-    if (step === 6 && Number(form.preco_venda) < 0) {
+    if (step === 6 && Number(form.preco_venda.replace(",", ".")) < 0) {
       setErro("Preço inválido")
       return
     }
@@ -469,9 +465,9 @@ function WizardProduto({
         marca:             form.marca     || null,
         preco_venda:       parseFloat(form.preco_venda.replace(",","."))  || 0,
         preco_custo:       parseFloat(form.preco_custo.replace(",","."))  || 0,
-        estoque_atual:     Number(form.estoque_atual) || 0,
-        unidade_medida:    form.unidade_medida,
-        controlar_estoque: form.controlar_estoque,
+        estoque_atual:     1,
+        unidade_medida:    "pc",
+        controlar_estoque: true,
         cor:               form.cor || null,
         tamanho:           form.tamanho || null,
       }
@@ -714,35 +710,6 @@ function WizardProduto({
                   </>
                 )}
 
-                {step === 7 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Estoque inicial?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Quantas unidades estão disponíveis agora.</p>
-                    <div className="flex gap-3">
-                      <input ref={inputRef} type="number" min="0"
-                        value={form.estoque_atual} onChange={e => set("estoque_atual", e.target.value)}
-                        className={cn(inputBase, "flex-1")} style={inputSt} />
-                      <select value={form.unidade_medida} onChange={e => set("unidade_medida", e.target.value)}
-                        className={cn(inputBase, "w-36")} style={inputSt}>
-                        <option value="pc">PEÇA (PC)</option>
-                        <option value="par">PAR (PAR)</option>
-                        <option value="cj">CONJUNTO (CJ)</option>
-                      </select>
-                    </div>
-                    <label className="flex items-center gap-3 mt-5 cursor-pointer">
-                      <div onClick={() => set("controlar_estoque", !form.controlar_estoque)}
-                        className={cn("w-11 h-6 rounded-full transition-all relative",
-                          form.controlar_estoque ? "bg-[color:var(--accent)]" : "bg-[color:var(--border-hover)]")}>
-                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all",
-                          form.controlar_estoque ? "left-6" : "left-1")} />
-                      </div>
-                      <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Controlar estoque</span>
-                    </label>
-                  </>
-                )}
-
                 <AnimatePresence>
                   {erro && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -818,14 +785,13 @@ function WizardProduto({
                 {erro && <p className="mb-4 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Nome",           value: form.nome || "—",                                    s: 1, full: true },
-                    { label: "Marca",          value: form.marca || "—",                                   s: 2 },
-                    { label: "Cor",            value: form.cor || "—",                                     s: 3 },
-                    { label: "Tamanho",        value: form.tamanho || "—",                                 s: 4 },
-                    { label: "Categoria",      value: catNome,                                             s: 5 },
-                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda)),                    s: 6 },
-                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo)),                    s: 6 },
-                    { label: "Estoque",        value: `${form.estoque_atual} ${form.unidade_medida}`,      s: 7 },
+                    { label: "Nome",           value: form.nome || "—",                 s: 1, full: true },
+                    { label: "Marca",          value: form.marca || "—",                s: 2 },
+                    { label: "Cor",            value: form.cor || "—",                  s: 3 },
+                    { label: "Tamanho",        value: form.tamanho || "—",              s: 4 },
+                    { label: "Categoria",      value: catNome,                          s: 5 },
+                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda.replace(",","."))), s: 6 },
+                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo.replace(",","."))), s: 6 },
                   ].map(({ label, value, s, full }) => (
                     <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)" }}>
@@ -840,6 +806,13 @@ function WizardProduto({
                       </button>
                     </div>
                   ))}
+                  {/* Estoque fixo — peça única */}
+                  <div className="rounded-2xl p-4"
+                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid #10b981" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Estoque</p>
+                    <p className="text-sm font-medium uppercase" style={{ color: "#10b981" }}>1 unidade</p>
+                    <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>Peça única — definido automaticamente</p>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -920,13 +893,10 @@ export default function ProdutosPage() {
       marca: p.marca ?? "",
       preco_venda: String(p.preco_venda ?? 0),
       preco_custo: String(p.preco_custo ?? 0),
-      estoque_atual: String(p.estoque_atual ?? 0),
-      unidade_medida: p.unidade_medida ?? "un",
-      controlar_estoque: p.controlar_estoque ?? true,
       cor: (p as unknown as { cor?: string }).cor ?? "",
       tamanho: (p as unknown as { tamanho?: string | null }).tamanho ?? "",
     })
-    setEditInitStep(8)   // abre direto no resumo (step 8 = TOTAL)
+    setEditInitStep(7)   // abre direto no resumo (step 7 = TOTAL)
     setWizard(true)
   }
 
