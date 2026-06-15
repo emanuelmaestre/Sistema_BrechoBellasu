@@ -1073,16 +1073,16 @@ function DrawerVerTroca({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex justify-end"
-      style={{ background: "rgba(0,0,0,0.55)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", stiffness: 320, damping: 34 }}
-        className="w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden"
-        style={{ background: "var(--bg-base)", borderLeft: "1px solid var(--border)" }}>
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ type: "spring", stiffness: 320, damping: 30 }}
+        className="w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden rounded-2xl"
+        style={{ background: "var(--bg-base)", border: "1px solid var(--border)" }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 shrink-0"
