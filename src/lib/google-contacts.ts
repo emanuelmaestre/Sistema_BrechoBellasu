@@ -111,20 +111,37 @@ export async function sincronizarContato(params: SincronizarParams): Promise<Sin
 
     // 3. Atualizar contato existente
     if (resourceName) {
-      // Busca etag atual (obrigatório para PATCH)
-      const existing = await client.people.get({
-        resourceName,
-        personFields: "names,phoneNumbers,metadata",
-      })
-      const etag = existing.data.etag ?? undefined
+      try {
+        const existing = await client.people.get({
+          resourceName,
+          personFields: "names,phoneNumbers,metadata",
+        })
+        const etag = existing.data.etag ?? undefined
 
-      await client.people.updateContact({
-        resourceName,
-        updatePersonFields: "names,phoneNumbers",
-        requestBody: { ...resource, etag },
-      })
+        await client.people.updateContact({
+          resourceName,
+          updatePersonFields: "names,phoneNumbers",
+          requestBody: { ...resource, etag },
+        })
 
-      return { ok: true, acao: "atualizar", googleContactId: resourceName, nomeMontado, telefoneNorm }
+        return { ok: true, acao: "atualizar", googleContactId: resourceName, nomeMontado, telefoneNorm }
+      } catch {
+        // Contato não existe mais no Google — tenta buscar por telefone ou criar
+        resourceName = await buscarPorTelefone(client, telefoneNorm)
+        if (resourceName) {
+          const existing = await client.people.get({
+            resourceName,
+            personFields: "names,phoneNumbers,metadata",
+          })
+          await client.people.updateContact({
+            resourceName,
+            updatePersonFields: "names,phoneNumbers",
+            requestBody: { ...resource, etag: existing.data.etag ?? undefined },
+          })
+          return { ok: true, acao: "atualizar", googleContactId: resourceName, nomeMontado, telefoneNorm }
+        }
+        // Não encontrou — cai para criação abaixo
+      }
     }
 
     // 4. Criar novo contato
