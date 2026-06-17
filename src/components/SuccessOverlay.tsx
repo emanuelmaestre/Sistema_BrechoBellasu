@@ -47,11 +47,11 @@ export function SuccessOverlay({ show, titulo, subtitulo }: SuccessOverlayProps)
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
             className="text-center">
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+            <p className="text-2xl font-bold uppercase" style={{ color: "var(--text-primary)" }}>
               {titulo}
             </p>
             {subtitulo && (
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              <p className="text-sm mt-1 uppercase" style={{ color: "var(--text-muted)" }}>
                 {subtitulo}
               </p>
             )}

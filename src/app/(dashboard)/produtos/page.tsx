@@ -882,6 +882,14 @@ export default function ProdutosPage() {
   const produtos   = data?.data ?? []
   const categorias = cats ?? []
 
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const el = document.documentElement
+    const handler = () => setScrolled(el.scrollTop > 120)
+    window.addEventListener("scroll", handler, { passive: true })
+    return () => window.removeEventListener("scroll", handler)
+  }, [])
+
   const [tableFocused, setTableFocused] = useState(false)
   const { sel, onKeyDown: tableKeyDown, reset: resetSel } = useTableKeyNav(produtos, (p) => abrirEdicao(p))
 
@@ -1053,6 +1061,40 @@ export default function ProdutosPage() {
             onClose={() => { setWizard(false); setEditForm(null); setEditId(null); setEditInitStep(1) }}
             onSalvo={() => { setWizard(false); setEditForm(null); setEditId(null); setEditInitStep(1) }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* FAB flutuante — aparece ao rolar */}
+      <AnimatePresence>
+        {scrolled && !wizard && (
+          <motion.button
+            key="fab-novo-produto"
+            initial={{ opacity: 0, scale: 0.5, y: 24 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 24 }}
+            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.93 }}
+            onClick={() => { setEditForm(null); setEditId(null); setEditInitStep(1); setWizard(true) }}
+            className="fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl text-white text-sm font-bold shadow-2xl"
+            style={{
+              background: "linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)",
+              boxShadow: "0 8px 32px 0 rgba(109,40,217,0.45), 0 2px 8px 0 rgba(0,0,0,0.18)",
+            }}>
+            {/* Pulse ring */}
+            <motion.span
+              className="absolute inset-0 rounded-2xl"
+              animate={{ scale: [1, 1.18], opacity: [0.35, 0] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
+              style={{ background: "var(--accent)", zIndex: -1 }}
+            />
+            <motion.span
+              animate={{ rotate: [0, 90, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+              <Plus size={18} strokeWidth={2.5} />
+            </motion.span>
+            Novo Produto
+          </motion.button>
         )}
       </AnimatePresence>
     </div>
