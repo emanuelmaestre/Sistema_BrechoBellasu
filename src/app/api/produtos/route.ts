@@ -12,7 +12,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   const busca       = searchParams.get("busca")
   const categoria_id = searchParams.get("categoria_id")
   const page        = parseInt(searchParams.get("page") ?? "1")
-  const limit       = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200)
+  const limit       = Math.min(parseInt(searchParams.get("limit") ?? "50"), 1000)
   const from        = (page - 1) * limit
   const to          = from + limit - 1
 
