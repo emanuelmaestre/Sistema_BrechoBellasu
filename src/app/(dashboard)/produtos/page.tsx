@@ -1049,7 +1049,7 @@ export default function ProdutosPage() {
                 <tr key={p.id} className="transition-colors" style={{ borderBottom: "1px solid var(--border)", background: sel === idx ? "var(--accent-bg)" : "transparent", borderLeft: sel === idx ? "3px solid var(--accent)" : "3px solid transparent", outline: "none" }}
                   onMouseEnter={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "var(--bg-hover)" }}
                   onMouseLeave={e => { if (sel !== idx) (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
-                  <td className="px-4 py-3 font-mono text-xs uppercase" style={{ color: "var(--text-muted)" }}>{p.codigo ?? "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs uppercase" style={{ color: "var(--text-muted)" }}>{p.codigo ? p.codigo.replace(/^P/i, "") : "—"}</td>
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{p.nome}</p>
                   </td>
