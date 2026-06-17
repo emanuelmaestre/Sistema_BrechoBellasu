@@ -87,6 +87,7 @@ const CORES_PRODUTO: { nome: string; hex: string }[] = [
   { nome: "FLORAL",       hex: "#f9a8d4" },
   { nome: "ESTAMPADO",    hex: "linear-gradient(135deg,#6366f1,#ec4899,#f97316)" },
   { nome: "BRANCO/PRETO", hex: "repeating-linear-gradient(90deg,#0f172a 0px,#0f172a 6px,#f1f5f9 6px,#f1f5f9 12px)" },
+  { nome: "XADREZ",       hex: "repeating-conic-gradient(#1e293b 0% 25%,#94a3b8 0% 50%) 0 0/12px 12px" },
   { nome: "POÁ",          hex: "#1e293b" },
   { nome: "TIE DYE",      hex: "linear-gradient(135deg,#f87171,#a78bfa,#34d399,#60a5fa)" },
   { nome: "COLORIDO",     hex: "linear-gradient(135deg,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa)" },
