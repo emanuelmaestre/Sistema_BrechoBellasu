@@ -400,6 +400,26 @@ function WizardProduto({
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Teclado numérico horizontal para tablet (evita teclado do sistema alto)
+  const [isTablet, setIsTablet] = useState(false)
+  const [focusedPrice, setFocusedPrice] = useState<"preco_venda" | "preco_custo">("preco_venda")
+  useEffect(() => {
+    const check = () => setIsTablet(window.innerWidth >= 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  function numpadInput(key: string) {
+    const field = focusedPrice
+    const cur = (form[field] === "0,00" || form[field] === "") ? "" : form[field]
+    let next: string
+    if (key === "⌫") next = cur.slice(0, -1) || "0,00"
+    else if (key === ",") next = cur.includes(",") ? cur : cur + ","
+    else next = cur + key
+    set(field, next)
+  }
+
   const TOTAL = 7
 
   useEffect(() => {
@@ -635,35 +655,44 @@ function WizardProduto({
                     <div className="relative">
                       <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-semibold"
                         style={{ color: "var(--text-muted)" }}>R$</span>
-                      <input ref={inputRef} type="text" inputMode="decimal"
+                      <input ref={inputRef} type="text"
+                        inputMode={isTablet ? "none" : "decimal"}
+                        readOnly={isTablet}
                         value={form.preco_venda}
+                        onFocus={() => setFocusedPrice("preco_venda")}
                         onChange={e => {
                           const v = e.target.value.replace(/[^0-9.,]/g, "")
                           set("preco_venda", v)
                         }}
                         onBlur={e => {
+                          if (isTablet) return
                           const v = parseFloat(e.target.value.replace(",", "."))
                           set("preco_venda", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
                         }}
-                        className={cn(inputBase, "pl-14")} style={inputSt} />
+                        className={cn(inputBase, "pl-14")}
+                        style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_venda" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
                     </div>
                     <div className="mt-4">
                       <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>Preço de custo:</p>
                       <div className="relative">
                         <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base"
                           style={{ color: "var(--text-muted)" }}>R$</span>
-                        <input type="text" inputMode="decimal"
+                        <input type="text"
+                          inputMode={isTablet ? "none" : "decimal"}
+                          readOnly={isTablet}
                           value={form.preco_custo}
+                          onFocus={() => setFocusedPrice("preco_custo")}
                           onChange={e => {
-                            // Permite vírgula e ponto durante a digitação — não substitui enquanto digita
                             const v = e.target.value.replace(/[^0-9.,]/g, "")
                             set("preco_custo", v)
                           }}
                           onBlur={e => {
+                            if (isTablet) return
                             const v = parseFloat(e.target.value.replace(",", "."))
                             set("preco_custo", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
                           }}
-                          className={cn(inputBase, "pl-12 !text-base !py-3")} style={inputSt} />
+                          className={cn(inputBase, "pl-12 !text-base !py-3")}
+                          style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_custo" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
                       </div>
                     </div>
 
@@ -821,8 +850,50 @@ function WizardProduto({
         </AnimatePresence>
       </div>
 
+      {/* Numpad horizontal para tablet no step de preço */}
+      {isTablet && step === 6 && (
+        <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          {/* Seletor de campo */}
+          <div className="flex gap-2 mb-2">
+            {(["preco_venda", "preco_custo"] as const).map(f => (
+              <button key={f} onClick={() => setFocusedPrice(f)}
+                className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{
+                  background: focusedPrice === f ? "var(--accent)" : "var(--bg-surface)",
+                  color: focusedPrice === f ? "#fff" : "var(--text-secondary)",
+                  border: `1.5px solid ${focusedPrice === f ? "var(--accent)" : "var(--border)"}`,
+                }}>
+                {f === "preco_venda" ? "Preço de Venda" : "Preço de Custo"}
+              </button>
+            ))}
+          </div>
+          {/* Teclas em linha única */}
+          <div className="flex gap-1.5 items-center">
+            {["1","2","3","4","5","6","7","8","9","0",",","⌫"].map(k => (
+              <motion.button key={k} onPointerDown={e => { e.preventDefault(); numpadInput(k) }}
+                whileTap={{ scale: 0.88 }}
+                className="flex-1 py-3 rounded-xl text-base font-bold"
+                style={{
+                  background: k === "⌫" ? "rgba(248,113,113,0.12)" : "var(--bg-surface)",
+                  color: k === "⌫" ? "#f87171" : "var(--text-primary)",
+                  border: "1.5px solid var(--border)",
+                  minWidth: 0,
+                }}>
+                {k}
+              </motion.button>
+            ))}
+            <motion.button onPointerDown={e => { e.preventDefault(); advance() }}
+              whileTap={{ scale: 0.93 }}
+              className="py-3 px-4 rounded-xl text-sm font-bold text-white"
+              style={{ background: "var(--accent)", border: "none", whiteSpace: "nowrap" }}>
+              Próximo →
+            </motion.button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      {step < TOTAL && (
+      {step < TOTAL && !(isTablet && step === 6) && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0"
           style={{ borderTop: "1px solid var(--border)" }}>
           {step > 1 ? (
