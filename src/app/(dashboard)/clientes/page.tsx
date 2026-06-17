@@ -1685,7 +1685,7 @@ function WizardCliente({
     <Confete show={confete} />
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col"
+      className="fixed inset-0 z-[60] flex flex-col"
       style={{ background: "var(--bg-base)" }}
     >
       <SuccessOverlay show={salvoOk} titulo={editandoId ? "Cliente atualizado!" : "Cliente cadastrado!"} subtitulo={form.nome || ""} />
