@@ -409,6 +409,8 @@ function WizardProduto({
   }, [onClose])
 
   useEffect(() => {
+    // Só foca em steps com campo de texto — evita teclado virtual nos steps de chips (3, 4, 5)
+    if (![1, 2, 6].includes(step)) return
     const t = setTimeout(() => inputRef.current?.focus(), 280)
     return () => clearTimeout(t)
   }, [step])
