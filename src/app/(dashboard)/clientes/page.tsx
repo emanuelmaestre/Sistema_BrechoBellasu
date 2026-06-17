@@ -1604,6 +1604,8 @@ function WizardCliente({
     if (step === 7) { advanceCep(); return }
     if (step === 9 && !form.numero.trim()) { setErro("Número é obrigatório."); return }
     if (returnToRevisao) {
+      // Edição de endereço: steps 7→8→9 devem fluir em sequência antes de salvar
+      if (quickEdit && initialStep === 7 && step < 9) { go(step + 1); return }
       if (quickEdit) { handleSalvar(); return }
       setReturnToRevisao(false); go(TOTAL); return
     }
