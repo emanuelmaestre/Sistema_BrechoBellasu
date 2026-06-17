@@ -40,7 +40,7 @@ export interface SincronizarResult {
 
 function buildResource(nomeMontado: string, telefoneNorm: string): people_v1.Schema$Person {
   return {
-    names: [{ displayName: nomeMontado, unstructuredName: nomeMontado }],
+    names: [{ givenName: nomeMontado, unstructuredName: nomeMontado }],
     phoneNumbers: [{ value: telefoneNorm, type: "mobile" }],
   }
 }
@@ -59,8 +59,11 @@ async function buscarPorTelefone(
     const results = res.data.results ?? []
     for (const r of results) {
       const phones = r.person?.phoneNumbers ?? []
+      const telDigits = telefoneNorm.replace(/\D/g, "")
       for (const p of phones) {
-        if (p.value?.replace(/\D/g, "") === telefoneNorm.replace(/\D/g, "")) {
+        const pDigits = p.value?.replace(/\D/g, "") ?? ""
+        // Compara com e sem prefixo 55 para cobrir qualquer formato salvo no Google
+        if (pDigits === telDigits || pDigits === telDigits.slice(2) || telDigits === pDigits.slice(2)) {
           return r.person?.resourceName ?? null
         }
       }
