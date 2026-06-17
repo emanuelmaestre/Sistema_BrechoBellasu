@@ -571,7 +571,7 @@ function WizardProduto({
                         return (
                           <motion.button
                             key={t}
-                            onClick={() => { set("tamanho", t); setTimeout(() => advance(), 150) }}
+                            onClick={() => { set("tamanho", t); setTimeout(() => go(step + 1), 150) }}
                             whileHover={{ scale: 1.06 }}
                             whileTap={{ scale: 0.94 }}
                             className="px-6 py-4 rounded-2xl text-lg font-black uppercase tracking-wide transition-all"
