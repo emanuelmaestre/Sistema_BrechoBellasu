@@ -129,18 +129,23 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     // Debita crédito se solicitado
     const creditoUsar = Number(body.credito_usar) || 0
     if (creditoUsar > 0 && body.cliente_id) {
-      try {
-        await sb2.rpc("fn_credito_saida", {
-          p_cliente_id: body.cliente_id,
-          p_valor:      creditoUsar,
-          p_origem:     "venda",
-          p_obs:        `Venda #${vendaId}`,
-          p_op_id:      vendaId,
-          p_op_tipo:    "venda",
-          p_user_id:    auth.id,
-        })
-      } catch (err) {
-        console.error("[POST /api/vendas] erro ao debitar crédito:", err)
+      const { error: errCredito } = await sb2.rpc("fn_credito_saida", {
+        p_cliente_id: body.cliente_id,
+        p_valor:      creditoUsar,
+        p_origem:     "venda",
+        p_obs:        `Venda #${vendaId}`,
+        p_op_id:      vendaId,
+        p_op_tipo:    "venda",
+        p_user_id:    auth.id,
+      })
+      if (errCredito) {
+        console.error("[POST /api/vendas] erro ao debitar crédito:", errCredito)
+        // Cancelar a venda se o débito de crédito falhou — mantém consistência
+        await sb2.rpc("fn_cancelar_venda", { p_id: vendaId })
+        return NextResponse.json(
+          { erro: `Erro ao debitar crédito: ${errCredito.message}` },
+          { status: 422 }
+        )
       }
     }
 
