@@ -1872,17 +1872,20 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [confirmExcluirCompra, setConfirmExcluirCompra] = useState<number | null>(null)
   const [retirandoId, setRetirandoId] = useState<number | null>(null)
   const [retiradaAnimId, setRetiradaAnimId] = useState<number | null>(null)
+  const [erroRetirada, setErroRetirada] = useState("")
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
 
   async function confirmarRetirada(compraId: number) {
-    setRetirandoId(compraId)
+    setRetirandoId(compraId); setErroRetirada("")
     try {
       await apiPost(`/live/${liveId}/compras/${compraId}/retirar`, {})
       setRetiradaAnimId(compraId)
       setTimeout(() => setRetiradaAnimId(null), 1800)
       refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
-    } catch { } finally { setRetirandoId(null) }
+    } catch (e: unknown) {
+      setErroRetirada(e instanceof Error ? e.message : "Erro ao confirmar retirada.")
+    } finally { setRetirandoId(null) }
   }
 
   async function excluirCompra(compraId: number) {
@@ -2367,6 +2370,14 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
               style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
               <AlertTriangle size={13} style={{ color: "#f87171" }}/>
               <p className="text-xs font-semibold uppercase" style={{ color: "#f87171" }}>{erroEnc}</p>
+            </motion.div>
+          )}
+          {erroRetirada && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="mt-2 px-4 py-2.5 rounded-xl flex items-center gap-2"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+              <AlertTriangle size={13} style={{ color: "#f87171" }}/>
+              <p className="text-xs font-semibold" style={{ color: "#f87171" }}>Retirada: {erroRetirada}</p>
             </motion.div>
           )}
         </AnimatePresence>

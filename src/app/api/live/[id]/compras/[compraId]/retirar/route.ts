@@ -29,6 +29,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     .update({ status_compra: "retirada" })
     .eq("id", parseInt(compraId))
 
-  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+  if (error) {
+    console.error("[POST retirar]", error)
+    return NextResponse.json({ erro: error.message }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
