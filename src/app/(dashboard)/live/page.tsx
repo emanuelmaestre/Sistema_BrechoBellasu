@@ -1873,8 +1873,19 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [retirandoId, setRetirandoId] = useState<number | null>(null)
   const [retiradaAnimId, setRetiradaAnimId] = useState<number | null>(null)
   const [erroRetirada, setErroRetirada] = useState("")
+  const [desfazendoId, setDesfazendoId] = useState<number | null>(null)
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
+
+  async function desfazerRetirada(compraId: number) {
+    setDesfazendoId(compraId); setErroRetirada("")
+    try {
+      await apiDelete(`/live/${liveId}/compras/${compraId}/retirar`)
+      refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+    } catch (e: unknown) {
+      setErroRetirada(e instanceof Error ? e.message : "Erro ao desfazer retirada.")
+    } finally { setDesfazendoId(null) }
+  }
 
   async function confirmarRetirada(compraId: number) {
     setRetirandoId(compraId); setErroRetirada("")
@@ -2311,21 +2322,31 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                               </motion.button>
                             )}
                             {c.status_compra === "retirada" && (
-                              <motion.div
-                                key={`retirada-${c.id}`}
-                                initial={retiradaAnimId === c.id ? { scale: 0.3, opacity: 0 } : { scale: 1, opacity: 1 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ type: "spring", stiffness: 520, damping: 16 }}
-                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
-                                style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                              <div className="inline-flex items-center gap-1.5">
                                 <motion.div
-                                  initial={retiradaAnimId === c.id ? { rotate: -30, scale: 0 } : { rotate: 0, scale: 1 }}
-                                  animate={{ rotate: 0, scale: 1 }}
-                                  transition={{ type: "spring", stiffness: 600, damping: 14, delay: 0.08 }}>
-                                  <CheckCircle2 size={12} style={{ color: "#10b981" }}/>
+                                  key={`retirada-${c.id}`}
+                                  initial={retiradaAnimId === c.id ? { scale: 0.3, opacity: 0 } : { scale: 1, opacity: 1 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ type: "spring", stiffness: 520, damping: 16 }}
+                                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                  style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                                  <motion.div
+                                    initial={retiradaAnimId === c.id ? { rotate: -30, scale: 0 } : { rotate: 0, scale: 1 }}
+                                    animate={{ rotate: 0, scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 600, damping: 14, delay: 0.08 }}>
+                                    <CheckCircle2 size={12} style={{ color: "#10b981" }}/>
+                                  </motion.div>
+                                  RETIRADA
                                 </motion.div>
-                                RETIRADA
-                              </motion.div>
+                                <motion.button
+                                  onClick={() => desfazerRetirada(c.id)}
+                                  disabled={desfazendoId === c.id}
+                                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-1.5 rounded-lg"
+                                  style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                                  {desfazendoId === c.id ? <Loader2 size={9} className="animate-spin"/> : <X size={9}/>}
+                                </motion.button>
+                              </div>
                             )}
                             {/* Botão excluir compra */}
                             {live.status !== "encerrada" && (
