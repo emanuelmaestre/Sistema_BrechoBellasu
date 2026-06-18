@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
@@ -1194,7 +1194,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 }
 
 // ─── Página Principal ─────────────────────────────────────
-export default function VendasPage() {
+function VendasPageInner() {
   const qc = useQueryClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1381,5 +1381,13 @@ export default function VendasPage() {
         {detalheId !== null && <ModalDetalhe id={detalheId} onClose={() => setDetalheId(null)} />}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function VendasPage() {
+  return (
+    <Suspense>
+      <VendasPageInner />
+    </Suspense>
   )
 }

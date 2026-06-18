@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
@@ -2209,7 +2209,7 @@ function BadgeNotificacao({ status }: { status?: string | null }) {
 }
 
 // ─── Página ───────────────────────────────────────────────
-export default function ClientesPage() {
+function ClientesPageInner() {
   const qc = useQueryClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2571,5 +2571,13 @@ export default function ClientesPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function ClientesPage() {
+  return (
+    <Suspense>
+      <ClientesPageInner />
+    </Suspense>
   )
 }
