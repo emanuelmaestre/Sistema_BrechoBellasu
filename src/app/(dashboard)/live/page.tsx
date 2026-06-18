@@ -2211,7 +2211,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   {compras.map((c, idx) => {
                     const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
                     const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
-                    const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "finalizada"
+                    const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "retirada"
 
                     return (
                       <motion.tr key={c.id}
