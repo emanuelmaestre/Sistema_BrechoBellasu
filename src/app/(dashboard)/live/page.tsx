@@ -93,7 +93,7 @@ function gerarArroba(nome: string): string {
   return "@" + first + last
 }
 const COR_LIVE = "#e11d48"
-const LIVE_SAFE_INTERVAL = { minMs: 45_000, maxMs: 120_000, deltaMinMs: 10_000 }
+const LIVE_SAFE_INTERVAL = { minMs: 60_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
 // ─── Status colors (lista) ────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
