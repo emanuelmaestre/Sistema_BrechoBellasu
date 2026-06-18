@@ -211,15 +211,15 @@ export function CalculadoraWidget() {
       }
       if (val === "%") {
         const cur = parseFloat(prev.display) || 0
-        if (prev.op && prev.prev) {
-          // Percentual relativo: 200 + 10% → 200 + 20
+        if (prev.op && prev.prev && (prev.op === "+" || prev.op === "-")) {
+          // Percentual relativo apenas para + e -: 200 + 10% → 200 + 20
           const base = parseFloat(prev.prev)
           const pct  = base * cur / 100
           return { ...prev, display: parseFloat(pct.toFixed(10)).toString(), fresh: false }
         }
-        // Percentual simples: 50% → 0.5
+        // Percentual absoluto (× ÷ e sem operador): 300×10% → 300×0.1; 50% → 0.5
         const disp = parseFloat((cur / 100).toFixed(10)).toString()
-        return { ...prev, display: disp, fresh: true }
+        return { ...prev, display: disp, fresh: false }
       }
       if (val === "=") {
         if (!prev.op || !prev.prev) return prev
