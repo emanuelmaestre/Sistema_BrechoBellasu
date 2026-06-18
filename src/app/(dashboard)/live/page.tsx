@@ -136,9 +136,9 @@ function calcEtapa(live: LiveDetalhe): number {
   if (!compras.length) return 2                                                          // sem compras → ir para COMPRAS
   const disparada = live.status === "disparada" || compras.some(c => c.msg_status === "enviada")
   if (!disparada) return 3                                                               // compras ok → ir para MENSAGENS
-  const todasVinculadas = compras.every(c => c.status_compra === "vinculada" || c.status_compra === "finalizada")
+  const todasVinculadas = compras.every(c => c.status_compra === "vinculada" || c.status_compra === "finalizada" || c.status_compra === "retirada")
   if (!todasVinculadas) return 4                                                         // msgs ok → ir para PRODUTOS
-  const todasFinalizadas = compras.every(c => c.status_compra === "finalizada")
+  const todasFinalizadas = compras.every(c => c.status_compra === "finalizada" || c.status_compra === "retirada")
   if (!todasFinalizadas) return 5                                                        // vinculadas → ir para ESTOQUE
   return 5                                                                               // tudo ok → pronto para encerrar
 }
