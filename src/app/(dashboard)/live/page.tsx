@@ -116,6 +116,7 @@ const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string; ic
   vinculo_parcial:  { label: "Vínculo parcial",      cor: "#f97316", bg: "rgba(249,115,22,0.1)",   icon: <Package size={11}/> },
   vinculada:        { label: "Produtos vinculados",  cor: "#10b981", bg: "rgba(16,185,129,0.1)",   icon: <PackageCheck size={11}/> },
   finalizada:       { label: "Finalizada",           cor: "#10b981", bg: "rgba(16,185,129,0.15)",  icon: <CheckCircle2 size={11}/> },
+  retirada:         { label: "Retirada",             cor: "#639922", bg: "rgba(99,153,34,0.15)",   icon: <ShoppingBag size={11}/> },
 }
 
 // ─── Progresso da live ────────────────────────────────────
@@ -1869,8 +1870,20 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [editCompra, setEditCompra] = useState<Compra | null>(null)
   const [excluindoCompraId, setExcluindoCompraId] = useState<number | null>(null)
   const [confirmExcluirCompra, setConfirmExcluirCompra] = useState<number | null>(null)
+  const [retirandoId, setRetirandoId] = useState<number | null>(null)
+  const [retiradaAnimId, setRetiradaAnimId] = useState<number | null>(null)
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
+
+  async function confirmarRetirada(compraId: number) {
+    setRetirandoId(compraId)
+    try {
+      await apiPost(`/live/${liveId}/compras/${compraId}/retirar`, {})
+      setRetiradaAnimId(compraId)
+      setTimeout(() => setRetiradaAnimId(null), 1800)
+      refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+    } catch { } finally { setRetirandoId(null) }
+  }
 
   async function excluirCompra(compraId: number) {
     setExcluindoCompraId(compraId)
@@ -1914,7 +1927,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const msgEnviadas    = compras.filter(c => c.msg_status === "enviada").length
   const msgPendentes   = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro").length
   const aguardVinculo  = compras.filter(c => c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial").length
-  const finalizadas    = compras.filter(c => c.status_compra === "finalizada").length
+  const finalizadas    = compras.filter(c => c.status_compra === "finalizada" || c.status_compra === "retirada").length
+  const retiradas      = compras.filter(c => c.status_compra === "retirada").length
+  const aguardRetirada = compras.filter(c => c.status_compra === "finalizada").length
 
   const plataformaIcon = PLATAFORMAS.find(p => p.value === live.plataforma)?.icon
 
@@ -2151,6 +2166,84 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         </div>
       )}
 
+      {/* ══ PAINEL RETIRADAS ══ */}
+      {finalizadas > 0 && (
+        <div className="px-6 pb-3">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4"
+            style={{ background: "rgba(99,153,34,0.07)", border: "1px solid rgba(99,153,34,0.28)" }}>
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+              <div className="flex items-center gap-2.5">
+                {/* Ilustração de sacola animada */}
+                <motion.div
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(99,153,34,0.15)" }}>
+                  <ShoppingBag size={18} style={{ color: "#639922" }}/>
+                </motion.div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest" style={{ color: "#3b6d11" }}>
+                    Retirada de sacolas
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: "#639922" }}>
+                    {retiradas === finalizadas
+                      ? "Todas as sacolas foram retiradas ✓"
+                      : `${aguardRetirada} sacola${aguardRetirada !== 1 ? "s" : ""} aguardando retirada`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <motion.span
+                  key={retiradas}
+                  initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                  className="text-2xl font-black tabular-nums" style={{ color: "#3b6d11" }}>
+                  {retiradas}
+                </motion.span>
+                <span className="text-sm font-bold" style={{ color: "rgba(99,153,34,0.5)" }}>/</span>
+                <span className="text-2xl font-black tabular-nums" style={{ color: "rgba(99,153,34,0.5)" }}>{finalizadas}</span>
+              </div>
+            </div>
+            {/* Barra de progresso */}
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(99,153,34,0.15)" }}>
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: "linear-gradient(90deg, #639922, #1d9e75)" }}
+                initial={{ width: 0 }}
+                animate={{ width: finalizadas > 0 ? `${(retiradas / finalizadas) * 100}%` : "0%" }}
+                transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}/>
+            </div>
+            {/* Chips de clientes que faltam */}
+            {aguardRetirada > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {compras.filter(c => c.status_compra === "finalizada").map(c => (
+                  <motion.span
+                    key={c.id}
+                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-full"
+                    style={{ background: "rgba(99,153,34,0.12)", color: "#3b6d11", border: "1px solid rgba(99,153,34,0.25)" }}>
+                    {c.nome_cliente.split(" ")[0]}
+                  </motion.span>
+                ))}
+              </div>
+            )}
+            {retiradas === finalizadas && finalizadas > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
+                style={{ background: "rgba(99,153,34,0.15)" }}>
+                <CheckCircle2 size={14} style={{ color: "#3b6d11" }}/>
+                <span className="text-xs font-black" style={{ color: "#3b6d11" }}>
+                  Todas as sacolas foram retiradas com sucesso!
+                </span>
+              </motion.div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
       {/* ══ TABELA COMPRAS ══ */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
 
@@ -2279,10 +2372,29 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                               </motion.button>
                             )}
                             {c.status_compra === "finalizada" && (
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
-                                style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                                <CheckCircle2 size={10}/> OK
-                              </span>
+                              <motion.button
+                                onClick={() => confirmarRetirada(c.id)}
+                                disabled={retirandoId === c.id}
+                                whileHover={{ scale: 1.06, y: -1 }}
+                                whileTap={{ scale: 0.94 }}
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg relative overflow-hidden"
+                                style={{ background: "rgba(99,153,34,0.12)", color: "#3b6d11", border: "1px solid rgba(99,153,34,0.35)" }}>
+                                {retirandoId === c.id
+                                  ? <Loader2 size={10} className="animate-spin"/>
+                                  : <ShoppingBag size={10}/>}
+                                {retirandoId === c.id ? "..." : "RETIRADA"}
+                              </motion.button>
+                            )}
+                            {c.status_compra === "retirada" && (
+                              <motion.span
+                                key={`retirada-${c.id}`}
+                                initial={retiradaAnimId === c.id ? { scale: 0.5, opacity: 0 } : { scale: 1, opacity: 1 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(99,153,34,0.15)", color: "#3b6d11" }}>
+                                <Check size={10}/> RETIRADA
+                              </motion.span>
                             )}
                             {/* Botão excluir compra */}
                             {live.status !== "encerrada" && (
