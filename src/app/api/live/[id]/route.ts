@@ -46,13 +46,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const totalVinculados = vinculos.reduce((s, v) => s + v.quantidade, 0)
     const totalBaixados   = vinculos.filter(v => v.estoqueBaixado).reduce((s, v) => s + v.quantidade, 0)
     const statusCalculado = calcularStatusCompra(Number(c.quantidade_itens ?? 0), vinculos)
+    // "retirada" é um estado manual pós-finalização — não é derivável do vínculo
+    // de produtos, então preserva o valor do banco enquanto a compra continuar
+    // com tudo vinculado (cálculo = "finalizada").
+    const statusFinal = c.status_compra === "retirada" && statusCalculado === "finalizada"
+      ? "retirada"
+      : statusCalculado
 
     return {
       ...c,
       // Recalcula em tempo real — ignora valor stale do banco
       total_produtos_vinculados: totalVinculados,
       total_estoque_baixado:     totalBaixados,
-      status_compra:             statusCalculado,
+      status_compra:             statusFinal,
       itens: (itensLegados as Array<{compra_id: number}>).filter(i => i.compra_id === c.id),
     }
   })
