@@ -89,6 +89,7 @@ export const POST = withAuth(async (req: NextRequest) => {
         apelido:   body.apelido,
         instagram: body.instagram,
         celular:   body.celular,
+        cidade:    body.cidade,
       }).then(async result => {
         const sb3 = createServerClient()
         const now = new Date().toISOString()

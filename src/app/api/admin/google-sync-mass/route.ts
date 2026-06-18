@@ -11,13 +11,13 @@ export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data: clientes } = await sb
     .from("clientes")
-    .select("id,nome,apelido,instagram,celular,google_contact_id,google_sync_status")
+    .select("id,nome,apelido,instagram,celular,cidade,google_contact_id,google_sync_status")
     .eq("ativo", true)
     .order("nome")
 
   const preview = (clientes ?? []).map(c => {
     const tel  = normalizarTelefone(c.celular)
-    const nome = montarNomeContato({ nome: c.nome, instagram: c.instagram })
+    const nome = montarNomeContato({ nome: c.nome, instagram: c.instagram, cidade: (c as Record<string,unknown>).cidade as string | null })
     const acao = c.google_contact_id ? "atualizar" : (tel.ok ? "criar" : "ignorar")
     return {
       id:          c.id,
@@ -54,7 +54,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
   const sb = createServerClient()
   const { data: cliente } = await sb
     .from("clientes")
-    .select("id,nome,apelido,instagram,celular,google_contact_id,google_sync_tentativas")
+    .select("id,nome,apelido,instagram,celular,cidade,google_contact_id,google_sync_tentativas")
     .eq("id", cliente_id)
     .single()
 
@@ -74,6 +74,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     apelido:         cliente.apelido,
     instagram:       cliente.instagram,
     celular:         cliente.celular,
+    cidade:          (cliente as Record<string,unknown>).cidade as string | null,
     googleContactId: cliente.google_contact_id,
   })
 

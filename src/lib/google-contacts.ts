@@ -24,6 +24,7 @@ export interface SincronizarParams {
   apelido?:   string | null
   instagram?: string | null
   celular?:   string | null
+  cidade?:    string | null
   googleContactId?: string | null
 }
 
@@ -88,6 +89,7 @@ export async function sincronizarContato(params: SincronizarParams): Promise<Sin
   const nomeMontado = montarNomeContato({
     nome:      params.nome,
     instagram: params.instagram,
+    cidade:    params.cidade,
   })
 
   if (!nomeMontado) {

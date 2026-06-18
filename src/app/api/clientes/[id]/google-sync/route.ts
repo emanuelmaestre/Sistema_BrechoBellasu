@@ -16,7 +16,7 @@ export const POST = withAuth(async (
 
   const { data: cliente, error } = await sb
     .from("clientes")
-    .select("id,nome,apelido,instagram,celular,google_contact_id")
+    .select("id,nome,apelido,instagram,celular,cidade,google_contact_id")
     .eq("id", id)
     .single()
 
@@ -39,6 +39,7 @@ export const POST = withAuth(async (
     apelido:          cliente.apelido,
     instagram:        cliente.instagram,
     celular:          cliente.celular,
+    cidade:           (cliente as Record<string, unknown>).cidade as string | null,
     googleContactId:  cliente.google_contact_id,
   })
 

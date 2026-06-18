@@ -26,14 +26,24 @@ export function normalizarTelefone(raw: string | null | undefined): { ok: boolea
   return { ok: false, valor: digits, erro: `Telefone inválido (${digits.length} dígitos). Verifique o cadastro.` }
 }
 
+const CIDADE_BASE = "ribeirão preto"
+
+function ehForaDaBase(cidade: string | null | undefined): boolean {
+  if (!cidade) return false
+  return cidade.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") !==
+    CIDADE_BASE.normalize("NFD").replace(/[̀-ͯ]/g, "")
+}
+
 /**
  * Monta o nome do contato Google seguindo a regra:
- * NOME COMPLETO - APELIDO - INSTAGRAM
+ * NOME COMPLETO - @INSTAGRAM          (Ribeirão Preto)
+ * NOME COMPLETO - @INSTAGRAM - 🇧🇷   (outra cidade)
  * Campos ausentes são ignorados; nunca sobram traços.
  */
 export function montarNomeContato(params: {
   nome?:      string | null
   instagram?: string | null
+  cidade?:    string | null
 }): string {
   const partes: string[] = []
 
@@ -42,6 +52,8 @@ export function montarNomeContato(params: {
 
   const ig = formatarInstagram(params.instagram)
   if (ig) partes.push(ig)
+
+  if (ehForaDaBase(params.cidade)) partes.push("🇧🇷")
 
   return partes.join(" - ")
 }

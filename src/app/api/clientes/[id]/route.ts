@@ -67,6 +67,7 @@ export const PUT = withAuth(async (req: NextRequest, { params }: { params: Promi
         apelido:         body.apelido,
         instagram:       body.instagram,
         celular:         body.celular,
+        cidade:          body.cidade,
         googleContactId: clienteAtual?.google_contact_id,
       }).then(async result => {
         const sb3 = createServerClient()
