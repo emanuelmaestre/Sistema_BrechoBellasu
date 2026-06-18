@@ -1707,6 +1707,15 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                 {msgResult.valida
                   ? <span className="text-[11px] text-emerald-400">✓ Válida</span>
                   : <span className="text-[11px] text-red-400">✗ {msgResult.erro}</span>}
+                {/* Indicador Asaas */}
+                {!ex?.link_pagamento && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                    className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full"
+                    style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.25)" }}>
+                    💳 Link Asaas gerado no envio
+                  </motion.span>
+                )}
               </div>
             )}
           </div>
