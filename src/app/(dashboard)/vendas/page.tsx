@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
   Loader2, RefreshCw, Pencil, ShoppingCart, Trash2, MessageCircle,
-  CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus, Phone,
+  CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -328,7 +329,8 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 // ─── Wizard Nova Venda ────────────────────────────────────
-function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {
+function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => void; onSalvo: () => void; initialCliente?: Cliente | null }) {
+  const router = useRouter()
   const [step, setStep]           = useState(1)
   const [dir, setDir]             = useState(1)
   const [erro, setErro]           = useState("")
@@ -341,15 +343,6 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const [clienteCelular, setClienteCelular] = useState<string | null>(null)
   const [cliBusca, setCliBusca]   = useState("")
   const [cliRes, setCliRes]       = useState<Cliente[]>([])
-
-  // Step 1 — cadastro rápido inline
-  const [mostraCadastro, setMostraCadastro] = useState(false)
-  const [novoNome, setNovoNome]   = useState("")
-  const [novoWhats, setNovoWhats] = useState("")
-  const [novoInsta, setNovoInsta] = useState("")
-  const [salvandoNovo, setSalvandoNovo] = useState(false)
-  const [erroNovo, setErroNovo]   = useState("")
-  const [cadastroOk, setCadastroOk] = useState(false)
 
   // Step 2 — produtos
   const [itens, setItens]         = useState<WizItem[]>([])
@@ -372,6 +365,13 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
   const inputRef   = useRef<HTMLInputElement>(null)
   const obsRef     = useRef<HTMLTextAreaElement>(null)
   const TOTAL = 7
+
+  useEffect(() => {
+    if (initialCliente) {
+      selecionarCliente(initialCliente)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 280)
@@ -407,28 +407,6 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
     setClienteCelular((c as Cliente & { celular?: string | null }).celular ?? null)
     setSaldoCredito(Number((c as Cliente & { saldo_credito?: number }).saldo_credito ?? 0))
     setCliBusca(c.nome); setCliRes([])
-  }
-
-  async function cadastrarNovoCliente() {
-    if (!novoNome.trim()) { setErroNovo("Nome é obrigatório."); return }
-    setSalvandoNovo(true); setErroNovo("")
-    try {
-      const res = await apiPost<{ id: number }>("/clientes", {
-        nome: novoNome.trim(),
-        celular: novoWhats.trim() || null,
-        instagram: novoInsta.trim() || null,
-      })
-      setCadastroOk(true)
-      setTimeout(() => {
-        selecionarCliente({ id: res.id, nome: novoNome.trim(), celular: novoWhats.trim() || null } as Cliente)
-        setMostraCadastro(false)
-        setCadastroOk(false)
-        setNovoNome(""); setNovoWhats(""); setNovoInsta("")
-        go(2)
-      }, 900)
-    } catch (e: unknown) {
-      setErroNovo(e instanceof Error ? e.message : "Erro ao cadastrar cliente.")
-    } finally { setSalvandoNovo(false) }
   }
 
   function adicionarProduto(p: Produto) {
@@ -654,7 +632,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                       ))}
                     </div>
                   )}
-                  {clienteId && !mostraCadastro && (
+                  {clienteId && (
                     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
                       className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
                       style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)" }}>
@@ -663,16 +641,15 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                     </motion.div>
                   )}
 
-                  {/* Botão cadastrar novo — aparece quando busca tem texto mas sem resultado */}
+                  {/* Atalho para cadastrar novo cliente quando sem resultado */}
                   <AnimatePresence>
-                    {cliBusca.length >= 2 && cliRes.length === 0 && !clienteId && !mostraCadastro && (
+                    {cliBusca.length >= 2 && cliRes.length === 0 && !clienteId && (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                         transition={{ duration: 0.2 }}
                         className="mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl"
                         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                         <div className="flex items-center gap-3">
-                          {/* Ícone animado */}
                           <motion.div
                             initial={{ scale: 0 }} animate={{ scale: 1 }}
                             transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
@@ -684,129 +661,17 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                             <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                               Nenhum resultado para <span style={{ color: "var(--accent)" }}>"{cliBusca}"</span>
                             </p>
-                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cliente novo? Cadastre agora e continue.</p>
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cliente nova? Cadastre agora e volte para continuar.</p>
                           </div>
                         </div>
                         <motion.button
-                          onClick={() => { setNovoNome(cliBusca); setMostraCadastro(true) }}
+                          onClick={() => router.push(`/clientes?novo=1&from=vendas&nome=${encodeURIComponent(cliBusca)}`)}
                           whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
                           transition={{ type: "spring", stiffness: 400, damping: 18 }}
                           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide text-white shrink-0 shadow-md"
                           style={{ background: COR }}>
                           <UserPlus size={12}/> Cadastrar
                         </motion.button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Formulário de cadastro rápido inline */}
-                  <AnimatePresence>
-                    {mostraCadastro && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0, scale: 0.97 }}
-                        animate={{ opacity: 1, height: "auto", scale: 1 }}
-                        exit={{ opacity: 0, height: 0, scale: 0.97 }}
-                        transition={{ type: "spring", stiffness: 320, damping: 28 }}
-                        className="mt-4 overflow-hidden">
-                        <motion.div
-                          initial={{ y: 12 }} animate={{ y: 0 }} transition={{ delay: 0.05 }}
-                          className="rounded-2xl overflow-hidden"
-                          style={{ border: `1.5px solid ${COR}`, background: "var(--bg-surface)" }}>
-
-                          {/* Header do card */}
-                          <div className="flex items-center justify-between px-5 py-3"
-                            style={{ background: `${COR}18`, borderBottom: "1px solid var(--border)" }}>
-                            <div className="flex items-center gap-2">
-                              <motion.div
-                                animate={{ rotate: [0, -8, 8, -4, 0] }}
-                                transition={{ duration: 0.5, delay: 0.1 }}
-                                className="w-7 h-7 rounded-xl flex items-center justify-center"
-                                style={{ background: COR }}>
-                                <UserPlus size={13} color="#fff"/>
-                              </motion.div>
-                              <span className="text-xs font-black uppercase tracking-widest" style={{ color: COR }}>
-                                Novo Cliente
-                              </span>
-                            </div>
-                            <motion.button onClick={() => { setMostraCadastro(false); setErroNovo("") }}
-                              whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }}
-                              transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center"
-                              style={{ color: "var(--text-muted)" }}>
-                              <X size={13}/>
-                            </motion.button>
-                          </div>
-
-                          {/* Campos */}
-                          <div className="px-5 py-4 space-y-3">
-                            {/* Nome */}
-                            <div>
-                              <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>NOME COMPLETO *</p>
-                              <input
-                                autoFocus
-                                value={novoNome}
-                                onChange={e => { setNovoNome(e.target.value); setErroNovo("") }}
-                                onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
-                                placeholder="Nome da cliente..."
-                                className="w-full px-4 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                                style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-                            </div>
-                            {/* WhatsApp + Instagram lado a lado */}
-                            <div className="grid grid-cols-2 gap-2.5">
-                              <div>
-                                <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>WHATSAPP</p>
-                                <div className="relative">
-                                  <Phone size={11} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }}/>
-                                  <input
-                                    value={novoWhats}
-                                    onChange={e => setNovoWhats(e.target.value)}
-                                    onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
-                                    placeholder="(16) 99999-9999"
-                                    className="w-full pl-8 pr-3 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                                    style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>INSTAGRAM</p>
-                                <input
-                                  value={novoInsta}
-                                  onChange={e => setNovoInsta(e.target.value)}
-                                  onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
-                                  placeholder="@usuario"
-                                  className="w-full px-3 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-                                  style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
-                              </div>
-                            </div>
-
-                            {/* Erro */}
-                            <AnimatePresence>
-                              {erroNovo && (
-                                <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                                  className="text-xs font-semibold px-3 py-2 rounded-xl"
-                                  style={{ background: "rgba(239,68,68,0.08)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
-                                  {erroNovo}
-                                </motion.p>
-                              )}
-                            </AnimatePresence>
-
-                            {/* Botão salvar */}
-                            <motion.button
-                              onClick={cadastrarNovoCliente}
-                              disabled={salvandoNovo || cadastroOk}
-                              whileHover={!salvandoNovo && !cadastroOk ? { scale: 1.02, y: -1 } : {}}
-                              whileTap={!salvandoNovo && !cadastroOk ? { scale: 0.97 } : {}}
-                              animate={cadastroOk ? { scale: [1, 1.06, 1] } : {}}
-                              transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-black uppercase tracking-wide text-white transition-all disabled:opacity-70"
-                              style={{ background: cadastroOk ? "#10b981" : COR, boxShadow: `0 4px 16px ${COR}44` }}>
-                              {cadastroOk
-                                ? <><motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500 }}><Check size={15}/></motion.div> Cadastrado!</>
-                                : salvandoNovo
-                                  ? <><Loader2 size={14} className="animate-spin"/> Cadastrando...</>
-                                  : <><UserPlus size={14}/> Cadastrar e continuar</>}
-                            </motion.button>
-                          </div>
-                        </motion.div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1331,11 +1196,24 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
 // ─── Página Principal ─────────────────────────────────────
 export default function VendasPage() {
   const qc = useQueryClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [periodo, setPeriodo]     = useState("hoje")
   const [de, setDe]               = useState("")
   const [ate, setAte]             = useState("")
   const [showWizard, setWizard]   = useState(false)
   const [detalheId, setDetalheId] = useState<number | null>(null)
+  const [initialCliente, setInitialCliente] = useState<Cliente | null>(null)
+
+  useEffect(() => {
+    const cliId = searchParams.get("cliente_id")
+    if (!cliId) return
+    router.replace("/vendas", { scroll: false })
+    apiGet<Cliente>(`/clientes/${cliId}`)
+      .then(c => { setInitialCliente(c); setWizard(true) })
+      .catch(() => setWizard(true))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const params = getPeriodoParams(periodo, de, ate)
 
@@ -1495,8 +1373,9 @@ export default function VendasPage() {
       <AnimatePresence>
         {showWizard && (
           <WizardNovaVenda
-            onClose={() => setWizard(false)}
-            onSalvo={() => { setWizard(false); qc.invalidateQueries({ queryKey: ["vendas"] }) }}
+            onClose={() => { setWizard(false); setInitialCliente(null) }}
+            onSalvo={() => { setWizard(false); setInitialCliente(null); qc.invalidateQueries({ queryKey: ["vendas"] }) }}
+            initialCliente={initialCliente}
           />
         )}
         {detalheId !== null && <ModalDetalhe id={detalheId} onClose={() => setDetalheId(null)} />}

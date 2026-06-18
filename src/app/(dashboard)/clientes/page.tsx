@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -1271,7 +1272,7 @@ function WizardCliente({
   inicial: ClienteForm | null
   editandoId: number | null
   onClose: () => void
-  onSalvo: () => void
+  onSalvo: (id?: number) => void
   quickEdit?: boolean
   initialStep?: number
 }) {
@@ -1638,19 +1639,22 @@ function WizardCliente({
         entrega_cidade:      form.entrega_cidade      || null,
         entrega_estado:      form.entrega_estado      || null,
       }
+      let savedId: number | undefined
       if (editandoId) await apiPut(`/clientes/${editandoId}`, payload)
-      else            await apiPost("/clientes", payload)
+      else {
+        const res = await apiPost<{ id: number }>("/clientes", payload)
+        savedId = res.id
+      }
       qc.invalidateQueries({ queryKey: ["clientes"] })
       if (quickEdit) {
-        // Modo edição rápida: salva silenciosamente e fecha imediatamente
-        onSalvo()
+        onSalvo(savedId)
         return
       }
       // Celebração ✨
       setSalvoOk(true)
       setConfete(true)
       setTimeout(() => setConfete(false), 1200)
-      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
+      setTimeout(() => { setSalvoOk(false); onSalvo(savedId) }, 2200)
     } catch (err) {
       setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
     } finally {
@@ -2207,6 +2211,8 @@ function BadgeNotificacao({ status }: { status?: string | null }) {
 // ─── Página ───────────────────────────────────────────────
 export default function ClientesPage() {
   const qc = useQueryClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [busca, setBusca]         = useState("")
   const buscaDebounced            = useDebounce(busca, 350)
   const [status, setStatus]       = useState("ativos")
@@ -2214,11 +2220,25 @@ export default function ClientesPage() {
   const [toggleToast, setToggleToast] = useState<{ ativo: boolean } | null>(null)
   const [quickEditStep, setQuickEditStep] = useState<number | null>(null)
   const [wizard, setWizard]       = useState(false)
+  const [fromVendas, setFromVendas] = useState(false)
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
   const [drawer, setDrawer]       = useState<Cliente | null>(null)
   const [reenvioMsg, setReenvioMsg] = useState<{ ok: boolean; texto: string } | null>(null)
   const [reenvioLoading, setReenvioLoading] = useState(false)
+
+  useEffect(() => {
+    const novo = searchParams.get("novo")
+    const from = searchParams.get("from")
+    const nome = searchParams.get("nome") ?? ""
+    if (novo !== "1") return
+    router.replace("/clientes", { scroll: false })
+    if (from === "vendas") setFromVendas(true)
+    setEditForm(nome ? { ...EMPTY, nome } : null)
+    setEditId(null)
+    setWizard(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function reenviarNotificacao(cliente: Cliente) {
     setReenvioLoading(true); setReenvioMsg(null)
@@ -2471,10 +2491,16 @@ export default function ClientesPage() {
             editandoId={editId}
             quickEdit={!!quickEditStep}
             initialStep={quickEditStep ?? undefined}
-            onClose={() => { setWizard(false); setEditForm(null); setEditId(null); setQuickEditStep(null) }}
-            onSalvo={() => {
+            onClose={() => { setWizard(false); setEditForm(null); setEditId(null); setQuickEditStep(null); setFromVendas(false) }}
+            onSalvo={(savedId) => {
               setWizard(false); setEditForm(null); setEditId(null)
               if (quickEditStep) { setQuickEditStep(null); setDrawer(null) }
+              if (fromVendas && savedId) {
+                setFromVendas(false)
+                router.push(`/vendas?cliente_id=${savedId}`)
+                return
+              }
+              setFromVendas(false)
             }}
           />
         )}
