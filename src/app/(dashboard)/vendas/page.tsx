@@ -746,7 +746,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                                 autoFocus
                                 value={novoNome}
                                 onChange={e => { setNovoNome(e.target.value); setErroNovo("") }}
-                                onKeyDown={e => { if (e.key === "Enter") cadastrarNovoCliente() }}
+                                onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
                                 placeholder="Nome da cliente..."
                                 className="w-full px-4 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
                                 style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
@@ -760,7 +760,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                                   <input
                                     value={novoWhats}
                                     onChange={e => setNovoWhats(e.target.value)}
-                                    onKeyDown={e => { if (e.key === "Enter") cadastrarNovoCliente() }}
+                                    onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
                                     placeholder="(16) 99999-9999"
                                     className="w-full pl-8 pr-3 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
                                     style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
@@ -771,7 +771,7 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                                 <input
                                   value={novoInsta}
                                   onChange={e => setNovoInsta(e.target.value)}
-                                  onKeyDown={e => { if (e.key === "Enter") cadastrarNovoCliente() }}
+                                  onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") cadastrarNovoCliente() }}
                                   placeholder="@usuario"
                                   className="w-full px-3 py-3 text-sm font-semibold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
                                   style={{ background: "var(--bg-base)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
