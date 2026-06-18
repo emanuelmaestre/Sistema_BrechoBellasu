@@ -667,32 +667,33 @@ function WizardNovaVenda({ onClose, onSalvo }: { onClose: () => void; onSalvo: (
                   <AnimatePresence>
                     {cliBusca.length >= 2 && cliRes.length === 0 && !clienteId && !mostraCadastro && (
                       <motion.div
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                         transition={{ duration: 0.2 }}
-                        className="mt-4 flex flex-col items-center gap-3">
-                        {/* Ilustração mini */}
-                        <svg width="64" height="54" viewBox="0 0 64 54" fill="none">
-                          <motion.circle cx="32" cy="20" r="12" fill="var(--accent-bg)" stroke="var(--accent)" strokeWidth="1.5"
-                            initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.05 }}/>
-                          <motion.circle cx="32" cy="17" r="5" fill="var(--accent)" opacity="0.7"
-                            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.12, type: "spring", stiffness: 400 }}/>
-                          <motion.path d="M18 38 C18 30 46 30 46 38" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" fill="none"
-                            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.18, duration: 0.4 }}/>
-                          <motion.circle cx="48" cy="10" r="8" fill="var(--bg-surface)" stroke="var(--border)" strokeWidth="1.5"
-                            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.22, type: "spring" }}/>
-                          <motion.text x="44" y="14" fill="var(--accent)" fontSize="10" fontWeight="900"
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>+</motion.text>
-                        </svg>
-                        <p className="text-sm font-medium text-center" style={{ color: "var(--text-muted)" }}>
-                          Nenhum resultado para <span className="font-black" style={{ color: "var(--text-primary)" }}>"{cliBusca}"</span>
-                        </p>
+                        className="mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl"
+                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                        <div className="flex items-center gap-3">
+                          {/* Ícone animado */}
+                          <motion.div
+                            initial={{ scale: 0 }} animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ background: "var(--accent-bg)" }}>
+                            <UserPlus size={16} style={{ color: "var(--accent)" }}/>
+                          </motion.div>
+                          <div>
+                            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                              Nenhum resultado para <span style={{ color: "var(--accent)" }}>"{cliBusca}"</span>
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cliente novo? Cadastre agora e continue.</p>
+                          </div>
+                        </div>
                         <motion.button
                           onClick={() => { setNovoNome(cliBusca); setMostraCadastro(true) }}
-                          whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }}
+                          whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
                           transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                          className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wide text-white shadow-lg"
+                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide text-white shrink-0 shadow-md"
                           style={{ background: COR }}>
-                          <UserPlus size={15}/> Cadastrar novo cliente
+                          <UserPlus size={12}/> Cadastrar
                         </motion.button>
                       </motion.div>
                     )}
