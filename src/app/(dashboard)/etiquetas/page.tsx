@@ -1410,7 +1410,13 @@ export default function EtiquetasPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["etiquetas"] }),
   })
 
-  const etiquetas = data?.data ?? []
+  const [filtroStatus, setFiltroStatus] = useState<"ativas" | "entregues" | "todas">("ativas")
+  const todosItens = data?.data ?? []
+  const etiquetas = filtroStatus === "ativas"
+    ? todosItens.filter(e => !["delivered", "canceled"].includes(e.status))
+    : filtroStatus === "entregues"
+    ? todosItens.filter(e => e.status === "delivered")
+    : todosItens
   const [pdfOrderId, setPdfOrderId] = useState<string | null>(null)
 
   return (
@@ -1503,6 +1509,33 @@ export default function EtiquetasPage() {
                 {data.meta.total}
               </span>
             ) : null}
+          </div>
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "var(--bg-surface)" }}>
+            {(["ativas", "entregues", "todas"] as const).map(f => {
+              const labels = { ativas: "Ativas", entregues: "Entregues", todas: "Todas" }
+              const counts = {
+                ativas:    todosItens.filter(e => !["delivered","canceled"].includes(e.status)).length,
+                entregues: todosItens.filter(e => e.status === "delivered").length,
+                todas:     todosItens.length,
+              }
+              const active = filtroStatus === f
+              return (
+                <button key={f} onClick={() => setFiltroStatus(f)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+                  style={{
+                    background: active ? "var(--accent)" : "transparent",
+                    color: active ? "#fff" : "var(--text-muted)",
+                  }}>
+                  {labels[f]}
+                  {counts[f] > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: active ? "rgba(255,255,255,0.25)" : "var(--bg-card)", color: active ? "#fff" : "var(--text-secondary)" }}>
+                      {counts[f]}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
