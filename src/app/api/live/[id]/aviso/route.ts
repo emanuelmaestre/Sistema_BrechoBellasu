@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { enviarTexto } from "@/lib/zapi"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
+import { buildAvisoLive } from "@/lib/live-message-builder"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -13,12 +14,6 @@ type ClienteAviso = {
   id: number
   nome: string
   celular: string
-}
-
-function mensagemAviso(tipo: string, link: string) {
-  return tipo === "promocional"
-    ? `🏷️ Estamos *AO VIVO* com *PROMOÇÕES* agora!\n\nAcesse aqui: ${link}\n\nCorre! 🔥`
-    : `✨ Estamos *AO VIVO* com *NOVIDADES* agora!\n\nAcesse aqui: ${link}\n\nTe esperamos! 💖`
 }
 
 async function buscarLive(liveId: number) {
@@ -93,8 +88,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     await sb.from("lives").update({ link_live: link }).eq("id", liveId)
   }
 
-  const mensagem = mensagemAviso((live.tipo ?? "novidades") as string, linkFinal)
-
   if (cliente_id) {
     const { data: cliente } = await sb
       .from("clientes")
@@ -108,6 +101,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ id: cliente_id, status: "erro", detalhe: "Cliente sem opt-in ou sem celular." })
     }
 
+    const mensagem = buildAvisoLive(cliente.nome, linkFinal)
     const resultado = await enviarTexto(cliente.celular, mensagem, "aviso_live")
     return NextResponse.json({
       id: cliente.id,
@@ -125,11 +119,12 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   for (let i = 0; i < clientes.length; i++) {
     if (i > 0) {
-      const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, { minMs: 45_000, maxMs: 120_000, deltaMinMs: 10_000 })
+      const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, { minMs: 80_000, maxMs: 150_000, deltaMinMs: 10_000 })
       intervaloAnterior = intervaloMs
       await new Promise((resolve) => setTimeout(resolve, intervaloMs))
     }
 
+    const mensagem = buildAvisoLive(clientes[i].nome, linkFinal)
     const resultado = await enviarTexto(clientes[i].celular, mensagem, "aviso_live")
     if (resultado.ok) enviados++
     else erros++

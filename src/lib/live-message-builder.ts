@@ -71,6 +71,89 @@ export function validateCustomerName(nome: string | null | undefined): string | 
   return n
 }
 
+// ─── Aviso de Live — variações ───────────────────────────────────
+
+const AVISO_ABERTURAS = [
+  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊` : "Oi! Tudo bem com você? 😊",
+  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Saudades! 🥰` : "Oi! Saudades! 🥰",
+  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨` : "Olá! Que bom te ver por aqui! ✨",
+  (n: string | null) => n ? `Ei, ${n.split(" ")[0]}! Tô passando rapidinho... 🏃‍♀️💨` : "Ei! Tô passando rapidinho... 🏃‍♀️💨",
+  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖` : "Oi! Estava pensando em você! 💖",
+  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Passando com novidade! 🎉` : "Olá! Passando com novidade! 🎉",
+  (n: string | null) => n ? `Ei, ${n.split(" ")[0]}! Tem coisa boa aqui pra você! 🛍️` : "Ei! Tem coisa boa aqui pra você! 🛍️",
+  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Vim te dar um recado especial! 💌` : "Oi! Vim te dar um recado especial! 💌",
+  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Você é especial pra gente! 🌸` : "Oi! Você é especial pra gente! 🌸",
+  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍` : "Olá! Que alegria falar com você! 😍",
+]
+
+const AVISO_CHAMADAS = [
+  "🔴 A propósito, estamos *AO VIVO* agora e tem coisa especial esperando por você! 🎉✨",
+  "🔴 A live tá *bombando* e você não pode ficar de fora! Coisas incríveis aqui! 🔥",
+  "✨ Tem *novidade especial* te esperando na live agora! Entra lá! 🎉",
+  "🛍️ A live começou e as peças tão *voando*! Vem antes que acabe! 🔴",
+  "🎉 Estamos *AO VIVO* com peças lindas e promoções imperdíveis! Não perde! 💖",
+  "🔴 Nossa live começou agora e está *cheia de surpresas* pra você! ✨🛍️",
+  "💥 Peças novas, preços incríveis e a gente *AO VIVO* agora! Vem! 🔴🎉",
+  "✨ Estamos *AO VIVO* agora com seleção especial e muito amor! 💖🔴",
+  "🔴 A live abriu e já tem muita coisa bonita passando! Não perde! 🛍️✨",
+  "🎀 Estamos *AO VIVO* com peças garimpadas com muito carinho pra você! 🔴💖",
+  "🔴 Começo de live e as melhores peças aparecem primeiro! Corre! 🔥🛍️",
+  "💫 Estamos *AO VIVO* agora! Tem peça boa, preço justo e muito estilo! 🔴✨",
+]
+
+const AVISO_FECHAMENTOS = [
+  (link: string) => `Corre lá: ${link}\n\nTe esperamos! 🙌🏼❤️`,
+  (link: string) => `Entra aqui agora: ${link}\n\nA gente tá te esperando! 💖`,
+  (link: string) => `Vem com a gente: ${link}\n\nTe esperamos com muita alegria! 🎉`,
+  (link: string) => `Acessa agora: ${link}\n\nTe esperamos lá! 🔴✨`,
+  (link: string) => `Tô te esperando: ${link}\n\nVem! 🛍️💖`,
+  (link: string) => `Entra aqui: ${link}\n\nÉ rapidinho e vale muito! 💫`,
+  (link: string) => `Acessa agora e vem se surpreender: ${link}\n\n❤️`,
+  (link: string) => `Passa lá: ${link}\n\nTem coisa linda esperando por você! 🌸`,
+]
+
+const AVISO_TOTAL = AVISO_ABERTURAS.length * AVISO_CHAMADAS.length * AVISO_FECHAMENTOS.length
+
+let _avisoUnusedPool: number[] = []
+let _avisoRecentUsed: number[] = []
+
+function refillAvisoPool(excludeRecent: number[]): void {
+  const all = Array.from({ length: AVISO_TOTAL }, (_, i) => i)
+  _avisoUnusedPool = shuffle(all.filter(i => !excludeRecent.includes(i)))
+  if (_avisoUnusedPool.length === 0) _avisoUnusedPool = shuffle(all)
+}
+
+function selectAvisoIndex(): number {
+  if (_avisoUnusedPool.length === 0) refillAvisoPool(_avisoRecentUsed.slice(-8))
+  const recent = _avisoRecentUsed.slice(-8)
+  let candidates = _avisoUnusedPool.filter(i => !recent.includes(i))
+  if (candidates.length === 0) candidates = _avisoUnusedPool
+  const chosen = candidates[0]
+  _avisoUnusedPool = _avisoUnusedPool.filter(i => i !== chosen)
+  _avisoRecentUsed.push(chosen)
+  if (_avisoRecentUsed.length > AVISO_TOTAL) _avisoRecentUsed.shift()
+  return chosen
+}
+
+function avisoIndexToComponents(idx: number) {
+  const nC = AVISO_CHAMADAS.length
+  const nF = AVISO_FECHAMENTOS.length
+  const a = Math.floor(idx / (nC * nF))
+  const c = Math.floor((idx % (nC * nF)) / nF)
+  const f = idx % nF
+  return { a, c, f }
+}
+
+export function buildAvisoLive(nome: string | null, link: string): string {
+  const idx = selectAvisoIndex()
+  const { a, c, f } = avisoIndexToComponents(idx)
+  const nomeValido = validateCustomerName(nome)
+  const abertura   = AVISO_ABERTURAS[a](nomeValido)
+  const chamada    = AVISO_CHAMADAS[c]
+  const fechamento = AVISO_FECHAMENTOS[f](link)
+  return `${abertura}\n\n${chamada}\n\n${fechamento}`
+}
+
 // ─── Biblioteca de variações ─────────────────────────────────────
 
 const SAUDACOES = [

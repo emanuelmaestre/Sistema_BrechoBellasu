@@ -94,7 +94,7 @@ function gerarArroba(nome: string): string {
   return "@" + first + last
 }
 const COR_LIVE = "#e11d48"
-const LIVE_SAFE_INTERVAL = { minMs: 60_000, maxMs: 150_000, deltaMinMs: 12_000 }
+const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
 // ─── Status colors (lista) ────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -1359,11 +1359,17 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
             </p>
           )}
 
-          {enviando && progresso.total > 0 && (
+          {enviando && (
             <div className="rounded-lg px-3 py-2 text-xs"
               style={{ background: "var(--bg-base)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              <p className="font-bold">Enviando {progresso.atual}/{progresso.total}</p>
-              <p>{progresso.aguardando > 0 ? `Aguardando ${progresso.aguardando}s para ${progresso.nome}` : `Enviando para ${progresso.nome}`}</p>
+              {progresso.total === 0 ? (
+                <p className="font-bold inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin"/> Buscando clientes com consentimento...</p>
+              ) : (
+                <>
+                  <p className="font-bold">Enviando {progresso.atual}/{progresso.total}</p>
+                  <p>{progresso.aguardando > 0 ? `Aguardando ${progresso.aguardando}s para ${progresso.nome}` : `Enviando para ${progresso.nome}`}</p>
+                </>
+              )}
             </div>
           )}
 

@@ -13,8 +13,8 @@ type ConsentimentoResultado = Awaited<ReturnType<typeof dispararTextoUnico>> & {
 }
 
 const CONSENTIMENTO_INTERVALO_SEGURO = {
-  minMs: 45_000,
-  maxMs: 120_000,
+  minMs: 80_000,
+  maxMs: 150_000,
   deltaMinMs: 10_000,
 }
 
