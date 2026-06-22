@@ -116,8 +116,8 @@ const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string; ic
   aguardando_vinculo: { label: "Aguardando vínculo", cor: "#8b5cf6", bg: "rgba(139,92,246,0.1)",  icon: <Link2 size={11}/> },
   vinculo_parcial:  { label: "Vínculo parcial",      cor: "#f97316", bg: "rgba(249,115,22,0.1)",   icon: <Package size={11}/> },
   vinculada:        { label: "Produtos vinculados",  cor: "#10b981", bg: "rgba(16,185,129,0.1)",   icon: <PackageCheck size={11}/> },
-  finalizada:       { label: "Finalizada",           cor: "#10b981", bg: "rgba(16,185,129,0.15)",  icon: <CheckCircle2 size={11}/> },
-  retirada:         { label: "Retirada",             cor: "#639922", bg: "rgba(99,153,34,0.15)",   icon: <ShoppingBag size={11}/> },
+  finalizada:       { label: "Não Retirado",          cor: "#f97316", bg: "rgba(249,115,22,0.15)",  icon: <Clock size={11}/> },
+  retirada:         { label: "Retirado",             cor: "#10b981", bg: "rgba(16,185,129,0.2)",   icon: <CheckCircle2 size={11}/> },
 }
 
 // ─── Progresso da live ────────────────────────────────────

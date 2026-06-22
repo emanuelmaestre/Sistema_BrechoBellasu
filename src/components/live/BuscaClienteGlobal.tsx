@@ -72,8 +72,8 @@ const SC: Record<string, { label: string; cor: string; bg: string }> = {
   aguardando_vinculo: { label: "Ag. Vínculo",  cor: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
   vinculo_parcial:    { label: "Vínc. Parcial", cor: "#f97316", bg: "rgba(249,115,22,0.12)"  },
   vinculada:          { label: "Vinculada",      cor: "#10b981", bg: "rgba(16,185,129,0.12)"  },
-  finalizada:         { label: "Finalizada",     cor: "#10b981", bg: "rgba(16,185,129,0.15)"  },
-  retirada:           { label: "Retirada",       cor: "#639922", bg: "rgba(99,153,34,0.15)"   },
+  finalizada:         { label: "Não Retirado",   cor: "#f97316", bg: "rgba(249,115,22,0.15)"  },
+  retirada:           { label: "Retirado",       cor: "#10b981", bg: "rgba(16,185,129,0.2)"   },
   cadastrada:         { label: "Cadastrada",     cor: "#6b7280", bg: "rgba(107,114,128,0.12)" },
 }
 
