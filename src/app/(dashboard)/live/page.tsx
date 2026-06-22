@@ -24,7 +24,7 @@ import {
 } from "@/lib/live-message-builder"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 import type { Live } from "@/types"
-import BuscaClienteLive from "@/components/live/BuscaClienteLive"
+import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 
 // ─── Tipos ────────────────────────────────────────────────
 export interface Compra {
@@ -2193,13 +2193,10 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       {/* ══ TABELA COMPRAS ══ */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
 
-        <div className="flex flex-col gap-3 mb-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
-              COMPRAS DESTA LIVE
-            </p>
-            <BuscaClienteLive liveId={liveId} liveTitulo={live.titulo ?? undefined} />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
+            COMPRAS DESTA LIVE
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-auto rounded-2xl" style={{ border: "1px solid var(--border)" }}>
@@ -2472,6 +2469,9 @@ export default function LivePage() {
           <Radio size={15}/> Nova Live
         </motion.button>
       </div>
+
+      {/* Busca global de cliente */}
+      <BuscaClienteGlobal onAbrirLive={id => setAberta(id)} />
 
       {/* Filtros */}
       <div className="rounded-2xl px-4 py-3 flex gap-1.5"
