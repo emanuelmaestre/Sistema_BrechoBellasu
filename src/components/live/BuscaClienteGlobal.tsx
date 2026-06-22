@@ -182,8 +182,8 @@ function LiveBloco({
 
             {/* Header tabela — só desktop */}
             <div className="hidden sm:grid px-4 py-2"
-              style={{ gridTemplateColumns: "1fr 80px 96px 96px 96px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
-              {["SACOLA","ITENS","VALOR","PAGAMENTO","STATUS"].map(h => (
+              style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
+              {["CLIENTE","SACOLA","ITENS","VALOR","PAGAMENTO","STATUS"].map(h => (
                 <p key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{h}</p>
               ))}
             </div>
@@ -204,7 +204,11 @@ function LiveBloco({
 
                     {/* Desktop: grid */}
                     <div className="hidden sm:grid items-center gap-2"
-                      style={{ gridTemplateColumns: "1fr 80px 96px 96px 96px" }}>
+                      style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px" }}>
+                      {/* Nome da cliente */}
+                      <p className="text-xs font-black uppercase truncate" style={{ color: "var(--text-primary)" }}>
+                        {c.nome_cliente}
+                      </p>
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                           style={{ background: "var(--bg-surface)" }}>
@@ -234,6 +238,7 @@ function LiveBloco({
                         <ShoppingBag size={14} style={{ color: "var(--accent)" }}/>
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
                         <p className="text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>{sacola}</p>
                         <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(valor)}</p>
                         <div className="flex flex-wrap gap-1">
