@@ -409,99 +409,34 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
             {/* Encontrado */}
             {!loading && temResultado && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}
-                className="p-5 space-y-5">
+                className="p-5 space-y-3">
 
-                {/* ─ HEADER: cliente + botão limpar ─ */}
-                <div className="flex items-center justify-between gap-4">
-                  {/* Card cliente */}
-                  <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"
-                      style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
-                      {(result!.nome_exibido ?? "?")[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
-                        {result!.nome_exibido}
-                      </p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                        {result!.cliente?.celular && (
-                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            📱 {result!.cliente.celular}
-                          </span>
-                        )}
-                        {result!.cliente?.instagram && (
-                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            @{result!.cliente.instagram.replace(/^@/, "")}
-                          </span>
-                        )}
-                        {result!.cliente?.apelido && (
-                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            "{result!.cliente.apelido}"
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-
+                {/* ─ SACOLAS POR LIVE ─ */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    SACOLAS POR LIVE ({result!.lives!.length} live{result!.lives!.length !== 1 ? "s" : ""})
+                  </p>
                   <motion.button onClick={limpar}
                     whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl shrink-0 transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
                     style={{ background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                    <X size={12}/> Limpar busca
+                    <X size={12}/> Limpar
                   </motion.button>
                 </div>
 
-                {/* ─ RESUMO ─ */}
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{ color: "var(--text-muted)" }}>
-                    RESUMO EM TODAS AS LIVES
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { label: "LIVES",             val: result!.resumo!.total_lives,              cor: "#6366f1", icon: <Radio size={12}/> },
-                      { label: "SACOLAS",            val: result!.resumo!.total_sacolas,            cor: "#8b5cf6", icon: <ShoppingBag size={12}/> },
-                      { label: "ITENS ESPERADOS",    val: result!.resumo!.total_itens,              cor: "#06b6d4", icon: <Package size={12}/> },
-                      { label: "TOTAL",              val: fmtBRL(result!.resumo!.total_valor),      cor: "#10b981", icon: <TrendingUp size={12}/> },
-                      { label: "PAGO",               val: fmtBRL(result!.resumo!.total_pago),       cor: "#10b981", icon: <CheckCircle2 size={12}/> },
-                      { label: "PENDENTE",           val: fmtBRL(result!.resumo!.total_pendente),   cor: "#f59e0b", icon: <Clock size={12}/> },
-                      { label: "RETIRADAS",          val: result!.resumo!.retiradas,                cor: "#639922", icon: <CheckCircle2 size={12}/> },
-                      { label: "AG. RETIRADA",       val: result!.resumo!.pendentes_retirada,       cor: "#f97316", icon: <Link2 size={12}/> },
-                    ].map((m, i) => (
-                      <motion.div key={m.label}
-                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.06 + i * 0.04 }}
-                        className="rounded-xl p-3 flex flex-col gap-1"
-                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[9px] font-black uppercase tracking-widest leading-tight" style={{ color: "var(--text-muted)" }}>{m.label}</p>
-                          <span style={{ color: m.cor }}>{m.icon}</span>
-                        </div>
-                        <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>{m.val}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* ─ LISTA POR LIVE ─ */}
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2.5" style={{ color: "var(--text-muted)" }}>
-                    SACOLAS POR LIVE ({result!.lives!.length} live{result!.lives!.length !== 1 ? "s" : ""})
-                  </p>
-                  <div className="space-y-2">
-                    {result!.lives!.map((grupo, i) => (
-                      <motion.div key={grupo.live_id}
-                        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.16 + i * 0.06 }}>
-                        <LiveBloco
-                          grupo={grupo}
-                          defaultExpanded={i === 0 || result!.lives!.length === 1}
-                          onAbrirLive={onAbrirLive}
-                        />
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
+                <div className="space-y-2">
+                  {result!.lives!.map((grupo, i) => (
+                    <motion.div key={grupo.live_id}
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06 }}>
+                      <LiveBloco
+                        grupo={grupo}
+                        defaultExpanded={i === 0 || result!.lives!.length === 1}
+                        onAbrirLive={onAbrirLive}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
 
               </motion.div>
             )}
