@@ -182,8 +182,8 @@ function LiveBloco({
 
             {/* Header tabela — só desktop */}
             <div className="hidden sm:grid px-4 py-2"
-              style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
-              {["CLIENTE","SACOLA","ITENS","VALOR","PAGAMENTO","STATUS"].map(h => (
+              style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px 96px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
+              {["CLIENTE","SACOLA","ITENS","VALOR","PAGAMENTO","STATUS","RETIRADA"].map(h => (
                 <p key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{h}</p>
               ))}
             </div>
@@ -204,7 +204,7 @@ function LiveBloco({
 
                     {/* Desktop: grid */}
                     <div className="hidden sm:grid items-center gap-2"
-                      style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px" }}>
+                      style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px 96px" }}>
                       {/* Nome da cliente */}
                       <p className="text-xs font-black uppercase truncate" style={{ color: "var(--text-primary)" }}>
                         {c.nome_cliente}
@@ -229,6 +229,17 @@ function LiveBloco({
                       <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(valor)}</p>
                       <PagBadge status={c.pagamento_status}/>
                       <Badge status={c.status_compra}/>
+                      {c.status_compra === "retirada" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
+                          style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                          <CheckCircle2 size={9}/> RETIRADO
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
+                          style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)" }}>
+                          <Clock size={9}/> NÃO RETIRADO
+                        </span>
+                      )}
                     </div>
 
                     {/* Mobile: stack */}
@@ -244,6 +255,17 @@ function LiveBloco({
                         <div className="flex flex-wrap gap-1">
                           <PagBadge status={c.pagamento_status}/>
                           <Badge status={c.status_compra}/>
+                          {c.status_compra === "retirada" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full"
+                              style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                              <CheckCircle2 size={9}/> RETIRADO
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full"
+                              style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)" }}>
+                              <Clock size={9}/> NÃO RETIRADO
+                            </span>
+                          )}
                         </div>
                         <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
                           {c.total_produtos_vinculados ?? 0}/{c.quantidade_itens ?? 0} itens vinculados
