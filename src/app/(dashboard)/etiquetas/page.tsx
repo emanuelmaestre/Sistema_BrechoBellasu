@@ -1410,6 +1410,16 @@ export default function EtiquetasPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["etiquetas"] }),
   })
 
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const sincronizar = useMutation({
+    mutationFn: () => apiPost("/etiquetas/sync-status", {}),
+    onSuccess: (res: { atualizadas?: number; notificadas?: number }) => {
+      qc.invalidateQueries({ queryKey: ["etiquetas"] })
+      setSyncMsg(res?.atualizadas ? `${res.atualizadas} etiqueta(s) atualizada(s)` : "Nenhuma atualização")
+      setTimeout(() => setSyncMsg(null), 4000)
+    },
+  })
+
   const [filtroStatus, setFiltroStatus] = useState<"ativas" | "entregues" | "todas">("ativas")
   const todosItens = data?.data ?? []
   const etiquetas = filtroStatus === "ativas"
@@ -1510,6 +1520,17 @@ export default function EtiquetasPage() {
               </span>
             ) : null}
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => sincronizar.mutate()}
+              disabled={sincronizar.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: "var(--bg-surface)", color: syncMsg ? "#10b981" : "var(--text-secondary)" }}
+              title="Verificar status de entrega agora"
+            >
+              <RefreshCw size={12} className={sincronizar.isPending ? "animate-spin" : ""} />
+              {sincronizar.isPending ? "Verificando..." : syncMsg ?? "Sincronizar"}
+            </button>
           <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "var(--bg-surface)" }}>
             {(["ativas", "entregues", "todas"] as const).map(f => {
               const labels = { ativas: "Ativas", entregues: "Entregues", todas: "Todas" }
@@ -1536,6 +1557,7 @@ export default function EtiquetasPage() {
                 </button>
               )
             })}
+          </div>
           </div>
         </div>
 
