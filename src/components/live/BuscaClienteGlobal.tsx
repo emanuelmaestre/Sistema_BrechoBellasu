@@ -324,7 +324,7 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
           ref={inputRef}
           value={query}
           onChange={e => handleChange(e.target.value)}
-          placeholder="Buscar cliente por nome, WhatsApp, @instagram ou apelido em todas as lives..."
+          placeholder=""
           className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl outline-none transition-all"
           style={{
             background: "var(--bg-card)",
