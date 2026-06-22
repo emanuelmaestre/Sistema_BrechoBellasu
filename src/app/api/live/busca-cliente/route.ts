@@ -23,8 +23,6 @@ interface CompraRow {
   data_compra: string | null
   observacoes_compra: string | null
   created_at: string
-  total_produtos_vinculados: number | null
-  total_estoque_baixado: number | null
 }
 
 interface ClienteRow {
@@ -86,7 +84,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     "id, live_id, cliente_id, nome_cliente, whatsapp, cor_sacola, numero_sacola, " +
     "quantidade_itens, quantidade_volumes, valor_total, desconto, " +
     "status_compra, pagamento_status, msg_status, link_pagamento, " +
-    "data_compra, observacoes_compra, created_at, total_produtos_vinculados, total_estoque_baixado"
+    "data_compra, observacoes_compra, created_at"
 
   let q1 = sb.from("live_compras").select(COLS).or(orNomeWa)
   if (escopo === "esta_live" && liveId) q1 = q1.eq("live_id", parseInt(liveId))
