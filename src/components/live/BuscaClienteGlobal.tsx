@@ -182,7 +182,7 @@ function LiveBloco({
 
             {/* Header tabela — só desktop */}
             <div className="hidden sm:grid px-4 py-2"
-              style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px 96px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
+              style={{ gridTemplateColumns: "1.5fr 1fr 70px 90px 96px 96px 112px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
               {["CLIENTE","SACOLA","ITENS","VALOR","PAGAMENTO","STATUS","RETIRADA"].map(h => (
                 <p key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{h}</p>
               ))}
@@ -204,7 +204,7 @@ function LiveBloco({
 
                     {/* Desktop: grid */}
                     <div className="hidden sm:grid items-center gap-2"
-                      style={{ gridTemplateColumns: "1.5fr 1fr 80px 96px 96px 96px 96px" }}>
+                      style={{ gridTemplateColumns: "1.5fr 1fr 70px 90px 96px 96px 112px" }}>
                       {/* Nome da cliente */}
                       <p className="text-xs font-black uppercase truncate" style={{ color: "var(--text-primary)" }}>
                         {c.nome_cliente}
