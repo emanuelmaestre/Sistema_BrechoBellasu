@@ -229,17 +229,19 @@ function LiveBloco({
                       <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>{fmtBRL(valor)}</p>
                       <PagBadge status={c.pagamento_status}/>
                       <Badge status={c.status_compra}/>
-                      {c.status_compra === "retirada" ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
-                          style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
-                          <CheckCircle2 size={9}/> RETIRADO
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
-                          style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)" }}>
-                          <Clock size={9}/> NÃO RETIRADO
-                        </span>
-                      )}
+                      <div className="flex items-center">
+                        {c.status_compra === "retirada" ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
+                            style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                            <CheckCircle2 size={9}/> RETIRADO
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
+                            style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)" }}>
+                            <Clock size={9}/> NÃO RETIRADO
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Mobile: stack */}
