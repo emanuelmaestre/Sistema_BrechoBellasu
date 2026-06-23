@@ -591,7 +591,8 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                   <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Resumo</p>
                   {[
                     { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
-                    { l: "Sacola",    v: [form.cor_sacola, form.numero_sacola ? `#${form.numero_sacola}` : ""].filter(Boolean).join(" ") || "—" },
+                    { l: "Cor",       v: form.cor_sacola || "—" },
+                    { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—" },
                     { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
                     { l: "Total",     v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(",","."))) : "—" },
                   ].map(r => (
