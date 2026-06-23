@@ -1412,8 +1412,8 @@ export default function EtiquetasPage() {
 
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const sincronizar = useMutation({
-    mutationFn: () => apiPost("/etiquetas/sync-status", {}),
-    onSuccess: (res: { atualizadas?: number; notificadas?: number }) => {
+    mutationFn: () => apiPost("/etiquetas/sync-status", {}) as Promise<{ atualizadas?: number; notificadas?: number }>,
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["etiquetas"] })
       setSyncMsg(res?.atualizadas ? `${res.atualizadas} etiqueta(s) atualizada(s)` : "Nenhuma atualização")
       setTimeout(() => setSyncMsg(null), 4000)
