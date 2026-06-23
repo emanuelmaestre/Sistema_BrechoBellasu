@@ -363,7 +363,7 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 // ══════════════════════════════════════════════════════════
 // WIZARD — Adicionar Compra (rápido, sem produtos)
 // ══════════════════════════════════════════════════════════
-function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: () => void; onSalvo: () => void }) {
+function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; liveData: string; onClose: () => void; onSalvo: () => void }) {
   const [step, setStep]     = useState(1)
   const [dir,  setDir]      = useState(1)
   const [form, setForm]     = useState<CompraForm>(EMPTY_COMPRA)
@@ -418,6 +418,7 @@ function WizardCompra({ liveId, onClose, onSalvo }: { liveId: number; onClose: (
         cliente_id:        form.cliente_id ?? undefined,
         nome_cliente:      form.nome_cliente || cliBusca.trim(),
         whatsapp:          form.whatsapp || undefined,
+        data_compra:       liveData || undefined,
         cor_sacola:        form.cor_sacola || undefined,
         numero_sacola:     form.numero_sacola || undefined,
         quantidade_itens:  parseInt(form.quantidade_itens) || 1,
@@ -2437,7 +2438,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
       {/* Modais */}
       <AnimatePresence>
-        {modalCompra   && <WizardCompra  liveId={liveId} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {modalCompra   && <WizardCompra  liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
       {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
