@@ -12,6 +12,11 @@ const SAUDACOES_CONSENT = [
   (nome: string) => `Oi, ${nome}! Tudo bem? 💖`,
   (nome: string) => `Olá, ${nome}! Que bom falar com você. ✨`,
   (nome: string) => `Oi, ${nome}! Passando para um recadinho rápido. 🛍️`,
+  (nome: string) => `Oi, ${nome}! Que alegria te encontrar por aqui. 🌸`,
+  (nome: string) => `Olá, ${nome}! Espero que esteja bem. 💛`,
+  (nome: string) => `Oi, ${nome}! Tenho um recadinho especial pra você. 🎀`,
+  (nome: string) => `Oi, ${nome}! Passando rapidinho aqui. 😉`,
+  (nome: string) => `Olá, ${nome}! Tudo certo por aí? 🌟`,
 ]
 
 const APRESENTACOES_CONSENT = [
@@ -30,7 +35,7 @@ const FECHAMENTOS_CONSENT = [
   "Fica tranquila! Você pode cancelar quando quiser. 💖",
 ]
 
-const TOTAL_CONSENT = SAUDACOES_CONSENT.length * APRESENTACOES_CONSENT.length * FECHAMENTOS_CONSENT.length // 125
+const TOTAL_CONSENT = SAUDACOES_CONSENT.length * APRESENTACOES_CONSENT.length * FECHAMENTOS_CONSENT.length // 250
 
 // ─── Pool de rotação ─────────────────────────────────────
 
