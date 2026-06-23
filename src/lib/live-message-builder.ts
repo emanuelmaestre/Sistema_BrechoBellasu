@@ -276,7 +276,7 @@ O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas pe�
 🔑 PIX: (16) 99134-7476
 👤 Nome: Emanuel Maestre dos Santos`
 
-  return `📅 Data da compra: ${fmtData(compra.data_compra)}
+  return `📅 Data da compra: ${fmtData(compra.data_compra ?? compra.data_live)}
 🎥 Data da live: ${fmtData(compra.data_live)}
 🛍️ Nº da sacola: ${num}
 🎨 Cor da sacola: ${compra.cor_sacola || "—"}
