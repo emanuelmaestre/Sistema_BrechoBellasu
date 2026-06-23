@@ -597,7 +597,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                   ].map(r => (
                     <div key={r.l} className="flex justify-between text-sm">
                       <span style={{ color: "var(--text-muted)" }}>{r.l}</span>
-                      <span className="font-medium" style={{ color: "var(--text-primary)" }}>{r.v}</span>
+                      <span className="font-medium uppercase" style={{ color: "var(--text-primary)" }}>{r.v}</span>
                     </div>
                   ))}
                 </div>
