@@ -100,8 +100,6 @@ export async function gerarLinkAsaas(params: {
         value: params.valor,
         dueDate,
         description: descricaoFinal,
-        // Limita parcelas sem juros conforme regra da loja
-        maxInstallmentCount: regra.maxSemJuros === 0 ? 1 : regra.maxSemJuros,
       }),
     })
 
