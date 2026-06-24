@@ -51,7 +51,7 @@ export interface Compra {
 type LiveDetalhe = Live & { compras: Compra[] }
 
 interface Cliente {
-  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null; instagram?: string | null
+  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null; instagram?: string | null; saldo_credito?: number | null
 }
 
 interface ProdutoVinculo {
@@ -406,10 +406,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   function selCliente(c: Cliente) {
     setCli(c); setCliBusca(c.nome); setCliRes([])
     setForm(f => ({ ...f, cliente_id: c.id, nome_cliente: c.nome, whatsapp: c.celular ?? "" }))
-    // Busca saldo de crédito da cliente
-    apiGet<{ saldo: number }>(`/clientes/${c.id}/creditos`)
-      .then(r => setSaldoCredito(r.saldo ?? 0))
-      .catch(() => setSaldoCredito(0))
+    setSaldoCredito(Number(c.saldo_credito ?? 0))
   }
   const { hi: cliHi, onKeyDown: cliKD, reset: resetCli } = useDropdownKeyNav(cliRes, selCliente)
 
