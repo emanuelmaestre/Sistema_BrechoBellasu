@@ -672,101 +672,186 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
             </motion.div>
 
             {/* Botão + Adicionar crédito */}
-            {!creditoForm ? (
-              <button onClick={() => { setCreditoForm(true); setCreditoErro("") }}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-                style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", color: "#fbbf24" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.15)" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.08)" }}>
-                + Adicionar Crédito
-              </button>
-            ) : (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl p-3 space-y-2 overflow-y-auto drawer-scroll"
-                style={{ background: "var(--bg-surface)", border: "1px solid rgba(251,191,36,0.3)", maxHeight: "380px" }}>
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Adicionar Crédito Manual</p>
+            <button onClick={() => { setCreditoForm(true); setCreditoErro(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null); setCreditoMotivo(""); setCreditoValor("") }}
+              className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+              style={{ background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.18)" }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.10)" }}>
+              <Plus size={15} /> ADICIONAR CRÉDITO
+            </button>
 
-                {/* Valor */}
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Valor (R$)</label>
-                  <input type="text" inputMode="numeric" placeholder="R$ 0,00"
-                    value={creditoValor}
-                    onChange={e => setCreditoValor(maskCurrency(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                </div>
+            {/* ── Wizard fullscreen de crédito ── */}
+            <AnimatePresence>
+              {creditoForm && (
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
+                  transition={{ type: "spring", stiffness: 340, damping: 30 }}
+                  className="fixed inset-0 z-[80] flex flex-col"
+                  style={{ background: "var(--bg-base)" }}>
 
-                {/* Seletor de Motivo */}
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--text-muted)" }}>Motivo</label>
-
-                  {creditoMotivo ? (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                      style={{ background: "var(--bg-card)", border: `1px solid ${creditoMotivoTopico?.cor ?? "var(--border)"}33` }}>
-                      <span className="text-base">{creditoMotivoTopico?.emoji}</span>
-                      <span className="flex-1 text-sm truncate" style={{ color: "var(--text-primary)" }}>{creditoMotivo}</span>
-                      <button onClick={() => { setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null) }}
-                        className="shrink-0 p-0.5 rounded-full hover:bg-white/10 transition-colors">
-                        <X size={12} style={{ color: "var(--text-muted)" }} />
-                      </button>
-                    </div>
-                  ) : creditoMotivoFase === "topicos" ? (
-                    /* Grade 2×2 compacta — cabe sempre sem scroll */
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {MOTIVOS_CREDITO.map(t => (
-                        <button key={t.topico}
-                          onClick={() => { setCreditoMotivoTopico(t); setCreditoMotivoFase("motivos") }}
-                          className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                          style={{ background: `${t.cor}12`, border: `1px solid ${t.cor}33` }}>
-                          <span className="text-base leading-none">{t.emoji}</span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold truncate" style={{ color: t.cor }}>{t.topico}</p>
-                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.motivos.length} motivos</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    /* Lista de motivos — grid 2 colunas com scroll interno limitado */
-                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                      <button onClick={() => setCreditoMotivoFase("topicos")}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
-                        style={{ background: `${creditoMotivoTopico?.cor}18`, color: creditoMotivoTopico?.cor, borderBottom: "1px solid var(--border)" }}>
-                        <ChevronLeft size={12} /> {creditoMotivoTopico?.emoji} {creditoMotivoTopico?.topico}
-                      </button>
-                      <div
-                        className="grid grid-cols-2 overflow-y-auto overscroll-contain"
-                        style={{ background: "var(--bg-card)", maxHeight: "160px" }}>
-                        {creditoMotivoTopico?.motivos.map(m => (
-                          <button key={m} onClick={() => { setCreditoMotivo(m); setCreditoMotivoFase("topicos") }}
-                            className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/5 border-b odd:border-r"
-                            style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}>
-                            {m}
-                          </button>
-                        ))}
+                  {/* Top bar */}
+                  <div className="shrink-0 flex items-center justify-between px-5 sm:px-8 py-4"
+                    style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+                        style={{ background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                        <Wallet size={18} style={{ color: "#fbbf24" }} />
+                      </div>
+                      <div>
+                        <p className="font-black text-sm uppercase tracking-widest" style={{ color: "var(--text-primary)" }}>
+                          ADICIONAR CRÉDITO
+                        </p>
+                        <p className="text-[11px] mt-0.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                          {cliente.nome}
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                      onClick={() => { setCreditoForm(false); setCreditoErro("") }}
+                      className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ color: "var(--text-secondary)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                      <X size={15} /> FECHAR
+                    </motion.button>
+                  </div>
 
-                {creditoErro && <p className="text-xs text-red-400">{creditoErro}</p>}
+                  {/* Conteúdo — 3 passos */}
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="max-w-2xl mx-auto px-4 sm:px-8 py-8 space-y-8">
 
-                {/* Botões sempre visíveis */}
-                <div className="flex gap-2 pt-1">
-                  <button onClick={adicionarCredito} disabled={creditoLoading}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ background: "#fbbf24", color: "#1a0f00" }}>
-                    {creditoLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                    Confirmar
-                  </button>
-                  <button onClick={() => { setCreditoForm(false); setCreditoErro(""); setCreditoMotivo(""); setCreditoMotivoFase("topicos"); setCreditoMotivoTopico(null) }}
-                    className="px-4 py-2.5 rounded-xl text-sm transition-colors"
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                    Cancelar
-                  </button>
-                </div>
-              </motion.div>
-            )}
+                      {/* Passo 1 — Categoria */}
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-muted)" }}>
+                          1 — CATEGORIA DO CRÉDITO
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {MOTIVOS_CREDITO.map(t => (
+                            <motion.button key={t.topico}
+                              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                              onClick={() => { setCreditoMotivoTopico(t); setCreditoMotivoFase("motivos"); setCreditoMotivo("") }}
+                              className="flex flex-col items-start gap-3 p-4 sm:p-5 rounded-2xl text-left transition-all"
+                              style={{
+                                background: creditoMotivoTopico?.topico === t.topico ? `${t.cor}20` : `${t.cor}0c`,
+                                border: `2px solid ${creditoMotivoTopico?.topico === t.topico ? t.cor : `${t.cor}30`}`,
+                                boxShadow: creditoMotivoTopico?.topico === t.topico ? `0 4px 20px ${t.cor}22` : "none",
+                              }}>
+                              <span className="text-3xl leading-none">{t.emoji}</span>
+                              <div>
+                                <p className="text-sm font-black uppercase tracking-wide" style={{ color: t.cor }}>{t.topico}</p>
+                                <p className="text-[11px] font-semibold uppercase mt-0.5" style={{ color: "var(--text-muted)" }}>{t.motivos.length} motivos</p>
+                              </div>
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Passo 2 — Submotivo */}
+                      <AnimatePresence>
+                        {creditoMotivoTopico && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.2 }}>
+                            <p className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-muted)" }}>
+                              2 — MOTIVO ESPECÍFICO
+                              <span className="ml-2 font-black" style={{ color: creditoMotivoTopico.cor }}>
+                                {creditoMotivoTopico.emoji} {creditoMotivoTopico.topico.toUpperCase()}
+                              </span>
+                            </p>
+                            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                              {creditoMotivoTopico.motivos.map((m, i) => (
+                                <motion.button key={m}
+                                  initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: i * 0.025 }}
+                                  onClick={() => setCreditoMotivo(m)}
+                                  className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors"
+                                  style={{
+                                    background: creditoMotivo === m ? `${creditoMotivoTopico.cor}18` : "var(--bg-card)",
+                                    borderBottom: i < creditoMotivoTopico.motivos.length - 1 ? "1px solid var(--border)" : "none",
+                                    color: creditoMotivo === m ? creditoMotivoTopico.cor : "var(--text-primary)",
+                                  }}
+                                  onMouseEnter={e => { if (creditoMotivo !== m) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                                  onMouseLeave={e => { if (creditoMotivo !== m) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-card)" }}>
+                                  <span className="text-sm font-bold uppercase tracking-wide">{m}</span>
+                                  {creditoMotivo === m && (
+                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500 }}>
+                                      <CheckCircle2 size={18} style={{ color: creditoMotivoTopico.cor }} />
+                                    </motion.div>
+                                  )}
+                                </motion.button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Passo 3 — Valor */}
+                      <AnimatePresence>
+                        {creditoMotivo && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.2 }}>
+                            <p className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: "var(--text-muted)" }}>
+                              3 — VALOR DO CRÉDITO
+                            </p>
+
+                            {/* Resumo do que foi selecionado */}
+                            <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4"
+                              style={{ background: `${creditoMotivoTopico?.cor}10`, border: `1px solid ${creditoMotivoTopico?.cor}30` }}>
+                              <span className="text-xl">{creditoMotivoTopico?.emoji}</span>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                                  {creditoMotivoTopico?.topico.toUpperCase()}
+                                </p>
+                                <p className="text-sm font-black uppercase" style={{ color: creditoMotivoTopico?.cor }}>{creditoMotivo}</p>
+                              </div>
+                            </div>
+
+                            <input
+                              type="text" inputMode="numeric"
+                              placeholder="R$ 0,00"
+                              value={creditoValor}
+                              autoFocus
+                              onChange={e => setCreditoValor(maskCurrency(e.target.value))}
+                              className="w-full px-5 py-5 rounded-2xl text-2xl font-black outline-none text-center transition-all"
+                              style={{
+                                background: "var(--bg-card)",
+                                border: "2px solid var(--border)",
+                                color: "#fbbf24",
+                                letterSpacing: "0.04em",
+                              }}
+                              onFocus={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(251,191,36,0.15)" }}
+                              onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none" }}
+                            />
+
+                            {creditoErro && (
+                              <p className="text-sm font-bold text-red-400 text-center mt-3 uppercase">{creditoErro}</p>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
+                  {/* Rodapé — botão confirmar fixo */}
+                  <div className="shrink-0 px-5 sm:px-8 py-4"
+                    style={{ borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
+                    <motion.button
+                      onClick={adicionarCredito}
+                      disabled={!creditoMotivo || !creditoValor || creditoLoading}
+                      whileHover={{ scale: creditoMotivo && creditoValor ? 1.01 : 1 }}
+                      whileTap={{ scale: creditoMotivo && creditoValor ? 0.98 : 1 }}
+                      className="w-full py-4 rounded-2xl text-base font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all disabled:opacity-40"
+                      style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#1a0f00", boxShadow: creditoMotivo && creditoValor ? "0 6px 24px rgba(251,191,36,0.35)" : "none" }}>
+                      {creditoLoading
+                        ? <><Loader2 size={18} className="animate-spin" /> CONFIRMANDO...</>
+                        : <><Wallet size={18} /> CONFIRMAR CRÉDITO</>}
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Histórico de movimentações — oculto quando formulário de crédito está aberto */}
             {!creditoForm && (
