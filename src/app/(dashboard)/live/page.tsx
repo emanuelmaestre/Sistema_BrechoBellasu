@@ -377,6 +377,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   const [cliRes,   setCliRes]   = useState<Cliente[]>([])
   const [cliSel,   setCli]      = useState<Cliente | null>(null)
   const [corIdx,   setCorIdx]   = useState(0)
+  const [saldoCredito, setSaldoCredito] = useState(0)
 
   useEffect(() => { const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }; document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn) }, [onClose])
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
@@ -396,6 +397,10 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   function selCliente(c: Cliente) {
     setCli(c); setCliBusca(c.nome); setCliRes([])
     setForm(f => ({ ...f, cliente_id: c.id, nome_cliente: c.nome, whatsapp: c.celular ?? "" }))
+    // Busca saldo de crédito da cliente
+    apiGet<{ saldo: number }>(`/clientes/${c.id}/creditos`)
+      .then(r => setSaldoCredito(r.saldo ?? 0))
+      .catch(() => setSaldoCredito(0))
   }
   const { hi: cliHi, onKeyDown: cliKD, reset: resetCli } = useDropdownKeyNav(cliRes, selCliente)
 
@@ -415,6 +420,8 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
     if (!form.valor_total) { setErro("Informe o valor total"); return }
     setSaving(true); setErro("")
     try {
+      const valorTotalNum = parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0
+      const creditoAplicado = form.cliente_id ? Math.min(saldoCredito, valorTotalNum) : 0
       await apiPost(`/live/${liveId}/compras`, {
         cliente_id:        form.cliente_id ?? undefined,
         nome_cliente:      form.nome_cliente || cliBusca.trim(),
@@ -423,8 +430,9 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
         cor_sacola:        form.cor_sacola || undefined,
         numero_sacola:     form.numero_sacola || undefined,
         quantidade_itens:  parseInt(form.quantidade_itens) || 1,
-        valor_total:       parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0,
+        valor_total:       valorTotalNum,
         desconto:          parseFloat(form.desconto.replace(/\./g, "").replace(",", ".")) || 0,
+        credito_aplicado:  creditoAplicado,
         observacao:        form.observacao || undefined,
         link_pagamento:    form.link_pagamento || undefined,
         status_compra:     "cadastrada",
@@ -574,44 +582,116 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
               </>}
 
               {/* Step 4 — Valor */}
-              {step === 4 && <>
-                <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
-                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Valor total cobrado nesta sacola.</p>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                    <input ref={inputRef} inputMode="decimal" value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
-                      onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
-                      placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
-                  </div>
-                </div>
-
-                {/* Resumo da compra */}
-                <div className="mt-6 rounded-2xl p-4 space-y-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                  <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Resumo</p>
-                  {[
-                    { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
-                    { l: "Cor",       v: form.cor_sacola || "—" },
-                    { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—" },
-                    { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
-                    { l: "Total",     v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(",","."))) : "—" },
-                  ].map(r => (
-                    <div key={r.l} className="flex justify-between text-sm">
-                      <span style={{ color: "var(--text-muted)" }}>{r.l}</span>
-                      <span className="font-medium uppercase" style={{ color: "var(--text-primary)" }}>{r.v}</span>
+              {step === 4 && (() => {
+                const valorTotalNum = parseFloat((form.valor_total || "0").replace(/\./g, "").replace(",", ".")) || 0
+                const creditoAplicado = form.cliente_id ? Math.min(saldoCredito, valorTotalNum) : 0
+                const valorFinal = Math.max(0, valorTotalNum - creditoAplicado)
+                const saldoRestante = Math.max(0, saldoCredito - creditoAplicado)
+                return <>
+                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
+                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Valor total cobrado nesta sacola.</p>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                      <input ref={inputRef} inputMode="decimal" value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
+                        onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
+                        placeholder="0,00" className={iBase + " pl-12"} style={iSt}/>
                     </div>
-                  ))}
-                </div>
+                  </div>
 
-                <div className="mt-6 flex gap-3">
-                  <motion.button onClick={salvar} disabled={saving} whileTap={{ scale: 0.97 }}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-60"
-                    style={{ background: COR_LIVE }}>
-                    {saving ? <><Loader2 size={14} className="animate-spin"/>Salvando...</> : <><ShoppingBag size={15}/>Registrar Compra</>}
-                  </motion.button>
-                </div>
-              </>}
+                  {/* Card de crédito disponível */}
+                  <AnimatePresence>
+                    {saldoCredito > 0 && form.cliente_id && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                        className="mt-4 rounded-2xl p-4 space-y-3"
+                        style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.3)" }}
+                      >
+                        {/* Cabeçalho */}
+                        <div className="flex items-center gap-2">
+                          <motion.span
+                            animate={{ scale: [1, 1.15, 1] }}
+                            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                            className="text-lg">🎁</motion.span>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#34d399" }}>Crédito disponível</p>
+                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Será abatido automaticamente no total</p>
+                          </div>
+                          <span className="ml-auto text-sm font-bold px-2.5 py-1 rounded-full" style={{ background: "rgba(52,211,153,0.15)", color: "#34d399" }}>
+                            {fmtBRL(saldoCredito)}
+                          </span>
+                        </div>
+
+                        {/* Breakdown */}
+                        {valorTotalNum > 0 && (
+                          <div className="space-y-1.5 pt-2" style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
+                            <div className="flex justify-between text-sm">
+                              <span style={{ color: "var(--text-muted)" }}>Valor original</span>
+                              <span style={{ color: "var(--text-secondary)" }}>{fmtBRL(valorTotalNum)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span style={{ color: "#34d399" }}>Crédito aplicado</span>
+                              <span className="font-semibold" style={{ color: "#34d399" }}>− {fmtBRL(creditoAplicado)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-bold pt-1" style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
+                              <span style={{ color: "var(--text-primary)" }}>
+                                {valorFinal === 0 ? "✅ Pago com crédito" : "Total final a pagar"}
+                              </span>
+                              <span style={{ color: valorFinal === 0 ? "#34d399" : "var(--text-primary)" }}>
+                                {fmtBRL(valorFinal)}
+                              </span>
+                            </div>
+                            {saldoRestante > 0 && (
+                              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                                Saldo restante após compra: {fmtBRL(saldoRestante)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Resumo da compra */}
+                  <div className="mt-4 rounded-2xl p-4 space-y-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Resumo</p>
+                    {[
+                      { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
+                      { l: "Cor",       v: form.cor_sacola || "—" },
+                      { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—" },
+                      { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
+                      ...(creditoAplicado > 0 && valorTotalNum > 0 ? [
+                        { l: "Valor original", v: fmtBRL(valorTotalNum) },
+                        { l: "Crédito aplicado", v: `− ${fmtBRL(creditoAplicado)}` },
+                        { l: "Total final", v: fmtBRL(valorFinal) },
+                      ] : [
+                        { l: "Total", v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(/\./g,"").replace(",","."))) : "—" },
+                      ]),
+                    ].map(r => (
+                      <div key={r.l} className="flex justify-between text-sm">
+                        <span style={{ color: "var(--text-muted)" }}>{r.l}</span>
+                        <span className="font-medium uppercase" style={{
+                          color: r.l === "Crédito aplicado" ? "#34d399"
+                            : r.l === "Total final" ? "var(--text-primary)"
+                            : "var(--text-primary)"
+                        }}>{r.v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex gap-3">
+                    <motion.button onClick={salvar} disabled={saving} whileTap={{ scale: 0.97 }}
+                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-60"
+                      style={{ background: COR_LIVE }}>
+                      {saving ? <><Loader2 size={14} className="animate-spin"/>Salvando...</> : <><ShoppingBag size={15}/>Registrar Compra</>}
+                    </motion.button>
+                  </div>
+                </>
+              })()}
 
               <AnimatePresence>
                 {erro && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}

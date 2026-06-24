@@ -40,9 +40,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ehLive: it.eh_live !== false,
     }))
 
+    const clienteId: number | null = body.cliente_id ?? null
+    const creditoAplicado: number = Math.max(0, parseFloat(body.credito_aplicado ?? 0) || 0)
+
     const resultado = await useCase.execute({
       liveId: parseInt(id),
-      clienteId: body.cliente_id ?? null,
+      clienteId,
       nomeCliente: body.nome_cliente ?? null,
       whatsapp: body.whatsapp ?? null,
       dataCompra: body.data_compra ?? null,
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       quantidadeItens: body.quantidade_itens ?? 1,
       valorTotal: body.valor_total ?? 0,
       desconto: body.desconto ?? 0,
+      creditoAplicado,
       observacoes: body.observacao ?? body.observacoes ?? null,
       itens,
     })
@@ -58,6 +62,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!resultado.ok) {
       const { status, body: erro } = apresentarErro(resultado.error)
       return NextResponse.json(erro, { status })
+    }
+
+    // Deduz crédito do saldo da cliente atomicamente (após persistir a compra)
+    if (creditoAplicado > 0 && clienteId) {
+      try {
+        await sb.rpc("fn_credito_saida", {
+          p_cliente_id: clienteId,
+          p_valor:      creditoAplicado,
+          p_origem:     "venda",
+          p_obs:        `Abatimento em compra da live (compra #${resultado.value.id})`,
+          p_op_id:      resultado.value.id,
+          p_op_tipo:    "venda",
+          p_user_id:    null,
+        })
+      } catch (errCredito) {
+        // Log mas não reverte a compra — o crédito pode ser ajustado manualmente
+        console.error("[compras] erro ao deduzir crédito:", errCredito)
+      }
     }
 
     return NextResponse.json(

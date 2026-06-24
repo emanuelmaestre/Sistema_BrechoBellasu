@@ -11,6 +11,7 @@ export interface RegistrarCompraInput extends LiveCompraInput {
   cpf?: string | null
   itens?: ItemCompraInput[]
   tipoLive?: "novidades" | "promocional"
+  clienteIdParaCredito?: number | null
 }
 
 export interface RegistrarCompraOutput {

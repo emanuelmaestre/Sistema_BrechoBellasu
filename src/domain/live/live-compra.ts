@@ -18,6 +18,7 @@ export interface LiveCompraInput {
   quantidadeItens?: number
   valorTotal: number
   desconto?: number
+  creditoAplicado?: number
   observacoes?: string | null
 }
 
@@ -38,6 +39,7 @@ export class LiveCompra {
     readonly quantidadeItens: number,
     readonly valorTotal: Money,
     readonly desconto: Money,
+    readonly creditoAplicado: Money,
     readonly observacoes: string | null,
   ) {}
 
@@ -58,6 +60,12 @@ export class LiveCompra {
       return err(new ValidacaoError("Desconto não pode ser negativo."))
     }
 
+    const creditoAplicado = Money.deReais(input.creditoAplicado ?? 0)
+    if (!creditoAplicado.ok) return creditoAplicado
+    if (creditoAplicado.value.ehNegativo()) {
+      return err(new ValidacaoError("Crédito aplicado não pode ser negativo."))
+    }
+
     const qtd = input.quantidadeItens ?? 1
     if (!Number.isInteger(qtd) || qtd < 0) {
       return err(new ValidacaoError("Quantidade de itens inválida."))
@@ -75,14 +83,18 @@ export class LiveCompra {
         qtd,
         valorTotal.value,
         desconto.value,
+        creditoAplicado.value,
         norm(input.observacoes),
       ),
     )
   }
 
-  /** Valor a cobrar (total − desconto, mínimo zero). */
+  /** Valor a cobrar (total − desconto − crédito, mínimo zero). */
   get valorFinal(): Money {
-    return this.valorTotal.subtrair(this.desconto).clampNaoNegativo()
+    return this.valorTotal
+      .subtrair(this.desconto)
+      .subtrair(this.creditoAplicado)
+      .clampNaoNegativo()
   }
 
   /** Descrição da sacola para a cobrança (ex: "Rosa #12"). */

@@ -9,14 +9,15 @@ export const CHAR_TARGET = 940   // meta de segurança
 // ─── Tipos ───────────────────────────────────────────────────────
 
 export interface CompraData {
-  data_compra:      string | null
-  data_live:        string | null
-  numero_sacola:    string | null | undefined
-  cor_sacola:       string | null | undefined
-  quantidade_itens: number | null | undefined
-  valor_total:      number | null | undefined
-  nome_cliente:     string | null | undefined
-  link_pagamento?:  string | null
+  data_compra:       string | null
+  data_live:         string | null
+  numero_sacola:     string | null | undefined
+  cor_sacola:        string | null | undefined
+  quantidade_itens:  number | null | undefined
+  valor_total:       number | null | undefined
+  nome_cliente:      string | null | undefined
+  link_pagamento?:   string | null
+  credito_aplicado?: number | null
 }
 
 export type SmallTalkLevel = "COMPLETO" | "MEDIO" | "CURTO" | "FALLBACK"
@@ -276,12 +277,22 @@ O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas pe�
 🔑 PIX: (16) 99134-7476
 👤 Nome: Emanuel Maestre dos Santos`
 
+  const credito = parseFloat(String(compra.credito_aplicado ?? 0))
+  const temCredito = credito > 0
+  const valorFinal = Math.max(0, parseFloat(String(compra.valor_total ?? 0)) - credito)
+
+  const blocoValor = temCredito
+    ? `💰 Valor da compra: ${fmtVal(compra.valor_total)}
+🎁 Crédito aplicado: ${fmtVal(credito)}
+✅ Valor final a pagar: ${fmtVal(valorFinal)}`
+    : `💰 Valor total das compras: ${fmtVal(compra.valor_total)}`
+
   return `📅 Data da compra: ${fmtData(compra.data_compra ?? compra.data_live)}
 🎥 Data da live: ${fmtData(compra.data_live)}
 🛍️ Nº da sacola: ${num}
 🎨 Cor da sacola: ${compra.cor_sacola || "—"}
 📦 Quantidade de itens: ${qtd} ${qtdLabel}
-💰 Valor total das compras: ${fmtVal(compra.valor_total)}
+${blocoValor}
 
 Pagamento:
 

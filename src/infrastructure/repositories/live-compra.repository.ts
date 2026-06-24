@@ -31,6 +31,7 @@ export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
         quantidade_itens: compra.quantidadeItens,
         valor_total: compra.valorTotal.reais,
         desconto: compra.desconto.reais,
+        credito_aplicado: compra.creditoAplicado.reais,
         observacoes_compra: compra.observacoes,
       })
       .select("id")

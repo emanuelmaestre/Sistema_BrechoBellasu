@@ -102,7 +102,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // ── Garante link Asaas ──
   let linkPagamento: string = compra.link_pagamento || ""
   if (!linkPagamento) {
-    const valorFinal = parseFloat(String(compra.valor_total ?? 0)) - parseFloat(String(compra.desconto ?? 0))
+    const valorFinal = Math.max(
+      0,
+      parseFloat(String(compra.valor_total ?? 0))
+        - parseFloat(String(compra.desconto ?? 0))
+        - parseFloat(String(compra.credito_aplicado ?? 0)),
+    )
     if (valorFinal > 0) {
       const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
       const resultado = await gerarLinkAsaas({
@@ -132,6 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     valor_total:      compra.valor_total,
     nome_cliente:     nomeCadastro ?? compra.nome_cliente,
     link_pagamento:   linkPagamento || null,
+    credito_aplicado: parseFloat(String(compra.credito_aplicado ?? 0)) || null,
   }
 
   const msgResult = buildCompleteMessage(compraData)
