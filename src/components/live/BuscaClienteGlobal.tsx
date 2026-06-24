@@ -348,7 +348,7 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
           ref={inputRef}
           value={query}
           onChange={e => handleChange(e.target.value)}
-          placeholder=""
+          placeholder="Nome, WhatsApp, Instagram, apelido ou nº da sacola…"
           className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl outline-none transition-all"
           style={{
             background: "var(--bg-card)",
@@ -480,7 +480,7 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="text-[11px] text-center pt-1"
             style={{ color: "var(--text-muted)", opacity: 0.5 }}>
-            Digite para consultar as compras de uma cliente em todas as lives cadastradas
+            Digite nome, WhatsApp, Instagram ou apelido da cliente para consultar as sacolas
           </motion.p>
         )}
       </AnimatePresence>

@@ -2560,9 +2560,10 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 // PÁGINA PRINCIPAL — Lista de Lives
 // ══════════════════════════════════════════════════════════
 export default function LivePage() {
-  const [wizard, setWizard]       = useState(false)
-  const [liveAberta, setAberta]   = useState<number | null>(null)
-  const [statusFiltro, setStatus] = useState("")
+  const [wizard, setWizard]           = useState(false)
+  const [liveAberta, setAberta]       = useState<number | null>(null)
+  const [statusFiltro, setStatus]     = useState("")
+  const [consultaAberta, setConsulta] = useState(false)
 
   const { data, isLoading } = useQuery<{ data: Live[]; total: number }>({
     queryKey: ["lives", statusFiltro],
@@ -2587,15 +2588,19 @@ export default function LivePage() {
           <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Live</h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} lives</p>
         </div>
-        <motion.button onClick={() => setWizard(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg"
-          style={{ background: COR_LIVE }}>
-          <Radio size={15}/> Nova Live
-        </motion.button>
+        <div className="flex items-center gap-2">
+          <motion.button onClick={() => setConsulta(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+            <ShoppingBag size={15}/> Consultar Sacola
+          </motion.button>
+          <motion.button onClick={() => setWizard(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg"
+            style={{ background: COR_LIVE }}>
+            <Radio size={15}/> Nova Live
+          </motion.button>
+        </div>
       </div>
-
-      {/* Busca global de cliente */}
-      <BuscaClienteGlobal onAbrirLive={id => setAberta(id)} />
 
       {/* Filtros */}
       <div className="rounded-2xl px-4 py-3 flex gap-1.5"
@@ -2673,6 +2678,53 @@ export default function LivePage() {
           </table>
         </div>
       </div>
+
+      {/* Modal — Consultar Sacola da Cliente */}
+      <AnimatePresence>
+        {consultaAberta && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[60px] px-4 pb-4"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+            onClick={() => setConsulta(false)}>
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+              onClick={e => e.stopPropagation()}>
+
+              {/* Header do modal */}
+              <div className="flex items-center justify-between px-5 py-4 shrink-0"
+                style={{ borderBottom: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: "var(--accent-bg)" }}>
+                    <ShoppingBag size={16} style={{ color: "var(--accent)" }}/>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Consultar Sacola da Cliente</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>Busque por nome, WhatsApp, Instagram ou apelido</p>
+                  </div>
+                </div>
+                <motion.button onClick={() => setConsulta(false)}
+                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  className="p-2 rounded-xl transition-colors"
+                  style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
+                  <X size={16}/>
+                </motion.button>
+              </div>
+
+              {/* Conteúdo — scroll interno */}
+              <div className="flex-1 overflow-y-auto p-5">
+                <BuscaClienteGlobal onAbrirLive={id => { setConsulta(false); setAberta(id) }}/>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {wizard && <WizardLive onClose={() => setWizard(false)} onSalvo={id => { setWizard(false); setAberta(id) }}/>}
