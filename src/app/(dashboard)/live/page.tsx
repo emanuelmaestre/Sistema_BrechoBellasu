@@ -23,7 +23,7 @@ import {
   type MessageResult,
 } from "@/lib/live-message-builder"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
-import { regraParcelamento, corRegraParcelamento } from "@/lib/parcelamento"
+import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParcelamento } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 
@@ -38,6 +38,7 @@ export interface Compra {
   quantidade_volumes?: number
   valor_total: number
   desconto?: number
+  credito_aplicado?: number
   msg_status?: string
   data_compra?: string
   link_pagamento?: string
@@ -1847,11 +1848,15 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               )}
             </div>
 
-            {/* Badge compacto de parcelamento */}
+            {/* Badge compacto de parcelamento — usa valor FINAL (após crédito/desconto) */}
             {ex && (() => {
-              const regra = regraParcelamento(ex.valor_total ?? 0)
+              const valorFinalEx = calcularValorFinal(ex.valor_total ?? 0, ex.desconto, ex.credito_aplicado)
+              const regra = regraParcelamento(valorFinalEx)
               const cor = corRegraParcelamento(regra.maxSemJuros)
               const emoji = regra.maxSemJuros === 0 ? "🔴" : regra.maxSemJuros === 2 ? "🟡" : "🟢"
+              const temDesconto = (ex.desconto ?? 0) > 0
+              const temCredito  = (ex.credito_aplicado ?? 0) > 0
+              const temAbatimento = temDesconto || temCredito
               return (
                 <div className="shrink-0 relative px-4 py-2" style={{ borderTop: "1px solid var(--border)" }}>
                   <button
@@ -1868,6 +1873,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                       />
                     )}
                     <span>💳 {regra.label}</span>
+                    {temAbatimento && <span className="opacity-60 text-[9px]">(valor final)</span>}
                     <span style={{ opacity: 0.6 }}>{parcOpen ? "▲" : "▼"}</span>
                   </button>
 
@@ -1878,35 +1884,68 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.97 }}
                         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                        className="absolute bottom-full left-4 mb-2 z-30 rounded-xl p-3 space-y-2.5 w-72 shadow-2xl"
+                        className="absolute bottom-full left-4 mb-2 z-30 rounded-xl p-3 space-y-2.5 w-80 shadow-2xl"
                         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
                       >
-                        {/* Regra atual da compra */}
-                        <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg" style={{ background: `${cor}10`, border: `1px solid ${cor}30` }}>
-                          <span>{emoji}</span>
-                          <div>
-                            <p className="text-[11px] font-bold" style={{ color: cor }}>{fmtBRL(ex.valor_total ?? 0)} — {regra.label}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{regra.avisoSemJuros}</p>
-                            {regra.avisoComJuros && <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{regra.avisoComJuros}</p>}
+                        {/* Resumo de valor desta compra */}
+                        <div className="space-y-1 px-2.5 py-2 rounded-lg text-[11px]" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--text-muted)" }}>Valor original</span>
+                            <span style={{ color: "var(--text-primary)" }}>{fmtBRL(ex.valor_total ?? 0)}</span>
+                          </div>
+                          {temDesconto && (
+                            <div className="flex justify-between">
+                              <span style={{ color: "var(--text-muted)" }}>Desconto</span>
+                              <span style={{ color: "#f87171" }}>− {fmtBRL(ex.desconto ?? 0)}</span>
+                            </div>
+                          )}
+                          {temCredito && (
+                            <div className="flex justify-between">
+                              <span style={{ color: "var(--text-muted)" }}>🎁 Crédito aplicado</span>
+                              <span style={{ color: "#34d399" }}>− {fmtBRL(ex.credito_aplicado ?? 0)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold pt-1" style={{ borderTop: "1px solid var(--border)" }}>
+                            <span style={{ color: "var(--text-primary)" }}>Valor final a pagar</span>
+                            <span style={{ color: valorFinalEx === 0 ? "#34d399" : cor }}>{fmtBRL(valorFinalEx)}</span>
                           </div>
                         </div>
+
+                        {/* Regra aplicada ao valor final */}
+                        {valorFinalEx === 0 ? (
+                          <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.3)" }}>
+                            <span>✅</span>
+                            <div>
+                              <p className="text-[11px] font-bold" style={{ color: "#34d399" }}>Pago com crédito</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>Nenhum link Asaas será gerado.</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg" style={{ background: `${cor}10`, border: `1px solid ${cor}30` }}>
+                            <span>{emoji}</span>
+                            <div>
+                              <p className="text-[11px] font-bold" style={{ color: cor }}>{fmtBRL(valorFinalEx)} → {regra.label}</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{regra.avisoSemJuros}</p>
+                              {regra.avisoComJuros && <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{regra.avisoComJuros}</p>}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Tabela de faixas */}
                         <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)" }}>
-                            <p className="font-bold" style={{ color: "#f87171" }}>Até R$ 149</p>
-                            <p style={{ color: "var(--text-muted)" }}>Sem juros</p>
-                          </div>
-                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                            <p className="font-bold" style={{ color: "#fbbf24" }}>R$ 150–299</p>
-                            <p style={{ color: "var(--text-muted)" }}>Até 2x</p>
-                          </div>
-                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
-                            <p className="font-bold" style={{ color: "#34d399" }}>R$ 300+</p>
-                            <p style={{ color: "var(--text-muted)" }}>Até 3x</p>
-                          </div>
+                          {[
+                            { label: "Até R$ 149", sub: "Sem 2x s/ juros", cor: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)" },
+                            { label: "R$ 150–299", sub: "Até 2x s/ juros", cor: "#fbbf24", bg: "rgba(251,191,36,0.08)", border: "rgba(251,191,36,0.2)" },
+                            { label: "R$ 300+",    sub: "Até 3x s/ juros", cor: "#34d399", bg: "rgba(52,211,153,0.08)", border: "rgba(52,211,153,0.2)" },
+                          ].map(f => (
+                            <div key={f.label} className="px-2 py-1.5 rounded-lg text-center" style={{ background: f.bg, border: `1px solid ${f.border}` }}>
+                              <p className="font-bold" style={{ color: f.cor }}>{f.label}</p>
+                              <p style={{ color: "var(--text-muted)" }}>{f.sub}</p>
+                            </div>
+                          ))}
                         </div>
                         <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                          ⚠️ A partir de 4x os juros são repassados à cliente conforme configuração do Asaas.
+                          ⚠️ A partir de 4x os juros são sempre repassados à cliente. A regra considera o valor final a pagar.
                         </p>
                       </motion.div>
                     )}

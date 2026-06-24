@@ -83,11 +83,11 @@ export async function gerarLinkAsaas(params: {
     vencimento.setDate(vencimento.getDate() + 2)
     const dueDate = vencimento.toISOString().split("T")[0]
 
-    // 3. Regra de parcelamento + aviso promocional na descrição
+    // 3. Regra de parcelamento baseada no valor FINAL (já descontado créditos/descontos)
     const ehPromocional = params.tipoLive === "promocional"
     const regra = regraParcelamento(params.valor)
-    const avisoPromocional = ehPromocional ? " | ⚠️ Pagamento via cartão sujeito a juros por conta do cliente" : ""
-    const descricaoFinal = `${params.descricao} | ${regra.descricaoLink}${avisoPromocional}`
+    const avisoPromocional = ehPromocional ? " | Pgto. cartão: juros por conta da cliente" : ""
+    const descricaoFinal = `${params.descricao} | 💳 ${regra.descricaoLink}${avisoPromocional}`
 
     // 4. Cria cobrança com PIX ou Cartão de Crédito (billingType UNDEFINED = cliente escolhe entre os habilitados)
     //    Para restringir: criamos com CREDIT_CARD e um segundo para PIX — mas o Asaas invoiceUrl
