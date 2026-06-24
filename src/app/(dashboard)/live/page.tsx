@@ -1411,7 +1411,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   useEffect(() => {
     if (!ex) { setMsgResult(null); return }
     const compraData: CompraData = {
-      data_compra:      ex.data_compra ?? null,
+      data_compra:      liveData,
       data_live:        liveData,
       numero_sacola:    ex.numero_sacola,
       cor_sacola:       ex.cor_sacola,
