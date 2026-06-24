@@ -213,6 +213,7 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   const [liveIdCriado, setLiveId] = useState<number | null>(null)
   const [progresso, setProgresso] = useState({ atual: 0, total: 0, nome: "", aguardando: 0 })
   const [avisados, setAvisados]   = useState(0)
+  const [confirmSemLink, setConfirmSemLink] = useState(false)
 
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
   useEffect(() => {
@@ -232,7 +233,13 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
     if (step < TOTAL) go(step + 1); else handleSalvar()
   }
 
-  async function handleSalvar() {
+  async function handleSalvar(forcarSemLink = false) {
+    // Se não há link e ainda não confirmou, pede confirmação (sem link = sem aviso)
+    if (!form.link_live?.trim() && !forcarSemLink) {
+      setConfirmSemLink(true)
+      return
+    }
+    setConfirmSemLink(false)
     setErro("")
     setFase("criando")
     try {
@@ -537,6 +544,47 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
           </button>
         </div>
       )}
+
+      {/* Confirmação — criar live SEM link (sem aviso automático) */}
+      <AnimatePresence>
+        {confirmSemLink && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-10 flex items-center justify-center p-6"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+            onClick={() => setConfirmSemLink(false)}>
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 24 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl p-6 text-center"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+              <div className="text-4xl mb-3">🔔</div>
+              <p className="text-lg font-black mb-2" style={{ color: "var(--text-primary)" }}>
+                Criar sem avisar as clientes?
+              </p>
+              <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+                Você não preencheu o <strong>link da live</strong>. Sem ele, as clientes
+                <strong> não serão avisadas automaticamente</strong>. Você pode voltar e adicionar o link agora.
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setConfirmSemLink(false); go(1); setTimeout(() => inputRef.current?.focus(), 300) }}
+                  className="w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wide text-white shadow-lg"
+                  style={{ background: COR_LIVE }}>
+                  ← Voltar e adicionar o link
+                </motion.button>
+                <button
+                  onClick={() => handleSalvar(true)}
+                  className="w-full py-3 rounded-xl text-sm font-semibold"
+                  style={{ color: "var(--text-muted)" }}>
+                  Criar mesmo assim, sem avisar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
