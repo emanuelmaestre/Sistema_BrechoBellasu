@@ -2369,6 +2369,16 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
 
+  const [marcandoPagoId, setMarcandoPagoId] = useState<number | null>(null)
+  async function marcarPago(compraId: number) {
+    setMarcandoPagoId(compraId)
+    try {
+      await apiPatch(`/live/${liveId}/compras/${compraId}`, { pagamento_status: "PAGO" })
+      refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+    } catch { /* silencia */ }
+    finally { setMarcandoPagoId(null) }
+  }
+
   async function desfazerRetirada(compraId: number) {
     setDesfazendoId(compraId); setErroRetirada("")
     try {
@@ -2809,7 +2819,18 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
                         <td className="px-4 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-2 flex-wrap">
-                            {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
+                            {c.pagamento_status !== "PAGO" && c.valor_total > 0 && (
+                              <motion.button
+                                onClick={() => marcarPago(c.id)}
+                                disabled={marcandoPagoId === c.id}
+                                whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                                {marcandoPagoId === c.id ? <Loader2 size={10} className="animate-spin"/> : <CheckCircle2 size={10}/>}
+                                {marcandoPagoId === c.id ? "..." : "PAGO"}
+                              </motion.button>
+                            )}
+                          {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
                               <motion.button onClick={() => setEditCompra(c)}
                                 whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
                                 className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
