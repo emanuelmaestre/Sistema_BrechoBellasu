@@ -12,13 +12,36 @@ export async function gerarLinkAsaas(params: {
   valor: number
   descricao: string
   tipoLive?: "novidades" | "promocional"
+  // Dados extras do cadastro para pré-preencher o link
+  email?: string | null
+  celular?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  estado?: string | null
+  cep?: string | null
 }): Promise<{ url: string; paymentId: string } | null> {
   const token = process.env.ASAAS_TOKEN
   if (!token) return null
   const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
 
+  // Monta objeto com dados do cliente (só campos com valor)
+  const dadosCliente = {
+    name:         params.nome,
+    cpfCnpj:      params.cpf?.replace(/\D/g, "") || undefined,
+    email:        params.email || undefined,
+    mobilePhone:  params.celular?.replace(/\D/g, "") || undefined,
+    address:      params.logradouro || undefined,
+    addressNumber: params.numero || undefined,
+    complement:   params.complemento || undefined,
+    province:     params.bairro || undefined,
+    postalCode:   params.cep?.replace(/\D/g, "") || undefined,
+  }
+
   try {
-    // 1. Busca ou cria cliente no Asaas
+    // 1. Busca ou cria/atualiza cliente no Asaas
     let asaasCustomerId: string | null = null
 
     if (params.cpf) {
@@ -27,7 +50,15 @@ export async function gerarLinkAsaas(params: {
       })
       if (busca.ok) {
         const bd = await busca.json()
-        if (bd.data?.length > 0) asaasCustomerId = bd.data[0].id
+        if (bd.data?.length > 0) {
+          asaasCustomerId = bd.data[0].id
+          // Atualiza o cadastro com os dados mais recentes
+          await fetch(`${base}/customers/${asaasCustomerId}`, {
+            method: "PUT",
+            headers: { access_token: token, "Content-Type": "application/json" },
+            body: JSON.stringify(dadosCliente),
+          })
+        }
       }
     }
 
@@ -35,10 +66,7 @@ export async function gerarLinkAsaas(params: {
       const criar = await fetch(`${base}/customers`, {
         method: "POST",
         headers: { access_token: token, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: params.nome,
-          cpfCnpj: params.cpf?.replace(/\D/g, "") || undefined,
-        }),
+        body: JSON.stringify(dadosCliente),
       })
       if (criar.ok) {
         const cd = await criar.json()

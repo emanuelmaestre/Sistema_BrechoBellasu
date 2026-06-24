@@ -72,11 +72,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let cpf: string | null = null
   let nomeCadastro: string | null = null
   let celularCadastro: string | null = null
+  let dadosExtras: Record<string, string | null> = {}
   if (compra.cliente_id) {
-    const { data: cli } = await sb.from("clientes").select("cpf_cnpj, nome, celular").eq("id", compra.cliente_id).single()
-    cpf = cli?.cpf_cnpj ?? null
-    nomeCadastro = cli?.nome ?? null
+    const { data: cli } = await sb.from("clientes")
+      .select("cpf_cnpj, nome, celular, email, logradouro, numero, complemento, bairro, cidade, estado, cep")
+      .eq("id", compra.cliente_id).single()
+    cpf             = cli?.cpf_cnpj ?? null
+    nomeCadastro    = cli?.nome ?? null
     celularCadastro = cli?.celular ?? null
+    dadosExtras     = {
+      email:       cli?.email ?? null,
+      celular:     cli?.celular ?? null,
+      logradouro:  cli?.logradouro ?? null,
+      numero:      cli?.numero ?? null,
+      complemento: cli?.complemento ?? null,
+      bairro:      cli?.bairro ?? null,
+      cidade:      cli?.cidade ?? null,
+      estado:      cli?.estado ?? null,
+      cep:         cli?.cep ?? null,
+    }
   }
 
   const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
@@ -97,6 +111,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         valor: valorFinal,
         descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
         tipoLive,
+        ...dadosExtras,
       })
       if (resultado) {
         linkPagamento = resultado.url
