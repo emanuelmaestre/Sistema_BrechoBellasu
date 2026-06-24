@@ -23,6 +23,7 @@ import {
   type MessageResult,
 } from "@/lib/live-message-builder"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
+import { regraParcelamento, corRegraParcelamento } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 
@@ -1565,39 +1566,99 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
       {/* Disparando — progresso real */}
       {fase === "disparando" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6">
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-            <Send size={40} style={{ color: "var(--accent)" }}/>
-          </motion.div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
 
-          <div className="text-center">
-            <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Enviando {prog.atual} de {prog.total}
+          {/* Ícone animado */}
+          <div className="relative flex items-center justify-center">
+            {/* Pulso de fundo */}
+            <motion.div
+              className="absolute rounded-full"
+              style={{ width: 80, height: 80, background: "rgba(37,211,102,0.12)" }}
+              animate={{ scale: [1, 1.35, 1], opacity: [0.7, 0, 0.7] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute rounded-full"
+              style={{ width: 60, height: 60, background: "rgba(37,211,102,0.18)" }}
+              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", delay: 0.3 }}
+            />
+            <motion.div
+              className="relative z-10 rounded-full flex items-center justify-center"
+              style={{ width: 52, height: 52, background: "rgba(37,211,102,0.15)" }}
+              animate={prog.aguardando > 0 ? { scale: [1, 1.05, 1] } : { rotate: [0, 8, -8, 0] }}
+              transition={{ repeat: Infinity, duration: prog.aguardando > 0 ? 1.5 : 0.6, ease: "easeInOut" }}
+            >
+              <Send size={24} style={{ color: "#25d366" }}/>
+            </motion.div>
+          </div>
+
+          {/* Título e status */}
+          <div className="text-center space-y-1.5">
+            <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Enviando {prog.atual + (prog.aguardando > 0 ? 1 : 0)} de {prog.total}
             </p>
-            {prog.aguardando > 0
-              ? <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                  Aguardando {prog.aguardando}s antes de enviar para <strong>{prog.nome}</strong>…
-                </p>
-              : <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                  {prog.nome ? <>Enviando para <strong>{prog.nome}</strong>…</> : "Preparando…"}
-                </p>}
+
+            <AnimatePresence mode="wait">
+              {prog.aguardando > 0 ? (
+                <motion.div key="aguardando"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  className="flex flex-col items-center gap-1">
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                    Próxima: <strong style={{ color: "var(--text-primary)" }}>{prog.nome}</strong>
+                  </p>
+                  {/* Countdown visual */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="relative w-8 h-8">
+                      <svg className="absolute inset-0 -rotate-90" width="32" height="32" viewBox="0 0 32 32">
+                        <circle cx="16" cy="16" r="13" fill="none" stroke="var(--bg-surface)" strokeWidth="3"/>
+                        <motion.circle cx="16" cy="16" r="13" fill="none" stroke="#25d366" strokeWidth="3"
+                          strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 13}`}
+                          animate={{ strokeDashoffset: 0 }}
+                          initial={{ strokeDashoffset: 2 * Math.PI * 13 }}
+                          transition={{ duration: prog.aguardando, ease: "linear" }}
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold" style={{ color: "#25d366" }}>
+                        {prog.aguardando}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      aguardando para parecer natural ao WhatsApp
+                    </p>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.p key="enviando"
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  {prog.nome ? <>Enviando para <strong style={{ color: "var(--text-primary)" }}>{prog.nome}</strong>…</> : "Preparando…"}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Barra de progresso */}
-          <div className="w-full max-w-md h-2.5 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-            <motion.div className="h-full rounded-full"
-              style={{ background: "#25d366" }}
-              animate={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }}
-              transition={{ ease: "easeOut" }} />
+          <div className="w-full max-w-md space-y-1.5">
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
+              <motion.div className="h-full rounded-full"
+                style={{ background: "linear-gradient(90deg, #128c7e, #25d366)" }}
+                animate={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }}
+                transition={{ ease: "easeOut", duration: 0.5 }} />
+            </div>
+            <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+              <span>{prog.atual} enviada{prog.atual !== 1 ? "s" : ""}</span>
+              <span>{prog.total - prog.atual} restante{(prog.total - prog.atual) !== 1 ? "s" : ""}</span>
+            </div>
           </div>
 
-          <p className="text-xs text-center max-w-sm" style={{ color: "var(--text-muted)" }}>
-            Mantenha esta tela aberta. O envio é espaçado de propósito (8–40s) para
-            parecer natural e não ser bloqueado pelo WhatsApp.
+          {/* Aviso de tela aberta */}
+          <p className="text-xs text-center max-w-xs px-4 py-2.5 rounded-xl" style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+            Mantenha esta tela aberta durante o envio.
           </p>
 
           <button onClick={cancelarDisparo}
-            className="mt-2 flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl border"
+            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl border"
             style={{ borderColor: "var(--border)", color: "#f87171", background: "var(--bg-surface)" }}>
             <X size={15}/> Parar disparo
           </button>
@@ -1693,10 +1754,50 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               )}
             </div>
 
+            {/* Painel de parcelamento Asaas */}
+            <div className="shrink-0 px-4 py-3 space-y-2" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                💳 Parcelamento pelo link Asaas
+              </p>
+              {/* Regra da compra em preview */}
+              {ex && (() => {
+                const regra = regraParcelamento(ex.valor_total ?? 0)
+                const cor = corRegraParcelamento(regra.maxSemJuros)
+                return (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg" style={{ background: "var(--bg-base)", border: `1px solid ${cor}33` }}>
+                    <span className="text-base leading-none mt-0.5">{regra.maxSemJuros === 0 ? "🔴" : regra.maxSemJuros === 2 ? "🟡" : "🟢"}</span>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold" style={{ color: cor }}>{fmtBRL(ex.valor_total ?? 0)} — {regra.label}</p>
+                      <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>{regra.avisoSemJuros}</p>
+                      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{regra.avisoComJuros}</p>
+                    </div>
+                  </div>
+                )
+              })()}
+              {/* Tabela de regras gerais */}
+              <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                  <p className="font-bold" style={{ color: "#f87171" }}>Até R$ 149,99</p>
+                  <p style={{ color: "var(--text-muted)" }}>Sem parcelamento sem juros</p>
+                </div>
+                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                  <p className="font-bold" style={{ color: "#fbbf24" }}>R$ 150 – R$ 299,99</p>
+                  <p style={{ color: "var(--text-muted)" }}>Até 2x sem juros</p>
+                </div>
+                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                  <p className="font-bold" style={{ color: "#34d399" }}>R$ 300,00+</p>
+                  <p style={{ color: "var(--text-muted)" }}>Até 3x sem juros</p>
+                </div>
+              </div>
+              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                ⚠️ A partir de 4x, os juros são sempre repassados à cliente conforme configuração do Asaas.
+              </p>
+            </div>
+
             {/* Barra de status da mensagem */}
             {msgResult && (
               <div className="px-4 py-2.5 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1"
-                style={{ background: "var(--bg-surface)", borderTop: "1px solid var(--border)" }}>
+                style={{ borderTop: "1px solid var(--border)" }}>
                 {/* Contador de chars */}
                 <span className="text-[11px] font-mono font-semibold" style={{ color: charColor() }}>
                   {msgResult.chars}/{CHAR_LIMIT} chars

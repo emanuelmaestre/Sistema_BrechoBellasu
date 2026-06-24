@@ -1,7 +1,10 @@
 // ─── Utilitário Asaas ─────────────────────────────────────
-// Cria cobrança via Payment Link: apenas PIX e Cartão de Crédito
+// Cria cobrança via Payment Link: PIX e Cartão de Crédito (UNDEFINED)
 // Para PROMOCIONAL: cliente paga os juros do cartão (informado na descrição)
 // Para NOVIDADES:   sem acréscimo (loja absorve)
+// Regras de parcelamento sem juros incluídas na descrição do link.
+
+import { regraParcelamento } from "@/lib/parcelamento"
 
 export async function gerarLinkAsaas(params: {
   nome: string
@@ -50,11 +53,11 @@ export async function gerarLinkAsaas(params: {
     vencimento.setDate(vencimento.getDate() + 2)
     const dueDate = vencimento.toISOString().split("T")[0]
 
-    // 3. Para PROMOCIONAL: avisa sobre juros do cartão na descrição
+    // 3. Regra de parcelamento + aviso promocional na descrição
     const ehPromocional = params.tipoLive === "promocional"
-    const descricaoFinal = ehPromocional
-      ? `${params.descricao} | ⚠️ Pagamento via cartão sujeito a juros por conta do cliente`
-      : params.descricao
+    const regra = regraParcelamento(params.valor)
+    const avisoPromocional = ehPromocional ? " | ⚠️ Pagamento via cartão sujeito a juros por conta do cliente" : ""
+    const descricaoFinal = `${params.descricao} | ${regra.descricaoLink}${avisoPromocional}`
 
     // 4. Cria cobrança com PIX ou Cartão de Crédito (billingType UNDEFINED = cliente escolhe entre os habilitados)
     //    Para restringir: criamos com CREDIT_CARD e um segundo para PIX — mas o Asaas invoiceUrl
