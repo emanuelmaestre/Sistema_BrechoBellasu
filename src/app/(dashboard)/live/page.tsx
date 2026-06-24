@@ -378,6 +378,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   const [cliSel,   setCli]      = useState<Cliente | null>(null)
   const [corIdx,   setCorIdx]   = useState(0)
   const [saldoCredito, setSaldoCredito] = useState(0)
+  const [cliFocused, setCliFocused] = useState(false)
 
   useEffect(() => { const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }; document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn) }, [onClose])
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
@@ -387,10 +388,18 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
 
   const buscarClientes = useCallback(async (val: string) => {
     setCliBusca(val); setCli(null)
-    if (val.length < 2) { setCliRes([]); return }
     const query = val.startsWith("@") ? val.slice(1) : val
-    if (!query) { setCliRes([]); return }
-    try { const res = await apiGet<{ data: Cliente[] }>(`/clientes?busca=${encodeURIComponent(query)}&limit=8`); setCliRes(res.data ?? []) }
+    try {
+      const url = query.length >= 1
+        ? `/clientes?busca=${encodeURIComponent(query)}&limit=8`
+        : `/clientes?limit=8&ordem=recente`
+      const res = await apiGet<{ data: Cliente[] }>(url)
+      setCliRes(res.data ?? [])
+    } catch { setCliRes([]) }
+  }, [])
+
+  const carregarRecentes = useCallback(async () => {
+    try { const res = await apiGet<{ data: Cliente[] }>(`/clientes?limit=8&ordem=recente`); setCliRes(res.data ?? []) }
     catch { setCliRes([]) }
   }, [])
 
@@ -495,30 +504,45 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                   <input ref={inputRef} value={cliBusca}
                     onChange={e => { buscarClientes(e.target.value); resetCli() }}
                     onKeyDown={cliKD}
+                    onFocus={() => { setCliFocused(true); if (!cliBusca) carregarRecentes() }}
+                    onBlur={() => setTimeout(() => setCliFocused(false), 150)}
                     placeholder="NOME, CPF, WHATSAPP OU @INSTAGRAM..."
                     className="w-full px-4 py-4 text-base rounded-xl outline-none transition-all border"
-                    style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+                    style={{ background: "var(--bg-surface)", borderColor: cliFocused ? "var(--accent)" : "var(--border)", color: "var(--text-primary)" }}
                     autoComplete="off"/>
                 </div>
-                {cliRes.length > 0 && (
-                  <div className="mb-4 rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                {cliFocused && cliRes.length > 0 && !cliSel && (
+                  <div className="mb-4 rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
+                    {!cliBusca && (
+                      <div className="px-4 py-2 flex items-center gap-1.5" style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+                        <Clock size={11} style={{ color: "var(--text-muted)" }}/>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Recentes</span>
+                      </div>
+                    )}
                     {cliRes.map((c, idx) => (
                       <button key={c.id} onMouseDown={() => selCliente(c)}
                         className="w-full px-4 py-3 text-left flex items-center gap-3 transition-colors"
-                        style={{ borderBottom: "1px solid var(--border)", background: cliHi === idx ? "var(--bg-hover)" : "var(--bg-surface)" }}>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                        style={{ borderBottom: idx < cliRes.length - 1 ? "1px solid var(--border)" : "none", background: cliHi === idx ? "var(--bg-hover)" : "var(--bg-surface)" }}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                           style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
                           {c.nome[0]}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold uppercase truncate" style={{ color: "var(--text-primary)" }}>
                             {c.nome}
-                            <span className="ml-2 text-xs font-normal" style={{ color: "var(--accent)" }}>
-                              {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : gerarArroba(c.nome)}
-                            </span>
                           </p>
-                          {c.celular && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular}</p>}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {c.instagram && (
+                              <span className="text-xs" style={{ color: "var(--accent)" }}>
+                                @{c.instagram.replace(/^@/, "")}
+                              </span>
+                            )}
+                            {c.celular && (
+                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular}</span>
+                            )}
+                          </div>
                         </div>
+                        <ChevronRight size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }}/>
                       </button>
                     ))}
                   </div>
