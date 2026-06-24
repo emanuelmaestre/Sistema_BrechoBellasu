@@ -1297,6 +1297,8 @@ function WizardCliente({
   const [endAberto, setEndAberto]       = useState(false)
   const [endTimerRef, setEndTimerRef]   = useState<ReturnType<typeof setTimeout> | null>(null)
   const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
+  const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
+  const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mostrarEntrega, setMostrarEntrega] = useState(
     !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
   )
@@ -1325,6 +1327,7 @@ function WizardCliente({
     setDir(next > step ? 1 : -1)
     setStep(next)
     setErro("")
+    if (next !== 5) { setWaStatus("idle"); if (waTimerRef.current) clearTimeout(waTimerRef.current) }
   }
 
   async function buscarCep(cep: string): Promise<boolean> {
@@ -1805,9 +1808,32 @@ function WizardCliente({
                       Celular (WhatsApp)?
                     </h1>
                     <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Com DDD. Usado para comunicados e confirmações.</p>
-                    <input ref={inputRef} type="tel" value={form.celular} onChange={e => set("celular", e.target.value)}
+                    <input ref={inputRef} type="tel" value={form.celular}
+                      onChange={e => {
+                        set("celular", e.target.value)
+                        setWaStatus("idle")
+                        if (waTimerRef.current) clearTimeout(waTimerRef.current)
+                        const digits = e.target.value.replace(/\D/g, "")
+                        if (digits.length >= 10) {
+                          waTimerRef.current = setTimeout(async () => {
+                            setWaStatus("checking")
+                            try {
+                              const res = await apiPost<{ valido: boolean | null }>("/clientes/validar-whatsapp", { celular: e.target.value })
+                              setWaStatus(res.valido === true ? "ok" : res.valido === false ? "nok" : "erro")
+                            } catch { setWaStatus("erro") }
+                          }, 900)
+                        }
+                      }}
                       placeholder="(16) 9 9999-9999"
                       className={inputBase} style={inputStyle} />
+                    {waStatus !== "idle" && (
+                      <div className="mt-3 flex items-center gap-2 text-sm">
+                        {waStatus === "checking" && <><Loader2 size={14} className="animate-spin" style={{ color: "var(--text-muted)" }} /><span style={{ color: "var(--text-muted)" }}>Verificando no WhatsApp…</span></>}
+                        {waStatus === "ok"       && <><CheckCircle2 size={14} style={{ color: "#25d366" }} /><span style={{ color: "#25d366" }}>Número encontrado no WhatsApp ✓</span></>}
+                        {waStatus === "nok"      && <><XCircle size={14} style={{ color: "#f87171" }} /><span style={{ color: "#f87171" }}>Número não encontrado no WhatsApp</span></>}
+                        {waStatus === "erro"     && <><AlertCircle size={14} style={{ color: "#fbbf24" }} /><span style={{ color: "#fbbf24" }}>Não foi possível verificar agora</span></>}
+                      </div>
+                    )}
                   </>
                 )}
 
