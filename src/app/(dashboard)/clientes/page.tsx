@@ -2348,45 +2348,53 @@ function ClientesPageInner() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Clientes</h2>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} registros</p>
+      {/* Header + Filtros — sticky abaixo do topbar */}
+      <div className="sticky z-20 -mx-3 px-3 sm:-mx-6 sm:px-6 pb-3 pt-1 space-y-3"
+        style={{
+          top: "var(--topbar-height, 52px)",
+          background: "var(--bg-base)",
+          borderBottom: "1px solid var(--border)",
+          boxShadow: "0 4px 16px -4px rgba(0,0,0,0.18)",
+        }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Clientes</h2>
+            <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} registros</p>
+          </div>
+          <button
+            onClick={() => { setEditForm(null); setEditId(null); setWizard(true) }}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg transition-opacity"
+            style={{ background: "var(--accent)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
+            <Plus size={16} /> Novo Cliente
+          </button>
         </div>
-        <button
-          onClick={() => { setEditForm(null); setEditId(null); setWizard(true) }}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg transition-opacity"
-          style={{ background: "var(--accent)" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-          <Plus size={16} /> Novo Cliente
-        </button>
-      </div>
 
-      {/* Filtros */}
-      <div className="rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-          <input value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar por nome, CPF, WhatsApp ou @Instagram"
-            className="w-full pl-10 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-            onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)" }}
-            onBlur={e => { e.currentTarget.style.borderColor = "var(--border)" }} />
-        </div>
-        <div className="flex gap-1.5">
-          {["ativos", "inativos", "todos"].map(s => (
-            <button key={s} onClick={() => setStatus(s)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all"
-              style={{
-                background: status === s ? "var(--accent)" : "transparent",
-                color:      status === s ? "#fff" : "var(--text-secondary)",
-              }}>
-              {s}
-            </button>
-          ))}
+        {/* Filtros */}
+        <div className="rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+            <input value={busca} onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por nome, CPF, WhatsApp ou @Instagram"
+              className="w-full pl-10 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)" }}
+              onBlur={e => { e.currentTarget.style.borderColor = "var(--border)" }} />
+          </div>
+          <div className="flex gap-1.5">
+            {["ativos", "inativos", "todos"].map(s => (
+              <button key={s} onClick={() => setStatus(s)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all"
+                style={{
+                  background: status === s ? "var(--accent)" : "transparent",
+                  color:      status === s ? "#fff" : "var(--text-secondary)",
+                }}>
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -287,7 +287,7 @@ function LiveBloco({
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: number) => void }) {
+export default function BuscaClienteGlobal({ onAbrirLive, fullscreen }: { onAbrirLive: (id: number) => void; fullscreen?: boolean }) {
   const [query, setQuery]     = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState<BuscaResult | null>(null)
@@ -325,66 +325,70 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
   const semResultado = result && !result.encontrado && !loading
   const mostrarPainel = loading || temResultado || semResultado || !!erro
 
-  return (
-    <div className="space-y-0">
-      {/* ── Barra de pesquisa ──────────────────────────────── */}
-      <div className="relative">
-        {/* Ícone / spinner */}
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div key="spin" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
-                <Loader2 size={16} className="animate-spin" style={{ color: "var(--accent)" }}/>
-              </motion.div>
-            ) : (
-              <motion.div key="icon" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
-                <Search size={16} style={{ color: query ? "var(--accent)" : "var(--text-muted)" }}/>
-              </motion.div>
-            )}
-          </AnimatePresence>
+  if (fullscreen) {
+    return (
+      <div className="flex flex-col h-full">
+        {/* ── Barra de pesquisa — sticky no topo ── */}
+        <div className="shrink-0 px-4 sm:px-8 pt-5 pb-4" style={{ borderBottom: mostrarPainel ? "1px solid var(--border)" : "none" }}>
+          <div className="relative max-w-4xl mx-auto">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+              <AnimatePresence mode="wait">
+                {loading ? (
+                  <motion.div key="spin" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                    <Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }}/>
+                  </motion.div>
+                ) : (
+                  <motion.div key="icon" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                    <Search size={20} style={{ color: query ? "var(--accent)" : "var(--text-muted)" }}/>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <input
+              ref={inputRef}
+              autoFocus
+              value={query}
+              onChange={e => handleChange(e.target.value)}
+              placeholder="Nome, WhatsApp, Instagram, apelido ou nº da sacola…"
+              className="w-full pl-12 pr-12 py-4 text-base rounded-2xl outline-none transition-all"
+              style={{
+                background: "var(--bg-card)",
+                color: "var(--text-primary)",
+                border: `1.5px solid ${query ? "var(--accent)" : "var(--border)"}`,
+                boxShadow: query ? "0 0 0 3px var(--accent-bg)" : "none",
+                fontSize: "1rem",
+              }}
+              onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-bg)" }}
+              onBlur={e => { if (!query) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none" } }}
+            />
+            <AnimatePresence>
+              {query && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+                  onClick={limpar} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors"
+                  style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
+                  <X size={15}/>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={e => handleChange(e.target.value)}
-          placeholder="Nome, WhatsApp, Instagram, apelido ou nº da sacola…"
-          className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl outline-none transition-all"
-          style={{
-            background: "var(--bg-card)",
-            color: "var(--text-primary)",
-            border: `1px solid ${query ? "var(--accent)" : "var(--border)"}`,
-            boxShadow: query ? "0 0 0 3px var(--accent-bg)" : "none",
-          }}
-          onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-bg)" }}
-          onBlur={e => { if (!query) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none" } }}
-        />
-
-        <AnimatePresence>
-          {query && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
-              onClick={limpar} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors"
-              style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
-              <X size={13}/>
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ── Painel de resultados ─────────────────────────── */}
-      <AnimatePresence>
-        {mostrarPainel && (
-          <motion.div
-            key="painel"
-            initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1 }}
-            exit={{ opacity: 0, y: -6, scaleY: 0.97 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="rounded-2xl overflow-hidden mt-3"
-            style={{ transformOrigin: "top", border: "1px solid var(--border)", background: "var(--bg-card)" }}
-          >
+        {/* ── Resultados — ocupa o resto da tela ── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
+            <AnimatePresence>
+              {mostrarPainel && (
+                <motion.div
+                  key="painel-fs"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ border: "1px solid var(--border)", background: "var(--bg-card)" }}
+                >
             {/* Skeleton */}
             {loading && !result && (
               <div className="p-5 space-y-4">
@@ -469,11 +473,160 @@ export default function BuscaClienteGlobal({ onAbrirLive }: { onAbrirLive: (id: 
 
               </motion.div>
             )}
+            </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Estado inicial — dica */}
+            <AnimatePresence>
+              {!query && !mostrarPainel && (
+                <motion.p
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="text-sm text-center pt-8"
+                  style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+                  Digite nome, WhatsApp, Instagram ou apelido da cliente para consultar as sacolas
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Modo normal (não-fullscreen) ─────────────────────────────────────────────
+  return (
+    <div className="space-y-0">
+      <div className="relative">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <AnimatePresence mode="wait">
+            {loading ? (
+              <motion.div key="spin" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                <Loader2 size={16} className="animate-spin" style={{ color: "var(--accent)" }}/>
+              </motion.div>
+            ) : (
+              <motion.div key="icon" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                <Search size={16} style={{ color: query ? "var(--accent)" : "var(--text-muted)" }}/>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={e => handleChange(e.target.value)}
+          placeholder="Nome, WhatsApp, Instagram, apelido ou nº da sacola…"
+          className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl outline-none transition-all"
+          style={{
+            background: "var(--bg-card)",
+            color: "var(--text-primary)",
+            border: `1px solid ${query ? "var(--accent)" : "var(--border)"}`,
+            boxShadow: query ? "0 0 0 3px var(--accent-bg)" : "none",
+          }}
+          onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-bg)" }}
+          onBlur={e => { if (!query) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none" } }}
+        />
+        <AnimatePresence>
+          {query && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+              onClick={limpar} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors"
+              style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
+              <X size={13}/>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <AnimatePresence>
+        {mostrarPainel && (
+          <motion.div
+            key="painel"
+            initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -6, scaleY: 0.97 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="rounded-2xl overflow-hidden mt-3"
+            style={{ transformOrigin: "top", border: "1px solid var(--border)", background: "var(--bg-card)" }}
+          >
+            {loading && !result && (
+              <div className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-10 h-10 rounded-full shrink-0"/>
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-48"/>
+                    <Skeleton className="h-2 w-32"/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl"/>)}
+                </div>
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl"/>)}
+                </div>
+              </div>
+            )}
+            {erro && !loading && (
+              <div className="p-5 flex items-center gap-2.5" style={{ color: "#f87171" }}>
+                <AlertCircle size={16}/>
+                <p className="text-sm font-semibold">{erro}</p>
+              </div>
+            )}
+            {semResultado && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="py-14 flex flex-col items-center gap-3 px-6">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="opacity-20">
+                  <circle cx="28" cy="28" r="18" stroke="var(--text-muted)" strokeWidth="2.5"/>
+                  <path d="M40 40L52 52" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M22 28h12M28 22v12" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" opacity="0.4"/>
+                </svg>
+                <p className="text-sm font-black uppercase tracking-widest text-center" style={{ color: "var(--text-muted)" }}>
+                  Nenhuma compra encontrada
+                </p>
+                <p className="text-xs text-center max-w-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+                  Verifique se o nome, WhatsApp ou Instagram foram digitados corretamente.
+                </p>
+                <button onClick={limpar}
+                  className="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-colors"
+                  style={{ background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                  Limpar busca
+                </button>
+              </motion.div>
+            )}
+            {!loading && temResultado && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}
+                className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    SACOLAS POR LIVE ({result!.lives!.length} live{result!.lives!.length !== 1 ? "s" : ""})
+                  </p>
+                  <motion.button onClick={limpar}
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+                    style={{ background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                    <X size={12}/> Limpar
+                  </motion.button>
+                </div>
+                <div className="space-y-2">
+                  {result!.lives!.map((grupo, i) => (
+                    <motion.div key={grupo.live_id}
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06 }}>
+                      <LiveBloco
+                        grupo={grupo}
+                        defaultExpanded={i === 0 || result!.lives!.length === 1}
+                        onAbrirLive={onAbrirLive}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Estado inicial — dica sutil */}
       <AnimatePresence>
         {!query && !mostrarPainel && (
           <motion.p

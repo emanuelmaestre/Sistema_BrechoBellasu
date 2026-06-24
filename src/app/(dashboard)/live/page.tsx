@@ -2711,11 +2711,9 @@ export default function LivePage() {
               </motion.button>
             </div>
 
-            {/* Conteúdo com scroll */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-w-3xl mx-auto px-6 py-6">
-                <BuscaClienteGlobal onAbrirLive={id => { setConsulta(false); setAberta(id) }}/>
-              </div>
+            {/* Conteúdo fullscreen */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <BuscaClienteGlobal fullscreen onAbrirLive={id => { setConsulta(false); setAberta(id) }}/>
             </div>
           </motion.div>
         )}
