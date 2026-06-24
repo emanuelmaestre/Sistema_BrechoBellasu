@@ -109,7 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // ── Monta a mensagem ──
   const compraData: CompraData = {
-    data_compra:      compra.data_compra,
+    data_compra:      dataLive ?? compra.data_compra,
     data_live:        dataLive ?? compra.data_compra ?? null,
     numero_sacola:    compra.numero_sacola,
     cor_sacola:       compra.cor_sacola,
