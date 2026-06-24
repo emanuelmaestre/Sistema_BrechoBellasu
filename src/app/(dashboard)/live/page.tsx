@@ -1401,6 +1401,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: ItemResultado[] } | null>(null)
   const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
+  const [parcOpen, setParcOpen] = useState(false)
   // Progresso do disparo orquestrado pelo navegador (1 envio por vez)
   const [prog, setProg] = useState<{ atual: number; total: number; nome: string; aguardando: number }>({ atual: 0, total: 0, nome: "", aguardando: 0 })
   const cancelarRef = useRef(false)
@@ -1754,45 +1755,73 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               )}
             </div>
 
-            {/* Painel de parcelamento Asaas */}
-            <div className="shrink-0 px-4 py-3 space-y-2" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                💳 Parcelamento pelo link Asaas
-              </p>
-              {/* Regra da compra em preview */}
-              {ex && (() => {
-                const regra = regraParcelamento(ex.valor_total ?? 0)
-                const cor = corRegraParcelamento(regra.maxSemJuros)
-                return (
-                  <div className="flex items-start gap-2 px-3 py-2 rounded-lg" style={{ background: "var(--bg-base)", border: `1px solid ${cor}33` }}>
-                    <span className="text-base leading-none mt-0.5">{regra.maxSemJuros === 0 ? "🔴" : regra.maxSemJuros === 2 ? "🟡" : "🟢"}</span>
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-bold" style={{ color: cor }}>{fmtBRL(ex.valor_total ?? 0)} — {regra.label}</p>
-                      <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>{regra.avisoSemJuros}</p>
-                      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{regra.avisoComJuros}</p>
-                    </div>
-                  </div>
-                )
-              })()}
-              {/* Tabela de regras gerais */}
-              <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)" }}>
-                  <p className="font-bold" style={{ color: "#f87171" }}>Até R$ 149,99</p>
-                  <p style={{ color: "var(--text-muted)" }}>Sem parcelamento sem juros</p>
+            {/* Badge compacto de parcelamento */}
+            {ex && (() => {
+              const regra = regraParcelamento(ex.valor_total ?? 0)
+              const cor = corRegraParcelamento(regra.maxSemJuros)
+              const emoji = regra.maxSemJuros === 0 ? "🔴" : regra.maxSemJuros === 2 ? "🟡" : "🟢"
+              return (
+                <div className="shrink-0 relative px-4 py-2" style={{ borderTop: "1px solid var(--border)" }}>
+                  <button
+                    onClick={() => setParcOpen(v => !v)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
+                    style={{ background: `${cor}18`, border: `1px solid ${cor}44`, color: cor }}
+                  >
+                    {regra.maxSemJuros === 0 && (
+                      <motion.span
+                        animate={{ opacity: [1, 0.3, 1] }}
+                        transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                        className="inline-block w-1.5 h-1.5 rounded-full"
+                        style={{ background: cor }}
+                      />
+                    )}
+                    <span>💳 {regra.label}</span>
+                    <span style={{ opacity: 0.6 }}>{parcOpen ? "▲" : "▼"}</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {parcOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        className="absolute bottom-full left-4 mb-2 z-30 rounded-xl p-3 space-y-2.5 w-72 shadow-2xl"
+                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                      >
+                        {/* Regra atual da compra */}
+                        <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg" style={{ background: `${cor}10`, border: `1px solid ${cor}30` }}>
+                          <span>{emoji}</span>
+                          <div>
+                            <p className="text-[11px] font-bold" style={{ color: cor }}>{fmtBRL(ex.valor_total ?? 0)} — {regra.label}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{regra.avisoSemJuros}</p>
+                            {regra.avisoComJuros && <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{regra.avisoComJuros}</p>}
+                          </div>
+                        </div>
+                        {/* Tabela de faixas */}
+                        <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                            <p className="font-bold" style={{ color: "#f87171" }}>Até R$ 149</p>
+                            <p style={{ color: "var(--text-muted)" }}>Sem juros</p>
+                          </div>
+                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                            <p className="font-bold" style={{ color: "#fbbf24" }}>R$ 150–299</p>
+                            <p style={{ color: "var(--text-muted)" }}>Até 2x</p>
+                          </div>
+                          <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                            <p className="font-bold" style={{ color: "#34d399" }}>R$ 300+</p>
+                            <p style={{ color: "var(--text-muted)" }}>Até 3x</p>
+                          </div>
+                        </div>
+                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                          ⚠️ A partir de 4x os juros são repassados à cliente conforme configuração do Asaas.
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                  <p className="font-bold" style={{ color: "#fbbf24" }}>R$ 150 – R$ 299,99</p>
-                  <p style={{ color: "var(--text-muted)" }}>Até 2x sem juros</p>
-                </div>
-                <div className="px-2 py-1.5 rounded-lg text-center" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
-                  <p className="font-bold" style={{ color: "#34d399" }}>R$ 300,00+</p>
-                  <p style={{ color: "var(--text-muted)" }}>Até 3x sem juros</p>
-                </div>
-              </div>
-              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                ⚠️ A partir de 4x, os juros são sempre repassados à cliente conforme configuração do Asaas.
-              </p>
-            </div>
+              )
+            })()}
 
             {/* Barra de status da mensagem */}
             {msgResult && (
