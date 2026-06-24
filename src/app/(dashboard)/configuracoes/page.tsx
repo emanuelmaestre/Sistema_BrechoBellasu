@@ -1190,6 +1190,14 @@ function AbaAlertas() {
   )
 }
 
+function nomeProprio(nome: string): string {
+  return nome
+    .toLowerCase()
+    .split(" ")
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ")
+}
+
 // ══════════════════════════════════════════════════════════
 // Disparo manual de consentimento para clientes não enviados
 // ══════════════════════════════════════════════════════════
@@ -1338,11 +1346,11 @@ function DisparoConsentimentoNaoEnviado() {
                       </p>
                       {prog.aguardando > 0 ? (
                         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                          Aguardando <strong>{prog.aguardando}s</strong> para <strong>{prog.nome}</strong>
+                          Aguardando <strong>{prog.aguardando}s</strong> para <strong>{nomeProprio(prog.nome)}</strong>
                         </p>
                       ) : (
                         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                          Enviando para <strong>{prog.nome}</strong>…
+                          Enviando para <strong>{nomeProprio(prog.nome)}</strong>…
                         </p>
                       )}
                     </div>
@@ -1371,7 +1379,7 @@ function DisparoConsentimentoNaoEnviado() {
                       {resultados.map(r => (
                         <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs"
                           style={{ background: "var(--bg-base)", border: "1px solid var(--border)" }}>
-                          <span style={{ color: "var(--text-primary)" }}>{r.nome}</span>
+                          <span style={{ color: "var(--text-primary)" }}>{nomeProprio(r.nome ?? "")}</span>
                           <span className={cn("font-semibold", r.status === "enviado" ? "text-emerald-400" : "text-red-400")}>{r.status}</span>
                         </div>
                       ))}
