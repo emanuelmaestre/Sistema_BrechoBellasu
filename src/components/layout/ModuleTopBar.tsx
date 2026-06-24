@@ -379,7 +379,7 @@ export function ModuleTopBar() {
   return (
     <div
       id="module-topbar"
-      className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 shrink-0 relative z-20"
+      className="flex items-center gap-1.5 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 shrink-0 relative z-20"
       style={{
         background:   "var(--bg-card)",
         borderBottom: "1px solid var(--border)",
@@ -387,7 +387,7 @@ export function ModuleTopBar() {
       }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 mr-2">
+      <div className="flex items-center gap-2 shrink-0">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: "var(--accent)" }}>
           <span className="text-xs">🛍️</span>
@@ -399,13 +399,13 @@ export function ModuleTopBar() {
       </div>
 
       {/* Divider */}
-      <div className="h-5 w-px hidden sm:block" style={{ background: "var(--border-hover)" }} />
+      <div className="h-5 w-px hidden sm:block shrink-0" style={{ background: "var(--border-hover)" }} />
 
       {/* Module name */}
       {current && (
-        <div className="flex items-center gap-2">
-          <current.Icon size={16} style={{ color: current.color }} />
-          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <current.Icon size={15} style={{ color: current.color }} />
+          <span className="font-semibold text-xs sm:text-sm" style={{ color: "var(--text-primary)" }}>
             {current.label}
           </span>
         </div>
@@ -414,18 +414,22 @@ export function ModuleTopBar() {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Calendário (com relógio) */}
-      <CalendarioWidget />
+      {/* Calendário — só sm+ */}
+      <div className="hidden sm:block">
+        <CalendarioWidget />
+      </div>
 
-      {/* Calculadora */}
-      <CalculadoraWidget />
+      {/* Calculadora — só desktop */}
+      <div className="hidden sm:block">
+        <CalculadoraWidget />
+      </div>
 
       {/* Voltar ao Menu */}
       <motion.button
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         onClick={handleGoMenu}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+        className="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0"
         style={{
           background:   "var(--accent-bg)",
           color:        "var(--accent)",
@@ -434,28 +438,28 @@ export function ModuleTopBar() {
         onMouseEnter={e => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.color = "#fff" }}
         onMouseLeave={e => { e.currentTarget.style.background = "var(--accent-bg)"; e.currentTarget.style.color = "var(--accent)" }}
       >
-        <LayoutGrid size={15} />
+        <LayoutGrid size={14} />
         <span className="hidden sm:inline">Menu Principal</span>
       </motion.button>
 
       {/* Divider */}
-      <div className="h-5 w-px" style={{ background: "var(--border-hover)" }} />
+      <div className="h-5 w-px hidden sm:block shrink-0" style={{ background: "var(--border-hover)" }} />
 
-      {/* User avatar */}
-      <div className="flex items-center gap-2">
+      {/* User avatar + nome */}
+      <div className="flex items-center gap-1.5 shrink-0">
         <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
           style={{ background: "var(--accent-bg)", border: "1px solid var(--border-hover)" }}>
           <span className="text-xs font-bold uppercase" style={{ color: "var(--accent)" }}>
             {usuario?.nome?.[0] ?? "U"}
           </span>
         </div>
-        <span className="text-xs font-medium hidden md:block" style={{ color: "var(--text-secondary)" }}>
+        <span className="text-xs font-medium hidden lg:block" style={{ color: "var(--text-secondary)" }}>
           {(usuario?.nome ?? "—").toUpperCase()}
         </span>
       </div>
 
-      {/* Theme toggle */}
-      <div className="relative">
+      {/* Theme toggle — só sm+ */}
+      <div className="relative hidden sm:block">
         <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
@@ -517,7 +521,7 @@ export function ModuleTopBar() {
         whileTap={{ scale: 0.9 }}
         onClick={handleLogout}
         title="Sair"
-        className="p-2 rounded-lg transition-colors"
+        className="p-1.5 sm:p-2 rounded-lg transition-colors shrink-0"
         style={{ color: "var(--text-muted)" }}
         onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.12)"; e.currentTarget.style.color = "#f87171" }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)" }}

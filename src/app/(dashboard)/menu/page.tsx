@@ -193,9 +193,9 @@ export default function MenuPage() {
 
         <div className="flex-1" />
 
-        {/* Calendário e Calculadora */}
-        <CalendarioWidget />
-        <CalculadoraWidget />
+        {/* Calendário e Calculadora — só sm+ */}
+        <div className="hidden sm:block"><CalendarioWidget /></div>
+        <div className="hidden sm:block"><CalculadoraWidget /></div>
 
         {/* Saudação: md+ only */}
         <div className="hidden md:flex flex-col items-end mr-1">
