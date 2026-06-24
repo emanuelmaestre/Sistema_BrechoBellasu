@@ -1089,7 +1089,7 @@ function DrawerCliente({
     { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—", step: 6 },
     { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—",                step: 3 },
     { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—",               step: 4 },
-    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—",    full: true,           step: 7 },
+    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—",    full: true,           step: 7, href: endereco ? `https://maps.google.com/?q=${encodeURIComponent(endereco)}` : undefined },
   ]
 
   // Cores do avatar baseadas na inicial
