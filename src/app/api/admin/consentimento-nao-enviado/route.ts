@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await sb
     .from("clientes")
     .select("id, nome, celular")
-    .or("notificacao_status.is.null,notificacao_status.eq.erro")
+    .is("notificacao_status", null)
     .eq("ativo", true)
     .not("celular", "is", null)
     .order("nome")
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     .select("id, nome, celular")
     .eq("id", cliente_id)
     .eq("ativo", true)
-    .or("notificacao_status.is.null,notificacao_status.eq.erro")
+    .is("notificacao_status", null)
     .not("celular", "is", null)
     .single()
 
