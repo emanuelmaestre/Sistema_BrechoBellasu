@@ -835,13 +835,13 @@ function ModalVinculo({
         style={{ background: "var(--bg-base)" }}>
 
         {/* ── Header ── */}
-        <div className="shrink-0 flex items-center justify-between px-8 py-4"
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4"
           style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             {/* Avatar com gradiente e inicial */}
             <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black shrink-0 select-none"
+              className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-base sm:text-xl font-black shrink-0 select-none"
               style={{ background: "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #6366f1))", color: "#fff", boxShadow: "0 4px 16px var(--accent-bg)" }}>
               {compra.nome_cliente[0].toUpperCase()}
             </motion.div>
@@ -862,8 +862,8 @@ function ModalVinculo({
           </div>
 
           {/* Anel de progresso circular */}
-          <div className="flex items-center gap-5">
-            <div className="relative flex items-center justify-center">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="relative hidden sm:flex items-center justify-center">
               <RingProgress pct={progresso} size={72}/>
               <div className="absolute flex flex-col items-center leading-none">
                 <motion.span key={Math.round(progresso)}
@@ -2590,14 +2590,14 @@ export default function LivePage() {
         </div>
         <div className="flex items-center gap-2">
           <motion.button onClick={() => setConsulta(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl"
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-semibold px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <ShoppingBag size={15}/> Consultar Sacola
+            <ShoppingBag size={15}/> <span className="hidden sm:inline">Consultar Sacola</span>
           </motion.button>
           <motion.button onClick={() => setWizard(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg"
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-semibold px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-white shadow-lg"
             style={{ background: COR_LIVE }}>
-            <Radio size={15}/> Nova Live
+            <Radio size={15}/> <span className="hidden sm:inline">Nova Live</span>
           </motion.button>
         </div>
       </div>
