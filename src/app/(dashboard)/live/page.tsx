@@ -8,7 +8,7 @@ import {
   Check, Search, ShoppingBag, User, ChevronDown, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock, Pencil, Save,
+  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
@@ -2373,7 +2373,18 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                         </td>
 
                         <td className="px-4 py-3.5 text-center">
-                          <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{c.whatsapp || "—"}</p>
+                          {c.whatsapp ? (
+                            <a
+                              href={`https://wa.me/55${c.whatsapp.replace(/\D/g, "")}`}
+                              target="_blank" rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                              style={{ color: "#25d366" }}>
+                              <MessageCircle size={12} />{c.whatsapp}
+                            </a>
+                          ) : (
+                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>—</span>
+                          )}
                         </td>
 
                         <td className="px-4 py-3.5 text-center">
