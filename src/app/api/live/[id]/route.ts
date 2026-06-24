@@ -20,16 +20,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // Busca produtos de AMBAS as tabelas (nova + legada)
   type ProdRow = { compra_id: number; quantidade: number; estoque_baixado?: boolean }
+  type ItemRow = { live_compra_id: number; [k: string]: unknown }
   let produtosNovos: ProdRow[] = []
-  let itensLegados: unknown[] = []
+  let itensLegados: ItemRow[] = []
 
   if (ids.length) {
     const [rNovos, rLegados] = await Promise.all([
       sb.from("live_compra_produtos").select("compra_id, quantidade, estoque_baixado").in("compra_id", ids),
-      sb.from("live_compra_itens").select("*").in("compra_id", ids),
+      sb.from("live_compra_itens").select("*").in("live_compra_id", ids),
     ])
     produtosNovos = (rNovos.data ?? []) as ProdRow[]
-    itensLegados = rLegados.data ?? []
+    itensLegados = (rLegados.data ?? []) as ItemRow[]
   }
 
   // Agrupa produtos por compra_id
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       total_produtos_vinculados: totalVinculados,
       total_estoque_baixado:     totalBaixados,
       status_compra:             statusFinal,
-      itens: (itensLegados as Array<{compra_id: number}>).filter(i => i.compra_id === c.id),
+      itens: itensLegados.filter(i => i.live_compra_id === c.id),
     }
   })
 

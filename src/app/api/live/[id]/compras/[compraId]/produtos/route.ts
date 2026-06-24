@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const r1 = await sb.from("live_compra_produtos").select("*").eq("compra_id", cid).order("id")
   if (!r1.error) return NextResponse.json(r1.data ?? [])
 
-  const r2 = await sb.from("live_compra_itens").select("*").eq("compra_id", cid).order("id")
+  const r2 = await sb.from("live_compra_itens").select("*").eq("live_compra_id", cid).order("id")
   if (!r2.error) return NextResponse.json(r2.data ?? [])
 
   return NextResponse.json({ erro: `produtos: ${r1.error.message} | itens: ${r2.error.message}` }, { status: 500 })
