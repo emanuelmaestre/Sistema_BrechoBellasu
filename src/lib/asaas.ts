@@ -37,6 +37,8 @@ export async function gerarLinkAsaas(params: {
     addressNumber: params.numero || undefined,
     complement:   params.complemento || undefined,
     province:     params.bairro || undefined,
+    city:         params.cidade || undefined,
+    state:        params.estado || undefined,
     postalCode:   params.cep?.replace(/\D/g, "") || undefined,
   }
 
