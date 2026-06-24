@@ -2261,7 +2261,7 @@ function ClientesPageInner() {
     queryKey: ["clientes", buscaDebounced, statusParam],
     queryFn: () => {
       const qs = new URLSearchParams({
-        limit: "100",
+        limit: "500",
         ...(buscaDebounced && { busca: buscaDebounced }),
         ...(statusParam && { status: statusParam }),
       }).toString()
