@@ -2702,7 +2702,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             <table className="w-full min-w-[700px]">
               <thead className="sticky top-0 z-10" style={{ background: "var(--bg-surface)" }}>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["CLIENTE","SACOLA","ITENS","VALOR","WHATSAPP","STATUS MSG","PAGAMENTO","STATUS","RETIRADA","AÇÃO"].map((h, i) => (
+                  {["CLIENTE","SACOLA","ITENS","VALOR","WHATSAPP","STATUS MSG","PAGAMENTO","STATUS","AÇÃO"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${i >= 2 ? "text-center" : "text-left"}`}
                       style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
@@ -2800,21 +2800,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                             style={{ background: sc.bg, color: sc.cor }}>
                             {sc.icon} {sc.label.toUpperCase()}
                           </span>
-                        </td>
-
-                        {/* RETIRADA — sempre visível */}
-                        <td className="px-4 py-3.5 text-center">
-                          {c.status_compra === "retirada" ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
-                              style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
-                              <CheckCircle2 size={9}/> RETIRADO
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-full"
-                              style={{ background: "rgba(107,114,128,0.1)", color: "var(--text-muted)" }}>
-                              <Clock size={9}/> NÃO RETIRADO
-                            </span>
-                          )}
                         </td>
 
                         <td className="px-4 py-3.5 text-center">
