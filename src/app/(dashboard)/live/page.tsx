@@ -1713,7 +1713,19 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const cancelarRef = useRef(false)
 
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
+  const [exLink, setExLink] = useState<string | null>(null)
+  const [gerandoLink, setGerandoLink] = useState(false)
   const ex = pendentes[0]
+
+  // Pré-gera o link Asaas quando o modal abre e a compra não tem link ainda
+  useEffect(() => {
+    if (!ex || ex.link_pagamento) { setExLink(ex?.link_pagamento ?? null); return }
+    setGerandoLink(true)
+    apiPost<{ id: number; link_pagamento?: string | null }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
+      .then(r => { if (r?.link_pagamento) setExLink(r.link_pagamento) })
+      .catch(() => {})
+      .finally(() => setGerandoLink(false))
+  }, [ex?.id, liveId])
 
   // Gera preview sempre que a compra ou o índice mudarem
   useEffect(() => {
@@ -1726,10 +1738,10 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       quantidade_itens: ex.quantidade_itens,
       valor_total:      ex.valor_total,
       nome_cliente:     ex.nome_cliente,
-      link_pagamento:   ex.link_pagamento ?? null,
+      link_pagamento:   exLink ?? ex.link_pagamento ?? null,
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx))
-  }, [ex, stIdx, liveData])
+  }, [ex, stIdx, liveData, exLink])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase !== "disparando") onClose() }

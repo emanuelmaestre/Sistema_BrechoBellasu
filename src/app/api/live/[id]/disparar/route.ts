@@ -48,8 +48,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const body = await req.json().catch(() => ({})) as { compra_id?: number }
+  const body = await req.json().catch(() => ({})) as { compra_id?: number; apenas_link?: boolean }
   const compraId = body.compra_id
+  const apenasLink = body.apenas_link === true
   if (!compraId) {
     return NextResponse.json({ erro: "compra_id é obrigatório." }, { status: 400 })
   }
@@ -125,6 +126,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         catch { await sb.from("live_compras").update(upd).eq("id", compraId) }
       }
     }
+  }
+
+  // ── Modo apenas_link: retorna o link sem enviar a mensagem ──
+  if (apenasLink) {
+    return NextResponse.json({ id: compraId, link_pagamento: linkPagamento || null })
   }
 
   // ── Monta a mensagem ──
