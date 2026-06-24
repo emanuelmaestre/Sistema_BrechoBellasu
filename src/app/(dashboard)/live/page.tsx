@@ -2679,49 +2679,44 @@ export default function LivePage() {
         </div>
       </div>
 
-      {/* Modal — Consultar Sacola da Cliente */}
+      {/* Wizard fullscreen — Consultar Sacola da Cliente */}
       <AnimatePresence>
         {consultaAberta && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-start justify-center pt-[60px] px-4 pb-4"
-            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
-            onClick={() => setConsulta(false)}>
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-              onClick={e => e.stopPropagation()}>
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[60] flex flex-col"
+            style={{ background: "var(--bg-base)" }}>
 
-              {/* Header do modal */}
-              <div className="flex items-center justify-between px-5 py-4 shrink-0"
-                style={{ borderBottom: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ background: "var(--accent-bg)" }}>
-                    <ShoppingBag size={16} style={{ color: "var(--accent)" }}/>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Consultar Sacola da Cliente</p>
-                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>Busque por nome, WhatsApp, Instagram ou apelido</p>
-                  </div>
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-6 py-4 shrink-0"
+              style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: "var(--accent-bg)" }}>
+                  <ShoppingBag size={16} style={{ color: "var(--accent)" }}/>
                 </div>
-                <motion.button onClick={() => setConsulta(false)}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                  className="p-2 rounded-xl transition-colors"
-                  style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
-                  <X size={16}/>
-                </motion.button>
+                <div>
+                  <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Consultar Sacola da Cliente</span>
+                  <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Busque por nome, WhatsApp, Instagram, apelido ou nº da sacola</p>
+                </div>
               </div>
+              <motion.button onClick={() => setConsulta(false)}
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+                style={{ color: "var(--text-secondary)" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                <X size={15}/> Fechar
+              </motion.button>
+            </div>
 
-              {/* Conteúdo — scroll interno */}
-              <div className="flex-1 overflow-y-auto p-5">
+            {/* Conteúdo com scroll */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-3xl mx-auto px-6 py-6">
                 <BuscaClienteGlobal onAbrirLive={id => { setConsulta(false); setAberta(id) }}/>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
