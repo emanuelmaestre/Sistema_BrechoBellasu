@@ -196,16 +196,23 @@ const PLATAFORMAS = [
 // ══════════════════════════════════════════════════════════
 // WIZARD — Nova Live
 // ══════════════════════════════════════════════════════════
+type WizardFase = "wizard" | "criando" | "avisando" | "sucesso"
+
 function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: number) => void }) {
   const qc = useQueryClient()
   const [step, setStep]     = useState(1)
   const [dir, setDir]       = useState(1)
   const [form, setForm]     = useState<LiveForm>(EMPTY_LIVE)
   const [erro, setErro]     = useState("")
-  const [saving, setSaving] = useState(false)
   const [platIdx, setPlatIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const TOTAL = 3
+
+  // ── Fase de carregamento ──
+  const [fase, setFase]           = useState<WizardFase>("wizard")
+  const [liveIdCriado, setLiveId] = useState<number | null>(null)
+  const [progresso, setProgresso] = useState({ atual: 0, total: 0, nome: "", aguardando: 0 })
+  const [avisados, setAvisados]   = useState(0)
 
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
   useEffect(() => {
@@ -213,9 +220,9 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   }, [step]) // eslint-disable-line
 
   useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase === "wizard") onClose() }
     document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn)
-  }, [onClose])
+  }, [onClose, fase])
 
   function set(k: keyof LiveForm, v: string) { setForm(f => ({ ...f, [k]: v })); setErro("") }
   function go(next: number) { setDir(next > step ? 1 : -1); setStep(next); setErro("") }
@@ -226,14 +233,72 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   }
 
   async function handleSalvar() {
-    setSaving(true); setErro("")
+    setErro("")
+    setFase("criando")
     try {
-      const nova = await apiPost<{ id: number }>("/live", { data_live: form.data_live, titulo: form.titulo || null, plataforma: form.plataforma || null, tipo: form.tipo, link_live: form.link_live || null })
-      qc.invalidateQueries({ queryKey: ["lives"] }); onSalvo(nova.id)
-    } catch { setErro("Erro ao criar live.") } finally { setSaving(false) }
+      // 1. Cria a live
+      const nova = await apiPost<{ id: number }>("/live", {
+        data_live:  form.data_live,
+        titulo:     form.titulo || null,
+        plataforma: form.plataforma || null,
+        tipo:       form.tipo,
+        link_live:  form.link_live || null,
+      })
+      qc.invalidateQueries({ queryKey: ["lives"] })
+      setLiveId(nova.id)
+
+      // 2. Se tem link, dispara aviso automático para todas as clientes
+      if (form.link_live?.trim()) {
+        setFase("avisando")
+
+        const fila = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>(`/live/${nova.id}/aviso`)
+        const clientes = fila.clientes ?? []
+
+        if (clientes.length === 0) {
+          // Nenhuma cliente com opt-in — vai direto para sucesso
+          setFase("sucesso")
+          setTimeout(() => { onSalvo(nova.id) }, 2000)
+          return
+        }
+
+        setProgresso({ atual: 0, total: clientes.length, nome: "", aguardando: 0 })
+
+        let enviados = 0
+        let intervaloAnterior: number | undefined
+
+        for (let i = 0; i < clientes.length; i++) {
+          const cliente = clientes[i]
+
+          if (i > 0) {
+            const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
+            intervaloAnterior = intervaloMs
+            let restante = Math.ceil(intervaloMs / 1000)
+            setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
+            while (restante > 0) {
+              await new Promise(r => setTimeout(r, 1000))
+              restante--
+              setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
+            }
+          }
+
+          setProgresso({ atual: i + 1, total: clientes.length, nome: cliente.nome, aguardando: 0 })
+          const res = await apiPost<{ status: string }>(`/live/${nova.id}/aviso`, { link: form.link_live, cliente_id: cliente.id })
+          if (res.status === "enviado") enviados++
+        }
+
+        setAvisados(enviados)
+      }
+
+      setFase("sucesso")
+      setTimeout(() => { onSalvo(nova.id) }, 2200)
+    } catch {
+      setErro("Erro ao criar live. Tente novamente.")
+      setFase("wizard")
+    }
   }
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
+    if (fase !== "wizard") return
     if (step === 2) {
       if (e.key === "ArrowLeft") { e.preventDefault(); setPlatIdx(i => (i - 1 + PLATAFORMAS.length) % PLATAFORMAS.length); return }
       if (e.key === "ArrowRight") { e.preventDefault(); setPlatIdx(i => (i + 1) % PLATAFORMAS.length); return }
@@ -241,11 +306,123 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
     }
     if (e.key === "Enter") { e.preventDefault(); advance() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, platIdx])
+  }, [step, form, platIdx, fase])
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
 
+  // ── Tela de carregamento / sucesso ──
+  if (fase !== "wizard") {
+    const pct = progresso.total > 0 ? Math.round((progresso.atual / progresso.total) * 100) : 0
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+        style={{ background: "var(--bg-base)" }}>
+
+        <AnimatePresence mode="wait">
+          {/* CRIANDO */}
+          {fase === "criando" && (
+            <motion.div key="criando"
+              initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
+              className="flex flex-col items-center gap-6 px-8 text-center">
+              <div className="relative">
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+                  className="w-20 h-20 rounded-full"
+                  style={{ background: `${COR_LIVE}20`, border: `2px solid ${COR_LIVE}40` }}/>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="w-3 h-3 rounded-full animate-pulse" style={{ background: COR_LIVE }}/>
+                </div>
+              </div>
+              <div>
+                <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Criando sua live...</p>
+                <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>Aguarde um momento</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* AVISANDO CLIENTES */}
+          {fase === "avisando" && (
+            <motion.div key="avisando"
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+              className="flex flex-col items-center gap-6 px-8 w-full max-w-sm text-center">
+              {/* Ícone animado */}
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="text-5xl">📣</motion.div>
+
+              <div>
+                <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Avisando clientes</p>
+                <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                  {progresso.atual} de {progresso.total} mensagens enviadas
+                </p>
+                {progresso.nome && (
+                  <motion.p key={progresso.nome}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="text-xs mt-1 font-semibold uppercase truncate max-w-xs"
+                    style={{ color: COR_LIVE }}>
+                    {progresso.aguardando > 0 ? `⏳ ${progresso.aguardando}s → ` : "✉️ "}{progresso.nome}
+                  </motion.p>
+                )}
+              </div>
+
+              {/* Barra de progresso */}
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-card)" }}>
+                <motion.div
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="h-full rounded-full"
+                  style={{ background: `linear-gradient(90deg, ${COR_LIVE}, #f97316)` }}/>
+              </div>
+              <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text-muted)" }}>{pct}%</p>
+
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Enviando com intervalo seguro para não bloquear o WhatsApp.
+              </p>
+
+              {/* Pular para a live (continua em background) */}
+              {liveIdCriado && (
+                <button onClick={() => onSalvo(liveIdCriado)}
+                  className="text-xs font-semibold underline"
+                  style={{ color: "var(--text-muted)" }}>
+                  Ir para a live agora →
+                </button>
+              )}
+            </motion.div>
+          )}
+
+          {/* SUCESSO */}
+          {fase === "sucesso" && (
+            <motion.div key="sucesso"
+              initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 22 }}
+              className="flex flex-col items-center gap-5 px-8 text-center">
+              <motion.div
+                initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
+                className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
+                style={{ background: "rgba(16,185,129,0.12)", border: "2px solid rgba(16,185,129,0.3)" }}>
+                ✅
+              </motion.div>
+              <div>
+                <p className="text-2xl font-black" style={{ color: "#10b981" }}>Live criada!</p>
+                {avisados > 0
+                  ? <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                      {avisados} cliente{avisados > 1 ? "s" : ""} {avisados > 1 ? "foram avisadas" : "foi avisada"} 🎉
+                    </p>
+                  : <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Redirecionando...</p>
+                }
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    )
+  }
+
+  // ── Wizard normal ──
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
@@ -286,7 +463,9 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
                   <input value={form.link_live} onChange={e => set("link_live", e.target.value)}
                     placeholder="https://instagram.com/... ou https://tiktok.com/..."
                     className={iBase} style={iSt}/>
-                  <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>Instagram ou TikTok — usado ao avisar as clientes.</p>
+                  <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    Instagram ou TikTok — ao criar a live, as clientes serão avisadas automaticamente. 🔔
+                  </p>
                 </div>
               </>}
 
@@ -339,10 +518,10 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 
               {step !== 2 && step !== 3 && (
                 <div className="flex items-center gap-4 mt-8">
-                  <button onClick={advance} disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg disabled:opacity-60"
+                  <button onClick={advance}
+                    className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg"
                     style={{ background: COR_LIVE }}>
-                    {saving ? <><Loader2 size={14} className="animate-spin"/>Criando...</> : <>Continuar <ArrowRight size={15}/></>}
+                    Continuar <ArrowRight size={15}/>
                   </button>
                 </div>
               )}
