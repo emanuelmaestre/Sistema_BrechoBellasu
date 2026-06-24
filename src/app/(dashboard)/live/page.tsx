@@ -486,9 +486,10 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
         <AnimatePresence custom={dir} mode="wait">
           <motion.div key={step} custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit"
             transition={{ duration: 0.22, ease: "easeInOut" }}
-            className="absolute inset-0 flex flex-col items-center justify-center px-6 overflow-y-auto py-10">
+            className="absolute inset-0 overflow-y-auto">
+            <div className="min-h-full flex flex-col items-center justify-center px-4 sm:px-6 py-4">
             <div className="w-full max-w-xl">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <span className="text-base font-bold" style={{ color: COR_LIVE }}>{step}</span>
                 <ArrowRight size={14} style={{ color: COR_LIVE }}/>
               </div>
@@ -695,6 +696,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                   </button>
                 </div>
               )}
+            </div>
             </div>
           </motion.div>
         </AnimatePresence>
