@@ -9,9 +9,9 @@ import {
   X, ChevronLeft, ChevronRight, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle,
+  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2,
 } from "lucide-react"
-import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "@/services/api"
 import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
@@ -283,6 +283,15 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
   })
 
   const [creditoForm, setCreditoForm] = useState(false)
+  const [excluindoMovId, setExcluindoMovId] = useState<number | null>(null)
+  async function excluirMovimentacao(movId: number) {
+    setExcluindoMovId(movId)
+    try {
+      await apiDelete(`/clientes/${cliente.id}/creditos/${movId}`)
+      refetchCreditos()
+    } catch { /* silencia */ }
+    finally { setExcluindoMovId(null) }
+  }
   const [creditoValor, setCreditoValor] = useState("")
   const [creditoOrigem, setCreditoOrigem] = useState("manual")
   const [creditoObs, setCreditoObs] = useState("")
@@ -910,9 +919,22 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
                           <span className="text-xs font-bold uppercase" style={{ color: entrada ? "#10b981" : "#f87171" }}>
                             {entrada ? "+" : "–"} R$ {mov.valor.toFixed(2).replace(".", ",")}
                           </span>
-                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            {new Date(mov.created_at).toLocaleDateString("pt-BR")}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              {new Date(mov.created_at).toLocaleDateString("pt-BR")}
+                            </span>
+                            <motion.button
+                              onClick={() => excluirMovimentacao(mov.id)}
+                              disabled={excluindoMovId === mov.id}
+                              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                              className="p-1 rounded-md opacity-40 hover:opacity-100 transition-opacity"
+                              style={{ color: "#f87171" }}
+                              title="Remover movimentação">
+                              {excluindoMovId === mov.id
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <Trash2 size={11} />}
+                            </motion.button>
+                          </div>
                         </div>
                         <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                           {origemLabel[mov.origem] ?? mov.origem}
