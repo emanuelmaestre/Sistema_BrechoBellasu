@@ -272,6 +272,11 @@ export function buildFixedContent(compra: CompraData, diaPrazo: string): string 
 ${compra.link_pagamento}
 
 O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas peças reservadas. 💖`
+    : compra.link_pagamento === undefined
+    ? `💳 Link de pagamento (PIX ou cartão):
+[ LINK ASAAS GERADO NO ENVIO ]
+
+O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas peças reservadas. 💖`
     : `O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX, para manter suas peças reservadas. 💖
 
 🔑 PIX: (16) 99134-7476

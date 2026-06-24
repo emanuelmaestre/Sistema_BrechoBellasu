@@ -1738,7 +1738,10 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       quantidade_itens: ex.quantidade_itens,
       valor_total:      ex.valor_total,
       nome_cliente:     ex.nome_cliente,
-      link_pagamento:   exLink ?? ex.link_pagamento ?? null,
+      // undefined = link será gerado no envio (mostra placeholder no preview)
+      // null      = sem link (PIX manual)
+      // string    = link já disponível
+      link_pagamento:   exLink ?? ex.link_pagamento ?? (gerandoLink ? undefined : null),
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx))
   }, [ex, stIdx, liveData, exLink])
