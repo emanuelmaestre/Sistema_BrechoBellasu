@@ -610,95 +610,81 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                 const creditoAplicado = form.cliente_id ? Math.min(saldoCredito, valorTotalNum) : 0
                 const valorFinal = Math.max(0, valorTotalNum - creditoAplicado)
                 const saldoRestante = Math.max(0, saldoCredito - creditoAplicado)
+                const temCredito = saldoCredito > 0 && form.cliente_id
                 return <>
-                  <h1 className="text-2xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
+                  <h1 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
 
-                  {/* Input */}
-                  <div className="mb-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
+                  {/* Input compacto */}
+                  <div className="mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>VALOR TOTAL</p>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
                       <input ref={inputRef} inputMode="decimal" value={form.valor_total} onChange={e => set("valor_total", e.target.value)}
                         onBlur={() => { const n = parseFloat(form.valor_total.replace(/\./g,"").replace(",",".")); if (!isNaN(n) && n > 0) set("valor_total", n.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) }}
                         placeholder="0,00"
-                        className="w-full pl-10 pr-4 py-3 text-xl rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
+                        className="w-full pl-9 pr-3 py-2.5 text-lg font-bold rounded-xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
                         style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
                     </div>
                   </div>
 
-                  {/* Card de crédito */}
-                  <AnimatePresence>
-                    {saldoCredito > 0 && form.cliente_id && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                        className="mb-3 rounded-xl p-3"
-                        style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.3)" }}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <motion.span animate={{ scale: [1,1.15,1] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}>🎁</motion.span>
-                          <div className="flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#34d399" }}>Crédito disponível</p>
-                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Será abatido automaticamente no total</p>
-                          </div>
-                          <span className="text-sm font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.15)", color: "#34d399" }}>
-                            {fmtBRL(saldoCredito)}
-                          </span>
-                        </div>
-                        {valorTotalNum > 0 && (
-                          <div className="space-y-1 pt-2" style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
-                            <div className="flex justify-between text-xs">
-                              <span style={{ color: "var(--text-muted)" }}>Valor original</span>
-                              <span style={{ color: "var(--text-secondary)" }}>{fmtBRL(valorTotalNum)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span style={{ color: "#34d399" }}>Crédito aplicado</span>
-                              <span className="font-semibold" style={{ color: "#34d399" }}>− {fmtBRL(creditoAplicado)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs font-bold pt-1" style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
-                              <span style={{ color: valorFinal === 0 ? "#34d399" : "var(--text-primary)" }}>
-                                {valorFinal === 0 ? "✅ Pago com crédito" : "Total final a pagar"}
-                              </span>
-                              <span style={{ color: valorFinal === 0 ? "#34d399" : "var(--text-primary)" }}>{fmtBRL(valorFinal)}</span>
-                            </div>
-                            {saldoRestante > 0 && (
-                              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Saldo restante: {fmtBRL(saldoRestante)}</p>
-                            )}
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Card único: crédito + resumo juntos */}
+                  <div className="rounded-xl overflow-hidden mb-2" style={{ border: `1px solid ${temCredito ? "rgba(52,211,153,0.35)" : "var(--border)"}`, background: temCredito ? "rgba(52,211,153,0.04)" : "var(--bg-card)" }}>
 
-                  {/* Resumo */}
-                  <div className="rounded-xl overflow-hidden mb-3" style={{ border: "1px solid var(--border)" }}>
-                    <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Resumo</p>
-                    </div>
-                    <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                    {/* Linha de crédito — só aparece se houver */}
+                    {temCredito && (
+                      <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(52,211,153,0.2)" }}>
+                        <motion.span className="text-base" animate={{ scale: [1,1.15,1] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}>🎁</motion.span>
+                        <span className="flex-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: "#34d399" }}>Crédito disponível</span>
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.15)", color: "#34d399" }}>{fmtBRL(saldoCredito)}</span>
+                      </div>
+                    )}
+
+                    {/* Linhas do resumo */}
+                    <div className="divide-y" style={{ borderColor: temCredito ? "rgba(52,211,153,0.15)" : "var(--border)" }}>
                       {[
-                        { l: "Cliente",   v: form.nome_cliente || cliBusca || "—" },
-                        { l: "Cor",       v: form.cor_sacola || "—" },
-                        { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—" },
-                        { l: "Itens",     v: `${form.quantidade_itens} item(ns)` },
-                        ...(creditoAplicado > 0 && valorTotalNum > 0 ? [
-                          { l: "Total final", v: fmtBRL(valorFinal), highlight: true },
-                        ] : [
-                          { l: "Total", v: form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(/\./g,"").replace(",","."))) : "—", highlight: false },
-                        ]),
-                      ].map((r: { l: string; v: string; highlight?: boolean }) => (
-                        <div key={r.l} className="flex justify-between items-center px-3 py-2">
-                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{r.l}</span>
-                          <span className={`text-xs font-semibold uppercase`} style={{ color: r.highlight ? "#34d399" : "var(--text-primary)" }}>{r.v}</span>
+                        { l: "Cliente",   v: form.nome_cliente || cliBusca || "—", h: false },
+                        { l: "Cor",       v: form.cor_sacola || "—",               h: false },
+                        { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—", h: false },
+                        { l: "Itens",     v: `${form.quantidade_itens} item(ns)`,  h: false },
+                      ].map(r => (
+                        <div key={r.l} className="flex justify-between items-center px-3 py-1.5">
+                          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{r.l}</span>
+                          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-primary)" }}>{r.v}</span>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Bloco de valores */}
+                    <div className="px-3 py-2 space-y-1" style={{ borderTop: `1px solid ${temCredito ? "rgba(52,211,153,0.2)" : "var(--border)"}` }}>
+                      {temCredito && valorTotalNum > 0 ? (<>
+                        <div className="flex justify-between text-[11px]">
+                          <span style={{ color: "var(--text-muted)" }}>Valor original</span>
+                          <span style={{ color: "var(--text-secondary)" }}>{fmtBRL(valorTotalNum)}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span style={{ color: "#34d399" }}>Crédito aplicado</span>
+                          <span className="font-semibold" style={{ color: "#34d399" }}>− {fmtBRL(creditoAplicado)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-bold pt-1" style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
+                          <span style={{ color: valorFinal === 0 ? "#34d399" : "var(--text-primary)" }}>
+                            {valorFinal === 0 ? "✅ Pago com crédito" : "Total final"}
+                          </span>
+                          <span style={{ color: valorFinal === 0 ? "#34d399" : "var(--text-primary)" }}>{fmtBRL(valorFinal)}</span>
+                        </div>
+                        {saldoRestante > 0 && (
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Saldo restante: {fmtBRL(saldoRestante)}</p>
+                        )}
+                      </>) : (
+                        <div className="flex justify-between text-xs font-bold">
+                          <span style={{ color: "var(--text-primary)" }}>Total</span>
+                          <span style={{ color: "var(--text-primary)" }}>{form.valor_total ? fmtBRL(parseFloat(form.valor_total.replace(/\./g,"").replace(",","."))) : "—"}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <motion.button onClick={salvar} disabled={saving} whileTap={{ scale: 0.97 }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-60"
                     style={{ background: COR_LIVE }}>
                     {saving ? <><Loader2 size={14} className="animate-spin"/>Salvando...</> : <><ShoppingBag size={15}/>Registrar Compra</>}
                   </motion.button>
