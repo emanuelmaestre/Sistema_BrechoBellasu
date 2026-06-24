@@ -610,8 +610,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                 const valorFinal = Math.max(0, valorTotalNum - creditoAplicado)
                 const saldoRestante = Math.max(0, saldoCredito - creditoAplicado)
                 return <>
-                  <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
-                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Valor total cobrado nesta sacola.</p>
+                  <h1 className="text-2xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>Valor da compra</h1>
 
                   {/* Input */}
                   <div className="mb-3">
