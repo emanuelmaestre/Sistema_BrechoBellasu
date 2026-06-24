@@ -2457,13 +2457,8 @@ function ClientesPageInner() {
 
   return (
     <div className="space-y-5">
-      {/* Header + Filtros — sticky no topo do scroll container */}
-      <div className="sticky top-0 z-20 -mx-3 px-3 sm:-mx-6 sm:px-6 pb-3 pt-1 space-y-3"
-        style={{
-          background: "var(--bg-base)",
-          borderBottom: "1px solid var(--border)",
-          boxShadow: "0 4px 16px -4px rgba(0,0,0,0.18)",
-        }}>
+      {/* Header + Filtros */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Clientes</h2>
