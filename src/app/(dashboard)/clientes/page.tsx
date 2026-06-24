@@ -9,7 +9,7 @@ import {
   X, ChevronLeft, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown,
+  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiPatch } from "@/services/api"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -2409,7 +2409,17 @@ function ClientesPageInner() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-secondary)" }}>{c.celular ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {c.celular ? (
+                      <a href={`https://wa.me/55${c.celular.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 hover:underline"
+                        style={{ color: "#25d366" }}
+                        onClick={e => e.stopPropagation()}>
+                        <MessageCircle size={13} />
+                        {c.celular}
+                      </a>
+                    ) : "—"}
+                  </td>
                   <td className="px-4 py-3 text-sm font-medium uppercase" style={{ color: "var(--text-secondary)" }}>
                     {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : "—"}
                   </td>
