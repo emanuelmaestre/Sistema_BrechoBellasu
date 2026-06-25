@@ -1716,6 +1716,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const [exLink, setExLink] = useState<string | null>(null)
   const [gerandoLink, setGerandoLink] = useState(false)
   const [erroLink, setErroLink] = useState(false)
+  const [erroLinkMsg, setErroLinkMsg] = useState<string | null>(null)
   const ex = pendentes[0]
 
   // Calcula valor final do primeiro pendente para detectar pagamento por crédito
@@ -1727,11 +1728,12 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   function gerarLink() {
     if (!ex || pagoCreditoEx) return
     setErroLink(false)
+    setErroLinkMsg(null)
     setGerandoLink(true)
-    apiPost<{ id: number; link_pagamento?: string | null }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
+    apiPost<{ id: number; link_pagamento?: string | null; erro?: string }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
       .then(r => {
         if (r?.link_pagamento) setExLink(r.link_pagamento)
-        else setErroLink(true)
+        else { setErroLink(true); setErroLinkMsg(r?.erro ?? null) }
       })
       .catch(() => setErroLink(true))
       .finally(() => setGerandoLink(false))
@@ -2247,7 +2249,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
           {erroLink && !pagoCreditoEx && (
             <div className="flex items-center justify-between gap-3 px-6 py-2.5" style={{ background: "rgba(248,113,113,0.08)", borderBottom: "1px solid rgba(248,113,113,0.2)" }}>
               <p className="text-xs" style={{ color: "#f87171" }}>
-                ⚠️ Não foi possível gerar o link de pagamento. A compra permanece pendente.
+                ⚠️ {erroLinkMsg ?? "Não foi possível gerar o link de pagamento. A compra permanece pendente."}
               </p>
               <button onClick={gerarLink} disabled={gerandoLink}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shrink-0 disabled:opacity-50"
