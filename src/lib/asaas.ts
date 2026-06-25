@@ -71,9 +71,11 @@ export async function gerarLinkAsaas(params: {
         headers: { access_token: token, "Content-Type": "application/json" },
         body: JSON.stringify(dadosCliente),
       })
+      const cd = await criar.json()
       if (criar.ok) {
-        const cd = await criar.json()
         asaasCustomerId = cd.id
+      } else {
+        console.error("[Asaas] Erro ao criar cliente:", JSON.stringify(cd))
       }
     }
 
@@ -106,12 +108,19 @@ export async function gerarLinkAsaas(params: {
       }),
     })
 
-    if (!cobranca.ok) return null
     const pd = await cobranca.json()
+    if (!cobranca.ok) {
+      console.error("[Asaas] Erro ao criar cobrança:", JSON.stringify(pd))
+      return null
+    }
     const url = pd.invoiceUrl ?? pd.bankSlipUrl ?? null
-    if (!url || !pd.id) return null
+    if (!url || !pd.id) {
+      console.error("[Asaas] Resposta sem invoiceUrl/id:", JSON.stringify(pd))
+      return null
+    }
     return { url, paymentId: pd.id }
-  } catch {
+  } catch (err) {
+    console.error("[Asaas] Exceção:", err)
     return null
   }
 }
