@@ -1884,7 +1884,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     )
   }
 
-  const podeEnviar = !!pendentes.length && !!msgResult?.valida
+  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !gerandoLink && !erroLink
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
