@@ -6,6 +6,17 @@
 
 import { regraParcelamento } from "@/lib/parcelamento"
 
+// O Asaas rejeita emojis e símbolos no campo "description" (parse_error).
+// Remove acentos, emojis e qualquer caractere fora do conjunto seguro.
+function sanitizarDescricao(texto: string): string {
+  return texto
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")  // remove acentos
+    .replace(/[^a-zA-Z0-9 .,\-/()]/g, "")              // mantém apenas seguros
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500)
+}
+
 export async function gerarLinkAsaas(params: {
   nome: string
   cpf?: string | null
@@ -89,8 +100,8 @@ export async function gerarLinkAsaas(params: {
     // 3. Regra de parcelamento baseada no valor FINAL (já descontado créditos/descontos)
     const ehPromocional = params.tipoLive === "promocional"
     const regra = regraParcelamento(params.valor)
-    const avisoPromocional = ehPromocional ? " | Pgto. cartão: juros por conta da cliente" : ""
-    const descricaoFinal = `${params.descricao} | 💳 ${regra.descricaoLink}${avisoPromocional}`
+    const avisoPromocional = ehPromocional ? " - Pgto. cartao: juros por conta da cliente" : ""
+    const descricaoFinal = sanitizarDescricao(`${params.descricao} - ${regra.descricaoLink}${avisoPromocional}`)
 
     // 4. Cria cobrança com PIX ou Cartão de Crédito (billingType UNDEFINED = cliente escolhe entre os habilitados)
     //    Para restringir: criamos com CREDIT_CARD e um segundo para PIX — mas o Asaas invoiceUrl
