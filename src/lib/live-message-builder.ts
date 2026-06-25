@@ -3,21 +3,23 @@
 // Serviço central de composição de mensagens de compra da live.
 // ══════════════════════════════════════════════════════════════════
 
-export const CHAR_LIMIT  = 990   // limite absoluto
-export const CHAR_TARGET = 940   // meta de segurança
+export const CHAR_LIMIT  = 990
+export const CHAR_TARGET = 940
 
 // ─── Tipos ───────────────────────────────────────────────────────
 
 export interface CompraData {
-  data_compra:       string | null
-  data_live:         string | null
-  numero_sacola:     string | null | undefined
-  cor_sacola:        string | null | undefined
-  quantidade_itens:  number | null | undefined
-  valor_total:       number | null | undefined
-  nome_cliente:      string | null | undefined
-  link_pagamento?:   string | null
-  credito_aplicado?: number | null
+  data_compra:             string | null
+  data_live:               string | null
+  numero_sacola:           string | null | undefined
+  cor_sacola:              string | null | undefined
+  quantidade_itens:        number | null | undefined
+  valor_total:             number | null | undefined
+  nome_cliente:            string | null | undefined
+  link_pagamento?:         string | null  // string=link, undefined=gerando, null=sem link
+  credito_aplicado?:       number | null
+  pago_com_credito?:       boolean        // true = crédito quitou tudo, não gera link
+  saldo_credito_anterior?: number | null
 }
 
 export type SmallTalkLevel = "COMPLETO" | "MEDIO" | "CURTO" | "FALLBACK"
@@ -27,16 +29,14 @@ export interface MessageResult {
   chars:          number
   bytes:          number
   level:          SmallTalkLevel
-  smallTalkIndex: number  // índice da combinação usada
+  smallTalkIndex: number
   valida:         boolean
   erro?:          string
 }
 
-// ─── Utilitários ────────────────────────────────────────────────
+// ─── Utilitários ─────────────────────────────────────────────────
 
-export function countCharacters(s: string): number {
-  return [...s].length  // conta code points (emojis = 1)
-}
+export function countCharacters(s: string): number { return [...s].length }
 
 export function countUtf8Bytes(s: string): number {
   return new TextEncoder().encode(s).length
@@ -51,12 +51,14 @@ function fmtVal(v: unknown): string {
   return "R$ " + parseFloat(String(v ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
 }
 
-export function prazo48h(): string {
-  const dias = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"]
-  const d = new Date()
-  d.setHours(d.getHours() + 48)
-  return dias[d.getDay()]
+export function prazoPagamento(dataLive: string | null): string {
+  const base = dataLive ? new Date(dataLive + "T12:00:00") : new Date()
+  base.setDate(base.getDate() + 2)
+  return base.toLocaleDateString("pt-BR")
 }
+
+/** @deprecated use prazoPagamento(dataLive) */
+export function prazo48h(): string { return prazoPagamento(null) }
 
 export function validateCustomerName(nome: string | null | undefined): string | null {
   if (!nome) return null
@@ -67,27 +69,147 @@ export function validateCustomerName(nome: string | null | undefined): string | 
   const lower = n.toLowerCase()
   const invalidos = ["cliente", "sem nome", "não informado", "nao informado", "teste", "user"]
   if (invalidos.some(i => lower === i)) return null
-  // Não usa se parecer username do Instagram (sem espaço, muitos números ou underscores)
   if (/^[a-z0-9_.]+$/.test(lower) && !lower.includes(" ")) return null
   return n
 }
 
-// ─── Aviso de Live — variações ───────────────────────────────────
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
-const AVISO_ABERTURAS = [
-  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊` : "Oi! Tudo bem com você? 😊",
-  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Saudades! 🥰` : "Oi! Saudades! 🥰",
-  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨` : "Olá! Que bom te ver por aqui! ✨",
-  (n: string | null) => n ? `Ei, ${n.split(" ")[0]}! Tô passando rapidinho... 🏃‍♀️💨` : "Ei! Tô passando rapidinho... 🏃‍♀️💨",
-  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖` : "Oi! Estava pensando em você! 💖",
-  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Passando com novidade! 🎉` : "Olá! Passando com novidade! 🎉",
-  (n: string | null) => n ? `Ei, ${n.split(" ")[0]}! Tem coisa boa aqui pra você! 🛍️` : "Ei! Tem coisa boa aqui pra você! 🛍️",
-  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Vim te dar um recado especial! 💌` : "Oi! Vim te dar um recado especial! 💌",
-  (n: string | null) => n ? `Oi, ${n.split(" ")[0]}! Você é especial pra gente! 🌸` : "Oi! Você é especial pra gente! 🌸",
-  (n: string | null) => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍` : "Olá! Que alegria falar com você! 😍",
+// ─── Small Talk — mensagens de compra da live ────────────────────
+// 18 saudações × 12 agradecimentos × 12 confirmações = 2.592 combinações
+
+const SAUDACOES: Array<(n: string | null) => string> = [
+  n => n ? `Oi, ${n.split(" ")[0]}! Que bom falar com você. 💖`             : "Oi! Que bom falar com você. 💖",
+  n => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊`                  : "Oi! Tudo bem com você? 😊",
+  n => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍`         : "Olá! Que alegria falar com você! 😍",
+  n => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖`             : "Oi! Estava pensando em você! 💖",
+  n => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨`            : "Olá! Que bom te ver por aqui! ✨",
+  n => n ? `Ei, ${n.split(" ")[0]}! Passando com novidade especial! 🎉`      : "Ei! Passando com novidade especial! 🎉",
+  n => n ? `Oi, ${n.split(" ")[0]}! Saudades! Tô aqui com seu recado. 🥰`   : "Oi! Saudades! Tô aqui com seu recado. 🥰",
+  n => n ? `Olá, ${n.split(" ")[0]}! Você é especial pra gente! 🌸`          : "Olá! Você é especial pra gente! 🌸",
+  n => n ? `Oi, ${n.split(" ")[0]}! Vim com carinho te dar um recado. 💌`    : "Oi! Vim com carinho te dar um recado. 💌",
+  n => n ? `Ei, ${n.split(" ")[0]}! Feliz em falar com você hoje! 🥰`        : "Ei! Feliz em falar com você hoje! 🥰",
+  n => n ? `Olá, ${n.split(" ")[0]}! Passando com muito carinho! 💕`         : "Olá! Passando com muito carinho! 💕",
+  n => n ? `Oi, ${n.split(" ")[0]}! Que bom que você esteve com a gente! ✨` : "Oi! Que bom que você esteve com a gente! ✨",
+  n => n ? `Ei, ${n.split(" ")[0]}! Tô super feliz de falar com você! 🎀`   : "Ei! Tô super feliz de falar com você! 🎀",
+  n => n ? `Olá, ${n.split(" ")[0]}! Vim com uma novidade linda pra você! 🛍️`: "Olá! Vim com uma novidade linda pra você! 🛍️",
+  n => n ? `Oi, ${n.split(" ")[0]}! Você faz parte dessa história com a gente! 💖`: "Oi! Você faz parte dessa história com a gente! 💖",
+  n => n ? `Ei, ${n.split(" ")[0]}! Que dia especial por ter você! 🌟`       : "Ei! Que dia especial por ter você! 🌟",
+  n => n ? `Olá, ${n.split(" ")[0]}! Tô aqui com muito amor pra contar. 💗` : "Olá! Tô aqui com muito amor pra contar. 💗",
+  n => n ? `Oi, ${n.split(" ")[0]}! Sempre um prazer falar com você! 😊`     : "Oi! Sempre um prazer falar com você! 😊",
 ]
 
-const AVISO_CHAMADAS = [
+const AGRADECIMENTOS: string[] = [
+  "Foi um prazer ter você com a gente durante a live!",
+  "Ficamos muito felizes com a sua participação na live!",
+  "Adoramos ter você com a gente em mais uma live!",
+  "Obrigada por acompanhar e participar da nossa live!",
+  "Foi lindo ter você com a gente durante a live!",
+  "Sua presença na live foi muito especial pra gente!",
+  "Que alegria ter você participando da nossa live!",
+  "Foi um momento muito especial ter você com a gente!",
+  "Obrigada de coração por participar da live!",
+  "Sua participação na live foi muito importante pra gente!",
+  "Que emoção ter você na live mais uma vez!",
+  "Você faz nossa live ainda mais especial! Obrigada! 💖",
+]
+
+const CONFIRMACOES: string[] = [
+  "Suas peças foram cuidadosamente separadas.",
+  "Suas escolhas já estão separadas com muito carinho.",
+  "Suas peças foram reservadas e organizadas com amor.",
+  "Já deixamos suas peças separadinhas esperando por você.",
+  "Suas peças estão reservadas e prontas pra você!",
+  "Com muito cuidado, separamos suas peças com amor. 🛍️",
+  "Suas peças estão organizadas com todo o carinho.",
+  "Cada peça foi separada com muito capricho pra você.",
+  "Suas peças já estão reservadas e guardadas com carinho. 💕",
+  "Tudo separadinho e organizado esperando por você! 🛍️",
+  "Suas peças estão safe e esperando por você com amor. 💖",
+  "Fizemos questão de separar suas peças com muito cuidado.",
+]
+
+const TOTAL_COMBINACOES = SAUDACOES.length * AGRADECIMENTOS.length * CONFIRMACOES.length
+
+let _unusedPool: number[] = []
+let _recentUsed: number[] = []
+
+function refillPool(excludeRecent: number[]): void {
+  const all = Array.from({ length: TOTAL_COMBINACOES }, (_, i) => i)
+  _unusedPool = shuffle(all.filter(i => !excludeRecent.includes(i)))
+  if (_unusedPool.length === 0) _unusedPool = shuffle(all)
+}
+
+export function resetSmallTalkHistory() { _unusedPool = []; _recentUsed = [] }
+
+function comboIndexToComponents(idx: number) {
+  const nA = AGRADECIMENTOS.length
+  const nC = CONFIRMACOES.length
+  const s = Math.floor(idx / (nA * nC))
+  const a = Math.floor((idx % (nA * nC)) / nC)
+  const c = idx % nC
+  return { s, a, c }
+}
+
+export function selectSmallTalkIndex(recentCount = 8): number {
+  if (_unusedPool.length === 0) refillPool(_recentUsed.slice(-recentCount))
+  const recent = _recentUsed.slice(-recentCount)
+  let candidates = _unusedPool.filter(i => !recent.includes(i))
+  if (candidates.length === 0) candidates = _unusedPool
+  const chosen = candidates[0]
+  _unusedPool = _unusedPool.filter(i => i !== chosen)
+  _recentUsed.push(chosen)
+  if (_recentUsed.length > TOTAL_COMBINACOES) _recentUsed.shift()
+  return chosen
+}
+
+export function buildSmallTalk(level: SmallTalkLevel, nome: string | null, idx: number): string {
+  if (level === "FALLBACK") {
+    return "Olá! 💖 Obrigada por participar da nossa live! Suas peças já estão separadas. 🛍️"
+  }
+  const { s, a, c } = comboIndexToComponents(idx)
+  const saudacao    = SAUDACOES[s](nome)
+  const agradec     = AGRADECIMENTOS[a]
+  const confirmacao = CONFIRMACOES[c]
+  if (level === "CURTO") return `${saudacao} ${agradec} ${confirmacao}`
+  return `${saudacao}\n\n${agradec} ${confirmacao}`
+}
+
+export function selectSmallTalkByAvailableLength(compra: CompraData, idx: number): SmallTalkLevel {
+  const dataPrazo  = prazoPagamento(compra.data_live)
+  const fixedBlock = buildFixedContent(compra, dataPrazo)
+  const available  = CHAR_LIMIT - countCharacters(fixedBlock) - 2
+  const nome       = validateCustomerName(compra.nome_cliente)
+  const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
+  for (const level of levels) {
+    if (countCharacters(buildSmallTalk(level, nome, idx)) <= available) return level
+  }
+  return "FALLBACK"
+}
+
+// ─── Aviso de Live (transmissão ao vivo) ─────────────────────────
+
+const AVISO_ABERTURAS: Array<(n: string | null) => string> = [
+  n => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊` : "Oi! Tudo bem com você? 😊",
+  n => n ? `Oi, ${n.split(" ")[0]}! Saudades! 🥰` : "Oi! Saudades! 🥰",
+  n => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨` : "Olá! Que bom te ver por aqui! ✨",
+  n => n ? `Ei, ${n.split(" ")[0]}! Tô passando rapidinho... 🏃‍♀️💨` : "Ei! Tô passando rapidinho... 🏃‍♀️💨",
+  n => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖` : "Oi! Estava pensando em você! 💖",
+  n => n ? `Olá, ${n.split(" ")[0]}! Passando com novidade! 🎉` : "Olá! Passando com novidade! 🎉",
+  n => n ? `Ei, ${n.split(" ")[0]}! Tem coisa boa aqui pra você! 🛍️` : "Ei! Tem coisa boa aqui pra você! 🛍️",
+  n => n ? `Oi, ${n.split(" ")[0]}! Vim te dar um recado especial! 💌` : "Oi! Vim te dar um recado especial! 💌",
+  n => n ? `Oi, ${n.split(" ")[0]}! Você é especial pra gente! 🌸` : "Oi! Você é especial pra gente! 🌸",
+  n => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍` : "Olá! Que alegria falar com você! 😍",
+]
+
+const AVISO_CHAMADAS: string[] = [
   "🔴 A propósito, estamos *AO VIVO* agora e tem coisa especial esperando por você! 🎉✨",
   "🔴 A live tá *bombando* e você não pode ficar de fora! Coisas incríveis aqui! 🔥",
   "✨ Tem *novidade especial* te esperando na live agora! Entra lá! 🎉",
@@ -102,19 +224,18 @@ const AVISO_CHAMADAS = [
   "💫 Estamos *AO VIVO* agora! Tem peça boa, preço justo e muito estilo! 🔴✨",
 ]
 
-const AVISO_FECHAMENTOS = [
-  (link: string) => `Corre lá: ${link}\n\nTe esperamos! 🙌🏼❤️`,
-  (link: string) => `Entra aqui agora: ${link}\n\nA gente tá te esperando! 💖`,
-  (link: string) => `Vem com a gente: ${link}\n\nTe esperamos com muita alegria! 🎉`,
-  (link: string) => `Acessa agora: ${link}\n\nTe esperamos lá! 🔴✨`,
-  (link: string) => `Tô te esperando: ${link}\n\nVem! 🛍️💖`,
-  (link: string) => `Entra aqui: ${link}\n\nÉ rapidinho e vale muito! 💫`,
-  (link: string) => `Acessa agora e vem se surpreender: ${link}\n\n❤️`,
-  (link: string) => `Passa lá: ${link}\n\nTem coisa linda esperando por você! 🌸`,
+const AVISO_FECHAMENTOS: Array<(link: string) => string> = [
+  link => `Corre lá: ${link}\n\nTe esperamos! 🙌🏼❤️`,
+  link => `Entra aqui agora: ${link}\n\nA gente tá te esperando! 💖`,
+  link => `Vem com a gente: ${link}\n\nTe esperamos com muita alegria! 🎉`,
+  link => `Acessa agora: ${link}\n\nTe esperamos lá! 🔴✨`,
+  link => `Tô te esperando: ${link}\n\nVem! 🛍️💖`,
+  link => `Entra aqui: ${link}\n\nÉ rapidinho e vale muito! 💫`,
+  link => `Acessa agora e vem se surpreender: ${link}\n\n❤️`,
+  link => `Passa lá: ${link}\n\nTem coisa linda esperando por você! 🌸`,
 ]
 
 const AVISO_TOTAL = AVISO_ABERTURAS.length * AVISO_CHAMADAS.length * AVISO_FECHAMENTOS.length
-
 let _avisoUnusedPool: number[] = []
 let _avisoRecentUsed: number[] = []
 
@@ -136,161 +257,51 @@ function selectAvisoIndex(): number {
   return chosen
 }
 
-function avisoIndexToComponents(idx: number) {
-  const nC = AVISO_CHAMADAS.length
-  const nF = AVISO_FECHAMENTOS.length
-  const a = Math.floor(idx / (nC * nF))
-  const c = Math.floor((idx % (nC * nF)) / nF)
-  const f = idx % nF
-  return { a, c, f }
-}
-
 export function buildAvisoLive(nome: string | null, link: string): string {
   const idx = selectAvisoIndex()
-  const { a, c, f } = avisoIndexToComponents(idx)
+  const nC  = AVISO_CHAMADAS.length
+  const nF  = AVISO_FECHAMENTOS.length
+  const a   = Math.floor(idx / (nC * nF))
+  const c   = Math.floor((idx % (nC * nF)) / nF)
+  const f   = idx % nF
   const nomeValido = validateCustomerName(nome)
-  const abertura   = AVISO_ABERTURAS[a](nomeValido)
-  const chamada    = AVISO_CHAMADAS[c]
-  const fechamento = AVISO_FECHAMENTOS[f](link)
-  return `${abertura}\n\n${chamada}\n\n${fechamento}`
+  return `${AVISO_ABERTURAS[a](nomeValido)}\n\n${AVISO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f](link)}`
 }
 
-// ─── Biblioteca de variações ─────────────────────────────────────
+// ─── Bloco fixo da mensagem de compra ────────────────────────────
 
-const SAUDACOES = [
-  (nome: string | null) => nome ? `Olá, ${nome.split(" ")[0]}! Tudo bem? 💖` : "Olá! Tudo bem? 💖",
-  (nome: string | null) => nome ? `Oi, ${nome.split(" ")[0]}! Como você está? ✨` : "Oi! Como você está? ✨",
-  (_: string | null)    => "Olá! Esperamos que esteja tudo bem por aí. 💕",
-  (nome: string | null) => nome ? `Oi, ${nome.split(" ")[0]}! Que bom falar com você. 💖` : "Oi! Que bom falar com você. 💖",
-  (_: string | null)    => "Olá! Passando com carinho para falar da sua compra. 🛍️",
-]
-
-const AGRADECIMENTOS = [
-  "Foi muito bom ter você com a gente em mais uma live!",
-  "Adoramos ter sua participação em nossa live!",
-  "Obrigada por acompanhar e participar da nossa live!",
-  "Ficamos muito felizes com a sua participação!",
-  "Foi um prazer ter você com a gente durante a live!",
-]
-
-const CONFIRMACOES = [
-  "Suas peças foram separadas com muito carinho. 🛍️",
-  "Suas escolhas já estão separadas para você. 💖",
-  "Suas peças estão reservadas e organizadas com carinho.",
-  "Já deixamos suas peças separadinhas para você. 🛍️",
-  "Suas peças foram cuidadosamente separadas.",
-]
-
-// Total de combinações = 5 × 5 × 5 = 125
-const TOTAL_COMBINACOES = SAUDACOES.length * AGRADECIMENTOS.length * CONFIRMACOES.length
-
-// Estado de rotação em memória (servidor)
-let _unusedPool: number[] = []   // combinações ainda não usadas neste ciclo
-let _recentUsed: number[] = []   // últimas N usadas (anti-repetição imediata)
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-function refillPool(excludeRecent: number[]): void {
-  const all = Array.from({ length: TOTAL_COMBINACOES }, (_, i) => i)
-  _unusedPool = shuffle(all.filter(i => !excludeRecent.includes(i)))
-  // Se todos estão nos recentes (pool muito pequeno), usa todos
-  if (_unusedPool.length === 0) _unusedPool = shuffle(all)
-}
-
-export function resetSmallTalkHistory() {
-  _unusedPool = []
-  _recentUsed = []
-}
-
-function comboIndexToComponents(idx: number) {
-  const nA = AGRADECIMENTOS.length
-  const nC = CONFIRMACOES.length
-  const s = Math.floor(idx / (nA * nC))
-  const a = Math.floor((idx % (nA * nC)) / nC)
-  const c = idx % nC
-  return { s, a, c }
-}
-
-export function selectSmallTalkIndex(recentCount = 5): number {
-  // Garante pool inicializado
-  if (_unusedPool.length === 0) refillPool(_recentUsed.slice(-recentCount))
-
-  // Remove da pool itens recentes (anti-repetição consecutiva)
-  const recent = _recentUsed.slice(-recentCount)
-  let candidates = _unusedPool.filter(i => !recent.includes(i))
-
-  // Fallback: se todos os restantes são recentes, usa o mais antigo do pool
-  if (candidates.length === 0) candidates = _unusedPool
-
-  const chosen = candidates[0]
-  _unusedPool = _unusedPool.filter(i => i !== chosen)
-
-  _recentUsed.push(chosen)
-  if (_recentUsed.length > TOTAL_COMBINACOES) _recentUsed.shift()
-
-  return chosen
-}
-
-// ─── Construtores de blocos ──────────────────────────────────────
-
-export function buildSmallTalk(level: SmallTalkLevel, nome: string | null, idx: number): string {
-  if (level === "FALLBACK") {
-    return "Olá! 💖 Obrigada por participar da nossa live! Suas peças já estão separadas. 🛍️"
-  }
-
-  const { s, a, c } = comboIndexToComponents(idx)
-  const saudacao    = SAUDACOES[s](nome)
-  const agradec     = AGRADECIMENTOS[a]
-  const confirmacao = CONFIRMACOES[c]
-
-  if (level === "CURTO") {
-    return `${saudacao} ${agradec} ${confirmacao}`
-  }
-  if (level === "MEDIO") {
-    return `${saudacao}\n\n${agradec} ${confirmacao}`
-  }
-  // COMPLETO
-  return `${saudacao}\n\n${agradec} ${confirmacao}`
-}
-
-export function buildFixedContent(compra: CompraData, diaPrazo: string): string {
+export function buildFixedContent(compra: CompraData, dataPrazo: string): string {
   const num = compra.numero_sacola
     ? String(compra.numero_sacola).padStart(2, "0")
     : "—"
-  const qtd = compra.quantidade_itens ?? 1
+  const qtd      = compra.quantidade_itens ?? 1
   const qtdLabel = Number(qtd) === 1 ? "ITEM" : "ITENS"
 
-  const blocoPagemento = compra.link_pagamento
-    ? `💳 Link de pagamento (PIX ou cartão):
-${compra.link_pagamento}
-
-O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas peças reservadas. 💖`
-    : compra.link_pagamento === undefined
-    ? `💳 Link de pagamento (PIX ou cartão):
-[ LINK ASAAS GERADO NO ENVIO ]
-
-O pagamento deve ser realizado até ${diaPrazo}, às 23h59, para manter suas peças reservadas. 💖`
-    : `O pagamento deve ser realizado até ${diaPrazo}, às 23h59, via PIX, para manter suas peças reservadas. 💖
-
-🔑 PIX: (16) 99134-7476
-👤 Nome: Emanuel Maestre dos Santos`
-
-  const credito = parseFloat(String(compra.credito_aplicado ?? 0))
+  const credito    = parseFloat(String(compra.credito_aplicado ?? 0))
   const temCredito = credito > 0
   const valorFinal = Math.max(0, parseFloat(String(compra.valor_total ?? 0)) - credito)
 
   const blocoValor = temCredito
-    ? `💰 Valor da compra: ${fmtVal(compra.valor_total)}
-🎁 Crédito aplicado: ${fmtVal(credito)}
+    ? `💰 Valor total das compras: ${fmtVal(compra.valor_total)}
+🎁 Crédito utilizado: − ${fmtVal(credito)}
 ✅ Valor final a pagar: ${fmtVal(valorFinal)}`
     : `💰 Valor total das compras: ${fmtVal(compra.valor_total)}`
+
+  let blocoPagamento: string
+  let blocoDeadline = `O pagamento deve ser realizado até ${dataPrazo}, às 23h59, via PIX ou Cartão de Crédito, para manter suas peças reservadas. 💖`
+
+  if (compra.pago_com_credito) {
+    blocoPagamento = `✅ Esta compra foi quitada com o seu saldo de crédito.
+Crédito utilizado: ${fmtVal(credito)}
+Saldo restante: R$ 0,00`
+    blocoDeadline = "Nenhum valor a pagar. 💖"
+  } else if (compra.link_pagamento === undefined) {
+    blocoPagamento = `[ LINK ASAAS GERADO NO ENVIO ]`
+  } else if (compra.link_pagamento) {
+    blocoPagamento = compra.link_pagamento
+  } else {
+    blocoPagamento = `[ LINK NÃO DISPONÍVEL ]`
+  }
 
   return `📅 Data da compra: ${fmtData(compra.data_compra ?? compra.data_live)}
 🎥 Data da live: ${fmtData(compra.data_live)}
@@ -301,7 +312,9 @@ ${blocoValor}
 
 Pagamento:
 
-${blocoPagemento}
+${blocoPagamento}
+
+${blocoDeadline}
 
 End. p/ retirada:
 
@@ -317,7 +330,7 @@ VOCÊ TAMBÉM PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.
 
 ⚠️ IMPORTANTE:
 
-Peças de promoção não possuem troca.
+Peças de promoção *não possuem troca.*
 
 Obrigada pela compra! Esperamos que você ame suas peças. Até a próxima live! 💖`
 }
@@ -330,72 +343,41 @@ export function validateMessageLimit(mensagem: string): { valida: boolean; erro?
   return { valida: true }
 }
 
-// ─── Builder principal ───────────────────────────────────────────
+// ─── Builder principal ────────────────────────────────────────────
 
 export function buildCompleteMessage(compra: CompraData, idx?: number): MessageResult {
-  const diaPrazo    = prazo48h()
+  const dataPrazo   = prazoPagamento(compra.data_live)
   const nomeValido  = validateCustomerName(compra.nome_cliente)
-  const fixedBlock  = buildFixedContent(compra, diaPrazo)
+  const fixedBlock  = buildFixedContent(compra, dataPrazo)
   const fixedChars  = countCharacters(fixedBlock)
   const chosenIdx   = idx ?? selectSmallTalkIndex()
-
-  // Determina o nível de small talk que cabe dentro do limite
   const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
 
   for (const level of levels) {
     const smallTalk = buildSmallTalk(level, nomeValido, chosenIdx)
     const mensagem  = `${smallTalk}\n\n${fixedBlock}`
     const chars     = countCharacters(mensagem)
-
     if (chars <= CHAR_LIMIT) {
-      return {
-        mensagem,
-        chars,
-        bytes:          countUtf8Bytes(mensagem),
-        level,
-        smallTalkIndex: chosenIdx,
-        valida:         true,
-      }
+      return { mensagem, chars, bytes: countUtf8Bytes(mensagem), level, smallTalkIndex: chosenIdx, valida: true }
     }
   }
 
-  // Se chegou aqui, até o fallback ultrapassou o limite (dados extremos)
-  const fallback  = buildSmallTalk("FALLBACK", null, chosenIdx)
-  const mensagem  = `${fallback}\n\n${fixedBlock}`
-  const chars     = countCharacters(mensagem)
-
+  const fallback = buildSmallTalk("FALLBACK", null, chosenIdx)
+  const mensagem = `${fallback}\n\n${fixedBlock}`
+  const chars    = countCharacters(mensagem)
   return {
-    mensagem,
-    chars,
+    mensagem, chars,
     bytes:          countUtf8Bytes(mensagem),
     level:          "FALLBACK",
     smallTalkIndex: chosenIdx,
     valida:         chars <= CHAR_LIMIT,
     erro:           chars > CHAR_LIMIT
-      ? `A mensagem ultrapassou o limite de ${CHAR_LIMIT} caracteres (atual: ${chars}). Revise o conteúdo antes de enviar.`
+      ? `A mensagem ultrapassou o limite de ${CHAR_LIMIT} caracteres (atual: ${chars}).`
       : undefined,
   }
 }
 
-export function selectSmallTalkByAvailableLength(
-  compra: CompraData,
-  idx: number,
-): SmallTalkLevel {
-  const diaPrazo   = prazo48h()
-  const fixedBlock = buildFixedContent(compra, diaPrazo)
-  const fixedChars = countCharacters(fixedBlock)
-  const available  = CHAR_LIMIT - fixedChars - 2 // -2 para "\n\n"
-
-  const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
-  for (const level of levels) {
-    const nomeValido = validateCustomerName(compra.nome_cliente)
-    const st = buildSmallTalk(level, nomeValido, idx)
-    if (countCharacters(st) <= available) return level
-  }
-  return "FALLBACK"
-}
-
-// ─── Idempotência ────────────────────────────────────────────────
+// ─── Idempotência ─────────────────────────────────────────────────
 
 export function generateNotificationId(liveId: number, compraId: number): string {
   return `live_${liveId}_compra_${compraId}_aviso_live`

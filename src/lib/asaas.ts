@@ -12,6 +12,7 @@ export async function gerarLinkAsaas(params: {
   valor: number
   descricao: string
   tipoLive?: "novidades" | "promocional"
+  dataLive?: string | null   // YYYY-MM-DD — define vencimento = dataLive + 2 dias
   // Dados extras do cadastro para pré-preencher o link
   email?: string | null
   celular?: string | null
@@ -78,10 +79,10 @@ export async function gerarLinkAsaas(params: {
 
     if (!asaasCustomerId) return null
 
-    // 2. Vencimento em 48h
-    const vencimento = new Date()
-    vencimento.setDate(vencimento.getDate() + 2)
-    const dueDate = vencimento.toISOString().split("T")[0]
+    // 2. Vencimento = data_live + 2 dias (ou hoje + 2 se não houver data da live)
+    const baseVenc = params.dataLive ? new Date(params.dataLive + "T12:00:00") : new Date()
+    baseVenc.setDate(baseVenc.getDate() + 2)
+    const dueDate = baseVenc.toISOString().split("T")[0]
 
     // 3. Regra de parcelamento baseada no valor FINAL (já descontado créditos/descontos)
     const ehPromocional = params.tipoLive === "promocional"

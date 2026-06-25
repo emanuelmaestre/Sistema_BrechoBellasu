@@ -1715,19 +1715,38 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
   const [exLink, setExLink] = useState<string | null>(null)
   const [gerandoLink, setGerandoLink] = useState(false)
+  const [erroLink, setErroLink] = useState(false)
   const ex = pendentes[0]
+
+  // Calcula valor final do primeiro pendente para detectar pagamento por crédito
+  const creditoEx = parseFloat(String(ex?.credito_aplicado ?? 0))
+  const valorTotalEx = parseFloat(String(ex?.valor_total ?? 0))
+  const valorFinalEx0 = Math.max(0, valorTotalEx - parseFloat(String(ex?.desconto ?? 0)) - creditoEx)
+  const pagoCreditoEx = valorFinalEx0 === 0 && creditoEx > 0
+
+  function gerarLink() {
+    if (!ex || pagoCreditoEx) return
+    setErroLink(false)
+    setGerandoLink(true)
+    apiPost<{ id: number; link_pagamento?: string | null }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
+      .then(r => {
+        if (r?.link_pagamento) setExLink(r.link_pagamento)
+        else setErroLink(true)
+      })
+      .catch(() => setErroLink(true))
+      .finally(() => setGerandoLink(false))
+  }
 
   // Pré-gera o link Asaas quando o modal abre e a compra não tem link ainda
   useEffect(() => {
-    if (!ex || ex.link_pagamento) { setExLink(ex?.link_pagamento ?? null); return }
-    setGerandoLink(true)
-    apiPost<{ id: number; link_pagamento?: string | null }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
-      .then(r => { if (r?.link_pagamento) setExLink(r.link_pagamento) })
-      .catch(() => {})
-      .finally(() => setGerandoLink(false))
+    if (!ex) return
+    if (pagoCreditoEx) { setExLink(null); return }
+    if (ex.link_pagamento) { setExLink(ex.link_pagamento); return }
+    gerarLink()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex?.id, liveId])
 
-  // Gera preview sempre que a compra ou o índice mudarem
+  // Gera preview sempre que a compra, o link, o índice de small talk ou o estado mudarem
   useEffect(() => {
     if (!ex) { setMsgResult(null); return }
     const compraData: CompraData = {
@@ -1738,13 +1757,14 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       quantidade_itens: ex.quantidade_itens,
       valor_total:      ex.valor_total,
       nome_cliente:     ex.nome_cliente,
-      // undefined = link será gerado no envio (mostra placeholder no preview)
-      // null      = sem link (PIX manual)
-      // string    = link já disponível
-      link_pagamento:   exLink ?? ex.link_pagamento ?? (gerandoLink ? undefined : null),
+      credito_aplicado: ex.credito_aplicado,
+      pago_com_credito: pagoCreditoEx,
+      link_pagamento: pagoCreditoEx
+        ? null
+        : exLink ?? ex.link_pagamento ?? (gerandoLink ? undefined : null),
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx))
-  }, [ex, stIdx, liveData, exLink])
+  }, [ex, liveData, exLink, gerandoLink, pagoCreditoEx, stIdx])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase !== "disparando") onClose() }
@@ -2222,31 +2242,53 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
       {/* Footer de ações */}
       {fase === "preview" && (
-        <div className="flex items-center justify-between gap-3 px-6 py-4 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2">
-            {/* Gerar outra variação */}
-            <button onClick={gerarNovaVariacao}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
-              <RefreshCw size={12}/> Outra variação
-            </button>
-            {/* Copiar */}
-            <button onClick={copiarMensagem} disabled={!msgResult}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors disabled:opacity-40"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
-              <Check size={12}/> Copiar
-            </button>
-          </div>
+        <div className="shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          {/* Aviso de erro ao gerar link Asaas */}
+          {erroLink && !pagoCreditoEx && (
+            <div className="flex items-center justify-between gap-3 px-6 py-2.5" style={{ background: "rgba(248,113,113,0.08)", borderBottom: "1px solid rgba(248,113,113,0.2)" }}>
+              <p className="text-xs" style={{ color: "#f87171" }}>
+                ⚠️ Não foi possível gerar o link de pagamento. A compra permanece pendente.
+              </p>
+              <button onClick={gerarLink} disabled={gerandoLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shrink-0 disabled:opacity-50"
+                style={{ borderColor: "#f87171", color: "#f87171", background: "rgba(248,113,113,0.08)" }}>
+                <RefreshCw size={11}/> Tentar novamente
+              </button>
+            </div>
+          )}
+          {/* Gerando link */}
+          {gerandoLink && (
+            <div className="px-6 py-2 flex items-center gap-2" style={{ background: "rgba(99,102,241,0.06)", borderBottom: "1px solid rgba(99,102,241,0.15)" }}>
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                <RefreshCw size={11} style={{ color: "#818cf8" }}/>
+              </motion.div>
+              <p className="text-xs" style={{ color: "#818cf8" }}>Gerando link de pagamento Asaas…</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3 px-6 py-4">
+            <div className="flex items-center gap-2">
+              <button onClick={gerarNovaVariacao}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors"
+                style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
+                <RefreshCw size={12}/> Outra variação
+              </button>
+              <button onClick={copiarMensagem} disabled={!msgResult}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors disabled:opacity-40"
+                style={{ borderColor: "var(--border)", color: "var(--text-secondary)", background: "var(--bg-surface)" }}>
+                <Check size={12}/> Copiar
+              </button>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              {pendentes.length} msg{pendentes.length !== 1 ? "s" : ""} será{pendentes.length !== 1 ? "ão" : ""} enviada{pendentes.length !== 1 ? "s" : ""}
-            </p>
-            <motion.button onClick={disparar} disabled={!podeEnviar} whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
-              style={{ background: podeEnviar ? "#25d366" : "var(--bg-surface)" }}>
-              <Send size={15}/> Disparar Agora
-            </motion.button>
+            <div className="flex items-center gap-3">
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {pendentes.length} msg{pendentes.length !== 1 ? "s" : ""} será{pendentes.length !== 1 ? "ão" : ""} enviada{pendentes.length !== 1 ? "s" : ""}
+              </p>
+              <motion.button onClick={disparar} disabled={!podeEnviar} whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
+                style={{ background: podeEnviar ? "#25d366" : "var(--bg-surface)" }}>
+                <Send size={15}/> Disparar Agora
+              </motion.button>
+            </div>
           </div>
         </div>
       )}
