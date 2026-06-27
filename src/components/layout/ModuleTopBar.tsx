@@ -241,6 +241,28 @@ export function CalculadoraWidget() {
     })
   }, [])
 
+  // Suporte ao teclado quando a calculadora está aberta
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const map: Record<string, string> = {
+        "0":"0","1":"1","2":"2","3":"3","4":"4","5":"5","6":"6","7":"7","8":"8","9":"9",
+        ".":".",",":".",
+        "+":"+","-":"-","*":"×","/":"÷","%":"%",
+        "Enter":"=","=":"=",
+        "Backspace":"⌫","Delete":"C","Escape":"close",
+      }
+      const action = map[e.key]
+      if (!action) return
+      e.preventDefault()
+      if (action === "close") { setOpen(false); return }
+      calcInput(action)
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [open, calcInput, setOpen])
+
   // Layout: C | ⌫ | % | ÷
   //         7 | 8 | 9 | ×
   //         4 | 5 | 6 | -
