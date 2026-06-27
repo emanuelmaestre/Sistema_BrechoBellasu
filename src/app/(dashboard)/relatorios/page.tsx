@@ -549,7 +549,7 @@ export default function RelatoriosPage() {
   const toggle = useCallback((id: ReportKey) => setActive(v => v === id ? null : id), [])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-3 sm:pt-6">
       <div>
         <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Relatórios</h2>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Clique em um relatório para ver os dados, exportar em PDF ou Excel</p>

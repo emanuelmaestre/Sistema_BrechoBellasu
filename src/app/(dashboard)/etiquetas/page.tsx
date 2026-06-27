@@ -1430,7 +1430,7 @@ export default function EtiquetasPage() {
   const [pdfOrderId, setPdfOrderId] = useState<string | null>(null)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 sm:pt-6">
 
       {/* Header */}
       <div className="flex items-center justify-between">

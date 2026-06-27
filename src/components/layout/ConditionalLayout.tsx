@@ -26,7 +26,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: "easeInOut" }}
-          className="flex-1 overflow-y-auto p-3 sm:p-6 min-w-0"
+          className="flex-1 overflow-y-auto px-3 sm:px-6 pb-3 sm:pb-6 min-w-0"
           style={{ background: "var(--bg-base)" }}
         >
           {children}

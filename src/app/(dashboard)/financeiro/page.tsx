@@ -463,7 +463,7 @@ export default function FinanceiroPage() {
   const { sel, onKeyDown: tableKeyDown, reset: resetSel } = useTableKeyNav(contas, () => {/* foco visual apenas */})
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 sm:pt-6">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Financeiro</h2>
         <button onClick={() => setWizard(true)}

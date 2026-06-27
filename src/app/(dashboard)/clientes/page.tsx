@@ -2480,7 +2480,7 @@ function ClientesPageInner() {
   return (
     <div>
       {/* Header + Filtros — sticky colado ao topo do scroll */}
-      <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-4 space-y-3"
+      <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-4 space-y-3"
         style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border)", boxShadow: "0 4px 24px -6px rgba(0,0,0,0.22)" }}>
         <div className="flex items-center justify-between">
           <div>

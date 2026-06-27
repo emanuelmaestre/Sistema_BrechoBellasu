@@ -632,7 +632,7 @@ function AbaGoogle() {
   const pct       = totalSync > 0 ? Math.round((progresso / totalSync) * 100) : 0
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 sm:pt-6">
       {/* Cabeçalho da aba */}
       <div className="flex items-center justify-between">
         <div>

@@ -1237,7 +1237,7 @@ export default function TrocasPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 sm:pt-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Trocas e Devoluções</h2>

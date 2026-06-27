@@ -3030,7 +3030,7 @@ export default function LivePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 sm:pt-6">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
