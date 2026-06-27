@@ -93,12 +93,14 @@ async function processarFollowupConsentimento() {
 
   const { data: clientes, error } = await sb
     .from("clientes")
-    .select("id, nome, celular, consentimento_followup_count")
+    .select("id, nome, celular, consentimento_followup_count, consentimento_respondido_em")
     .eq("notificacao_status", "enviado")
     .eq("aceita_novidades", "aguardando")
     .eq("aceita_lives", "aguardando")
     .lte("consentimento_enviado_em", limite)
     .lt("consentimento_followup_count", cfg.max)
+    // Não envia follow-up se o cliente já respondeu (mesmo que o webhook tenha falhado em atualizar o status)
+    .is("consentimento_respondido_em", null)
     .not("celular", "is", null)
     .limit(30)
 

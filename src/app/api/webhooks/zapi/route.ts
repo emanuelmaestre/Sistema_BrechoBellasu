@@ -27,8 +27,49 @@ interface ZAPIMessageEvent {
 }
 
 // Palavras que significam SIM ou NÃO
-const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo"])
-const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare", "não autorizo", "nao autorizo"])
+const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo", "ok", "ok", "tá", "ta"])
+const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare", "não autorizo", "nao autorizo", "cancela", "cancelar"])
+
+// Extrai o texto de qualquer tipo de mensagem (texto, legenda de imagem, áudio transcrito)
+function extrairTexto(body: ZAPIMessageEvent): string | null {
+  // Texto direto
+  const t = body.text?.message?.trim()
+  if (t) return t
+  // Legenda de imagem
+  const cap = body.image?.caption?.trim()
+  if (cap) return cap
+  // Áudio: Z-API envia type="audio" — sem transcrição automática, mas registramos que recebeu áudio
+  // para futura análise. Por ora retornamos null para áudio sem texto.
+  return null
+}
+
+// Gera variantes do número para cobrir formatos diferentes no banco
+function gerarVariantesNumero(telefone: string): string[] {
+  const variants = new Set<string>()
+  variants.add(telefone)
+
+  // Com/sem DDI 55
+  const semDDI = telefone.startsWith("55") ? telefone.substring(2) : telefone
+  const comDDI = telefone.startsWith("55") ? telefone : `55${telefone}`
+  variants.add(semDDI)
+  variants.add(comDDI)
+
+  // 9º dígito: adiciona/remove o "9" após o DDD (2 dígitos)
+  // Exemplo: 16988XXXXX → 1688XXXXX e vice-versa
+  if (semDDI.length === 11) {
+    // Tem 9º dígito → tenta sem
+    const semNove = semDDI.substring(0, 2) + semDDI.substring(3)
+    variants.add(semNove)
+    variants.add(`55${semNove}`)
+  } else if (semDDI.length === 10) {
+    // Não tem 9º dígito → tenta com
+    const comNove = semDDI.substring(0, 2) + "9" + semDDI.substring(2)
+    variants.add(comNove)
+    variants.add(`55${comNove}`)
+  }
+
+  return Array.from(variants)
+}
 
 // ─── POST — mensagem recebida do cliente ──────────────────
 export async function POST(req: NextRequest) {
@@ -38,11 +79,26 @@ export async function POST(req: NextRequest) {
     // Ignora mensagens enviadas por nós
     if (body.fromMe) return NextResponse.json({ ok: true })
 
-    // Ignora eventos sem texto
-    const texto = body.text?.message?.trim()
-    if (!texto) return NextResponse.json({ ok: true })
-
     const telefone = (body.phone || "").replace(/\D/g, "")
+
+    // Registra áudio recebido no log (pode ser resposta de consentimento por voz)
+    if (body.type === "audio" || body.audio) {
+      const sb = createServerClient()
+      try {
+        await sb.from("whatsapp_log").insert({
+          telefone,
+          tipo: "recebida_audio",
+          mensagem: "[áudio]",
+          status: "enviado",
+        })
+      } catch { /* silencia */ }
+      // Áudio sem transcrição: não podemos detectar SIM/NÃO automaticamente
+      return NextResponse.json({ ok: true })
+    }
+
+    // Ignora eventos sem texto
+    const texto = extrairTexto(body)
+    if (!texto) return NextResponse.json({ ok: true })
 
     const sb = createServerClient()
 
@@ -63,22 +119,20 @@ export async function POST(req: NextRequest) {
 
     if (!ehSim && !ehNao) return NextResponse.json({ ok: true })
 
-    // Tenta encontrar o cliente pelo telefone (com e sem DDI 55)
-    const telVariantes = [telefone]
-    if (telefone.startsWith("55")) telVariantes.push(telefone.substring(2))
-    else telVariantes.push(`55${telefone}`)
+    // Busca cliente por todas as variantes do número (DDI, 9º dígito)
+    const telVariantes = gerarVariantesNumero(telefone)
 
     for (const tel of telVariantes) {
       const { data: cliente } = await sb
         .from("clientes")
         .select("id, notificacao_status, aceita_novidades, aceita_lives")
         .eq("celular", tel)
-        .single()
+        .maybeSingle()
 
       if (!cliente) continue
 
-      // Só processa se estava aguardando resposta
-      if (cliente.notificacao_status !== "enviado") break
+      // Processa se estava aguardando (enviado) OU ainda em pendente por atraso
+      if (cliente.notificacao_status !== "enviado" && cliente.notificacao_status !== "pendente") break
 
       const novoStatus = ehSim ? "autorizado" : "recusado"
       const novoConsent = ehSim ? "confirmado" : "recusado"
@@ -88,8 +142,19 @@ export async function POST(req: NextRequest) {
           notificacao_status: novoStatus,
           aceita_novidades: novoConsent,
           aceita_lives: novoConsent,
+          consentimento_respondido_em: new Date().toISOString(),
         })
         .eq("id", cliente.id)
+
+      // Loga a resposta processada
+      try {
+        await sb.from("whatsapp_log").insert({
+          telefone,
+          tipo: ehSim ? "consentimento_autorizado" : "consentimento_recusado",
+          mensagem: texto.substring(0, 200),
+          status: "enviado",
+        })
+      } catch { /* silencia */ }
 
       break
     }

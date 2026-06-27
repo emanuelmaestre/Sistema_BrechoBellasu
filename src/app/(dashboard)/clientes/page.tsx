@@ -2478,7 +2478,7 @@ function ClientesPageInner() {
   const { sel, onKeyDown: tableKeyDown, reset: resetSel } = useTableKeyNav(clientes, (c) => abrirDrawer(c))
 
   return (
-    <div className="space-y-5">
+    <div>
       {/* Header + Filtros — sticky colado ao topo do scroll */}
       <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 pb-4 pt-3 space-y-3"
         style={{ background: "var(--bg-base)", borderBottom: "1px solid var(--border)", boxShadow: "0 4px 24px -6px rgba(0,0,0,0.22)" }}>
