@@ -2651,17 +2651,17 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             <>
               <motion.button onClick={() => setModalCompra(true)}
                 whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
                 style={{ background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
                 <Plus size={14}/> Adicionar Compra
               </motion.button>
 
               <motion.button onClick={() => setModalFoto(true)}
                 whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
-                style={{ background: "var(--bg-surface)", color: COR_LIVE, border: `1px solid ${COR_LIVE}55` }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
+                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid transparent" }}
                 title="Tire uma foto do caderno e o sistema identifica as compras automaticamente">
-                <CameraIcon size={14}/> Importar por Foto
+                <CameraIcon size={14}/> Importar Foto
               </motion.button>
 
               {msgPendentes > 0 && (
@@ -2669,18 +2669,19 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
                   animate={{ boxShadow: ["0 0 0px #25d36600","0 0 18px #25d36655","0 0 0px #25d36600"] }}
                   transition={{ boxShadow: { repeat: Infinity, duration: 2.2 }, scale: {}, y: {} }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white whitespace-nowrap shrink-0"
                   style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
                   <Send size={14}/> Disparar Mensagens
                 </motion.button>
               )}
 
+              <span className="w-px h-6 mx-1 shrink-0" style={{ background: "var(--border)" }}/>
 
               <motion.button onClick={podeEncerrar ? encerrar : undefined} disabled={encerrando}
                 whileHover={podeEncerrar ? { scale: 1.03, y: -1 } : {}}
                 whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3,3,-3,0] }}
                 transition={podeEncerrar ? {} : { duration: 0.25 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-all whitespace-nowrap shrink-0"
                 style={{
                   background: podeEncerrar ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "transparent",
                   color: podeEncerrar ? "white" : "var(--text-muted)",
@@ -2693,7 +2694,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
               <motion.button onClick={excluir} disabled={excluindo}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-opacity"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-opacity whitespace-nowrap shrink-0"
                 style={{ color: COR_LIVE, opacity: excluindo ? 0.5 : 1 }}>
                 <Trash2 size={13}/> {excluindo ? "Excluindo..." : "Excluir"}
               </motion.button>
