@@ -8,7 +8,7 @@ import {
   Check, Search, ShoppingBag, User, ChevronDown, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle,
+  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
@@ -26,6 +26,7 @@ import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParcelamento } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
+import ImportarPorFoto from "@/components/live/ImportarPorFoto"
 
 // ─── Tipos ────────────────────────────────────────────────
 export interface Compra {
@@ -2433,6 +2434,7 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
 function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }) {
   const qc = useQueryClient()
   const [modalCompra, setModalCompra]   = useState(false)
+  const [modalFoto, setModalFoto]       = useState(false)
   const [modalDisparar, setModalDisp]   = useState(false)
   const [modalAviso, setModalAviso]     = useState(false)
   const [modalVinculo, setModalVinculo] = useState<Compra | null>(null)
@@ -2652,6 +2654,14 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
                 style={{ background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
                 <Plus size={14}/> Adicionar Compra
+              </motion.button>
+
+              <motion.button onClick={() => setModalFoto(true)}
+                whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide"
+                style={{ background: "var(--bg-surface)", color: COR_LIVE, border: `1px solid ${COR_LIVE}55` }}
+                title="Tire uma foto do caderno e o sistema identifica as compras automaticamente">
+                <CameraIcon size={14}/> Importar por Foto
               </motion.button>
 
               {msgPendentes > 0 && (
@@ -3011,6 +3021,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       {/* Modais */}
       <AnimatePresence>
         {modalCompra   && <WizardCompra  liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {modalFoto     && <ImportarPorFoto liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalFoto(false)} onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
       {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
