@@ -27,10 +27,11 @@ interface VendaListItem {
 interface VendaDetalhe extends VendaListItem {
   desconto: number; observacoes: string | null
   cliente_celular?: string | null
-  itens: { nome_produto: string; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
+  itens: { nome_produto: string; codigo_produto?: string | null; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
 }
 interface WizItem {
   produto_id: number | null; nome_produto: string
+  codigo_produto?: string | null
   quantidade: number; preco_unitario: number
   marca?: string | null
 }
@@ -186,7 +187,10 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                     style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                     <div>
                       <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{it.quantidade}x · {fmtBRL(it.preco_unitario)}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
+                        {it.quantidade}x · {fmtBRL(it.preco_unitario)}
+                      </p>
                     </div>
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                       {fmtBRL(it.subtotal ?? it.quantidade * it.preco_unitario)}
@@ -410,7 +414,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
   }
 
   function adicionarProduto(p: Produto) {
-    setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, quantidade: 1, preco_unitario: p.preco_venda ?? 0, marca: (p as { marca?: string }).marca ?? null }])
+    setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, codigo_produto: (p as { codigo?: string | null }).codigo ?? null, quantidade: 1, preco_unitario: p.preco_venda ?? 0, marca: (p as { marca?: string }).marca ?? null }])
     setProdBusca(""); setProdRes([])
   }
 
@@ -720,9 +724,10 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                          {it.preco_unitario > 0 && (
-                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(it.preco_unitario)}</p>
-                          )}
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
+                            {it.preco_unitario > 0 && fmtBRL(it.preco_unitario)}
+                          </p>
                         </div>
                         <button onClick={() => removerItem(i)} className="ml-3 p-1 rounded-lg transition-colors"
                           style={{ color: "var(--text-muted)" }}
@@ -1121,7 +1126,10 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${COR}` }}>
                       <div>
                         <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{it.quantidade}x · {fmtBRL(it.preco_unitario)}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
+                          {it.quantidade}x · {fmtBRL(it.preco_unitario)}
+                        </p>
                       </div>
                       <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                         {fmtBRL(it.preco_unitario * it.quantidade)}

@@ -16,12 +16,14 @@ export const GET = withAuth(async (req: NextRequest) => {
   const from        = (page - 1) * limit
   const to          = from + limit - 1
 
+  const ordemCodigo = searchParams.get("ordem_codigo") === "desc" ? false : true
+
   const sb = createServerClient()
   let q = sb.from("produtos").select("*, categorias(nome)", { count: "exact" })
   if (busca)       q = q.or(`nome.ilike.%${busca}%,codigo.ilike.%${busca}%`)
   if (categoria_id) q = q.eq("categoria_id", categoria_id)
 
-  const { data, count, error } = await q.order("codigo", { ascending: true, nullsFirst: false }).order("nome").range(from, to)
+  const { data, count, error } = await q.order("codigo", { ascending: ordemCodigo, nullsFirst: false }).order("nome").range(from, to)
   if (error) return NextResponse.json({ erro: "Não foi possível carregar os produtos. Tente novamente." }, { status: 500 })
 
   const rows = (data ?? []).map(p => ({ ...p, categoria_nome: (p.categorias as {nome:string}|null)?.nome ?? null, categorias: undefined }))

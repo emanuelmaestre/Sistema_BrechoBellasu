@@ -32,7 +32,7 @@ const EMPTY: ProdutoForm = {
   cor: "", tamanho: "",
 }
 
-const TAMANHOS = ["PP", "P", "M", "G", "GG", "EG", "EXG"]
+const TAMANHOS = ["U", "P", "M", "G", "GG", "EG", "EXG"]
 
 const CORES_PRODUTO: { nome: string; hex: string }[] = [
   // ── Neutros claros ──────────────────────────────────────
@@ -920,6 +920,7 @@ export default function ProdutosPage() {
   const qc = useQueryClient()
   const [busca, setBusca]       = useState("")
   const [catFiltro, setCat]     = useState("")
+  const [ordemCodigo, setOrdemCodigo] = useState<"asc" | "desc">("asc")
   const [wizard, setWizard]       = useState(false)
   const [editForm, setEditForm]   = useState<ProdutoForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
@@ -938,9 +939,9 @@ export default function ProdutosPage() {
   const buscaDebounced = useDebounce(busca, 300)
 
   const { data, isLoading } = useQuery<{ data: Produto[]; total: number }>({
-    queryKey: ["produtos", buscaDebounced, catFiltro],
+    queryKey: ["produtos", buscaDebounced, catFiltro, ordemCodigo],
     queryFn: () => {
-      const qs = new URLSearchParams({ limit: "1000", ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
+      const qs = new URLSearchParams({ limit: "1000", ordem_codigo: ordemCodigo, ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
       return apiGet(`/produtos?${qs}`)
     },
     staleTime: 30_000,
@@ -1029,7 +1030,16 @@ export default function ProdutosPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Código", "Produto", "Cor", "Tamanho", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider">
+                  <button onClick={() => setOrdemCodigo(o => o === "asc" ? "desc" : "asc")}
+                    className="flex items-center gap-1 transition-colors hover:opacity-100"
+                    style={{ color: "var(--accent)" }}
+                    title={ordemCodigo === "asc" ? "Ordenado: A→Z. Clique para Z→A" : "Ordenado: Z→A. Clique para A→Z"}>
+                    <span>Código</span>
+                    <span className="text-[11px]">{ordemCodigo === "asc" ? "↑" : "↓"}</span>
+                  </button>
+                </th>
+                {["Produto", "Cor", "Tamanho", "Marca", "Categoria", "Preço Venda", "Preço Custo", "Estoque", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}

@@ -7,6 +7,7 @@ import { enviarTexto } from "@/lib/zapi"
 import {
   buildCompleteMessage,
   type CompraData,
+  type ProdutoMensagem,
 } from "@/lib/live-message-builder"
 
 export const dynamic = "force-dynamic"
@@ -96,6 +97,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
+  // ── Produtos vinculados à compra ──
+  const { data: produtosRaw } = await sb
+    .from("live_compra_produtos")
+    .select("nome_produto, preco_live, preco_original, produtos(marca, cor, tamanho)")
+    .eq("compra_id", compraId)
+    .order("id")
+
+  const produtos: ProdutoMensagem[] = (produtosRaw ?? []).map((p: Record<string, unknown>) => {
+    const prod = p.produtos as { marca?: string | null; cor?: string | null; tamanho?: string | null } | null
+    return {
+      nome:    String(p.nome_produto ?? ""),
+      marca:   prod?.marca ?? null,
+      cor:     prod?.cor ?? null,
+      tamanho: prod?.tamanho ?? null,
+      preco:   parseFloat(String(p.preco_live ?? p.preco_original ?? 0)),
+    }
+  })
+
   const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
   if (!numero) {
     await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
@@ -127,6 +146,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       credito_aplicado:       creditoAplicado,
       pago_com_credito:       true,
       saldo_credito_anterior: saldoCreditoAtual + creditoAplicado,
+      produtos,
     }
 
     const msgResult = buildCompleteMessage(compraData)
@@ -226,6 +246,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     link_pagamento:         linkPagamento || null,
     credito_aplicado:       creditoAplicado || null,
     saldo_credito_anterior: creditoAplicado > 0 ? saldoCreditoAtual + creditoAplicado : null,
+    produtos,
   }
 
   const msgResult = buildCompleteMessage(compraData)

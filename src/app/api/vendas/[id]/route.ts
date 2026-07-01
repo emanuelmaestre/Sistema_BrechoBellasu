@@ -27,16 +27,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: itensRaw } = await sb
     .from("venda_itens")
-    .select("*, produtos(marca)")
+    .select("*, produtos(marca, codigo)")
     .eq("venda_id", id)
 
   // Mapear itens para o formato esperado pelo frontend
   const itens = (itensRaw ?? []).map((it: Record<string, unknown>) => ({
-    nome_produto:   it.nome,
-    quantidade:     it.qtd,
-    preco_unitario: it.preco_unit,
-    subtotal:       (it.preco_unit as number) * (it.qtd as number),
-    marca:          (it.produtos as { marca?: string } | null)?.marca ?? null,
+    nome_produto:    it.nome,
+    codigo_produto:  (it.produtos as { codigo?: string | null } | null)?.codigo ?? null,
+    quantidade:      it.qtd,
+    preco_unitario:  it.preco_unit,
+    subtotal:        (it.preco_unit as number) * (it.qtd as number),
+    marca:           (it.produtos as { marca?: string } | null)?.marca ?? null,
   }))
 
   const v = venda as Record<string, unknown>

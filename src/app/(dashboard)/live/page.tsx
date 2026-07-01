@@ -60,6 +60,7 @@ interface ProdutoVinculo {
   compra_id: number
   produto_id?: number
   nome_produto: string
+  codigo_produto?: string | null
   quantidade: number
   preco_original: number
   preco_live: number
@@ -598,6 +599,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   const [form, setForm]     = useState<CompraForm>(EMPTY_COMPRA)
   const [erro, setErro]     = useState("")
   const [saving, setSaving] = useState(false)
+  const [compraSalva, setCompraSalva] = useState<Compra | null>(null)
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   const TOTAL = 4
 
@@ -656,7 +658,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
     try {
       const valorTotalNum = parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0
       const creditoAplicado = form.cliente_id ? Math.min(saldoCredito, valorTotalNum) : 0
-      await apiPost(`/live/${liveId}/compras`, {
+      const res = await apiPost<{ id: number }>(`/live/${liveId}/compras`, {
         cliente_id:        form.cliente_id ?? undefined,
         nome_cliente:      form.nome_cliente || cliBusca.trim(),
         whatsapp:          form.whatsapp || undefined,
@@ -671,7 +673,19 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
         link_pagamento:    form.link_pagamento || undefined,
         status_compra:     "cadastrada",
       })
-      onSalvo(); onClose()
+      onSalvo()
+      setCompraSalva({
+        id:              res.id,
+        nome_cliente:    form.nome_cliente || cliBusca.trim(),
+        whatsapp:        form.whatsapp || undefined,
+        cor_sacola:      form.cor_sacola || undefined,
+        numero_sacola:   form.numero_sacola || undefined,
+        quantidade_itens: parseInt(form.quantidade_itens) || 1,
+        valor_total:     valorTotalNum,
+        desconto:        parseFloat(form.desconto.replace(/\./g, "").replace(",", ".")) || 0,
+        credito_aplicado: creditoAplicado,
+        msg_status:      "pendente",
+      })
     } catch { setErro("Erro ao registrar compra.") } finally { setSaving(false) }
   }
 
@@ -1038,8 +1052,8 @@ function ModalVinculo({
   liveId, compra, onClose, onAtualizado,
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
   const [busca,   setBusca]   = useState("")
-  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; preco_venda?: number; estoque_atual?: number }>>([])
-  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", quantidade: "", preco_original: "", preco_live: "" })
+  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; codigo?: string | null; preco_venda?: number; estoque_atual?: number }>>([])
+  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", codigo_produto: "", quantidade: "", preco_original: "", preco_live: "" })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
   const [finalizando, setFin] = useState(false)
@@ -1085,7 +1099,7 @@ function ModalVinculo({
   function selecionarProd(p: typeof prodRes[0]) {
     const precoNum = Number(p.preco_venda) || 0
     const preco = precoNum > 0 ? precoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
-    setForm({ produto_id: p.id, nome_produto: p.nome, quantidade: "1", preco_original: preco, preco_live: "" })
+    setForm({ produto_id: p.id, nome_produto: p.nome, codigo_produto: p.codigo ?? "", quantidade: "1", preco_original: preco, preco_live: "" })
     setBusca(p.nome); setProdRes([])
   }
 
@@ -1101,7 +1115,7 @@ function ModalVinculo({
         preco_live: parseFloat(String(form.preco_live).replace(/\./g, "").replace(",", ".")) || 0,
       })
       setBusca(""); setProdRes([])
-      setForm({ produto_id: 0, nome_produto: "", quantidade: "", preco_original: "", preco_live: "" })
+      setForm({ produto_id: 0, nome_produto: "", codigo_produto: "", quantidade: "", preco_original: "", preco_live: "" })
       refetch(); onAtualizado()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao vincular produto.")
@@ -1262,6 +1276,7 @@ function ModalVinculo({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-black uppercase tracking-wide truncate leading-tight"
                           style={{ color: "var(--text-primary)" }}>{p.nome_produto}</p>
+                        {p.codigo_produto && <p className="text-[10px] font-mono mb-0.5" style={{ color: "var(--text-muted)" }}>{p.codigo_produto}</p>}
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
                             style={{ background: "var(--bg-hover)", color: "var(--text-muted)" }}>{p.quantidade}x</span>
@@ -1390,7 +1405,10 @@ function ModalVinculo({
                               style={{ background: "var(--accent-bg)" }}>
                               <Package size={13} style={{ color: "var(--accent)" }}/>
                             </div>
-                            <span className="text-sm font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>{p.nome.toUpperCase()}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>{p.nome.toUpperCase()}</span>
+                              {p.codigo && <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{p.codigo}</span>}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-[11px] font-bold" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda ?? 0)}</span>
@@ -1425,8 +1443,11 @@ function ModalVinculo({
                         style={{ background: "var(--accent)", boxShadow: "0 2px 8px var(--accent-bg)" }}>
                         <Package size={15} color="#fff"/>
                       </motion.div>
-                      <p className="text-xs font-black uppercase tracking-wide flex-1 min-w-0 truncate"
-                        style={{ color: "var(--accent)" }}>{form.nome_produto}</p>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <p className="text-xs font-black uppercase tracking-wide truncate"
+                          style={{ color: "var(--accent)" }}>{form.nome_produto}</p>
+                        {form.codigo_produto && <p className="text-[10px] font-mono" style={{ color: "var(--accent)", opacity: 0.65 }}>{form.codigo_produto}</p>}
+                      </div>
                     </div>
                     <div className="px-4 pb-4 grid grid-cols-3 gap-2.5">
                       {/* QTD */}
@@ -2772,7 +2793,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   {compras.map((c, idx) => {
                     const sc = STATUS_COMPRA[c.status_compra ?? "cadastrada"] ?? STATUS_COMPRA.cadastrada
                     const progVinculo = c.quantidade_itens ? Math.min(100, ((c.total_produtos_vinculados ?? 0) / c.quantidade_itens) * 100) : 0
-                    const podeVincular = (live.status === "disparada" || compras.some(x => x.msg_status === "enviada")) && c.status_compra !== "retirada"
+                    const podeVincular = live.status !== "encerrada" && c.status_compra !== "retirada"
 
                     return (
                       <motion.tr key={c.id}
@@ -2882,7 +2903,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                                 <Pencil size={10}/> EDITAR
                               </motion.button>
                             )}
-                            {live.status !== "encerrada" && podeVincular && (
+                            {podeVincular && (
                               <motion.button onClick={() => setModalVinculo(c)}
                                 whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
                                 className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"

@@ -8,6 +8,14 @@ export const CHAR_TARGET = 940
 
 // ─── Tipos ───────────────────────────────────────────────────────
 
+export interface ProdutoMensagem {
+  nome:     string
+  marca?:   string | null
+  cor?:     string | null
+  tamanho?: string | null
+  preco:    number
+}
+
 export interface CompraData {
   data_compra:             string | null
   data_live:               string | null
@@ -20,6 +28,7 @@ export interface CompraData {
   credito_aplicado?:       number | null
   pago_com_credito?:       boolean        // true = crédito quitou tudo, não gera link
   saldo_credito_anterior?: number | null
+  produtos?:               ProdutoMensagem[]
 }
 
 export type SmallTalkLevel = "COMPLETO" | "MEDIO" | "CURTO" | "FALLBACK"
@@ -303,12 +312,27 @@ Saldo restante: R$ 0,00`
     blocoPagamento = `[ LINK NÃO DISPONÍVEL ]`
   }
 
+  const numerais = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
+  const blocoProdutos = compra.produtos && compra.produtos.length > 0
+    ? `\n——————————————\n🧾 SUAS PEÇAS\n——————————————\n\n` +
+      compra.produtos.map((p, i) => {
+        const num = numerais[i] ?? `${i + 1}.`
+        const linhas = [`${num} ${p.nome}`]
+        if (p.marca)   linhas.push(`👗 Marca: ${p.marca}`)
+        if (p.cor)     linhas.push(`🎨 Cor: ${p.cor}`)
+        if (p.tamanho) linhas.push(`📐 Tamanho: ${p.tamanho}`)
+        linhas.push(`💵 Valor: ${fmtVal(p.preco)}`)
+        return linhas.join("\n")
+      }).join("\n\n") +
+      `\n\n——————————————`
+    : ""
+
   return `📅 Data da compra: ${fmtData(compra.data_compra ?? compra.data_live)}
 🎥 Data da live: ${fmtData(compra.data_live)}
 🛍️ Nº da sacola: ${num}
 🎨 Cor da sacola: ${compra.cor_sacola || "—"}
 📦 Quantidade de itens: ${qtd} ${qtdLabel}
-${blocoValor}
+${blocoValor}${blocoProdutos}
 
 Pagamento:
 
@@ -322,7 +346,7 @@ End. p/ retirada:
 
 ⚠️ ATENÇÃO:
 
-Para entrega, envie o endereço completo apenas se for diferente do cadastrado. A taxa é de R$ 15,00. 🛵
+Para entrega, envie o endereço completo apenas se for diferente do cadastrado. A taxa é de R$ 15,00 para Ribeirão Preto/SP. 🛵 Para outras cidades, o frete fica a combinar.
 
 É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA.
 
