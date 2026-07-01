@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ ok: true })
   }
 
-  const pendentes = compras.filter(c => c.status_compra !== "finalizada")
+  const pendentes = compras.filter(c => c.status_compra !== "finalizada" && c.status_compra !== "retirada")
   if (pendentes.length > 0) {
     return NextResponse.json({
       erro: `Ainda existem ${pendentes.length} compra(s) sem produtos vinculados ou não finalizadas. Finalize todas as compras antes de encerrar a live.`,

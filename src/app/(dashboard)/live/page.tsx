@@ -2560,7 +2560,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   }
   const g = guia()
 
-  const podeEncerrar = live.status !== "encerrada" && compras.length > 0 && compras.every(c => c.status_compra === "finalizada")
+  const podeEncerrar = live.status !== "encerrada" && compras.length > 0 && compras.every(c => c.status_compra === "finalizada" || c.status_compra === "retirada")
 
   const METRICAS = [
     { icon: <Users size={14}/>,        label: "CLIENTES",      val: totalClientes,           cor: "#6366f1" },

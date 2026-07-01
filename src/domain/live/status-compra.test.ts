@@ -10,8 +10,8 @@ describe("calcularStatusCompra", () => {
   it("vinculo_parcial quando vinculou menos que o esperado", () => {
     expect(calcularStatusCompra(3, [v(1, true)])).toBe("vinculo_parcial")
   })
-  it("vinculada quando vinculou tudo e baixou tudo", () => {
-    expect(calcularStatusCompra(2, [v(1, true), v(1, true)])).toBe("vinculada")
+  it("finalizada quando vinculou tudo e baixou tudo (auto-finaliza)", () => {
+    expect(calcularStatusCompra(2, [v(1, true), v(1, true)])).toBe("finalizada")
   })
   it("vinculo_parcial quando vinculou mas não baixou tudo", () => {
     expect(calcularStatusCompra(2, [v(2, false)])).toBe("vinculo_parcial")
