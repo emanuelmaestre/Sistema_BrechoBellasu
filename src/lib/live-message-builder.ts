@@ -193,13 +193,19 @@ export function buildSmallTalk(level: SmallTalkLevel, nome: string | null, idx: 
 }
 
 export function selectSmallTalkByAvailableLength(compra: CompraData, idx: number): SmallTalkLevel {
-  const dataPrazo  = prazoPagamento(compra.data_live)
-  const fixedBlock = buildFixedContent(compra, dataPrazo)
-  const available  = CHAR_LIMIT - countCharacters(fixedBlock) - 2
-  const nome       = validateCustomerName(compra.nome_cliente)
+  const dataPrazo = prazoPagamento(compra.data_live)
+  const nome      = validateCustomerName(compra.nome_cliente)
   const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
-  for (const level of levels) {
-    if (countCharacters(buildSmallTalk(level, nome, idx)) <= available) return level
+  // Calcula com a variante que buildCompleteMessage vai usar: tenta com produtos, cai para sem
+  const variantes: CompraData[] = compra.produtos && compra.produtos.length > 0
+    ? [compra, { ...compra, produtos: [] }]
+    : [compra]
+  for (const variante of variantes) {
+    const fixedBlock = buildFixedContent(variante, dataPrazo)
+    const available  = CHAR_LIMIT - countCharacters(fixedBlock) - 2
+    for (const level of levels) {
+      if (countCharacters(buildSmallTalk(level, nome, idx)) <= available) return level
+    }
   }
   return "FALLBACK"
 }

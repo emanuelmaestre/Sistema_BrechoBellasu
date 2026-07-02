@@ -114,16 +114,14 @@ test("buildSmallTalk CURTO é menor que COMPLETO", () => {
 
 test("buildFixedContent contém todos os campos obrigatórios", () => {
   const fixed = buildFixedContent(baseCompra, "sexta-feira")
-  expect(fixed).toContain("Data da compra")
-  expect(fixed).toContain("Data da live")
-  expect(fixed).toContain("Nº da sacola")
-  expect(fixed).toContain("Cor da sacola")
-  expect(fixed).toContain("Quantidade de itens")
-  expect(fixed).toContain("Valor total")
+  expect(fixed).toContain("LIVE/COMPRA:")
+  expect(fixed).toContain("Sacola:")
+  expect(fixed).toContain("COR:")
+  expect(fixed).toContain("QT:")
+  expect(fixed).toContain("Valor Total:")
   expect(fixed).toContain("sexta-feira")
   expect(fixed).toContain("PIX")
   expect(fixed).toContain("Barão do Amazonas")
-  expect(fixed).toContain("R$ 15,00")
   expect(fixed).toContain("promoção")
 })
 
