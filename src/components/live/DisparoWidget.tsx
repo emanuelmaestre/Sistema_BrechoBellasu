@@ -10,12 +10,25 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Send, Radio, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus } from "lucide-react"
+import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus } from "lucide-react"
 import { useDisparoStore } from "@/stores/disparo.store"
 
 const LABEL: Record<string, string> = {
   disparo: "Disparando mensagens",
   aviso: "Avisando clientes",
+  consentimento: "Enviando consentimentos",
+}
+
+const COR: Record<string, string> = {
+  disparo: "#25d366",
+  aviso: "#10b981",
+  consentimento: "#7c3aed",
+}
+
+const ICONE: Record<string, typeof Send> = {
+  disparo: Send,
+  aviso: Radio,
+  consentimento: ShieldCheck,
 }
 
 export default function DisparoWidget() {
@@ -29,21 +42,25 @@ export default function DisparoWidget() {
   const [detalhes, setDetalhes] = useState(false)
   const jaInvalidou = useRef<string | null>(null)
 
-  // Quando um job termina, atualiza as queries de live (tabela + lista)
+  // Quando um job termina, atualiza as queries afetadas
   useEffect(() => {
     if (!job || job.status === "running") return
     if (jaInvalidou.current === job.id) return
     jaInvalidou.current = job.id
-    qc.invalidateQueries({ queryKey: ["lives"] })
-    qc.invalidateQueries({ queryKey: ["live-detalhe", job.liveId] })
+    if (job.tipo === "consentimento") {
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+    } else {
+      qc.invalidateQueries({ queryKey: ["lives"] })
+      if (job.liveId != null) qc.invalidateQueries({ queryKey: ["live-detalhe", job.liveId] })
+    }
   }, [job, qc])
 
   if (!job) return null
 
   const running = job.status === "running"
   const pct = job.total > 0 ? Math.round((job.atual / job.total) * 100) : 0
-  const cor = job.tipo === "disparo" ? "#25d366" : "#10b981"
-  const Icone = job.tipo === "disparo" ? Send : Radio
+  const cor = COR[job.tipo] ?? "#10b981"
+  const Icone = ICONE[job.tipo] ?? Send
   const errosLista = job.resultados.filter((r) => r.status === "erro")
 
   // ── Minimizado: pílula compacta ──

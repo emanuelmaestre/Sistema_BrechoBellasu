@@ -88,7 +88,7 @@ const PROMPT = `Você está lendo a foto de uma página de caderno com uma TABEL
 FORMATO FIXO DA TABELA (colunas, da esquerda para a direita):
 - "Nº" → número da sacola (numero_sacola). É o identificador da compra, não o total de itens.
 - "NOME OU INSTAGRAM" → nome completo da cliente OU o @ do Instagram dela. Se for claramente um @ ou handle de rede social, use o campo instagram; se for um nome de pessoa, use nome_cliente.
-- "COR" → cor da sacola. Cores usadas: AMARELO, AZUL, BRANCO, LARANJA, ROSA PINK, VERDE, VERDE ÁGUA.
+- "COR" → cor da sacola. Cores usadas: AMARELO, AZUL, BRANCO, JEANS, LARANJA, ROSA PINK, VERDE, VERDE ÁGUA.
 - "ITEM1" até "ITEM6" → o valor em reais de CADA peça individual comprada (uma coluna por peça). Estas colunas NÃO viram campo próprio na resposta — servem só para você calcular quantidade_itens e valor_total, como descrito abaixo.
 - "QT" → quantidade de itens. Deve ser igual ao número de colunas ITEM1-6 preenchidas com algum valor naquela linha (conte quantas células de ITEM1 a ITEM6 têm número escrito). Se a coluna QT já tiver um número anotado, use-o para conferir; se divergir do que você contou, prefira o que você contou nas colunas ITEM1-6.
 - "TOTAL" → valor total da compra. Deve ser igual à SOMA dos valores preenchidos em ITEM1 até ITEM6 daquela linha. Se a coluna TOTAL já tiver um número anotado, use-o para conferir; se divergir da soma que você calculou, prefira a soma calculada a partir de ITEM1-6.

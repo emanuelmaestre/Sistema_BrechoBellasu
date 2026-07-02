@@ -20,7 +20,7 @@ import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 // Mesmo intervalo usado antes nas telas cheias (anti-bloqueio do WhatsApp)
 const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
-export type JobTipo = "disparo" | "aviso"
+export type JobTipo = "disparo" | "aviso" | "consentimento"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
 
 export interface JobItemResult {
@@ -33,8 +33,8 @@ export interface JobItemResult {
 export interface DisparoJob {
   id: string
   tipo: JobTipo
-  liveId: number
-  liveTitulo: string
+  liveId?: number        // ausente em jobs que não são de uma live (ex: consentimento)
+  liveTitulo: string     // subtítulo exibido no widget
   total: number
   atual: number          // itens já processados
   nomeAtual: string
@@ -54,6 +54,8 @@ interface DisparoState {
   iniciarDisparo: (p: { liveId: number; liveTitulo: string }) => boolean
   /** Inicia o aviso de live (1º envio ou reenvio). Retorna false se já há job rodando. */
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string }) => boolean
+  /** Inicia o disparo de consentimento (LGPD) para clientes ainda não notificados. Retorna false se já há job rodando. */
+  iniciarConsentimento: () => boolean
   cancelar: () => void
   dispensar: () => void
   setMinimized: (v: boolean) => void
@@ -162,9 +164,9 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
     }
   }
 
-  function novoJob(tipo: JobTipo, liveId: number, liveTitulo: string): DisparoJob {
+  function novoJob(tipo: JobTipo, liveTitulo: string, liveId?: number): DisparoJob {
     return {
-      id: `${tipo}-${liveId}-${Date.now()}`,
+      id: `${tipo}-${liveId ?? "geral"}-${Date.now()}`,
       tipo, liveId, liveTitulo,
       total: 0, atual: 0, nomeAtual: "", aguardando: 0,
       status: "running", enviadas: 0, erros: 0, resultados: [],
@@ -178,7 +180,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
 
     iniciarDisparo: ({ liveId, liveTitulo }) => {
       if (get().job?.status === "running") return false
-      set({ job: novoJob("disparo", liveId, liveTitulo), minimized: false })
+      set({ job: novoJob("disparo", liveTitulo, liveId), minimized: false })
       void rodar(
         async () => {
           const r = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
@@ -200,7 +202,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
 
     iniciarAviso: ({ liveId, liveTitulo, link }) => {
       if (get().job?.status === "running") return false
-      set({ job: novoJob("aviso", liveId, liveTitulo), minimized: false })
+      set({ job: novoJob("aviso", liveTitulo, liveId), minimized: false })
       void rodar(
         async () => {
           const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; mensagem?: string }>(`/live/${liveId}/aviso`)
@@ -209,6 +211,28 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
         async (item) => {
           const r = await apiPost<{ status: string; detalhe?: string }>(
             `/live/${liveId}/aviso`, { link, cliente_id: item.id },
+          )
+          return {
+            id: item.id, nome: item.nome,
+            status: r.status === "enviado" ? "enviada" : "erro",
+            detalhe: r.detalhe,
+          }
+        },
+      )
+      return true
+    },
+
+    iniciarConsentimento: () => {
+      if (get().job?.status === "running") return false
+      set({ job: novoJob("consentimento", "Clientes sem consentimento"), minimized: false })
+      void rodar(
+        async () => {
+          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>("/admin/consentimento-nao-enviado")
+          return { itens: r.clientes ?? [], aviso: "Nenhuma cliente pendente — todas já receberam o consentimento." }
+        },
+        async (item) => {
+          const r = await apiPost<{ status: string; detalhe?: string }>(
+            "/admin/consentimento-nao-enviado", { cliente_id: item.id },
           )
           return {
             id: item.id, nome: item.nome,

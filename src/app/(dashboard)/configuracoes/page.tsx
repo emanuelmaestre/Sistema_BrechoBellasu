@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { cn } from "@/lib/utils"
-import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
+import { useDisparoStore } from "@/stores/disparo.store"
 
 // ── Tipos ────────────────────────────────────────────────────
 interface EmpresaConfig {
@@ -1190,27 +1190,18 @@ function AbaAlertas() {
   )
 }
 
-function nomeProprio(nome: string): string {
-  return nome
-    .toLowerCase()
-    .split(" ")
-    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(" ")
-}
 
 // ══════════════════════════════════════════════════════════
 // Disparo manual de consentimento para clientes não enviados
 // ══════════════════════════════════════════════════════════
 function DisparoConsentimentoNaoEnviado() {
-  type Fase = "idle" | "carregando" | "confirmando" | "disparando" | "concluido"
+  type Fase = "idle" | "carregando" | "confirmando"
   type Item = { id: number; nome: string }
-  type Resultado = { id: number; nome: string; status: string; detalhe?: string }
 
   const [fase, setFase] = useState<Fase>("idle")
   const [clientes, setClientes] = useState<Item[]>([])
-  const [resultados, setResultados] = useState<Resultado[]>([])
-  const [prog, setProg] = useState({ atual: 0, total: 0, nome: "", aguardando: 0 })
-  const cancelarRef = { current: false }
+  const iniciarConsentimento = useDisparoStore(s => s.iniciarConsentimento)
+  const jobRodando = useDisparoStore(s => s.job?.status === "running")
 
   async function carregar() {
     setFase("carregando")
@@ -1221,47 +1212,16 @@ function DisparoConsentimentoNaoEnviado() {
     } catch { setFase("idle") }
   }
 
-  async function disparar() {
-    cancelarRef.current = false
-    setFase("disparando")
-    setProg({ atual: 0, total: clientes.length, nome: "", aguardando: 0 })
-    const acc: Resultado[] = []
-    let intervaloAnterior: number | undefined
-
-    for (let i = 0; i < clientes.length; i++) {
-      if (cancelarRef.current) break
-      const cliente = clientes[i]
-
-      if (i > 0) {
-        const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, { minMs: 80_000, maxMs: 150_000, deltaMinMs: 10_000 })
-        intervaloAnterior = intervaloMs
-        let restante = Math.ceil(intervaloMs / 1000)
-        setProg({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
-        while (restante > 0 && !cancelarRef.current) {
-          await new Promise(r => setTimeout(r, 1000))
-          restante--
-          setProg(p => ({ ...p, aguardando: restante }))
-        }
-        if (cancelarRef.current) break
-      }
-
-      setProg({ atual: i + 1, total: clientes.length, nome: cliente.nome, aguardando: 0 })
-      try {
-        const res = await apiPost<Resultado>("/admin/consentimento-nao-enviado", { cliente_id: cliente.id })
-        acc.push(res)
-      } catch (e) {
-        acc.push({ id: cliente.id, nome: cliente.nome, status: "erro", detalhe: (e as Error).message })
-      }
-    }
-
-    setResultados(acc)
-    setFase("concluido")
+  // Enfileira o disparo no store global e fecha o modal. O envio roda em
+  // segundo plano (widget flutuante), com intervalo seguro entre cada
+  // mensagem — o operador continua usando o sistema normalmente.
+  function disparar() {
+    const ok = iniciarConsentimento()
+    if (!ok) return   // já há um envio em andamento
+    fechar()
   }
 
-  function fechar() { setFase("idle"); setClientes([]); setResultados([]) }
-
-  const enviados = resultados.filter(r => r.status === "enviado").length
-  const erros = resultados.filter(r => r.status === "erro").length
+  function fechar() { setFase("idle"); setClientes([]) }
 
   return (
     <>
@@ -1273,18 +1233,23 @@ function DisparoConsentimentoNaoEnviado() {
               Envia o consentimento inicial para clientes que ainda não receberam, com intervalo de 80–150s entre cada envio.
             </p>
           </div>
-          <button onClick={carregar} disabled={fase !== "idle"}
+          <button onClick={carregar} disabled={fase !== "idle" || jobRodando}
             className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50"
             style={{ background: "#7c3aed" }}>
             {fase === "carregando" ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
             Disparar
           </button>
         </div>
+        {jobRodando && (
+          <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+            Já existe um envio em andamento (veja o indicador no canto da tela). Aguarde terminar para iniciar outro.
+          </p>
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal de confirmação */}
       <AnimatePresence>
-        {fase !== "idle" && fase !== "carregando" && (
+        {fase === "confirmando" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
@@ -1295,99 +1260,34 @@ function DisparoConsentimentoNaoEnviado() {
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
                 <span className="font-bold text-sm" style={{ color: "#7c3aed" }}>Disparo de Consentimento</span>
-                {fase !== "disparando" && (
-                  <button onClick={fechar}><X size={16} style={{ color: "var(--text-muted)" }} /></button>
-                )}
+                <button onClick={fechar}><X size={16} style={{ color: "var(--text-muted)" }} /></button>
               </div>
 
               <div className="p-5 space-y-4">
-                {/* Confirmação */}
-                {fase === "confirmando" && (
+                {clientes.length === 0 ? (
+                  <div className="text-center py-4">
+                    <CheckCircle2 size={32} className="mx-auto mb-2" style={{ color: "#10b981" }} />
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Nenhuma cliente pendente!</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Todas as clientes já receberam o consentimento.</p>
+                  </div>
+                ) : (
                   <>
-                    {clientes.length === 0 ? (
-                      <div className="text-center py-4">
-                        <CheckCircle2 size={32} className="mx-auto mb-2" style={{ color: "#10b981" }} />
-                        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Nenhuma cliente pendente!</p>
-                        <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Todas as clientes já receberam o consentimento.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="px-4 py-3 rounded-xl text-center" style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)" }}>
-                          <p className="text-2xl font-bold" style={{ color: "#7c3aed" }}>{clientes.length}</p>
-                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>clientes sem consentimento enviado</p>
-                        </div>
-                        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                          Intervalo de <strong>80 a 150 segundos</strong> entre cada envio. Tempo estimado: <strong>~{Math.round(clientes.length * 115 / 60)} minutos</strong>. Mantenha esta tela aberta.
-                        </p>
-                        <div className="flex gap-2">
-                          <button onClick={fechar} className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ background: "var(--bg-base)", color: "var(--text-secondary)" }}>
-                            Cancelar
-                          </button>
-                          <button onClick={disparar} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: "#7c3aed" }}>
-                            <Send size={13} className="inline mr-1.5" />Disparar Agora
-                          </button>
-                        </div>
-                      </>
-                    )}
+                    <div className="px-4 py-3 rounded-xl text-center" style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)" }}>
+                      <p className="text-2xl font-bold" style={{ color: "#7c3aed" }}>{clientes.length}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>clientes sem consentimento enviado</p>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      Intervalo de <strong>80 a 150 segundos</strong> entre cada envio. Tempo estimado: <strong>~{Math.round(clientes.length * 115 / 60)} minutos</strong>. O envio roda em segundo plano — você pode continuar usando o sistema.
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={fechar} className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ background: "var(--bg-base)", color: "var(--text-secondary)" }}>
+                        Cancelar
+                      </button>
+                      <button onClick={disparar} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: "#7c3aed" }}>
+                        <Send size={13} className="inline mr-1.5" />Disparar Agora
+                      </button>
+                    </div>
                   </>
-                )}
-
-                {/* Disparando */}
-                {fase === "disparando" && (
-                  <div className="space-y-4 text-center">
-                    <motion.div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center"
-                      style={{ background: "rgba(124,58,237,0.12)" }}
-                      animate={{ scale: [1, 1.08, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-                      <Send size={24} style={{ color: "#7c3aed" }} />
-                    </motion.div>
-                    <div>
-                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                        Enviando {prog.atual} de {prog.total}
-                      </p>
-                      {prog.aguardando > 0 ? (
-                        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                          Aguardando <strong>{prog.aguardando}s</strong> para <strong>{nomeProprio(prog.nome)}</strong>
-                        </p>
-                      ) : (
-                        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                          Enviando para <strong>{nomeProprio(prog.nome)}</strong>…
-                        </p>
-                      )}
-                    </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-base)" }}>
-                      <motion.div className="h-full rounded-full" style={{ background: "#7c3aed" }}
-                        animate={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }}
-                        transition={{ ease: "easeOut", duration: 0.5 }} />
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Mantenha esta tela aberta durante o envio.</p>
-                    <button onClick={() => { cancelarRef.current = true }}
-                      className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--border)", color: "#f87171" }}>
-                      Parar disparo
-                    </button>
-                  </div>
-                )}
-
-                {/* Concluído */}
-                {fase === "concluido" && (
-                  <div className="space-y-3">
-                    <div className="text-center">
-                      <CheckCircle2 size={36} className="mx-auto mb-2" style={{ color: erros === 0 ? "#10b981" : "#f59e0b" }} />
-                      <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{enviados} enviado{enviados !== 1 ? "s" : ""}</p>
-                      {erros > 0 && <p className="text-sm" style={{ color: "#f87171" }}>{erros} com erro</p>}
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-1.5">
-                      {resultados.map(r => (
-                        <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs"
-                          style={{ background: "var(--bg-base)", border: "1px solid var(--border)" }}>
-                          <span style={{ color: "var(--text-primary)" }}>{nomeProprio(r.nome ?? "")}</span>
-                          <span className={cn("font-semibold", r.status === "enviado" ? "text-emerald-400" : "text-red-400")}>{r.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={fechar} className="w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: "#7c3aed" }}>
-                      Fechar
-                    </button>
-                  </div>
                 )}
               </div>
             </motion.div>
