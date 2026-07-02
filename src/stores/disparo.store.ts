@@ -66,15 +66,31 @@ interface DisparoState {
 // Estado de controle fora do React (sobrevive a re-render/navegação)
 let cancelFlag = false
 let wakeLock: WakeLockSentinel | null = null
+let wakeLockVisibilityListener: (() => void) | null = null
 
 async function pedirWakeLock() {
   try {
-    if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen")
+    if (!("wakeLock" in navigator)) return
+    wakeLock = await navigator.wakeLock.request("screen")
+    // Quando o browser libera o Wake Lock (minimizar, trocar aba, tela escurecer),
+    // re-solicita assim que a página volta a ficar visível
+    if (!wakeLockVisibilityListener) {
+      wakeLockVisibilityListener = async () => {
+        if (document.visibilityState === "visible" && wakeLock !== null) {
+          try { wakeLock = await navigator.wakeLock.request("screen") } catch { /* sem suporte */ }
+        }
+      }
+      document.addEventListener("visibilitychange", wakeLockVisibilityListener)
+    }
   } catch { /* sem suporte ou negado — segue sem */ }
 }
 function soltarWakeLock() {
   wakeLock?.release().catch(() => {})
   wakeLock = null
+  if (wakeLockVisibilityListener) {
+    document.removeEventListener("visibilitychange", wakeLockVisibilityListener)
+    wakeLockVisibilityListener = null
+  }
 }
 
 /** Espera `segundos`, atualizando o contador regressivo a cada 1s. Aborta se cancelado. */
