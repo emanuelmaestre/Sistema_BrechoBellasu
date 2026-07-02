@@ -373,25 +373,33 @@ export function validateMessageLimit(mensagem: string): { valida: boolean; erro?
 // ─── Builder principal ────────────────────────────────────────────
 
 export function buildCompleteMessage(compra: CompraData, idx?: number): MessageResult {
-  const dataPrazo   = prazoPagamento(compra.data_live)
-  const nomeValido  = validateCustomerName(compra.nome_cliente)
-  const fixedBlock  = buildFixedContent(compra, dataPrazo)
-  const fixedChars  = countCharacters(fixedBlock)
-  const chosenIdx   = idx ?? selectSmallTalkIndex()
+  const dataPrazo  = prazoPagamento(compra.data_live)
+  const nomeValido = validateCustomerName(compra.nome_cliente)
+  const chosenIdx  = idx ?? selectSmallTalkIndex()
   const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
 
-  for (const level of levels) {
-    const smallTalk = buildSmallTalk(level, nomeValido, chosenIdx)
-    const mensagem  = `${smallTalk}\n\n${fixedBlock}`
-    const chars     = countCharacters(mensagem)
-    if (chars <= CHAR_LIMIT) {
-      return { mensagem, chars, bytes: countUtf8Bytes(mensagem), level, smallTalkIndex: chosenIdx, valida: true }
+  // Tenta primeiro com produtos, depois sem — garante que o limite seja respeitado
+  const variantes: CompraData[] = compra.produtos && compra.produtos.length > 0
+    ? [compra, { ...compra, produtos: [] }]
+    : [compra]
+
+  for (const variante of variantes) {
+    const fixedBlock = buildFixedContent(variante, dataPrazo)
+    for (const level of levels) {
+      const smallTalk = buildSmallTalk(level, nomeValido, chosenIdx)
+      const mensagem  = `${smallTalk}\n\n${fixedBlock}`
+      const chars     = countCharacters(mensagem)
+      if (chars <= CHAR_LIMIT) {
+        return { mensagem, chars, bytes: countUtf8Bytes(mensagem), level, smallTalkIndex: chosenIdx, valida: true }
+      }
     }
   }
 
-  const fallback = buildSmallTalk("FALLBACK", null, chosenIdx)
-  const mensagem = `${fallback}\n\n${fixedBlock}`
-  const chars    = countCharacters(mensagem)
+  // Último recurso: sem produtos + FALLBACK (nunca deveria chegar aqui)
+  const fixedBlock = buildFixedContent({ ...compra, produtos: [] }, dataPrazo)
+  const fallback   = buildSmallTalk("FALLBACK", null, chosenIdx)
+  const mensagem   = `${fallback}\n\n${fixedBlock}`
+  const chars      = countCharacters(mensagem)
   return {
     mensagem, chars,
     bytes:          countUtf8Bytes(mensagem),
