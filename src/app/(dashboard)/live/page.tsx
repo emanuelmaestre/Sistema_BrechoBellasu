@@ -1816,8 +1816,8 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
   // Produtos ilustrativos para o preview (mostram o layout, não são os reais)
   const PRODUTOS_EXEMPLO: ProdutoMensagem[] = [
-    { nome: "Blusa Floral", marca: "Farm", cor: "Rosa", tamanho: "M", preco: 0 },
-    { nome: "Calça Jeans", cor: "Azul", tamanho: "38", preco: 0 },
+    { nome: "Blusa Floral", marca: "Farm", cor: "Rosa", tamanho: "M", preco: 35 },
+    { nome: "Calça Jeans", cor: "Azul", tamanho: "38", preco: 55 },
     { nome: "Cinto", preco: 0 },
   ].slice(0, Math.max(1, Math.min(ex?.quantidade_itens ?? 1, 3)))
 

@@ -293,14 +293,14 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   const temCredito  = credito > 0
   const valorFinal  = Math.max(0, parseFloat(String(compra.valor_total ?? 0)) - desconto - credito)
 
-  const linhasValor = [`💰 Valor total das compras: ${fmtVal(compra.valor_total)}`]
+  const linhasValor = [`💰 Valor Total: ${fmtVal(compra.valor_total)}`]
   if (temDesconto) linhasValor.push(`🏷️ Desconto: − ${fmtVal(desconto)}`)
   if (temCredito)  linhasValor.push(`🎁 Crédito utilizado: − ${fmtVal(credito)}`)
   if (temDesconto || temCredito) linhasValor.push(`✅ Valor final a pagar: ${fmtVal(valorFinal)}`)
   const blocoValor = linhasValor.join("\n")
 
   let blocoPagamento: string
-  let blocoDeadline = `O pagamento deve ser realizado até ${dataPrazo}, às 23h59, via PIX ou Cartão de Crédito, para manter suas peças reservadas. 💖`
+  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 (PIX ou Cartão) para garantir suas peças. 💖`
 
   if (compra.pago_com_credito) {
     blocoPagamento = `✅ Esta compra foi quitada com o seu saldo de crédito.
@@ -319,22 +319,21 @@ Saldo restante: R$ 0,00`
   const blocoProdutos = compra.produtos && compra.produtos.length > 0
     ? `\n——————————————\n🧾 SUAS PEÇAS\n——————————————\n\n` +
       compra.produtos.map((p, i) => {
-        const num = numerais[i] ?? `${i + 1}.`
-        const linhas = [`${num} ${p.nome}`]
-        if (p.marca)   linhas.push(`👗 Marca: ${p.marca}`)
-        if (p.cor)     linhas.push(`🎨 Cor: ${p.cor}`)
-        if (p.tamanho) linhas.push(`📐 Tamanho: ${p.tamanho}`)
-        linhas.push(`💵 Valor: ${fmtVal(p.preco)}`)
-        return linhas.join("\n")
-      }).join("\n\n") +
+        const numeral = numerais[i] ?? `${i + 1}.`
+        const partes = [p.nome]
+        if (p.marca)   partes.push(p.marca)
+        if (p.cor)     partes.push(p.cor)
+        if (p.tamanho) partes.push(p.tamanho)
+        partes.push(fmtVal(p.preco))
+        return `${numeral} ${partes.join(" | ")}`
+      }).join("\n") +
       `\n\n——————————————`
     : ""
 
-  return `📅 Data da compra: ${fmtData(compra.data_compra ?? compra.data_live)}
-🎥 Data da live: ${fmtData(compra.data_live)}
-🛍️ Nº da sacola: ${num}
-🎨 Cor da sacola: ${compra.cor_sacola || "—"}
-📦 Quantidade de itens: ${qtd} ${qtdLabel}
+  const dataUnificada = fmtData(compra.data_compra ?? compra.data_live)
+
+  return `📅 LIVE/COMPRA: ${dataUnificada}
+🛍️ Sacola: ${num} | COR: ${compra.cor_sacola || "—"} | QT: ${qtd} ${qtdLabel}
 ${blocoValor}${blocoProdutos}
 
 Pagamento:
@@ -343,23 +342,9 @@ ${blocoPagamento}
 
 ${blocoDeadline}
 
-End. p/ retirada:
-
-📍 R. Barão do Amazonas, 1035 – Centro – Rib. Preto/SP
-
-⚠️ ATENÇÃO:
-
-Para entrega, envie o endereço completo apenas se for diferente do cadastrado. A taxa é de R$ 15,00 para Ribeirão Preto/SP. 🛵 Para outras cidades, o frete fica a combinar.
-
-É NECESSÁRIO TER ALGUÉM NO LOCAL PARA RECEBER. CASO CONTRÁRIO, SERÁ COBRADA UMA NOVA TAXA.
-
-VOCÊ TAMBÉM PODE OPTAR PELA RETIRADA OU ENTREGA POR CONTA PRÓPRIA.
-
-⚠️ IMPORTANTE:
-
-Peças de promoção *não possuem troca.*
-
-Obrigada pela compra! Esperamos que você ame suas peças. Até a próxima live! 💖`
+📍 Retirada: R. Barão do Amazonas, 1035 – Centro – Rib. Preto/SP
+🛵 Entrega: R$ 15,00 (Rib. Preto) | Outras cidades a combinar
+⚠️ Promoção não tem troca. Obrigada! Até a próxima! 💖`
 }
 
 export function validateMessageLimit(mensagem: string): { valida: boolean; erro?: string } {
