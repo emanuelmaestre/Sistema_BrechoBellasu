@@ -1018,6 +1018,9 @@ function ModalVinculo({
   const [finalizando, setFin] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [searchFocus, setSearchFocus] = useState(false)
+  const [editandoId, setEditandoId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState({ quantidade: "", preco_live: "" })
+  const [editSaving, setEditSaving] = useState(false)
   const prevPct = useRef(0)
 
   const { data: produtos, refetch } = useQuery({
@@ -1087,6 +1090,30 @@ function ModalVinculo({
       await apiDelete(`/live/${liveId}/compras/${compra.id}/produtos?item_id=${itemId}`)
       refetch(); onAtualizado()
     } catch { setErro("Erro ao remover produto.") }
+  }
+
+  function abrirEdicao(p: ProdutoVinculo) {
+    setEditandoId(p.id)
+    setEditForm({
+      quantidade: String(p.quantidade),
+      preco_live: String(p.preco_live ?? p.preco_original ?? ""),
+    })
+  }
+
+  async function salvarEdicao(itemId: number) {
+    setEditSaving(true)
+    try {
+      const qtd = parseInt(editForm.quantidade) || 1
+      const preco = parseFloat(editForm.preco_live.replace(",", ".")) || 0
+      await apiPatch(`/live/${liveId}/compras/${compra.id}/produtos?item_id=${itemId}`, {
+        quantidade: qtd,
+        preco_live: preco,
+      })
+      setEditandoId(null)
+      refetch(); onAtualizado()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro ao salvar.")
+    } finally { setEditSaving(false) }
   }
 
   async function finalizar() {
@@ -1308,14 +1335,26 @@ function ModalVinculo({
                           </div>
                         </div>
 
-                        {/* Ações direita */}
+                        {/* Ações direita — sempre visíveis (touch + desktop) */}
                         <div className="flex flex-col items-end gap-2 shrink-0 self-stretch justify-between">
-                          <motion.button onClick={() => remover(p.id)}
-                            whileHover={{ scale: 1.18, rotate: 12 }} whileTap={{ scale: 0.82 }}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-all"
-                            style={{ color: "#f87171" }}>
-                            <Trash2 size={13}/>
-                          </motion.button>
+                          <div className="flex items-center gap-1">
+                            <motion.button
+                              onClick={() => editandoId === p.id ? setEditandoId(null) : abrirEdicao(p)}
+                              whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.85 }}
+                              title="Editar"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              style={{ color: editandoId === p.id ? "var(--accent)" : "var(--text-muted)", background: editandoId === p.id ? "var(--accent-bg)" : "transparent" }}>
+                              <Pencil size={13}/>
+                            </motion.button>
+                            <motion.button
+                              onClick={() => remover(p.id)}
+                              whileHover={{ scale: 1.15, rotate: 10 }} whileTap={{ scale: 0.85 }}
+                              title="Remover"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              style={{ color: "#f87171" }}>
+                              <Trash2 size={13}/>
+                            </motion.button>
+                          </div>
                           <AnimatePresence>
                             {p.estoque_baixado && (
                               <motion.span
@@ -1331,6 +1370,54 @@ function ModalVinculo({
                           </AnimatePresence>
                         </div>
                       </div>
+
+                      {/* Formulário inline de edição */}
+                      <AnimatePresence>
+                        {editandoId === p.id && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.22, ease: "easeInOut" }}
+                            className="overflow-hidden">
+                            <div className="px-4 pb-3.5 pt-0 flex items-end gap-2 flex-wrap"
+                              style={{ borderTop: "1px solid var(--border)" }}>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Qtd</label>
+                                <input
+                                  type="number" min="1" inputMode="numeric"
+                                  value={editForm.quantidade}
+                                  onChange={e => setEditForm(f => ({ ...f, quantidade: e.target.value }))}
+                                  className="w-16 px-2 py-1.5 rounded-lg text-sm font-bold text-center outline-none"
+                                  style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Preço Live (R$)</label>
+                                <input
+                                  type="text" inputMode="decimal"
+                                  value={editForm.preco_live}
+                                  onChange={e => setEditForm(f => ({ ...f, preco_live: e.target.value }))}
+                                  className="w-28 px-2 py-1.5 rounded-lg text-sm font-bold outline-none"
+                                  style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+                              </div>
+                              <motion.button
+                                onClick={() => salvarEdicao(p.id)}
+                                disabled={editSaving}
+                                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide text-white disabled:opacity-60"
+                                style={{ background: "var(--accent)" }}>
+                                {editSaving ? <Loader2 size={12} className="animate-spin"/> : <Check size={12}/>}
+                                Salvar
+                              </motion.button>
+                              <motion.button
+                                onClick={() => setEditandoId(null)}
+                                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+                                style={{ color: "var(--text-muted)", background: "var(--bg-hover)" }}>
+                                <X size={12}/> Cancelar
+                              </motion.button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )
                 })}
