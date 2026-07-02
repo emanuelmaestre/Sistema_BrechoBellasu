@@ -569,6 +569,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   }
 
   async function salvar() {
+    if (saving || compraSalva) return
     if (!form.valor_total) { setErro("Informe o valor total"); return }
     setSaving(true); setErro("")
     try {
@@ -605,7 +606,15 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
     } catch { setErro("Erro ao registrar compra.") } finally { setSaving(false) }
   }
 
+  // Reseta o formulário para lançar outra compra rápido (fluxo de live)
+  function novaCompra() {
+    setCompraSalva(null); setForm(EMPTY_COMPRA)
+    setCli(null); setCliBusca(""); setCliRes([]); setSaldoCredito(0); setCorIdx(0)
+    setErro(""); setDir(-1); setStep(1)
+  }
+
   const handleKey = useCallback((e: React.KeyboardEvent) => {
+    if (compraSalva) return
     if (step === 1) { if (e.key === "Enter" && cliRes.length === 0) { e.preventDefault(); advance() }; return }
     if (step === 2) {
       if (e.key === "ArrowDown") { e.preventDefault(); setCorIdx(i => { const n = (i+1)%CORES_SACOLA.length; setForm(f => ({...f, cor_sacola: CORES_SACOLA[n]})); return n }); return }
@@ -615,7 +624,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
     if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
     if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); salvar() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, cliRes, corIdx])
+  }, [step, form, cliRes, corIdx, compraSalva, saving])
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
@@ -641,6 +650,35 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
 
       {/* Conteúdo */}
       <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
+        {compraSalva ? (
+          <motion.div key="sucesso" initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 18 }}
+              className="w-20 h-20 rounded-full flex items-center justify-center mb-5"
+              style={{ background: "rgba(16,185,129,0.12)", border: "2px solid rgba(16,185,129,0.3)" }}>
+              <Check size={38} style={{ color: "#10b981" }}/>
+            </motion.div>
+            <h1 className="text-2xl font-black mb-1" style={{ color: "var(--text-primary)" }}>Compra registrada!</h1>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold uppercase">{compraSalva.nome_cliente}</span> · {fmtBRL(compraSalva.valor_total ?? 0)}
+            </p>
+            <p className="text-xs mt-1 mb-8" style={{ color: "var(--text-muted)" }}>
+              Vincule os produtos depois, na lista de compras da live.
+            </p>
+            <div className="flex items-center gap-3">
+              <button onClick={novaCompra}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg"
+                style={{ background: COR_LIVE }}>
+                <Plus size={15}/> Adicionar outra
+              </button>
+              <button onClick={onClose}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold border"
+                style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                <Check size={15}/> Concluir
+              </button>
+            </div>
+          </motion.div>
+        ) : (
         <AnimatePresence custom={dir} mode="wait">
           <motion.div key={step} custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit"
             transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -866,9 +904,10 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
             </div>
           </motion.div>
         </AnimatePresence>
+        )}
       </div>
 
-      {step > 1 && (
+      {step > 1 && !compraSalva && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
           <button onClick={() => go(step - 1)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
             <ChevronLeft size={15}/> Voltar
