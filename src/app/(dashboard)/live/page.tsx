@@ -88,7 +88,7 @@ const EMPTY_COMPRA: CompraForm = {
   link_pagamento: "",
 }
 
-const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","JEANS","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
+const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
 
 function gerarArroba(nome: string): string {
   const palavras = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/\s+/).filter(Boolean)

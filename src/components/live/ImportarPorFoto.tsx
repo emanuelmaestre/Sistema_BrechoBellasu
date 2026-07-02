@@ -66,7 +66,7 @@ interface CompraRevisao {
 
 type Fase = "captura" | "processando" | "revisao" | "salvando" | "concluido" | "erro"
 
-const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","JEANS","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
+const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
 const COR_LIVE = "#e11d48"
 
 const MSGS_PROCESSANDO = [

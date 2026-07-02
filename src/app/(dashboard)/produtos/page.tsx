@@ -77,6 +77,7 @@ const CORES_PRODUTO: { nome: string; hex: string }[] = [
   { nome: "CAFÉ",         hex: "#6f4e37" },
   { nome: "CHOCOLATE",    hex: "#3d1f0d" },
   { nome: "BRIM",         hex: "#8a7560" },
+  { nome: "TRICÔ",        hex: "#c9a876" },
   // ── Cinzas / Neutros escuros ─────────────────────────────
   { nome: "PRATA",        hex: "#cbd5e1" },
   { nome: "CINZA",        hex: "#94a3b8" },
