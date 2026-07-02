@@ -23,6 +23,7 @@ export interface CompraData {
   cor_sacola:              string | null | undefined
   quantidade_itens:        number | null | undefined
   valor_total:             number | null | undefined
+  desconto?:               number | null
   nome_cliente:            string | null | undefined
   link_pagamento?:         string | null  // string=link, undefined=gerando, null=sem link
   credito_aplicado?:       number | null
@@ -246,7 +247,7 @@ const AVISO_FECHAMENTOS: Array<(link: string) => string> = [
 
 const AVISO_TOTAL = AVISO_ABERTURAS.length * AVISO_CHAMADAS.length * AVISO_FECHAMENTOS.length
 let _avisoUnusedPool: number[] = []
-let _avisoRecentUsed: number[] = []
+const _avisoRecentUsed: number[] = []
 
 function refillAvisoPool(excludeRecent: number[]): void {
   const all = Array.from({ length: AVISO_TOTAL }, (_, i) => i)
@@ -286,15 +287,17 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   const qtd      = compra.quantidade_itens ?? 1
   const qtdLabel = Number(qtd) === 1 ? "ITEM" : "ITENS"
 
-  const credito    = parseFloat(String(compra.credito_aplicado ?? 0))
-  const temCredito = credito > 0
-  const valorFinal = Math.max(0, parseFloat(String(compra.valor_total ?? 0)) - credito)
+  const desconto    = parseFloat(String(compra.desconto ?? 0))
+  const temDesconto = desconto > 0
+  const credito     = parseFloat(String(compra.credito_aplicado ?? 0))
+  const temCredito  = credito > 0
+  const valorFinal  = Math.max(0, parseFloat(String(compra.valor_total ?? 0)) - desconto - credito)
 
-  const blocoValor = temCredito
-    ? `💰 Valor total das compras: ${fmtVal(compra.valor_total)}
-🎁 Crédito utilizado: − ${fmtVal(credito)}
-✅ Valor final a pagar: ${fmtVal(valorFinal)}`
-    : `💰 Valor total das compras: ${fmtVal(compra.valor_total)}`
+  const linhasValor = [`💰 Valor total das compras: ${fmtVal(compra.valor_total)}`]
+  if (temDesconto) linhasValor.push(`🏷️ Desconto: − ${fmtVal(desconto)}`)
+  if (temCredito)  linhasValor.push(`🎁 Crédito utilizado: − ${fmtVal(credito)}`)
+  if (temDesconto || temCredito) linhasValor.push(`✅ Valor final a pagar: ${fmtVal(valorFinal)}`)
+  const blocoValor = linhasValor.join("\n")
 
   let blocoPagamento: string
   let blocoDeadline = `O pagamento deve ser realizado até ${dataPrazo}, às 23h59, via PIX ou Cartão de Crédito, para manter suas peças reservadas. 💖`

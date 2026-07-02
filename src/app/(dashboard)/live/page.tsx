@@ -1673,6 +1673,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       cor_sacola:       ex.cor_sacola,
       quantidade_itens: ex.quantidade_itens,
       valor_total:      ex.valor_total,
+      desconto:         ex.desconto,
       nome_cliente:     ex.nome_cliente,
       credito_aplicado: ex.credito_aplicado,
       pago_com_credito: pagoCreditoEx,
