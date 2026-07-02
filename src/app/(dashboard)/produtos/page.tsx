@@ -401,6 +401,16 @@ function WizardProduto({
   const [returnToRevisao, setReturnToRevisao] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Prévia do código sequencial que o produto novo vai receber ao salvar.
+  // Só busca quando não está editando (produto editado já tem código real).
+  const { data: proximoCodigoData } = useQuery<{ codigo: string }>({
+    queryKey: ["produtos-proximo-codigo"],
+    queryFn: () => apiGet("/produtos/meta/proximo-codigo"),
+    enabled: !editandoId,
+    staleTime: 15_000,
+  })
+  const proximoCodigo = proximoCodigoData?.codigo ?? null
+
   // Teclado numérico horizontal para tablet (evita teclado do sistema alto)
   const [isTablet, setIsTablet] = useState(false)
   const [focusedPrice, setFocusedPrice] = useState<"preco_venda" | "preco_custo">("preco_venda")
@@ -825,6 +835,16 @@ function WizardProduto({
                   style={{ color: "var(--text-muted)" }}>◎ Dados do Produto</h2>
                 {erro && <p className="mb-4 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>}
                 <div className="grid grid-cols-2 gap-3">
+                  {/* Código do produto — real se editando, prévia se novo */}
+                  <div className="rounded-2xl p-4 col-span-2"
+                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid #f59e0b" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>
+                      Código {!form.codigo && "(prévia)"}
+                    </p>
+                    <p className="text-sm font-mono font-bold" style={{ color: "#f59e0b" }}>
+                      {form.codigo || proximoCodigo || "—"}
+                    </p>
+                  </div>
                   {[
                     { label: "Nome",           value: form.nome || "—",                 s: 1, full: true },
                     { label: "Marca",          value: form.marca || "—",                s: 2 },
