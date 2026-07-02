@@ -379,6 +379,40 @@ function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
   )
 }
 
+// Teclado numérico compacto em popover — abre ancorado logo abaixo do campo
+// clicado, em vez de ocupar uma barra fixa na largura inteira da tela.
+function NumpadPopover({ onKey, onFechar }: { onKey: (k: string) => void; onFechar: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.15 }}
+      className="absolute top-full left-0 mt-2 z-30 w-56 rounded-2xl p-2.5 shadow-lg"
+      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+      onPointerDown={e => e.preventDefault()}>
+      <div className="grid grid-cols-3 gap-1.5">
+        {["1","2","3","4","5","6","7","8","9",",","0","⌫"].map(k => (
+          <motion.button key={k} onPointerDown={e => { e.preventDefault(); onKey(k) }}
+            whileTap={{ scale: 0.88 }}
+            className="py-3 rounded-xl text-base font-bold"
+            style={{
+              background: k === "⌫" ? "rgba(248,113,113,0.12)" : "var(--bg-surface)",
+              color: k === "⌫" ? "#f87171" : "var(--text-primary)",
+              border: "1.5px solid var(--border)",
+            }}>
+            {k}
+          </motion.button>
+        ))}
+      </div>
+      <motion.button onPointerDown={e => { e.preventDefault(); onFechar() }}
+        whileTap={{ scale: 0.96 }}
+        className="w-full mt-2 py-2 rounded-xl text-sm font-bold text-white"
+        style={{ background: "var(--accent)" }}>
+        Concluir
+      </motion.button>
+    </motion.div>
+  )
+}
+
 // ─── Wizard ───────────────────────────────────────────────
 function WizardProduto({
   inicial, editandoId, initialStep, categorias, onClose, onSalvo,
@@ -411,15 +445,18 @@ function WizardProduto({
   })
   const proximoCodigo = proximoCodigoData?.codigo ?? null
 
-  // Teclado numérico horizontal para tablet (evita teclado do sistema alto)
+  // Teclado numérico em popover compacto para tablet (evita teclado do sistema alto,
+  // sem ocupar a largura inteira da tela como a barra fixa antiga)
   const [isTablet, setIsTablet] = useState(false)
   const [focusedPrice, setFocusedPrice] = useState<"preco_venda" | "preco_custo">("preco_venda")
+  const [numpadOpen, setNumpadOpen] = useState(false)
   useEffect(() => {
     const check = () => setIsTablet(window.innerWidth >= 768)
     check()
     window.addEventListener("resize", check)
     return () => window.removeEventListener("resize", check)
   }, [])
+  useEffect(() => { setNumpadOpen(false) }, [step])
 
   function numpadInput(key: string) {
     const field = focusedPrice
@@ -680,7 +717,8 @@ function WizardProduto({
                         inputMode={isTablet ? "none" : "decimal"}
                         readOnly={isTablet}
                         value={form.preco_venda}
-                        onFocus={() => setFocusedPrice("preco_venda")}
+                        onFocus={() => { setFocusedPrice("preco_venda"); if (isTablet) setNumpadOpen(true) }}
+                        onClick={() => { if (isTablet) setNumpadOpen(true) }}
                         onChange={e => {
                           const v = e.target.value.replace(/[^0-9.,]/g, "")
                           set("preco_venda", v)
@@ -692,6 +730,9 @@ function WizardProduto({
                         }}
                         className={cn(inputBase, "pl-14")}
                         style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_venda" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
+                      {isTablet && numpadOpen && focusedPrice === "preco_venda" && (
+                        <NumpadPopover onKey={numpadInput} onFechar={() => setNumpadOpen(false)} />
+                      )}
                     </div>
                     <div className="mt-4">
                       <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>Preço de custo:</p>
@@ -702,7 +743,8 @@ function WizardProduto({
                           inputMode={isTablet ? "none" : "decimal"}
                           readOnly={isTablet}
                           value={form.preco_custo}
-                          onFocus={() => setFocusedPrice("preco_custo")}
+                          onFocus={() => { setFocusedPrice("preco_custo"); if (isTablet) setNumpadOpen(true) }}
+                          onClick={() => { if (isTablet) setNumpadOpen(true) }}
                           onChange={e => {
                             const v = e.target.value.replace(/[^0-9.,]/g, "")
                             set("preco_custo", v)
@@ -714,6 +756,9 @@ function WizardProduto({
                           }}
                           className={cn(inputBase, "pl-12 !text-base !py-3")}
                           style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_custo" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
+                        {isTablet && numpadOpen && focusedPrice === "preco_custo" && (
+                          <NumpadPopover onKey={numpadInput} onFechar={() => setNumpadOpen(false)} />
+                        )}
                       </div>
                     </div>
 
@@ -881,50 +926,8 @@ function WizardProduto({
         </AnimatePresence>
       </div>
 
-      {/* Numpad horizontal para tablet no step de preço */}
-      {isTablet && step === 6 && (
-        <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
-          {/* Seletor de campo */}
-          <div className="flex gap-2 mb-2">
-            {(["preco_venda", "preco_custo"] as const).map(f => (
-              <button key={f} onClick={() => setFocusedPrice(f)}
-                className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
-                style={{
-                  background: focusedPrice === f ? "var(--accent)" : "var(--bg-surface)",
-                  color: focusedPrice === f ? "#fff" : "var(--text-secondary)",
-                  border: `1.5px solid ${focusedPrice === f ? "var(--accent)" : "var(--border)"}`,
-                }}>
-                {f === "preco_venda" ? "Preço de Venda" : "Preço de Custo"}
-              </button>
-            ))}
-          </div>
-          {/* Teclas em linha única */}
-          <div className="flex gap-1.5 items-center">
-            {["1","2","3","4","5","6","7","8","9","0",",","⌫"].map(k => (
-              <motion.button key={k} onPointerDown={e => { e.preventDefault(); numpadInput(k) }}
-                whileTap={{ scale: 0.88 }}
-                className="flex-1 py-3 rounded-xl text-base font-bold"
-                style={{
-                  background: k === "⌫" ? "rgba(248,113,113,0.12)" : "var(--bg-surface)",
-                  color: k === "⌫" ? "#f87171" : "var(--text-primary)",
-                  border: "1.5px solid var(--border)",
-                  minWidth: 0,
-                }}>
-                {k}
-              </motion.button>
-            ))}
-            <motion.button onPointerDown={e => { e.preventDefault(); advance() }}
-              whileTap={{ scale: 0.93 }}
-              className="py-3 px-4 rounded-xl text-sm font-bold text-white"
-              style={{ background: "var(--accent)", border: "none", whiteSpace: "nowrap" }}>
-              Próximo →
-            </motion.button>
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
-      {step < TOTAL && !(isTablet && step === 6) && (
+      {step < TOTAL && (
         <div className="flex items-center justify-between px-6 py-3 shrink-0"
           style={{ borderTop: "1px solid var(--border)" }}>
           {step > 1 ? (
