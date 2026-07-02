@@ -1020,7 +1020,8 @@ function ModalVinculo({
   const { data: produtos, refetch } = useQuery({
     queryKey: ["live-compra-produtos", compra.id],
     queryFn: () => apiGet<ProdutoVinculo[]>(`/live/${liveId}/compras/${compra.id}/produtos`),
-    initialData: [],
+    placeholderData: [],
+    staleTime: 0,
   })
 
   const totalVinculado = (produtos ?? []).reduce((s, p) => s + p.quantidade, 0)
