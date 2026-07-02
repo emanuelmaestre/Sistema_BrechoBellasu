@@ -1264,21 +1264,21 @@ function ModalVinculo({
                               transition={{ delay: i * 0.04 + 0.15 }}
                               className="flex items-center gap-1.5 flex-wrap mb-2">
                               {p.marca && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{ background: "rgba(139,92,246,0.12)", color: "#a78bfa" }}>
-                                  <span style={{ fontSize: 8 }}>👗</span> {p.marca}
+                                  <span className="opacity-60">MARCA:</span> {p.marca}
                                 </span>
                               )}
                               {p.cor && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>
-                                  <span style={{ fontSize: 8 }}>🎨</span> {p.cor}
+                                  <span className="opacity-60">COR:</span> {p.cor}
                                 </span>
                               )}
                               {p.tamanho && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{ background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
-                                  <span style={{ fontSize: 8 }}>📐</span> {p.tamanho}
+                                  <span className="opacity-60">TAM:</span> {p.tamanho}
                                 </span>
                               )}
                             </motion.div>
