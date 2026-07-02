@@ -83,27 +83,28 @@ const JSON_SCHEMA = {
   },
 } as const
 
-const PROMPT = `Você está lendo a foto de uma página de caderno onde a dona de um brechó anota, à mão, as compras das clientes durante uma live de vendas no Instagram.
+const PROMPT = `Você está lendo a foto de uma página de caderno com uma TABELA onde a dona de um brechó anota, à mão, as compras das clientes durante uma live de vendas no Instagram. A foto pode estar rotacionada — a tabela pode aparecer de lado; leia normalmente mesmo assim.
 
-Cada linha ou bloco de anotação geralmente representa UMA compra de UMA cliente e pode conter:
-- Nome da cliente (às vezes apelido ou @ do Instagram)
-- Número da sacola (ex: "sacola 12", "S12", "#12" ou só o número)
-- Cor da sacola — cores usadas: AMARELO, AZUL, BRANCO, LARANJA, ROSA PINK, VERDE, VERDE ÁGUA
-- Quantidade de itens/peças (ex: "3 pçs", "3x", "3 itens")
-- Valor total (ex: "R$ 150", "150,00", "150")
-- Telefone/WhatsApp
-- Observações (ex: "vai retirar", "entregar", "pagou pix")
+FORMATO FIXO DA TABELA (colunas, da esquerda para a direita):
+- "Nº" → número da sacola (numero_sacola). É o identificador da compra, não o total de itens.
+- "NOME OU INSTAGRAM" → nome completo da cliente OU o @ do Instagram dela. Se for claramente um @ ou handle de rede social, use o campo instagram; se for um nome de pessoa, use nome_cliente.
+- "COR" → cor da sacola. Cores usadas: AMARELO, AZUL, BRANCO, LARANJA, ROSA PINK, VERDE, VERDE ÁGUA.
+- "ITEM1" até "ITEM6" → o valor em reais de CADA peça individual comprada (uma coluna por peça). Estas colunas NÃO viram campo próprio na resposta — servem só para você calcular quantidade_itens e valor_total, como descrito abaixo.
+- "QT" → quantidade de itens. Deve ser igual ao número de colunas ITEM1-6 preenchidas com algum valor naquela linha (conte quantas células de ITEM1 a ITEM6 têm número escrito). Se a coluna QT já tiver um número anotado, use-o para conferir; se divergir do que você contou, prefira o que você contou nas colunas ITEM1-6.
+- "TOTAL" → valor total da compra. Deve ser igual à SOMA dos valores preenchidos em ITEM1 até ITEM6 daquela linha. Se a coluna TOTAL já tiver um número anotado, use-o para conferir; se divergir da soma que você calculou, prefira a soma calculada a partir de ITEM1-6.
+
+Cada LINHA da tabela é UMA compra de UMA cliente.
 
 REGRAS:
-1. Extraia TODAS as compras que conseguir identificar, uma por cliente/linha.
+1. Extraia TODAS as linhas/compras que conseguir identificar na tabela.
 2. Se a cor da sacola for parecida com uma da lista, normalize para a grafia da lista (ex: "rosa" -> "ROSA PINK", "verde agua" -> "VERDE ÁGUA"). Se não bater com nenhuma, retorne como está escrito.
 3. Valores em reais: converta para número (ex: "R$ 1.250,50" -> 1250.50).
-4. Telefone: retorne apenas os dígitos, com DDD se visível.
+4. Telefone/WhatsApp: só preencha se houver uma anotação de telefone claramente separada da tabela (a tabela normal não tem essa coluna); caso contrário, null.
 5. Instagram: retorne sem o "@".
-6. NÃO invente dados. Campo não anotado ou impossível de ler = null.
+6. NÃO invente dados. Se uma célula estiver vazia, borrada além de leitura, ou fora da tabela, o campo correspondente = null. NUNCA preencha nome, sacola ou valor com algo que não esteja escrito naquela linha específica.
 7. Confiança por campo: "alta" = leitura clara e certa; "media" = legível mas com alguma dúvida (letra ambígua, número borrado); "baixa" = chute com base em rabisco quase ilegível. Campo null = "alta" (não há o que duvidar).
-8. Se a página inteira estiver ilegível, desfocada, escura ou não contiver anotações de compras, retorne legivel=false com um motivo curto e amigável em português.
-9. Ignore anotações riscadas/tachadas (compra cancelada).
+8. Se a página inteira estiver ilegível, desfocada, escura ou não contiver uma tabela de compras, retorne legivel=false com um motivo curto e amigável em português.
+9. Ignore linhas riscadas/tachadas (compra cancelada) e linhas totalmente vazias (sem nenhuma célula preenchida).
 
 Responda SOMENTE com o JSON no formato solicitado.`
 
