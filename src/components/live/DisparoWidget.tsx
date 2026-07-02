@@ -10,25 +10,28 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus } from "lucide-react"
+import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus, RefreshCw } from "lucide-react"
 import { useDisparoStore } from "@/stores/disparo.store"
 
 const LABEL: Record<string, string> = {
   disparo: "Disparando mensagens",
   aviso: "Avisando clientes",
   consentimento: "Enviando consentimentos",
+  "google-sync": "Sincronizando Google Contatos",
 }
 
 const COR: Record<string, string> = {
   disparo: "#25d366",
   aviso: "#10b981",
   consentimento: "#7c3aed",
+  "google-sync": "#4285F4",
 }
 
 const ICONE: Record<string, typeof Send> = {
   disparo: Send,
   aviso: Radio,
   consentimento: ShieldCheck,
+  "google-sync": RefreshCw,
 }
 
 export default function DisparoWidget() {
@@ -47,8 +50,9 @@ export default function DisparoWidget() {
     if (!job || job.status === "running") return
     if (jaInvalidou.current === job.id) return
     jaInvalidou.current = job.id
-    if (job.tipo === "consentimento") {
+    if (job.tipo === "consentimento" || job.tipo === "google-sync") {
       qc.invalidateQueries({ queryKey: ["clientes"] })
+      qc.invalidateQueries({ queryKey: ["google-sync-preview"] })
     } else {
       qc.invalidateQueries({ queryKey: ["lives"] })
       if (job.liveId != null) qc.invalidateQueries({ queryKey: ["live-detalhe", job.liveId] })
@@ -177,7 +181,7 @@ export default function DisparoWidget() {
                   </div>
                   <div className="flex gap-2 text-xs">
                     <span className="px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                      {job.enviadas} enviada{job.enviadas !== 1 ? "s" : ""}
+                      {job.enviadas} {job.tipo === "google-sync" ? "sincronizado" + (job.enviadas !== 1 ? "s" : "") : "enviada" + (job.enviadas !== 1 ? "s" : "")}
                     </span>
                     {job.erros > 0 && (
                       <span className="px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171" }}>

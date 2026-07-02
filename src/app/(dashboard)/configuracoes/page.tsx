@@ -9,7 +9,7 @@ import {
   Check, ShieldCheck, UserPlus, Pencil, Power,
   Plug, RefreshCw, Wifi, WifiOff, Database, Truck,
   MessageCircle, Globe, MapPin, AlertCircle, Mail, Bot, DollarSign,
-  Play, RotateCcw, CheckCircle2, XCircle, Clock, Send,
+  Play, CheckCircle2, XCircle, Clock, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { cn } from "@/lib/utils"
@@ -570,7 +570,6 @@ type PreviewCliente = {
   telefone: string | null; telValido: boolean; telErro?: string | null
   temId: boolean; status: string | null; acao: "criar" | "atualizar" | "ignorar"
 }
-type SyncResult = { id: number; ok: boolean; nome: string; nomeMontado?: string; acao?: string; erro?: string }
 
 const SYNC_STATUS_ICON: Record<string, React.ReactNode> = {
   pendente:      <Clock         size={13} className="text-slate-400" />,
@@ -586,13 +585,9 @@ const ACAO_COR: Record<string, string> = {
 }
 
 function AbaGoogle() {
-  const qc = useQueryClient()
-  const [running, setRunning]       = useState(false)
-  const [resultados, setResultados] = useState<SyncResult[]>([])
-  const [progresso, setProgresso]   = useState(0)
-  const [totalSync, setTotalSync]   = useState(0)
-  const [concluido, setConcluido]   = useState(false)
-  const [filtro, setFiltro]         = useState<"todos" | "criar" | "atualizar" | "ignorar">("todos")
+  const { iniciarGoogleSync, job: disparoJob } = useDisparoStore()
+  const syncRodando = disparoJob?.tipo === "google-sync" && disparoJob?.status === "running"
+  const [filtro, setFiltro] = useState<"todos" | "criar" | "atualizar" | "ignorar">("todos")
 
   const { data, isLoading, refetch } = useQuery<{ totais: { total: number; criarNovos: number; atualizar: number; semTelefone: number; telInvalido: number; ignorados: number }; clientes: PreviewCliente[] }>({
     queryKey: ["google-sync-preview"],
@@ -603,33 +598,10 @@ function AbaGoogle() {
   const paraExecutar = (data?.clientes ?? []).filter(c => c.acao !== "ignorar")
   const clientes = (data?.clientes ?? []).filter(c => filtro === "todos" ? true : c.acao === filtro)
 
-  async function iniciarSync() {
+  function iniciarSync() {
     if (!paraExecutar.length) return
-    setRunning(true); setConcluido(false); setResultados([]); setProgresso(0)
-    setTotalSync(paraExecutar.length)
-
-    for (let i = 0; i < paraExecutar.length; i++) {
-      const c = paraExecutar[i]
-      try {
-        const r = await apiPost("/admin/google-sync-mass", { cliente_id: c.id }) as {
-          ok: boolean; nome: string; nomeMontado?: string; acao?: string; erro?: string
-        }
-        setResultados(prev => [...prev, { id: c.id, ok: r.ok, nome: r.nome, nomeMontado: r.nomeMontado, acao: r.acao, erro: r.erro }])
-      } catch (e) {
-        setResultados(prev => [...prev, { id: c.id, ok: false, nome: c.nome, erro: (e as Error).message }])
-      }
-      setProgresso(i + 1)
-      // Pausa entre requisições para não exceder quota da Google People API (~90/min)
-      if (i < paraExecutar.length - 1) await new Promise(r => setTimeout(r, 700))
-    }
-    setRunning(false); setConcluido(true)
-    qc.invalidateQueries({ queryKey: ["clientes"] })
-    refetch()
+    iniciarGoogleSync(paraExecutar.map(c => c.id))
   }
-
-  const okCount   = resultados.filter(r => r.ok).length
-  const erroCount = resultados.filter(r => !r.ok).length
-  const pct       = totalSync > 0 ? Math.round((progresso / totalSync) * 100) : 0
 
   return (
     <div className="space-y-5 pt-3 sm:pt-6">
@@ -643,8 +615,8 @@ function AbaGoogle() {
             Sincronize clientes com a agenda <strong style={{ color: "var(--text-secondary)" }}>bellasu.brecho@gmail.com</strong>
           </p>
         </div>
-        {!running && (
-          <button onClick={() => { setConcluido(false); setResultados([]); refetch() }}
+        {!syncRodando && (
+          <button onClick={() => refetch()}
             className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)" }}>
             <RefreshCw size={14} /> Atualizar prévia
@@ -684,67 +656,26 @@ function AbaGoogle() {
             </div>
           )}
 
-          {/* Barra de progresso + resultados */}
-          {(running || concluido) && (
+          {/* Aviso de sincronização rodando em background */}
+          {syncRodando && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl p-5 space-y-3"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="flex items-center justify-between text-xs">
-                <span style={{ color: "var(--text-muted)" }}>
-                  {running
-                    ? <span className="flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" />Sincronizando {progresso} de {totalSync}…</span>
-                    : `Concluído — ${okCount} sincronizados${erroCount > 0 ? `, ${erroCount} erro(s)` : ""}`}
-                </span>
-                <span className="font-bold tabular-nums" style={{ color: "var(--text-primary)" }}>{pct}%</span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-                <motion.div className="h-full rounded-full"
-                  style={{ background: running ? "var(--accent)" : erroCount > 0 ? "#f59e0b" : "#10b981" }}
-                  initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.25 }} />
-              </div>
-              {resultados.length > 0 && (
-                <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
-                  <AnimatePresence initial={false}>
-                    {resultados.map(r => (
-                      <motion.div key={r.id}
-                        initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center gap-2 py-1 text-xs"
-                        style={{ borderBottom: "1px solid var(--border)" }}>
-                        {r.ok
-                          ? <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
-                          : <XCircle      size={12} className="text-red-400 shrink-0" />}
-                        <span className="flex-1 truncate" style={{ color: r.ok ? "var(--text-primary)" : "#f87171" }}>
-                          {r.nome}{r.nomeMontado && r.nomeMontado !== r.nome ? ` → ${r.nomeMontado}` : ""}
-                        </span>
-                        {r.ok && r.acao && (
-                          <span className={cn("text-[10px] font-bold uppercase shrink-0", ACAO_COR[r.acao])}>{r.acao}</span>
-                        )}
-                        {r.erro && (
-                          <span className="text-[10px] text-red-400 shrink-0 truncate max-w-[140px]">{r.erro}</span>
-                        )}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              )}
+              className="rounded-2xl px-5 py-4 flex items-center gap-3 text-sm"
+              style={{ background: "rgba(66,133,244,0.08)", border: "1px solid rgba(66,133,244,0.25)" }}>
+              <Loader2 size={16} className="animate-spin shrink-0" style={{ color: "#4285F4" }} />
+              <span style={{ color: "var(--text-secondary)" }}>
+                Sincronizando em segundo plano — acompanhe pelo widget no canto da tela.
+              </span>
             </motion.div>
           )}
 
           {/* Botão principal */}
-          {!running && (
+          {!syncRodando && (
             <button
-              onClick={concluido
-                ? () => { setConcluido(false); setResultados([]); refetch() }
-                : iniciarSync}
-              disabled={!concluido && paraExecutar.length === 0}
+              onClick={iniciarSync}
+              disabled={paraExecutar.length === 0}
               className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
-              style={concluido
-                ? { background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }
-                : { background: "var(--accent)", color: "#fff", border: "none" }}>
-              {concluido
-                ? <><RotateCcw size={14} /> Recarregar prévia</>
-                : <><Play size={14} /> Sincronizar {paraExecutar.length} cliente{paraExecutar.length !== 1 ? "s" : ""}</>}
+              style={{ background: "var(--accent)", color: "#fff", border: "none" }}>
+              <Play size={14} /> Sincronizar {paraExecutar.length} cliente{paraExecutar.length !== 1 ? "s" : ""}
             </button>
           )}
 

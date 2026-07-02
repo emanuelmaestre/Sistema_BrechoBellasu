@@ -20,7 +20,7 @@ import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 // Mesmo intervalo usado antes nas telas cheias (anti-bloqueio do WhatsApp)
 const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
-export type JobTipo = "disparo" | "aviso" | "consentimento"
+export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
 
 export interface JobItemResult {
@@ -56,6 +56,8 @@ interface DisparoState {
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string }) => boolean
   /** Inicia o disparo de consentimento (LGPD) para clientes ainda não notificados. Retorna false se já há job rodando. */
   iniciarConsentimento: () => boolean
+  /** Inicia a sincronização em massa com Google Contatos. Retorna false se já há job rodando. */
+  iniciarGoogleSync: (clienteIds: number[]) => boolean
   cancelar: () => void
   dispensar: () => void
   setMinimized: (v: boolean) => void
@@ -238,6 +240,33 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
             id: item.id, nome: item.nome,
             status: r.status === "enviado" ? "enviada" : "erro",
             detalhe: r.detalhe,
+          }
+        },
+      )
+      return true
+    },
+
+    iniciarGoogleSync: (clienteIds) => {
+      if (get().job?.status === "running") return false
+      const itens = clienteIds.map((id) => ({ id, nome: `Cliente #${id}` }))
+      set({ job: novoJob("google-sync", "Google Contatos"), minimized: false })
+      void rodar(
+        async () => {
+          // Busca nomes reais para exibir no widget
+          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }> }>("/admin/google-sync-mass")
+          const mapa = Object.fromEntries((r.clientes ?? []).map((c) => [c.id, c.nome]))
+          const itensNomeados = clienteIds.map((id) => ({ id, nome: mapa[id] ?? `Cliente #${id}` }))
+          return { itens: itensNomeados }
+        },
+        async (item) => {
+          const r = await apiPost<{ ok: boolean; nome: string; nomeMontado?: string; acao?: string; erro?: string }>(
+            "/admin/google-sync-mass", { cliente_id: item.id },
+          )
+          return {
+            id: item.id,
+            nome: r.nome ?? item.nome,
+            status: r.ok ? "enviada" : "erro",
+            detalhe: r.erro,
           }
         },
       )
