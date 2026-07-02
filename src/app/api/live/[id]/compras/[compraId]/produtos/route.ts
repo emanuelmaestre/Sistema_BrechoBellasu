@@ -16,16 +16,20 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const r1 = await sb
     .from("live_compra_produtos")
-    .select("*, produtos(marca, cor, tamanho)")
+    .select("*, produtos(codigo, marca, cor, tamanho)")
     .eq("compra_id", cid)
     .order("id")
   if (!r1.error) {
-    const data = (r1.data ?? []).map(({ produtos: prod, ...rest }) => ({
-      ...rest,
-      marca:   (prod as { marca?: string | null } | null)?.marca   ?? null,
-      cor:     (prod as { cor?:   string | null } | null)?.cor     ?? null,
-      tamanho: (prod as { tamanho?: string | null } | null)?.tamanho ?? null,
-    }))
+    const data = (r1.data ?? []).map(({ produtos: prod, ...rest }) => {
+      const p = prod as { codigo?: string | null; marca?: string | null; cor?: string | null; tamanho?: string | null } | null
+      return {
+        ...rest,
+        codigo_produto: p?.codigo ?? null,
+        marca:          p?.marca   ?? null,
+        cor:            p?.cor     ?? null,
+        tamanho:        p?.tamanho ?? null,
+      }
+    })
     return NextResponse.json(data)
   }
 
