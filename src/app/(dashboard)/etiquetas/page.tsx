@@ -187,6 +187,18 @@ function ModalRastreio({ orderId, onClose }: { orderId: string; onClose: () => v
     queryFn: () => apiGet<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }>(`/etiquetas/rastrear?order_id=${orderId}`),
     staleTime: 120_000,
   })
+  const [copiado, setCopiado] = useState(false)
+
+  // Link público de rastreio do Melhor Envio — pode ser copiado e enviado
+  // direto para a cliente por WhatsApp, sem ela precisar acessar o sistema.
+  const linkRastreio = data?.tracking ? `https://www.melhorrastreio.com.br/rastreio/${data.tracking}` : null
+
+  async function copiarLink() {
+    if (!linkRastreio) return
+    await navigator.clipboard.writeText(linkRastreio)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -217,9 +229,19 @@ function ModalRastreio({ orderId, onClose }: { orderId: string; onClose: () => v
           {error && <p className="text-center py-8 text-sm" style={{ color: "#f87171" }}>Não foi possível rastrear.</p>}
           {data && (
             <div>
-              <div className="flex items-center gap-2 mb-5 px-4 py-3 rounded-xl" style={{ background: "var(--bg-surface)" }}>
-                <Info size={13} style={{ color: "var(--text-muted)" }} />
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Código: <span className="font-mono" style={{ color: "var(--text-primary)" }}>{data.tracking}</span></p>
+              <div className="flex items-center justify-between gap-2 mb-5 px-4 py-3 rounded-xl" style={{ background: "var(--bg-surface)" }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Info size={13} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Código: <span className="font-mono" style={{ color: "var(--text-primary)" }}>{data.tracking}</span></p>
+                </div>
+                {linkRastreio && (
+                  <button onClick={copiarLink}
+                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--accent-bg)", color: copiado ? "#10b981" : "var(--accent)" }}>
+                    {copiado ? <Check size={12} /> : <Copy size={12} />}
+                    {copiado ? "Copiado!" : "Copiar link"}
+                  </button>
+                )}
               </div>
               <div className="space-y-0 max-h-72 overflow-y-auto pr-1">
                 {(data.events ?? []).length === 0 ? (

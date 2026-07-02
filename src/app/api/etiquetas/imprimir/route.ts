@@ -24,7 +24,10 @@ export const POST = withAuth(async (req: NextRequest) => {
 })
 
 // GET /api/etiquetas/imprimir?order_id=X
-// Retorna a URL de impressão do Melhor Envio para abrir em nova aba.
+// Busca a URL do PDF no Melhor Envio e faz o PROXY do arquivo (baixa aqui no
+// servidor e devolve os bytes com content-type application/pdf). Assim o
+// navegador da operadora nunca navega para o domínio do Melhor Envio — o PDF
+// é exibido/baixado dentro do próprio sistema.
 export const GET = withAuth(async (req: NextRequest) => {
   try {
     const orderId = req.nextUrl.searchParams.get("order_id")
@@ -35,7 +38,19 @@ export const GET = withAuth(async (req: NextRequest) => {
     if (!printed?.url) {
       return NextResponse.json({ erro: "Etiqueta ainda não disponível para impressão." }, { status: 404 })
     }
-    return NextResponse.json({ url: printed.url })
+
+    const pdfRes = await fetch(printed.url)
+    if (!pdfRes.ok) {
+      return NextResponse.json({ erro: "Não foi possível baixar o PDF da etiqueta." }, { status: 502 })
+    }
+    const buffer = await pdfRes.arrayBuffer()
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="etiqueta-${orderId}.pdf"`,
+      },
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Não foi possível obter a etiqueta."
     return NextResponse.json({ erro: msg }, { status: 500 })

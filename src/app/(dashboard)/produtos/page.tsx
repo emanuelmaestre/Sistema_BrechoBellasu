@@ -459,10 +459,20 @@ function WizardProduto({
     setErro("")
   }
 
-  function advance() {
+  async function advance() {
     if (step === 1 && form.nome.trim().length < 1) {
       setErro("Nome do produto é obrigatório")
       return
+    }
+    // Garante que a marca digitada fique cadastrada na tabela `marcas`
+    // mesmo quando o operador avança clicando no botão (não só via Enter,
+    // que já tinha essa lógica dentro do MarcaStep).
+    if (step === 2 && form.marca.trim()) {
+      try {
+        const marca = await apiPost<{ id: number; nome: string }>("/produtos/meta/marcas", { nome: form.marca.trim() })
+        qc.invalidateQueries({ queryKey: ["marcas-busca"] })
+        set("marca", marca.nome)
+      } catch { /* segue mesmo se o cadastro da marca falhar */ }
     }
     if (step === 4 && !form.tamanho) {
       setErro("Selecione o tamanho do produto")

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "motion/react"
-import { Printer, ExternalLink, X, Loader2, AlertCircle } from "lucide-react"
+import { Printer, Download, X, Loader2, AlertCircle } from "lucide-react"
 
-// Busca a URL de impressão via API e abre diretamente no Melhor Envio.
+// Busca o PDF da etiqueta via proxy do próprio backend (/api/etiquetas/imprimir
+// devolve os bytes do PDF, não uma URL do Melhor Envio) e exibe embutido no
+// modal via <iframe>. O navegador nunca navega para o domínio do Melhor Envio.
 // Reutilizado na página de etiquetas e na aba "Etiquetas" do cadastro do cliente.
 export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   const [estado, setEstado] = useState<"carregando" | "pronto" | "erro">("carregando")
@@ -17,39 +19,26 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  // Busca a URL de impressão assim que o modal abre
   useEffect(() => {
     let ativo = true
+    let blobUrlCriada: string | null = null
     setEstado("carregando")
     setUrl(null)
     setErro("")
 
-    fetch(`/api/etiquetas/imprimir?order_id=${encodeURIComponent(orderId)}`, {
-      method: "GET",
-    })
+    fetch(`/api/etiquetas/imprimir?order_id=${encodeURIComponent(orderId)}`, { method: "GET" })
       .then(async (res) => {
         if (!ativo) return
-        // A rota GET faz proxy do PDF — se retornar PDF direto, abre URL proxy
         if (res.ok && res.headers.get("content-type")?.includes("pdf")) {
-          // Cria um blob URL para abrir o PDF
           const blob = await res.blob()
-          const blobUrl = URL.createObjectURL(blob)
-          setUrl(blobUrl)
+          blobUrlCriada = URL.createObjectURL(blob)
+          setUrl(blobUrlCriada)
           setEstado("pronto")
           return
         }
-        // Se não for PDF, tenta pegar a URL do JSON
         const data = await res.json().catch(() => ({}))
-        if (data?.url) {
-          setUrl(data.url)
-          setEstado("pronto")
-        } else if (data?.erro) {
-          setErro(data.erro)
-          setEstado("erro")
-        } else {
-          setErro("Não foi possível obter a URL da etiqueta.")
-          setEstado("erro")
-        }
+        setErro(data?.erro ?? "Não foi possível obter a etiqueta.")
+        setEstado("erro")
       })
       .catch(() => {
         if (!ativo) return
@@ -57,15 +46,8 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
         setEstado("erro")
       })
 
-    return () => { ativo = false }
+    return () => { ativo = false; if (blobUrlCriada) URL.revokeObjectURL(blobUrlCriada) }
   }, [orderId])
-
-  // Assim que a URL estiver pronta, abre automaticamente em nova aba
-  useEffect(() => {
-    if (estado === "pronto" && url) {
-      window.open(url, "_blank", "noopener,noreferrer")
-    }
-  }, [estado, url])
 
   return (
     <motion.div
@@ -75,7 +57,7 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
       onClick={onClose}>
       <motion.div
         initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
-        className="w-full max-w-sm rounded-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-2xl h-[85vh] rounded-2xl overflow-hidden flex flex-col"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         onClick={e => e.stopPropagation()}>
 
@@ -85,46 +67,40 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
             <Printer size={16} style={{ color: "var(--accent)" }} />
             <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Etiqueta de Envio</span>
           </div>
-          <button onClick={onClose} title="Fechar"
-            className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
-            onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
-            onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            {estado === "pronto" && url && (
+              <a href={url} download={`etiqueta-${orderId}.pdf`}
+                title="Baixar PDF"
+                className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
+                onMouseEnter={f => { (f.currentTarget as HTMLAnchorElement).style.color = "var(--accent)" }}
+                onMouseLeave={f => { (f.currentTarget as HTMLAnchorElement).style.color = "var(--text-muted)" }}>
+                <Download size={16} />
+              </a>
+            )}
+            <button onClick={onClose} title="Fechar"
+              className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
+              onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
+              onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Corpo */}
-        <div className="flex flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+        <div className="flex-1 min-h-0">
           {estado === "carregando" && (
-            <>
+            <div className="h-full flex flex-col items-center justify-center gap-4">
               <Loader2 size={32} className="animate-spin" style={{ color: "var(--accent)" }} />
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>Buscando etiqueta...</p>
-            </>
+            </div>
           )}
 
           {estado === "pronto" && url && (
-            <>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-emerald-500/15">
-                <Printer size={22} style={{ color: "#10b981" }} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Etiqueta aberta em nova aba!
-                </p>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                  Se não abriu automaticamente, clique no botão abaixo.
-                </p>
-              </div>
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: "var(--accent)", color: "#fff" }}>
-                <ExternalLink size={14} /> Abrir etiqueta
-              </a>
-            </>
+            <iframe src={url} title="Etiqueta de envio" className="w-full h-full border-0" style={{ background: "#525659" }} />
           )}
 
           {estado === "erro" && (
-            <>
+            <div className="h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/15">
                 <AlertCircle size={22} style={{ color: "#f87171" }} />
               </div>
@@ -132,14 +108,14 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                   Não foi possível abrir a etiqueta
                 </p>
-                <p className="text-xs mt-1 max-w-[240px]" style={{ color: "var(--text-muted)" }}>{erro}</p>
+                <p className="text-xs mt-1 max-w-[280px]" style={{ color: "var(--text-muted)" }}>{erro}</p>
               </div>
               <button onClick={onClose}
                 className="px-5 py-2 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                 Fechar
               </button>
-            </>
+            </div>
           )}
         </div>
       </motion.div>
