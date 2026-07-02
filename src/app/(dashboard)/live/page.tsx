@@ -68,6 +68,9 @@ interface ProdutoVinculo {
   preco_live: number
   desconto_aplicado?: number
   estoque_baixado: boolean
+  marca?: string | null
+  cor?: string | null
+  tamanho?: string | null
 }
 
 interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo: "novidades" | "promocional"; link_live: string }
@@ -1202,72 +1205,131 @@ function ModalVinculo({
                   const disc = descPct(p.preco_original, p.preco_live)
                   return (
                     <motion.div key={p.id}
-                      initial={{ opacity: 0, x: -20, scale: 0.96 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: 20, scale: 0.94 }}
-                      transition={{ delay: i * 0.03, type: "spring", stiffness: 360, damping: 28 }}
-                      whileHover={{ x: 4, transition: { duration: 0.15 } }}
-                      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl group relative overflow-hidden"
+                      initial={{ opacity: 0, y: 16, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: 24, scale: 0.93 }}
+                      transition={{ delay: i * 0.04, type: "spring", stiffness: 380, damping: 30 }}
+                      whileHover={{ y: -2, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", transition: { duration: 0.18 } }}
+                      className="rounded-2xl group relative overflow-hidden"
                       style={{
                         background: p.estoque_baixado ? "rgba(16,185,129,0.05)" : "var(--bg-surface)",
                         border: `1.5px solid ${p.estoque_baixado ? "rgba(16,185,129,0.3)" : "var(--border)"}`,
                       }}>
-                      {/* Faixa lateral colorida */}
-                      <motion.div animate={{ height: p.estoque_baixado ? "100%" : "0%" }}
+
+                      {/* Faixa lateral animada */}
+                      <motion.div
+                        animate={{ height: p.estoque_baixado ? "100%" : "60%" }}
                         className="absolute left-0 top-0 w-[3px] rounded-l-2xl"
                         style={{ background: p.estoque_baixado ? "#10b981" : "var(--accent)" }}
-                        transition={{ duration: 0.4 }}/>
+                        transition={{ duration: 0.5, ease: "easeOut" }}/>
 
-                      {/* Ícone */}
+                      {/* Shimmer no hover */}
                       <motion.div
-                        animate={p.estoque_baixado ? { rotate: [0, -8, 8, 0] } : {}}
-                        transition={{ duration: 0.5, delay: 0.1 }}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: p.estoque_baixado ? "rgba(16,185,129,0.12)" : "var(--accent-bg)" }}>
-                        {p.estoque_baixado
-                          ? <CheckCircle2 size={17} style={{ color: "#10b981" }}/>
-                          : <Package size={17} style={{ color: "var(--accent)" }}/>}
-                      </motion.div>
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300"
+                        style={{ background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.03) 50%, transparent 60%)" }}/>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black uppercase tracking-wide truncate leading-tight"
-                          style={{ color: "var(--text-primary)" }}>{p.nome_produto}</p>
-                        {p.codigo_produto && <p className="text-[10px] font-mono mb-0.5" style={{ color: "var(--text-muted)" }}>{p.codigo_produto}</p>}
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md"
-                            style={{ background: "var(--bg-hover)", color: "var(--text-muted)" }}>{p.quantidade}x</span>
-                          <span className="text-[12px] font-black" style={{ color: "var(--text-primary)" }}>
-                            {fmtBRL(p.preco_live ?? p.preco_original ?? 0)}
-                          </span>
-                          {disc > 0 && (
-                            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 16 }}
-                              className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
-                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                              -{disc}%
-                            </motion.span>
+                      <div className="flex items-start gap-3 px-4 py-3.5">
+                        {/* Ícone */}
+                        <motion.div
+                          animate={p.estoque_baixado ? { rotate: [0, -10, 10, -5, 0], scale: [1, 1.1, 1] } : {}}
+                          transition={{ duration: 0.6, delay: i * 0.04 + 0.2 }}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ background: p.estoque_baixado ? "rgba(16,185,129,0.14)" : "var(--accent-bg)" }}>
+                          {p.estoque_baixado
+                            ? <CheckCircle2 size={18} style={{ color: "#10b981" }}/>
+                            : <Package size={18} style={{ color: "var(--accent)" }}/>}
+                        </motion.div>
+
+                        {/* Info principal */}
+                        <div className="flex-1 min-w-0">
+                          {/* Linha 1: código + nome */}
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            {p.codigo_produto && (
+                              <motion.span
+                                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: i * 0.04 + 0.1 }}
+                                className="text-[10px] font-black font-mono px-1.5 py-0.5 rounded-md tracking-widest"
+                                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                                #{p.codigo_produto}
+                              </motion.span>
+                            )}
+                            <p className="text-sm font-black uppercase tracking-wide leading-tight"
+                              style={{ color: "var(--text-primary)" }}>{p.nome_produto}</p>
+                          </div>
+
+                          {/* Linha 2: marca / cor / tamanho */}
+                          {(p.marca || p.cor || p.tamanho) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.04 + 0.15 }}
+                              className="flex items-center gap-1.5 flex-wrap mb-2">
+                              {p.marca && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                  style={{ background: "rgba(139,92,246,0.12)", color: "#a78bfa" }}>
+                                  <span style={{ fontSize: 8 }}>👗</span> {p.marca}
+                                </span>
+                              )}
+                              {p.cor && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                  style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>
+                                  <span style={{ fontSize: 8 }}>🎨</span> {p.cor}
+                                </span>
+                              )}
+                              {p.tamanho && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{ background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
+                                  <span style={{ fontSize: 8 }}>📐</span> {p.tamanho}
+                                </span>
+                              )}
+                            </motion.div>
                           )}
+
+                          {/* Linha 3: qtd + preço + desconto */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                              style={{ background: "var(--bg-hover)", color: "var(--text-muted)" }}>{p.quantidade}x</span>
+                            <span className="text-[13px] font-black" style={{ color: "var(--text-primary)" }}>
+                              {fmtBRL(p.preco_live ?? p.preco_original ?? 0)}
+                            </span>
+                            {p.preco_original > 0 && p.preco_live < p.preco_original && (
+                              <span className="text-[10px] line-through" style={{ color: "var(--text-muted)" }}>
+                                {fmtBRL(p.preco_original)}
+                              </span>
+                            )}
+                            {disc > 0 && (
+                              <motion.span
+                                initial={{ scale: 0, rotate: -12 }} animate={{ scale: 1, rotate: 0 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 16, delay: i * 0.04 + 0.2 }}
+                                className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                                -{disc}%
+                              </motion.span>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Badges */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <AnimatePresence>
-                          {p.estoque_baixado && (
-                            <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-                              className="text-[9px] font-black uppercase px-2 py-1 rounded-full tracking-wide"
-                              style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>
-                              ✓ ESTOQUE
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                        <motion.button onClick={() => remover(p.id)}
-                          whileHover={{ scale: 1.15, rotate: 10 }} whileTap={{ scale: 0.85 }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-                          style={{ color: "#f87171" }}>
-                          <Trash2 size={13}/>
-                        </motion.button>
+                        {/* Ações direita */}
+                        <div className="flex flex-col items-end gap-2 shrink-0 self-stretch justify-between">
+                          <motion.button onClick={() => remover(p.id)}
+                            whileHover={{ scale: 1.18, rotate: 12 }} whileTap={{ scale: 0.82 }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-all"
+                            style={{ color: "#f87171" }}>
+                            <Trash2 size={13}/>
+                          </motion.button>
+                          <AnimatePresence>
+                            {p.estoque_baixado && (
+                              <motion.span
+                                initial={{ scale: 0, opacity: 0, y: 4 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                                className="text-[9px] font-black uppercase px-2 py-1 rounded-full tracking-wide"
+                                style={{ background: "rgba(16,185,129,0.14)", color: "#10b981" }}>
+                                ✓ ok
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     </motion.div>
                   )
