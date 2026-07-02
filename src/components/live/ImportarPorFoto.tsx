@@ -77,7 +77,8 @@ const MSGS_PROCESSANDO = [
 ]
 
 // ─── Compressão da imagem no cliente ──────────────────────
-// Fotos de celular chegam a 12MB; reduz para ~1600px JPEG.
+// Fotos de celular chegam a 12MB; reduz para ~2200px JPEG (letra manuscrita
+// pequena/apertada se beneficia de mais resolução na leitura pela IA).
 async function comprimirImagem(file: File): Promise<string> {
   const url = URL.createObjectURL(file)
   try {
@@ -87,7 +88,7 @@ async function comprimirImagem(file: File): Promise<string> {
       i.onerror = () => rej(new Error("Não foi possível ler a imagem"))
       i.src = url
     })
-    const MAX = 1600
+    const MAX = 2200
     const scale = Math.min(1, MAX / Math.max(img.width, img.height))
     const canvas = document.createElement("canvas")
     canvas.width  = Math.round(img.width * scale)
@@ -95,7 +96,7 @@ async function comprimirImagem(file: File): Promise<string> {
     const ctx = canvas.getContext("2d")
     if (!ctx) throw new Error("Canvas indisponível")
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL("image/jpeg", 0.85)
+    return canvas.toDataURL("image/jpeg", 0.9)
   } finally {
     URL.revokeObjectURL(url)
   }

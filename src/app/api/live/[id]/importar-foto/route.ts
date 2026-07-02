@@ -102,9 +102,10 @@ REGRAS:
 4. Telefone/WhatsApp: só preencha se houver uma anotação de telefone claramente separada da tabela (a tabela normal não tem essa coluna); caso contrário, null.
 5. Instagram: retorne sem o "@".
 6. NÃO invente dados. Se uma célula estiver vazia, borrada além de leitura, ou fora da tabela, o campo correspondente = null. NUNCA preencha nome, sacola ou valor com algo que não esteja escrito naquela linha específica.
-7. Confiança por campo: "alta" = leitura clara e certa; "media" = legível mas com alguma dúvida (letra ambígua, número borrado); "baixa" = chute com base em rabisco quase ilegível. Campo null = "alta" (não há o que duvidar).
-8. Se a página inteira estiver ilegível, desfocada, escura ou não contiver uma tabela de compras, retorne legivel=false com um motivo curto e amigável em português.
-9. Ignore linhas riscadas/tachadas (compra cancelada) e linhas totalmente vazias (sem nenhuma célula preenchida).
+7. ISOLAMENTO POR LINHA: leia e calcule os valores de cada linha usando SOMENTE o que está fisicamente escrito naquela linha. NUNCA copie, reutilize ou "herde" um valor (nome, número, cor, item, QT, total) de uma linha vizinha, mesmo que os números pareçam coincidir com os de outra linha ou você não tenha certeza de qual valor pertence a qual linha. Na dúvida sobre a qual linha um número pertence, prefira null a adivinhar.
+8. Confiança por campo: "alta" = leitura clara e certa; "media" = legível mas com alguma dúvida (letra ambígua, número borrado); "baixa" = chute com base em rabisco quase ilegível. Campo null = "alta" (não há o que duvidar).
+9. Se a página inteira estiver ilegível, desfocada, escura ou não contiver uma tabela de compras, retorne legivel=false com um motivo curto e amigável em português.
+10. Ignore linhas riscadas/tachadas (compra cancelada) e linhas totalmente vazias (sem nenhuma célula preenchida).
 
 Responda SOMENTE com o JSON no formato solicitado.`
 
