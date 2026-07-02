@@ -41,7 +41,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }))
 
     const clienteId: number | null = body.cliente_id ?? null
+    const valorTotal: number = parseFloat(body.valor_total ?? 0) || 0
     const creditoAplicado: number = Math.max(0, parseFloat(body.credito_aplicado ?? 0) || 0)
+
+    if (creditoAplicado > valorTotal) {
+      return NextResponse.json({ erro: "Crédito aplicado não pode exceder o valor total da compra." }, { status: 400 })
+    }
 
     const resultado = await useCase.execute({
       liveId: parseInt(id),

@@ -132,6 +132,86 @@ export async function POST(req: NextRequest, { params }: Params) {
   return NextResponse.json(item, { status: 201 })
 }
 
+// PATCH — editar quantidade/preço de um produto já vinculado
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const auth = verifyAuth(req)
+  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+
+  const { compraId } = await params
+  const url = new URL(req.url)
+  const itemIdStr = url.searchParams.get("item_id")
+  if (!itemIdStr) return NextResponse.json({ erro: "item_id obrigatório" }, { status: 400 })
+  const itemId = parseInt(itemIdStr)
+  const compraIdNum = parseInt(compraId)
+
+  const body = await req.json().catch(() => ({})) as { quantidade?: number; preco_original?: number; preco_live?: number }
+  const sb = createServerClient()
+
+  const { data: item } = await sb.from("live_compra_produtos").select("*").eq("id", itemId).eq("compra_id", compraIdNum).single()
+  if (!item) return NextResponse.json({ erro: "Produto vinculado não encontrado." }, { status: 404 })
+
+  const novaQtd       = body.quantidade ?? item.quantidade ?? 1
+  const novoOrig       = body.preco_original ?? item.preco_original ?? 0
+  const novoLive       = body.preco_live ?? item.preco_live ?? novoOrig
+
+  if (!Number.isFinite(novaQtd) || novaQtd < 1) {
+    return NextResponse.json({ erro: "Quantidade inválida." }, { status: 400 })
+  }
+  if (!Number.isFinite(novoOrig) || novoOrig < 0 || !Number.isFinite(novoLive) || novoLive < 0) {
+    return NextResponse.json({ erro: "Valor inválido." }, { status: 400 })
+  }
+
+  // Valida limites de quantidade/valor da compra, excluindo o próprio item
+  {
+    const [{ data: compraLimites }, { data: outrosVinculados }] = await Promise.all([
+      sb.from("live_compras").select("quantidade_itens, valor_total").eq("id", compraIdNum).single(),
+      sb.from("live_compra_produtos").select("quantidade, preco_live, preco_original").eq("compra_id", compraIdNum).neq("id", itemId),
+    ])
+
+    const qtdEsperada = Number(compraLimites?.quantidade_itens ?? 0)
+    const valorTotal  = parseFloat(String(compraLimites?.valor_total ?? 0))
+    const qtdOutros    = (outrosVinculados ?? []).reduce((s, p) => s + Number(p.quantidade ?? 1), 0)
+    const valorOutros  = (outrosVinculados ?? []).reduce((s, p) => s + parseFloat(String(p.preco_live ?? p.preco_original ?? 0)) * Number(p.quantidade ?? 1), 0)
+
+    if (qtdEsperada > 0 && qtdOutros + novaQtd > qtdEsperada) {
+      return NextResponse.json({
+        erro: `LIMITE DE ITENS ATINGIDO. ESTA COMPRA POSSUI ${qtdEsperada} ITEM(NS) E OS DEMAIS VÍNCULOS JÁ SOMAM ${qtdOutros}.`,
+      }, { status: 422 })
+    }
+    if (valorTotal > 0 && valorOutros + novoLive * novaQtd > valorTotal) {
+      const fmtVal = (v: number) => "R$ " + v.toFixed(2).replace(".", ",")
+      return NextResponse.json({
+        erro: `VALOR LIMITE ATINGIDO. ESTA COMPRA TEM TOTAL DE ${fmtVal(valorTotal)} E OS DEMAIS VÍNCULOS JÁ SOMAM ${fmtVal(valorOutros)}.`,
+      }, { status: 422 })
+    }
+  }
+
+  // Ajusta estoque pela diferença de quantidade (só se este item já baixou estoque)
+  if (item.produto_id && item.estoque_baixado) {
+    const delta = novaQtd - Number(item.quantidade ?? 1)  // > 0 = precisa baixar mais; < 0 = devolve
+    if (delta !== 0) {
+      const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", item.produto_id).single()
+      if (prod && prod.controlar_estoque !== false) {
+        const novoEstoque = (prod.estoque_atual ?? 0) - delta
+        if (novoEstoque < 0) {
+          return NextResponse.json({ erro: `Estoque insuficiente para "${prod.nome}". Disponível: ${prod.estoque_atual ?? 0}` }, { status: 422 })
+        }
+        await sb.from("produtos").update({ estoque_atual: novoEstoque }).eq("id", item.produto_id)
+      }
+    }
+  }
+
+  const { error } = await sb.from("live_compra_produtos").update({
+    quantidade: novaQtd,
+    preco_original: novoOrig,
+    preco_live: novoLive,
+  }).eq("id", itemId)
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+
+  await atualizarStatusCompra(compraIdNum, sb)
+  return NextResponse.json({ ok: true })
+}
+
 // DELETE — remover produto vinculado
 export async function DELETE(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)

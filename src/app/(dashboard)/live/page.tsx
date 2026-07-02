@@ -21,6 +21,7 @@ import {
   CHAR_TARGET,
   type CompraData,
   type MessageResult,
+  type ProdutoMensagem,
 } from "@/lib/live-message-builder"
 import { useDisparoStore } from "@/stores/disparo.store"
 import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParcelamento } from "@/lib/parcelamento"
@@ -1663,6 +1664,13 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex?.id, liveId])
 
+  // Produtos ilustrativos para o preview (mostram o layout, não são os reais)
+  const PRODUTOS_EXEMPLO: ProdutoMensagem[] = [
+    { nome: "Blusa Floral", marca: "Farm", cor: "Rosa", tamanho: "M", preco: 0 },
+    { nome: "Calça Jeans", cor: "Azul", tamanho: "38", preco: 0 },
+    { nome: "Cinto", preco: 0 },
+  ].slice(0, Math.max(1, Math.min(ex?.quantidade_itens ?? 1, 3)))
+
   // Gera preview sempre que a compra, o link, o índice de small talk ou o estado mudarem
   useEffect(() => {
     if (!ex) { setMsgResult(null); return }
@@ -1680,8 +1688,10 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       link_pagamento: pagoCreditoEx
         ? null
         : exLink ?? ex.link_pagamento ?? (gerandoLink ? undefined : null),
+      produtos: PRODUTOS_EXEMPLO,
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex, liveData, exLink, gerandoLink, pagoCreditoEx, stIdx])
 
   useEffect(() => {
@@ -1790,6 +1800,9 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                 <p className="text-xs font-bold text-white">B</p>
               </div>
               <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Brechó Bellasu</p>
+              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
+                prévia ilustrativa
+              </span>
             </div>
 
             {/* Balão WhatsApp */}

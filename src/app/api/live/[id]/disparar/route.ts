@@ -231,6 +231,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const upd: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
       try { await sb.from("live_compras").update({ ...upd, asaas_payment_id: resultado.paymentId }).eq("id", compraId) }
       catch { await sb.from("live_compras").update(upd).eq("id", compraId) }
+    } else {
+      // Asaas retornou null — falha ao gerar cobrança
+      console.error("[disparar] Asaas falhou ao gerar link para compra", compraId, {
+        cliente: compra.nome_cliente, valorFinal, cpf: cpf ? "***" : "ausente",
+      })
+      const detalheAsaas = "Não foi possível gerar o link de pagamento (Asaas). Verifique se o token está correto em Configurações → Integrações e tente novamente, ou marque a compra como paga manualmente."
+      if (apenasLink) {
+        return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalheAsaas })
+      }
+      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+      return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: detalheAsaas })
     }
   }
 
@@ -242,7 +253,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // ── Valida: não dispara sem link (exceto crédito total, já tratado acima) ──
   if (!linkPagamento && valorFinal > 0) {
     await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: "Link de pagamento não gerado. Tente novamente." })
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: "Link de pagamento não disponível. Tente novamente ou marque como pago manualmente." })
   }
 
   // ── Monta a mensagem ──
