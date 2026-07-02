@@ -4,6 +4,17 @@ import { verifyAuth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
+interface PatchBody {
+  pagamento_status?: string
+  nome_cliente?: string
+  whatsapp?: string | null
+  cor_sacola?: string | null
+  numero_sacola?: string | null
+  quantidade_itens?: number
+  valor_total?: number
+  desconto?: number
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; compraId: string }> }
@@ -11,11 +22,53 @@ export async function PATCH(
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Nao autorizado." }, { status: 401 })
   const { id, compraId } = await params
-  const body = await req.json().catch(() => ({})) as { pagamento_status?: string }
-  if (!body.pagamento_status) return NextResponse.json({ erro: "pagamento_status obrigatorio." }, { status: 400 })
+  const body = await req.json().catch(() => ({})) as PatchBody
   const sb = createServerClient()
+
+  // Marcar pagamento (botão "PAGO" na tabela da live)
+  if (body.pagamento_status) {
+    const { error } = await sb.from("live_compras")
+      .update({ pagamento_status: body.pagamento_status })
+      .eq("id", parseInt(compraId))
+      .eq("live_id", parseInt(id))
+    if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  // Edição completa dos dados da compra (modal "Editar Compra")
+  const update: Record<string, unknown> = {}
+  if (body.nome_cliente !== undefined) {
+    if (!body.nome_cliente.trim()) return NextResponse.json({ erro: "Nome da cliente é obrigatório." }, { status: 400 })
+    update.nome_cliente = body.nome_cliente.trim()
+  }
+  if (body.whatsapp !== undefined)         update.whatsapp = body.whatsapp
+  if (body.cor_sacola !== undefined)       update.cor_sacola = body.cor_sacola
+  if (body.numero_sacola !== undefined)    update.numero_sacola = body.numero_sacola
+  if (body.quantidade_itens !== undefined) {
+    if (!Number.isFinite(body.quantidade_itens) || body.quantidade_itens < 1) {
+      return NextResponse.json({ erro: "Quantidade de itens inválida." }, { status: 400 })
+    }
+    update.quantidade_itens = body.quantidade_itens
+  }
+  if (body.valor_total !== undefined) {
+    if (!Number.isFinite(body.valor_total) || body.valor_total < 0) {
+      return NextResponse.json({ erro: "Valor total inválido." }, { status: 400 })
+    }
+    update.valor_total = body.valor_total
+  }
+  if (body.desconto !== undefined) {
+    if (!Number.isFinite(body.desconto) || body.desconto < 0) {
+      return NextResponse.json({ erro: "Desconto inválido." }, { status: 400 })
+    }
+    update.desconto = body.desconto
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ erro: "Nenhum dado para atualizar." }, { status: 400 })
+  }
+
   const { error } = await sb.from("live_compras")
-    .update({ pagamento_status: body.pagamento_status })
+    .update(update)
     .eq("id", parseInt(compraId))
     .eq("live_id", parseInt(id))
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })

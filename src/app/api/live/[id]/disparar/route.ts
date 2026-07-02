@@ -182,6 +182,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "enviada", messageId: resultadoZap.messageId, pago_com_credito: true })
   }
 
+  // ── Integração Asaas não configurada ──
+  if (!compra.link_pagamento && valorFinal > 0 && !process.env.ASAAS_TOKEN) {
+    const detalhe = "Pagamento por link não está configurado (falta a chave da integração Asaas). Peça para configurar em Configurações → Integrações, ou marque esta compra como paga manualmente."
+    if (apenasLink) {
+      return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalhe })
+    }
+    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe })
+  }
+
   // ── Valor abaixo do mínimo do Asaas (R$ 5,00) ──
   const ASAAS_VALOR_MINIMO = 5
   if (!compra.link_pagamento && valorFinal > 0 && valorFinal < ASAAS_VALOR_MINIMO) {

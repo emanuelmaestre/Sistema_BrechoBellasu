@@ -2044,7 +2044,9 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
         desconto: parseFloat(form.desconto.replace(/\./g, "").replace(",", ".")) || 0,
       })
       onSalvo()
-    } catch { setErro("Erro ao salvar alterações.") } finally { setSaving(false) }
+    } catch (e: unknown) {
+      setErro(e instanceof Error ? e.message : "Erro ao salvar alterações.")
+    } finally { setSaving(false) }
   }
 
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
