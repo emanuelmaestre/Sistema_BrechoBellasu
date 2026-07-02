@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import { ModuleTopBar } from "./ModuleTopBar"
+import DisparoWidget from "@/components/live/DisparoWidget"
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -12,6 +13,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     return (
       <div className="h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
         {children}
+        <DisparoWidget />
       </div>
     )
   }
@@ -32,6 +34,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
           {children}
         </motion.main>
       </AnimatePresence>
+      <DisparoWidget />
     </div>
   )
 }

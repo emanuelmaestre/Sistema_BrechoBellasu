@@ -22,7 +22,7 @@ import {
   type CompraData,
   type MessageResult,
 } from "@/lib/live-message-builder"
-import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
+import { useDisparoStore } from "@/stores/disparo.store"
 import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParcelamento } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
@@ -98,7 +98,6 @@ function gerarArroba(nome: string): string {
   return "@" + first + last
 }
 const COR_LIVE = "#e11d48"
-const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
 // ─── Status colors (lista) ────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -198,7 +197,7 @@ const PLATAFORMAS = [
 // ══════════════════════════════════════════════════════════
 // WIZARD — Nova Live
 // ══════════════════════════════════════════════════════════
-type WizardFase = "wizard" | "criando" | "avisando" | "sucesso"
+type WizardFase = "wizard" | "criando" | "sucesso"
 
 function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: number) => void }) {
   const qc = useQueryClient()
@@ -212,10 +211,9 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 
   // ── Fase de carregamento ──
   const [fase, setFase]           = useState<WizardFase>("wizard")
-  const [liveIdCriado, setLiveId] = useState<number | null>(null)
-  const [progresso, setProgresso] = useState({ atual: 0, total: 0, nome: "", aguardando: 0 })
-  const [avisados, setAvisados]   = useState(0)
+  const [temAviso, setTemAviso]   = useState(false)
   const [confirmSemLink, setConfirmSemLink] = useState(false)
+  const iniciarAviso = useDisparoStore(s => s.iniciarAviso)
 
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
   useEffect(() => {
@@ -254,52 +252,21 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
         link_live:  form.link_live || null,
       })
       qc.invalidateQueries({ queryKey: ["lives"] })
-      setLiveId(nova.id)
 
-      // 2. Se tem link, dispara aviso automático para todas as clientes
+      // 2. Se tem link, dispara o aviso em SEGUNDO PLANO (widget flutuante).
+      // Não bloqueia: a tela vai para "sucesso" e navega para a live, e o
+      // envio para as clientes continua rodando no widget do canto.
       if (form.link_live?.trim()) {
-        setFase("avisando")
-
-        const fila = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>(`/live/${nova.id}/aviso`)
-        const clientes = fila.clientes ?? []
-
-        if (clientes.length === 0) {
-          // Nenhuma cliente com opt-in — vai direto para sucesso
-          setFase("sucesso")
-          setTimeout(() => { onSalvo(nova.id) }, 2000)
-          return
-        }
-
-        setProgresso({ atual: 0, total: clientes.length, nome: "", aguardando: 0 })
-
-        let enviados = 0
-        let intervaloAnterior: number | undefined
-
-        for (let i = 0; i < clientes.length; i++) {
-          const cliente = clientes[i]
-
-          if (i > 0) {
-            const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
-            intervaloAnterior = intervaloMs
-            let restante = Math.ceil(intervaloMs / 1000)
-            setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
-            while (restante > 0) {
-              await new Promise(r => setTimeout(r, 1000))
-              restante--
-              setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
-            }
-          }
-
-          setProgresso({ atual: i + 1, total: clientes.length, nome: cliente.nome, aguardando: 0 })
-          const res = await apiPost<{ status: string }>(`/live/${nova.id}/aviso`, { link: form.link_live, cliente_id: cliente.id })
-          if (res.status === "enviado") enviados++
-        }
-
-        setAvisados(enviados)
+        iniciarAviso({
+          liveId: nova.id,
+          liveTitulo: form.titulo?.trim() || `Live ${fmtData(form.data_live)}`,
+          link: form.link_live.trim(),
+        })
+        setTemAviso(true)
       }
 
       setFase("sucesso")
-      setTimeout(() => { onSalvo(nova.id) }, 2200)
+      setTimeout(() => { onSalvo(nova.id) }, 1800)
     } catch {
       setErro("Erro ao criar live. Tente novamente.")
       setFase("wizard")
@@ -322,7 +289,6 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 
   // ── Tela de carregamento / sucesso ──
   if (fase !== "wizard") {
-    const pct = progresso.total > 0 ? Math.round((progresso.atual / progresso.total) * 100) : 0
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex flex-col items-center justify-center"
@@ -351,57 +317,6 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
             </motion.div>
           )}
 
-          {/* AVISANDO CLIENTES */}
-          {fase === "avisando" && (
-            <motion.div key="avisando"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col items-center gap-6 px-8 w-full max-w-sm text-center">
-              {/* Ícone animado */}
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                className="text-5xl">📣</motion.div>
-
-              <div>
-                <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>Avisando clientes</p>
-                <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                  {progresso.atual} de {progresso.total} mensagens enviadas
-                </p>
-                {progresso.nome && (
-                  <motion.p key={progresso.nome}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-xs mt-1 font-semibold uppercase truncate max-w-xs"
-                    style={{ color: COR_LIVE }}>
-                    {progresso.aguardando > 0 ? `⏳ ${progresso.aguardando}s → ` : "✉️ "}{progresso.nome}
-                  </motion.p>
-                )}
-              </div>
-
-              {/* Barra de progresso */}
-              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-card)" }}>
-                <motion.div
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="h-full rounded-full"
-                  style={{ background: `linear-gradient(90deg, ${COR_LIVE}, #f97316)` }}/>
-              </div>
-              <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text-muted)" }}>{pct}%</p>
-
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Enviando com intervalo seguro para não bloquear o WhatsApp.
-              </p>
-
-              {/* Pular para a live (continua em background) */}
-              {liveIdCriado && (
-                <button onClick={() => onSalvo(liveIdCriado)}
-                  className="text-xs font-semibold underline"
-                  style={{ color: "var(--text-muted)" }}>
-                  Ir para a live agora →
-                </button>
-              )}
-            </motion.div>
-          )}
-
           {/* SUCESSO */}
           {fase === "sucesso" && (
             <motion.div key="sucesso"
@@ -417,9 +332,9 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
               </motion.div>
               <div>
                 <p className="text-2xl font-black" style={{ color: "#10b981" }}>Live criada!</p>
-                {avisados > 0
+                {temAviso
                   ? <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                      {avisados} cliente{avisados > 1 ? "s" : ""} {avisados > 1 ? "foram avisadas" : "foi avisada"} 🎉
+                      Avisando as clientes em segundo plano 📣
                     </p>
                   : <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Redirecionando...</p>
                 }
@@ -1561,9 +1476,9 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
   onClose: () => void; onSuccess: (enviados: number, link: string) => void
 }) {
   const [link, setLink] = useState(linkAtual)
-  const [enviando, setEnviando] = useState(false)
-  const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null)
-  const [progresso, setProgresso] = useState<{ atual: number; total: number; nome: string; aguardando: number }>({ atual: 0, total: 0, nome: "", aguardando: 0 })
+  const [erro, setErro] = useState<string | null>(null)
+  const iniciarAviso = useDisparoStore(s => s.iniciarAviso)
+  const jobRodando   = useDisparoStore(s => s.job?.status === "running")
 
   const reenvio = numeroEnvio > 0
 
@@ -1576,63 +1491,19 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
       ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
       : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
 
-  async function dispararLegado() {
-    if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
-    setEnviando(true); setResultado(null)
-    try {
-      const res = await apiPost<{ enviados: number; erros?: number; total?: number; mensagem?: string }>(`/live/${liveId}/aviso`, { link })
-      if (res.enviados === 0) {
-        setResultado({ ok: false, texto: res.mensagem ?? "Nenhum cliente com opt-in para lives. Verifique se alguma cliente confirmou o consentimento." })
-      } else {
-        setResultado({ ok: true, texto: `✅ Aviso enviado para ${res.enviados} cliente(s)!${res.erros ? ` (${res.erros} falha(s))` : ""}` })
-        setTimeout(() => { onSuccess(res.enviados, link.trim()) }, 1500)
-      }
-    } catch (e) {
-      setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
-    } finally { setEnviando(false) }
-  }
-
-  async function disparar() {
-    if (!link.trim()) { setResultado({ ok: false, texto: "Cole o link da live primeiro." }); return }
-    setEnviando(true); setResultado(null)
-    try {
-      const fila = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number; mensagem?: string }>(`/live/${liveId}/aviso`)
-      const clientes = fila.clientes ?? []
-      if (clientes.length === 0) {
-        setResultado({ ok: false, texto: fila.mensagem ?? "Nenhum cliente com opt-in para lives. Verifique se alguma cliente confirmou o consentimento." })
-        return
-      }
-
-      let enviados = 0
-      let erros = 0
-      let intervaloAnterior: number | undefined
-      setProgresso({ atual: 0, total: clientes.length, nome: "", aguardando: 0 })
-
-      for (let i = 0; i < clientes.length; i++) {
-        const cliente = clientes[i]
-        if (i > 0) {
-          const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
-          intervaloAnterior = intervaloMs
-          let restante = Math.ceil(intervaloMs / 1000)
-          setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
-          while (restante > 0) {
-            await new Promise(res => setTimeout(res, 1000))
-            restante--
-            setProgresso({ atual: i, total: clientes.length, nome: cliente.nome, aguardando: restante })
-          }
-        }
-
-        setProgresso({ atual: i + 1, total: clientes.length, nome: cliente.nome, aguardando: 0 })
-        const res = await apiPost<{ status: string }>(`/live/${liveId}/aviso`, { link, cliente_id: cliente.id })
-        if (res.status === "enviado") enviados++
-        else erros++
-      }
-
-      setResultado({ ok: enviados > 0, texto: `Aviso enviado para ${enviados} cliente(s).${erros ? ` ${erros} falha(s).` : ""}` })
-      if (enviados > 0) setTimeout(() => { onSuccess(enviados, link.trim()) }, 1500)
-    } catch (e) {
-      setResultado({ ok: false, texto: (e as Error).message || "Erro ao disparar aviso." })
-    } finally { setEnviando(false) }
+  // Enfileira o aviso no store e fecha o modal. O envio para todas as
+  // clientes roda em SEGUNDO PLANO (widget flutuante no canto), com
+  // intervalo seguro entre cada mensagem.
+  function disparar() {
+    if (!link.trim()) { setErro("Cole o link da live primeiro."); return }
+    const ok = iniciarAviso({
+      liveId,
+      liveTitulo: reenvio ? "Reenvio de aviso da live" : "Aviso da live",
+      link: link.trim(),
+    })
+    if (!ok) { setErro("Já há um envio em andamento. Aguarde terminar."); return }
+    onSuccess(-1, link.trim())   // -1 = envio em segundo plano (contagem no widget)
+    onClose()
   }
 
   return (
@@ -1684,31 +1555,19 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
             {previewMsg}
           </div>
 
-          {resultado && (
-            <p className={cn("text-xs px-3 py-2 rounded-lg", resultado.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
-              {resultado.texto}
-            </p>
+          {erro && (
+            <p className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400">{erro}</p>
           )}
 
-          {enviando && (
-            <div className="rounded-lg px-3 py-2 text-xs"
-              style={{ background: "var(--bg-base)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
-              {progresso.total === 0 ? (
-                <p className="font-bold inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin"/> Buscando clientes com consentimento...</p>
-              ) : (
-                <>
-                  <p className="font-bold">Enviando {progresso.atual}/{progresso.total}</p>
-                  <p>{progresso.aguardando > 0 ? `Aguardando ${progresso.aguardando}s para ${progresso.nome}` : `Enviando para ${progresso.nome}`}</p>
-                </>
-              )}
-            </div>
-          )}
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+            O envio roda em segundo plano — acompanhe pelo widget no canto inferior direito.
+          </p>
 
-          <button onClick={disparar} disabled={enviando}
+          <button onClick={disparar} disabled={jobRodando}
             className="w-full py-2.5 rounded-lg text-sm font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
             style={{ background: reenvio ? "#e11d48" : "#10b981" }}>
-            {enviando ? <Loader2 size={16} className="animate-spin"/> : reenvio ? <RefreshCw size={15}/> : <Send size={15}/>}
-            {enviando ? "Disparando..." : reenvio ? "Reenviar — Estamos de Volta!" : "Disparar Aviso Agora"}
+            {reenvio ? <RefreshCw size={15}/> : <Send size={15}/>}
+            {jobRodando ? "Envio em andamento…" : reenvio ? "Reenviar — Estamos de Volta!" : "Disparar Aviso Agora"}
           </button>
         </div>
       </motion.div>
@@ -1723,16 +1582,11 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   liveId: number; liveTitulo: string; liveData: string
   compras: Compra[]; onClose: () => void; onSuccess: () => void
 }) {
-  type Fase = "preview" | "disparando" | "resultado"
-  type ItemResultado = { id: number; cliente: string; numero: string; status: string; detalhe?: string }
-  const [fase, setFase]         = useState<Fase>("preview")
-  const [resultado, setResultado] = useState<{ enviadas: number; erros: number; resultados: ItemResultado[] } | null>(null)
   const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
   const [parcOpen, setParcOpen] = useState(false)
-  // Progresso do disparo orquestrado pelo navegador (1 envio por vez)
-  const [prog, setProg] = useState<{ atual: number; total: number; nome: string; aguardando: number }>({ atual: 0, total: 0, nome: "", aguardando: 0 })
-  const cancelarRef = useRef(false)
+  const iniciarDisparo = useDisparoStore(s => s.iniciarDisparo)
+  const jobRodando     = useDisparoStore(s => s.job?.status === "running")
 
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
   const [exLink, setExLink] = useState<string | null>(null)
@@ -1791,19 +1645,9 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   }, [ex, liveData, exLink, gerandoLink, pagoCreditoEx, stIdx])
 
   useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key === "Escape" && fase !== "disparando") onClose() }
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn)
-  }, [onClose, fase])
-
-  // Mantém tela acesa durante o disparo (Wake Lock API)
-  useEffect(() => {
-    if (fase !== "disparando") return
-    let lock: WakeLockSentinel | null = null
-    if ("wakeLock" in navigator) {
-      navigator.wakeLock.request("screen").then(l => { lock = l }).catch(() => {})
-    }
-    return () => { lock?.release().catch(() => {}) }
-  }, [fase])
+  }, [onClose])
 
   function gerarNovaVariacao() { setStIdx(selectSmallTalkIndex()) }
 
@@ -1811,68 +1655,16 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     if (msgResult) await navigator.clipboard.writeText(msgResult.mensagem)
   }
 
-  // Disparo orquestrado pelo navegador: envia uma mensagem por vez, com
-  // intervalo aleatório de 8–40s entre elas. Cada chamada à API processa
-  // só uma compra, então nunca estoura o timeout do servidor.
-  async function disparar() {
+  // Enfileira o disparo no store global e fecha o modal. O envio roda em
+  // segundo plano (widget flutuante no canto), com intervalo seguro entre
+  // cada mensagem — o operador continua usando o sistema normalmente.
+  function disparar() {
     if (!msgResult?.valida) return
-    cancelarRef.current = false
-    setFase("disparando")
-
-    // 1. Busca a fila de pendentes no servidor
-    let fila: Array<{ id: number; nome: string }> = []
-    try {
-      const lista = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
-      fila = lista.pendentes ?? []
-    } catch {
-      setFase("preview"); return
-    }
-
-    const acumulado: ItemResultado[] = []
-    setProg({ atual: 0, total: fila.length, nome: "", aguardando: 0 })
-
-    let intervaloAnterior: number | undefined
-
-    // 2. Processa um por vez
-    for (let i = 0; i < fila.length; i++) {
-      if (cancelarRef.current) break
-      const item = fila[i]
-
-      // Intervalo imprevisível antes de enviar (exceto o primeiro)
-      if (i > 0) {
-        const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
-        intervaloAnterior = intervaloMs
-        // Contagem regressiva visível
-        let restante = Math.ceil(intervaloMs / 1000)
-        setProg(p => ({ ...p, nome: item.nome, aguardando: restante }))
-        while (restante > 0 && !cancelarRef.current) {
-          await new Promise(res => setTimeout(res, 1000))
-          restante--
-          setProg(p => ({ ...p, aguardando: restante }))
-        }
-        if (cancelarRef.current) break
-      }
-
-      setProg(p => ({ ...p, atual: i + 1, nome: item.nome, aguardando: 0 }))
-
-      try {
-        const r = await apiPost<ItemResultado>(`/live/${liveId}/disparar`, { compra_id: item.id })
-        acumulado.push(r)
-      } catch (e) {
-        acumulado.push({ id: item.id, cliente: item.nome, numero: "", status: "erro", detalhe: (e as Error).message || "Falha de rede" })
-      }
-    }
-
-    setResultado({
-      enviadas: acumulado.filter(r => r.status === "enviada").length,
-      erros:    acumulado.filter(r => r.status === "erro").length,
-      resultados: acumulado,
-    })
-    setFase("resultado")
+    const ok = iniciarDisparo({ liveId, liveTitulo })
+    if (!ok) return   // já há um envio em andamento
     onSuccess()
+    onClose()
   }
-
-  function cancelarDisparo() { cancelarRef.current = true }
 
   // Cores do contador
   const charColor = () => {
@@ -1908,7 +1700,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     )
   }
 
-  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !gerandoLink && !erroLink
+  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !gerandoLink && !erroLink && !jobRodando
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1923,152 +1715,13 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
             {pendentes.length} pendente{pendentes.length !== 1 ? "s" : ""}
           </span>
         </div>
-        {fase !== "disparando" && (
-          <button onClick={onClose} className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>
-            <X size={15}/> {fase === "resultado" ? "Fechar" : "Cancelar"}
-          </button>
-        )}
+        <button onClick={onClose} className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>
+          <X size={15}/> Cancelar
+        </button>
       </div>
 
-      {/* Disparando — progresso real */}
-      {fase === "disparando" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
-
-          {/* Ícone animado */}
-          <div className="relative flex items-center justify-center">
-            {/* Pulso de fundo */}
-            <motion.div
-              className="absolute rounded-full"
-              style={{ width: 80, height: 80, background: "rgba(37,211,102,0.12)" }}
-              animate={{ scale: [1, 1.35, 1], opacity: [0.7, 0, 0.7] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute rounded-full"
-              style={{ width: 60, height: 60, background: "rgba(37,211,102,0.18)" }}
-              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", delay: 0.3 }}
-            />
-            <motion.div
-              className="relative z-10 rounded-full flex items-center justify-center"
-              style={{ width: 52, height: 52, background: "rgba(37,211,102,0.15)" }}
-              animate={prog.aguardando > 0 ? { scale: [1, 1.05, 1] } : { rotate: [0, 8, -8, 0] }}
-              transition={{ repeat: Infinity, duration: prog.aguardando > 0 ? 1.5 : 0.6, ease: "easeInOut" }}
-            >
-              <Send size={24} style={{ color: "#25d366" }}/>
-            </motion.div>
-          </div>
-
-          {/* Título e status */}
-          <div className="text-center space-y-1.5">
-            <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-              Enviando {prog.atual + (prog.aguardando > 0 ? 1 : 0)} de {prog.total}
-            </p>
-
-            <AnimatePresence mode="wait">
-              {prog.aguardando > 0 ? (
-                <motion.div key="aguardando"
-                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                  className="flex flex-col items-center gap-1">
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    Próxima: <strong style={{ color: "var(--text-primary)" }}>{prog.nome}</strong>
-                  </p>
-                  {/* Countdown visual */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="relative w-8 h-8">
-                      <svg className="absolute inset-0 -rotate-90" width="32" height="32" viewBox="0 0 32 32">
-                        <circle cx="16" cy="16" r="13" fill="none" stroke="var(--bg-surface)" strokeWidth="3"/>
-                        <motion.circle cx="16" cy="16" r="13" fill="none" stroke="#25d366" strokeWidth="3"
-                          strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 13}`}
-                          animate={{ strokeDashoffset: 0 }}
-                          initial={{ strokeDashoffset: 2 * Math.PI * 13 }}
-                          transition={{ duration: prog.aguardando, ease: "linear" }}
-                        />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold" style={{ color: "#25d366" }}>
-                        {prog.aguardando}
-                      </span>
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      aguardando para parecer natural ao WhatsApp
-                    </p>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.p key="enviando"
-                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                  className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  {prog.nome ? <>Enviando para <strong style={{ color: "var(--text-primary)" }}>{prog.nome}</strong>…</> : "Preparando…"}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Barra de progresso */}
-          <div className="w-full max-w-md space-y-1.5">
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-surface)" }}>
-              <motion.div className="h-full rounded-full"
-                style={{ background: "linear-gradient(90deg, #128c7e, #25d366)" }}
-                animate={{ width: `${prog.total ? (prog.atual / prog.total) * 100 : 0}%` }}
-                transition={{ ease: "easeOut", duration: 0.5 }} />
-            </div>
-            <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-              <span>{prog.atual} enviada{prog.atual !== 1 ? "s" : ""}</span>
-              <span>{prog.total - prog.atual} restante{(prog.total - prog.atual) !== 1 ? "s" : ""}</span>
-            </div>
-          </div>
-
-          {/* Aviso de tela aberta */}
-          <p className="text-xs text-center max-w-xs px-4 py-2.5 rounded-xl" style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-            Mantenha esta tela aberta durante o envio.
-          </p>
-
-          <button onClick={cancelarDisparo}
-            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl border"
-            style={{ borderColor: "var(--border)", color: "#f87171", background: "var(--bg-surface)" }}>
-            <X size={15}/> Parar disparo
-          </button>
-        </div>
-      )}
-
-      {/* Resultado */}
-      {fase === "resultado" && resultado && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", damping: 15 }}
-            className="w-20 h-20 rounded-full flex items-center justify-center"
-            style={{ background: resultado.erros === 0 ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)" }}>
-            {resultado.erros === 0
-              ? <CheckCircle2 size={40} style={{ color: "#10b981" }}/>
-              : <AlertTriangle size={40} style={{ color: "#f59e0b" }}/>}
-          </motion.div>
-          <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {resultado.enviadas} enviada{resultado.enviadas !== 1 ? "s" : ""}
-            </p>
-            {resultado.erros > 0 && <p className="text-sm mt-1" style={{ color: "#f87171" }}>{resultado.erros} com erro</p>}
-          </div>
-          <div className="w-full max-w-md space-y-2">
-            {resultado.resultados.map(r => (
-              <div key={r.id} className="px-4 py-2.5 rounded-xl"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm" style={{ color: "var(--text-primary)" }}>{r.cliente}</span>
-                  <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
-                    r.status === "enviada" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
-                    {r.status}
-                  </span>
-                </div>
-                {r.detalhe && (
-                  <p className="text-[10px] mt-1 font-mono" style={{ color: "var(--text-muted)" }}>{r.detalhe}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Preview */}
-      {fase === "preview" && (
+      {(
         <div className="flex-1 overflow-hidden flex">
           {/* Lista de clientes */}
           <div className="w-64 shrink-0 overflow-y-auto" style={{ borderRight: "1px solid var(--border)" }}>
@@ -2265,7 +1918,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       )}
 
       {/* Footer de ações */}
-      {fase === "preview" && (
+      {(
         <div className="shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
           {/* Aviso de erro ao gerar link Asaas */}
           {erroLink && !pagoCreditoEx && (
@@ -2763,7 +2416,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                     <span className="font-bold tabular-nums" style={{ color: "#10b981" }}>#{i + 1}</span>
                     <span>{h.hora}</span>
                     <span>→</span>
-                    <span>{h.enviados} cliente{h.enviados !== 1 ? "s" : ""} notificada{h.enviados !== 1 ? "s" : ""}</span>
+                    <span>{h.enviados < 0
+                      ? "envio em segundo plano"
+                      : `${h.enviados} cliente${h.enviados !== 1 ? "s" : ""} notificada${h.enviados !== 1 ? "s" : ""}`}</span>
                     <span className="truncate max-w-[200px] opacity-60">{h.link}</span>
                   </div>
                 ))}
