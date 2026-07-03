@@ -22,7 +22,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   let q = sb.from("produtos").select("*, categorias(nome)", { count: "exact" })
   const marca = searchParams.get("marca")
 
-  if (busca)       q = q.or(`nome.ilike.%${busca}%,codigo.ilike.%${busca}%`)
+  if (busca)       q = q.or(`nome.ilike.%${busca}%,codigo.ilike.%${busca}%,marca.ilike.%${busca}%`)
   if (categoria_id) q = q.eq("categoria_id", categoria_id)
   if (marca)       q = q.ilike("marca", marca)
 
