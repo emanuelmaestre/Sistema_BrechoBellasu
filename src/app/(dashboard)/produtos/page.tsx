@@ -951,7 +951,6 @@ export default function ProdutosPage() {
   const qc = useQueryClient()
   const [busca, setBusca]       = useState("")
   const [catFiltro, setCat]     = useState("")
-  const [marcaFiltro, setMarca] = useState("")
   const [ordemCodigo, setOrdemCodigo] = useState<"asc" | "desc">("desc")
   const [wizard, setWizard]       = useState(false)
   const [editForm, setEditForm]   = useState<ProdutoForm | null>(null)
@@ -971,9 +970,9 @@ export default function ProdutosPage() {
   const buscaDebounced = useDebounce(busca, 300)
 
   const { data, isLoading } = useQuery<{ data: Produto[]; total: number }>({
-    queryKey: ["produtos", buscaDebounced, catFiltro, marcaFiltro, ordemCodigo],
+    queryKey: ["produtos", buscaDebounced, catFiltro, ordemCodigo],
     queryFn: () => {
-      const qs = new URLSearchParams({ limit: "1000", ordem_codigo: ordemCodigo, ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }), ...(marcaFiltro && { marca: marcaFiltro }) }).toString()
+      const qs = new URLSearchParams({ limit: "1000", ordem_codigo: ordemCodigo, ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
       return apiGet(`/produtos?${qs}`)
     },
     staleTime: 30_000,
@@ -985,15 +984,8 @@ export default function ProdutosPage() {
     staleTime: 300_000,
   })
 
-  const { data: marcas } = useQuery<{ id: number; nome: string }[]>({
-    queryKey: ["marcas-lista"],
-    queryFn: () => apiGet("/produtos/meta/marcas"),
-    staleTime: 300_000,
-  })
-
   const produtos   = data?.data ?? []
   const categorias = cats ?? []
-  const marcasLista = marcas ?? []
 
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
@@ -1042,7 +1034,7 @@ export default function ProdutosPage() {
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="relative flex-1 min-w-[200px]">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nome ou código"
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nome, código ou marca"
             className="w-full pl-10 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)" }}
@@ -1054,12 +1046,7 @@ export default function ProdutosPage() {
           <option value="">Todas categorias</option>
           {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
-        <select value={marcaFiltro} onChange={e => setMarca(e.target.value)}
-          className="py-2 px-3 rounded-xl text-sm outline-none transition-all min-w-[130px]"
-          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          <option value="">Todas marcas</option>
-          {marcasLista.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
-        </select>
+
       </div>
 
       {/* Tabela */}
