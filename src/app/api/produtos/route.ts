@@ -20,8 +20,11 @@ export const GET = withAuth(async (req: NextRequest) => {
 
   const sb = createServerClient()
   let q = sb.from("produtos").select("*, categorias(nome)", { count: "exact" })
+  const marca = searchParams.get("marca")
+
   if (busca)       q = q.or(`nome.ilike.%${busca}%,codigo.ilike.%${busca}%`)
   if (categoria_id) q = q.eq("categoria_id", categoria_id)
+  if (marca)       q = q.ilike("marca", marca)
 
   const { data, count, error } = await q.order("codigo", { ascending: ordemCodigo, nullsFirst: false }).order("nome").range(from, to)
   if (error) return NextResponse.json({ erro: "Não foi possível carregar os produtos. Tente novamente." }, { status: 500 })
