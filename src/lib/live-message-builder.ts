@@ -326,10 +326,10 @@ Saldo restante: R$ 0,00`
     ? `\n——————————————\n🧾 SUAS PEÇAS\n——————————————\n\n` +
       compra.produtos.map((p, i) => {
         const numeral = numerais[i] ?? `${i + 1}.`
-        const partes = [p.nome]
-        if (p.marca)   partes.push(p.marca)
-        if (p.cor)     partes.push(p.cor)
-        if (p.tamanho) partes.push(p.tamanho)
+        const partes = [p.nome.toUpperCase()]
+        if (p.marca)   partes.push(p.marca.toUpperCase())
+        if (p.cor)     partes.push(p.cor.toUpperCase())
+        if (p.tamanho) partes.push(p.tamanho.toUpperCase())
         partes.push(fmtVal(p.preco))
         return `${numeral} ${partes.join(" | ")}`
       }).join("\n") +
