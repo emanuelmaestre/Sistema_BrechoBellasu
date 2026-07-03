@@ -321,16 +321,14 @@ Saldo restante: R$ 0,00`
     blocoPagamento = `[ LINK NÃO DISPONÍVEL ]`
   }
 
-  const toTitulo = (s: string) => s.toLowerCase().replace(/(?:^|\s)\S/g, c => c.toUpperCase())
-
   const numerais = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
   const blocoProdutos = compra.produtos && compra.produtos.length > 0
     ? `\n——————————————\n🧾 SUAS PEÇAS\n——————————————\n\n` +
       compra.produtos.map((p, i) => {
         const numeral = numerais[i] ?? `${i + 1}.`
-        const partes = [toTitulo(p.nome)]
-        if (p.marca)   partes.push(toTitulo(p.marca))
-        if (p.cor)     partes.push(toTitulo(p.cor))
+        const partes = [p.nome]
+        if (p.marca)   partes.push(p.marca)
+        if (p.cor)     partes.push(p.cor)
         if (p.tamanho) partes.push(p.tamanho)
         partes.push(fmtVal(p.preco))
         return `${numeral} ${partes.join(" | ")}`
