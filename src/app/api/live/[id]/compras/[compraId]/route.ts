@@ -36,7 +36,8 @@ export async function PATCH(
   }
 
   // Edição completa dos dados da compra (modal "Editar Compra")
-  const update: Record<string, unknown> = {}
+  // Ao editar, a compra volta para pendente — o disparo precisa ser refeito.
+  const update: Record<string, unknown> = { status_compra: "pendente" }
   if (body.nome_cliente !== undefined) {
     if (!body.nome_cliente.trim()) return NextResponse.json({ erro: "Nome da cliente é obrigatório." }, { status: 400 })
     update.nome_cliente = body.nome_cliente.trim()
