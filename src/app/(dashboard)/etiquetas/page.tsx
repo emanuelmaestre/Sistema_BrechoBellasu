@@ -214,53 +214,93 @@ function ModalRastreio({ orderId, onClose }: { orderId: string; onClose: () => v
         exit={{ opacity: 0, scale: 0.94, y: 16 }}
         className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+          <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
             <MapPin size={15} style={{ color: "var(--accent)" }} /> Rastreamento
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-            <X size={17} />
+            <X size={16} />
           </button>
         </div>
-        <div className="p-6">
-          {isLoading && <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin" style={{ color: "var(--accent)" }} /></div>}
-          {error && <p className="text-center py-8 text-sm" style={{ color: "#f87171" }}>Não foi possível rastrear.</p>}
+
+        <div className="p-5 space-y-4">
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--accent)" }} />
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Consultando rastreamento...</p>
+            </div>
+          )}
+          {error && (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <p className="text-sm font-semibold" style={{ color: "#f87171" }}>Não foi possível rastrear.</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Tente novamente em instantes.</p>
+            </div>
+          )}
           {data && (
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-5 px-4 py-3 rounded-xl" style={{ background: "var(--bg-surface)" }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <Info size={13} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Código: <span className="font-mono" style={{ color: "var(--text-primary)" }}>{data.tracking}</span></p>
+            <>
+              {/* Código de rastreio */}
+              <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-2">
+                  <Info size={12} style={{ color: "var(--text-muted)" }} />
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Código de rastreio</p>
                 </div>
+                <p className="text-sm font-mono font-bold break-all" style={{ color: "var(--text-primary)" }}>{data.tracking}</p>
                 {linkRastreio && (
-                  <button onClick={copiarLink}
-                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--accent-bg)", color: copiado ? "#10b981" : "var(--accent)" }}>
-                    {copiado ? <Check size={12} /> : <Copy size={12} />}
-                    {copiado ? "Copiado!" : "Copiar link"}
-                  </button>
+                  <motion.button onClick={copiarLink} whileTap={{ scale: 0.97 }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      background: copiado ? "rgba(16,185,129,0.12)" : "var(--accent-bg)",
+                      color: copiado ? "#10b981" : "var(--accent)",
+                      border: `1px solid ${copiado ? "rgba(16,185,129,0.3)" : "rgba(99,102,241,0.25)"}`,
+                    }}>
+                    {copiado ? <Check size={13} /> : <Copy size={13} />}
+                    {copiado ? "Link copiado!" : "Copiar link de rastreio"}
+                  </motion.button>
                 )}
               </div>
-              <div className="space-y-0 max-h-72 overflow-y-auto pr-1">
-                {(data.events ?? []).length === 0 ? (
-                  <p className="text-center py-6 text-sm" style={{ color: "var(--text-muted)" }}>Nenhum evento ainda.</p>
-                ) : data.events.map((ev, i) => (
-                  <div key={i} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={cn("w-2.5 h-2.5 rounded-full mt-1.5 shrink-0",
-                        i === 0 ? "bg-blue-400 ring-4 ring-blue-400/20" : "bg-slate-700")} />
-                      {i < (data.events?.length ?? 0) - 1 && <div className="w-px flex-1 mt-1" style={{ background: "var(--border)" }} />}
+
+              {/* Linha do tempo */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-3 px-1" style={{ color: "var(--text-muted)" }}>
+                  Histórico de eventos
+                </p>
+                <div className="space-y-0 max-h-64 overflow-y-auto pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--accent) var(--bg-surface)" }}>
+                  {(data.events ?? []).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-xl" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <MapPin size={22} style={{ color: "var(--border-hover)" }} />
+                      <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Nenhum evento ainda</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)", opacity: 0.7 }}>O pacote ainda não foi postado ou os dados estão sendo atualizados.</p>
                     </div>
-                    <div className="pb-4">
-                      <p className="text-sm" style={{ color: i === 0 ? "var(--text-primary)" : "var(--text-secondary)" }}>{ev.description}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{ev.location} · {ev.date}</p>
+                  ) : data.events.map((ev, i) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="flex flex-col items-center pt-0.5">
+                        <div className={cn("w-2.5 h-2.5 rounded-full shrink-0",
+                          i === 0 ? "bg-blue-400 ring-4 ring-blue-400/20" : "bg-slate-600")} />
+                        {i < (data.events?.length ?? 0) - 1 && (
+                          <div className="w-px flex-1 mt-1 min-h-[16px]" style={{ background: "var(--border)" }} />
+                        )}
+                      </div>
+                      <div className="pb-4 flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-snug" style={{ color: i === 0 ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                          {ev.description}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {ev.location && (
+                            <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{ev.location}</span>
+                          )}
+                          {ev.location && ev.date && <span style={{ color: "var(--border-hover)" }}>·</span>}
+                          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{ev.date}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </motion.div>
