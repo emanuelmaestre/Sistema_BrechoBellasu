@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { classificarResposta } from "@/lib/consentimento-resposta"
 
 export const dynamic = "force-dynamic"
 
@@ -24,9 +25,6 @@ function gerarVariantesNumero(telefone: string): string[] {
   }
   return Array.from(variants)
 }
-
-const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo", "ok", "tá", "ta"])
-const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare", "não autorizo", "nao autorizo", "cancela", "cancelar"])
 
 /**
  * GET — diagnóstico: lista clientes com status "enviado" que têm resposta no whatsapp_log
@@ -89,8 +87,7 @@ export async function GET(req: NextRequest) {
       // Filtra apenas respostas APÓS o envio do consentimento
       const enviadoEm = cliente.consentimento_enviado_em ? new Date(cliente.consentimento_enviado_em).getTime() : 0
       const respostas = entradas.filter(e => {
-        const msg = (e.mensagem ?? "").toLowerCase().trim()
-        return (SIM_WORDS.has(msg) || NAO_WORDS.has(msg)) && new Date(e.created_at).getTime() > enviadoEm
+        return classificarResposta(e.mensagem ?? "") !== null && new Date(e.created_at).getTime() > enviadoEm
       })
       if (respostas.length > 0) {
         // Pega a resposta mais antiga após o envio
@@ -100,7 +97,6 @@ export async function GET(req: NextRequest) {
     }
 
     if (encontrado) {
-      const msg = (encontrado.mensagem ?? "").toLowerCase().trim()
       casos.push({
         id: cliente.id,
         nome: cliente.nome ?? "",
@@ -108,7 +104,7 @@ export async function GET(req: NextRequest) {
         enviado_em: cliente.consentimento_enviado_em,
         resposta: encontrado.mensagem,
         respondeu_em: encontrado.created_at,
-        acao: SIM_WORDS.has(msg) ? "autorizar" : "recusar",
+        acao: classificarResposta(encontrado.mensagem ?? "") === "sim" ? "autorizar" : "recusar",
       })
     }
   }
@@ -163,8 +159,7 @@ export async function POST(req: NextRequest) {
       const entradas = logsPorTel.get(v) ?? []
       const enviadoEm = cliente.consentimento_enviado_em ? new Date(cliente.consentimento_enviado_em).getTime() : 0
       const respostas = entradas.filter(e => {
-        const msg = (e.mensagem ?? "").toLowerCase().trim()
-        return (SIM_WORDS.has(msg) || NAO_WORDS.has(msg)) && new Date(e.created_at).getTime() > enviadoEm
+        return classificarResposta(e.mensagem ?? "") !== null && new Date(e.created_at).getTime() > enviadoEm
       })
       if (respostas.length > 0) {
         encontrado = respostas.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]
@@ -174,8 +169,7 @@ export async function POST(req: NextRequest) {
 
     if (!encontrado) continue
 
-    const msg = (encontrado.mensagem ?? "").toLowerCase().trim()
-    const ehSim = SIM_WORDS.has(msg)
+    const ehSim = classificarResposta(encontrado.mensagem ?? "") === "sim"
     const novoStatus = ehSim ? "autorizado" : "recusado"
     const novoConsent = ehSim ? "confirmado" : "recusado"
 

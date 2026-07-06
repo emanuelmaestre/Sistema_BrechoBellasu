@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { classificarResposta } from "@/lib/consentimento-resposta"
 
 export const dynamic = "force-dynamic"
 
@@ -26,9 +27,6 @@ interface ZAPIMessageEvent {
   isNewsletter?: boolean
 }
 
-// Palavras que significam SIM ou NÃO
-const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo", "ok", "ok", "tá", "ta"])
-const NAO_WORDS = new Set(["nao", "não", "n", "no", "nao quero", "não quero", "recuso", "pare", "não autorizo", "nao autorizo", "cancela", "cancelar"])
 
 // Extrai o texto de qualquer tipo de mensagem (texto, legenda de imagem, áudio transcrito)
 function extrairTexto(body: ZAPIMessageEvent): string | null {
@@ -113,11 +111,9 @@ export async function POST(req: NextRequest) {
     } catch { /* silencia */ }
 
     // ── Processa resposta de consentimento LGPD ──────────
-    const textoLower = texto.toLowerCase().trim()
-    const ehSim = SIM_WORDS.has(textoLower)
-    const ehNao = NAO_WORDS.has(textoLower)
-
-    if (!ehSim && !ehNao) return NextResponse.json({ ok: true })
+    const classificacao = classificarResposta(texto)
+    if (!classificacao) return NextResponse.json({ ok: true })
+    const ehSim = classificacao === "sim"
 
     // Busca cliente por todas as variantes do número (DDI, 9º dígito)
     const telVariantes = gerarVariantesNumero(telefone)
