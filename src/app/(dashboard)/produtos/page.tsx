@@ -69,8 +69,13 @@ const CORES_PRODUTO: { nome: string; hex: string }[] = [
   { nome: "MAGENTA",      hex: "#c026d3" },
   { nome: "AMEIXA",       hex: "#7e1d5f" },
   // ── Roxos / Lilás ────────────────────────────────────────
-  { nome: "VIOLETA",      hex: "#7c3aed" },
+  { nome: "LILÁS",        hex: "#ddd6fe" },
   { nome: "LAVANDA",      hex: "#a78bfa" },
+  { nome: "VIOLETA",      hex: "#7c3aed" },
+  { nome: "AMETISTA",     hex: "#9333ea" },
+  { nome: "ROXO",         hex: "#7e22ce" },
+  { nome: "PÚRPURA",      hex: "#581c87" },
+  { nome: "BERINJELA",    hex: "#3c1053" },
   // ── Azuis ───────────────────────────────────────────────
   { nome: "AZUL BEBÊ",      hex: "#bfdbfe" },
   { nome: "AZUL SERENITY",  hex: "#92a8d1" },
