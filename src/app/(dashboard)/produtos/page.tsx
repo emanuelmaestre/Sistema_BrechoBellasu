@@ -102,8 +102,13 @@ const CORES_PRODUTO: { nome: string; hex: string }[] = [
   { nome: "TRICÔ",        hex: "#c9a876" },
   // ── Cinzas / Neutros escuros ─────────────────────────────
   { nome: "PRATA",        hex: "#cbd5e1" },
+  { nome: "CINZA CLARO",  hex: "#b0b8c1" },
   { nome: "CINZA",        hex: "#94a3b8" },
+  { nome: "CINZA MESCLA", hex: "#8b93a1" },
+  { nome: "GRAFITE",      hex: "#5f6b7a" },
   { nome: "CHUMBO",       hex: "#475569" },
+  { nome: "ARDÓSIA",      hex: "#3b4759" },
+  { nome: "ANTRACITE",    hex: "#2c333d" },
   { nome: "PRETO",        hex: "#0f172a" },
   // ── Estampados / Padronagens ─────────────────────────────
   { nome: "ANIMAL PRINT", hex: "#c8953a" },
