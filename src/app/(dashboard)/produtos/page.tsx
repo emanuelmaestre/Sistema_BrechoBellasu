@@ -85,6 +85,7 @@ const CORES_PRODUTO: { nome: string; hex: string }[] = [
   { nome: "MENTA",          hex: "#86efac" },
   { nome: "VERDE ÁGUA",     hex: "#5eead4" },
   { nome: "VERDE",          hex: "#22c55e" },
+  { nome: "VERDE BANDEIRA", hex: "#009639" },
   { nome: "VERDE ESMERALDA", hex: "#059669" },
   { nome: "VERDE OLIVA",    hex: "#808000" },
   { nome: "VERDE MILITAR",  hex: "#4b5320" },
