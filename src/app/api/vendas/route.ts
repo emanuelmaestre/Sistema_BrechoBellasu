@@ -126,8 +126,18 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       .update({ notificacao_status: "pendente" })
       .eq("id", vendaId)
 
-    // Debita crédito se solicitado
+    // Debita crédito se solicitado — nunca aceita um valor de crédito maior
+    // que o total real da venda (calculado pelo domínio, já com desconto).
+    // Protege contra o front enviar um valor de crédito desatualizado (ex.:
+    // calculado antes do desconto ser aplicado no wizard).
     const creditoUsar = Number(body.credito_usar) || 0
+    if (creditoUsar > resultado.value.total + 0.01) {
+      await sb2.rpc("fn_cancelar_venda", { p_id: vendaId })
+      return NextResponse.json(
+        { erro: "O valor de crédito informado é maior que o total da venda. Refaça a divisão de pagamento." },
+        { status: 422 },
+      )
+    }
     if (creditoUsar > 0 && body.cliente_id) {
       const { error: errCredito } = await sb2.rpc("fn_credito_saida", {
         p_cliente_id: body.cliente_id,

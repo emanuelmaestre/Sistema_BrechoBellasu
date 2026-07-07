@@ -471,13 +471,16 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   function advance() {
     if (step === 2 && itens.length === 0) { setErro("Adicione pelo menos um produto"); return }
-    if (step === 3) {
+    if (step === 3) { go(4); return }
+    if (step === 4) {
+      // Desconto vem antes da divisão de pagamento — assim quem paga só em
+      // crédito (ou distribui entre formas depois) já vê o total correto.
       if (formas.length === 1 && formas[0] === "Crédito" && totalFinal > saldoCredito) {
         setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
       }
-      go(formas.length > 1 ? 4 : 5); return
+      go(formas.length > 1 ? 5 : 6); return
     }
-    if (step === 4) {
+    if (step === 5) {
       const soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
       const diff = soma - totalFinal
       if (Math.abs(diff) > 0.01) {
@@ -486,7 +489,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
       if (formas.includes("Crédito") && (divisao["Crédito"] ?? 0) > saldoCredito) {
         setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
       }
-      go(5); return
+      go(6); return
     }
     if (step < TOTAL) go(step + 1)
   }
@@ -854,8 +857,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                   </p>
                 </>}
 
-                {/* ── Step 4: Divisão do pagamento ── */}
-                {step === 4 && (() => {
+                {/* ── Step 5: Divisão do pagamento (só quando há 2+ formas) ── */}
+                {step === 5 && (() => {
                   const soma       = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
                   const diff       = parseFloat((soma - totalFinal).toFixed(2))
                   const excedente  = diff > 0.01
@@ -983,8 +986,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                   </>
                 })()}
 
-                {/* ── Step 5: Desconto ── */}
-                {step === 5 && <>
+                {/* ── Step 4: Desconto ── */}
+                {step === 4 && <>
                   <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Desconto geral?</h1>
                   <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco se não houver.</p>
                   <div className="relative">
@@ -1030,7 +1033,9 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
                 {(() => {
                   const div4Soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
-                  const div4Ok = step !== 4 || (
+                  // Gate só se aplica no step da Divisão (5) — agora sempre calculado
+                  // contra o total JÁ com desconto, pois o desconto (step 4) vem antes.
+                  const div4Ok = step !== 5 || (
                     Math.abs(div4Soma - totalFinal) <= 0.01 &&
                     formas.every(f => (divisao[f] ?? 0) > 0) &&
                     (!formas.includes("Crédito") || (divisao["Crédito"] ?? 0) <= saldoCredito)
@@ -1047,11 +1052,11 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                       style={{ background: COR, opacity: div4Ok ? 1 : 0.4, cursor: div4Ok ? "pointer" : "not-allowed" }}>
                       {step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} />
                     </motion.button>
-                    {step > 1 && step !== 4 && (
+                    {step > 1 && step !== 5 && (
                       <motion.button
                         whileHover={{ x: 3 }}
                         whileTap={{ scale: 0.96 }}
-                        onClick={() => step === 3 ? go(formas.length > 1 ? 4 : 5) : go(step + 1)}
+                        onClick={() => step === 4 ? go(formas.length > 1 ? 5 : 6) : go(step + 1)}
                         className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
@@ -1150,7 +1155,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                       s: 3,
                       full: formas.length > 1,
                     },
-                    { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 5 },
+                    { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 4 },
                     { label: "Total",      value: fmtBRL(totalFinal),            s: null },
                     ...(obs ? [{ label: "Obs.", value: obs, s: 6, full: true }] : []),
                   ].map(({ label, value, s, full }) => (
@@ -1180,7 +1185,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
         <div className="flex items-center justify-between px-6 py-3 shrink-0"
           style={{ borderTop: "1px solid var(--border)" }}>
           {step > 1 ? (
-            <button onClick={() => go(step === 5 && formas.length === 1 ? 3 : step - 1)}
+            <button onClick={() => go(step === 6 && formas.length === 1 ? 4 : step - 1)}
               className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
