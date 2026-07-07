@@ -7,26 +7,31 @@ export const maxDuration = 60
 const ASAAS_BASE = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
 const CORTE = "2026-07-06"
 
+// Busca pendentes (PENDING) e vencidas (OVERDUE) — ambas com vencimento até o corte
 async function listarVencidas(): Promise<{ id: string; customer: string; value: number; dueDate: string }[]> {
   const token = process.env.ASAAS_TOKEN!
   const todas: { id: string; customer: string; value: number; dueDate: string }[] = []
-  let offset = 0
-  const limit = 100
 
-  while (true) {
-    const url = `${ASAAS_BASE}/payments?status=OVERDUE&dueDateLe=${CORTE}&limit=${limit}&offset=${offset}`
-    const res = await fetch(url, {
-      headers: { access_token: token, "Content-Type": "application/json" },
-    })
-    if (!res.ok) throw new Error(`Asaas list error ${res.status}: ${await res.text()}`)
-    const json = await res.json()
-    const items: { id: string; customer: string; value: number; dueDate: string }[] = json.data ?? []
-    todas.push(...items)
-    if (!json.hasMore) break
-    offset += limit
+  for (const status of ["PENDING", "OVERDUE"]) {
+    let offset = 0
+    const limit = 100
+    while (true) {
+      const url = `${ASAAS_BASE}/payments?status=${status}&dueDateLe=${CORTE}&limit=${limit}&offset=${offset}`
+      const res = await fetch(url, {
+        headers: { access_token: token, "Content-Type": "application/json" },
+      })
+      if (!res.ok) throw new Error(`Asaas list error ${res.status}: ${await res.text()}`)
+      const json = await res.json()
+      const items: { id: string; customer: string; value: number; dueDate: string }[] = json.data ?? []
+      todas.push(...items)
+      if (!json.hasMore) break
+      offset += limit
+    }
   }
 
-  return todas
+  // Deduplica por id (não deveria haver overlap entre status, mas por segurança)
+  const vistos = new Set<string>()
+  return todas.filter(c => (vistos.has(c.id) ? false : (vistos.add(c.id), true)))
 }
 
 /** GET — dry run: lista quantas cobranças seriam removidas */
