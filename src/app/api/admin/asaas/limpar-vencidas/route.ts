@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const ASAAS_BASE = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
-const CORTE = "2026-06-30"
+const CORTE = "2026-07-06"
 
 async function listarVencidas(): Promise<{ id: string; customer: string; value: number; dueDate: string }[]> {
   const token = process.env.ASAAS_TOKEN!
