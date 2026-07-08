@@ -35,9 +35,10 @@ export async function PATCH(
     return NextResponse.json({ ok: true })
   }
 
-  // Edição completa dos dados da compra (modal "Editar Compra")
-  // Ao editar, a compra volta para pendente — o disparo precisa ser refeito.
-  const update: Record<string, unknown> = { status_compra: "pendente" }
+  // Edição completa dos dados da compra (modal "Editar Compra").
+  // Ao editar, a compra volta para pendente de disparo (msg_status) — o
+  // disparo precisa ser refeito para reenviar os dados corrigidos.
+  const update: Record<string, unknown> = { status_compra: "pendente", msg_status: "pendente" }
   if (body.nome_cliente !== undefined) {
     if (!body.nome_cliente.trim()) return NextResponse.json({ erro: "Nome da cliente é obrigatório." }, { status: 400 })
     update.nome_cliente = body.nome_cliente.trim()
@@ -68,12 +69,35 @@ export async function PATCH(
     return NextResponse.json({ erro: "Nenhum dado para atualizar." }, { status: 400 })
   }
 
+  // Busca o estado atual para decidir se o link de pagamento ficou obsoleto.
+  const { data: atual } = await sb.from("live_compras")
+    .select("valor_total, desconto, cor_sacola, numero_sacola, link_pagamento")
+    .eq("id", parseInt(compraId)).eq("live_id", parseInt(id)).single()
+
+  // Se qualquer campo que compõe o VALOR ou a DESCRIÇÃO da cobrança mudou, o
+  // link Asaas existente aponta para uma cobrança com dados errados (ex.: valor
+  // antigo). Invalida o link/pagamento para que o próximo disparo gere um novo
+  // com os dados corretos — senão a cliente recebe o valor desatualizado.
+  const mudou = (novo: unknown, velho: unknown) =>
+    novo !== undefined && String(novo) !== String(velho ?? "")
+  const cobrancaAfetada = atual?.link_pagamento && (
+    mudou(update.valor_total,   atual.valor_total) ||
+    mudou(update.desconto,      atual.desconto) ||
+    mudou(update.cor_sacola,    atual.cor_sacola) ||
+    mudou(update.numero_sacola, atual.numero_sacola)
+  )
+  if (cobrancaAfetada) {
+    update.link_pagamento   = null
+    update.asaas_payment_id = null
+    update.pagamento_status = "EM_ABERTO"
+  }
+
   const { error } = await sb.from("live_compras")
     .update(update)
     .eq("id", parseInt(compraId))
     .eq("live_id", parseInt(id))
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, link_invalidado: !!cobrancaAfetada })
 }
 
 export async function DELETE(
