@@ -136,6 +136,28 @@ export async function gerarLinkAsaas(params: {
   }
 }
 
+/** Detalha uma cobrança Asaas (valor, descrição e status) para auditoria. */
+export async function detalharPagamentoAsaas(paymentId: string): Promise<{
+  value: number
+  description: string | null
+  status: string
+} | null> {
+  const token = process.env.ASAAS_TOKEN
+  if (!token || !paymentId) return null
+  const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
+  try {
+    const res = await fetch(`${base}/payments/${paymentId}`, {
+      headers: { access_token: token, "Content-Type": "application/json" },
+    })
+    if (!res.ok) return null
+    const pd = await res.json()
+    if (pd?.value == null) return null
+    return { value: Number(pd.value), description: pd.description ?? null, status: pd.status ?? "" }
+  } catch {
+    return null
+  }
+}
+
 /** Consulta status de um pagamento Asaas pelo ID */
 export async function consultarPagamentoAsaas(paymentId: string): Promise<"PAGO" | "EM_ABERTO" | null> {
   const token = process.env.ASAAS_TOKEN
