@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const ASAAS_BASE = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
+const CORTE = "2026-07-06"
 
 type AsaasPayment = { id: string; customer: string; value: number; dueDate: string; status: string }
 
@@ -36,7 +37,7 @@ async function listarCobrancasLive(): Promise<AsaasPayment[]> {
     let offset = 0
     const limit = 100
     while (true) {
-      const url = `${ASAAS_BASE}/payments?status=${status}&limit=${limit}&offset=${offset}`
+      const url = `${ASAAS_BASE}/payments?status=${status}&dueDateLe=${CORTE}&limit=${limit}&offset=${offset}`
       const res = await fetch(url, {
         headers: { access_token: token, "Content-Type": "application/json" },
       })
@@ -64,6 +65,7 @@ export const GET = withAuth(async () => {
       modo: "dry-run",
       quantidade: cobracas.length,
       valor_total: totalValor,
+      corte: CORTE,
       aviso: "Nenhuma cobrança foi excluída. Envie POST com { confirmar: true } para apagar.",
       preview: cobracas.slice(0, 10).map(c => ({
         id: c.id,
