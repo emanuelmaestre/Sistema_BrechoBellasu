@@ -203,15 +203,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe })
   }
 
-  // ── CPF obrigatório para o Asaas gerar a cobrança ──
-  if (!compra.link_pagamento && valorFinal > 0 && !cpf) {
-    const detalhe = `Cliente sem CPF cadastrado. O Asaas exige CPF para gerar o link. Cadastre o CPF de "${compra.nome_cliente}" ou marque como pago manualmente.`
-    if (apenasLink) {
-      return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalhe })
-    }
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe })
-  }
 
   // ── Garante link Asaas ──
   let linkPagamento: string = compra.link_pagamento || ""
