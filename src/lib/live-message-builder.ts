@@ -321,20 +321,7 @@ Saldo restante: R$ 0,00`
     blocoPagamento = `[ LINK NÃO DISPONÍVEL ]`
   }
 
-  const numerais = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
-  const blocoProdutos = compra.produtos && compra.produtos.length > 0
-    ? `\n——————————————\n🧾 SUAS PEÇAS\n——————————————\n\n` +
-      compra.produtos.map((p, i) => {
-        const numeral = numerais[i] ?? `${i + 1}.`
-        const partes = [p.nome.toUpperCase()]
-        if (p.marca)   partes.push(p.marca.toUpperCase())
-        if (p.cor)     partes.push(p.cor.toUpperCase())
-        if (p.tamanho) partes.push(p.tamanho.toUpperCase())
-        partes.push(fmtVal(p.preco))
-        return `${numeral} ${partes.join(" | ")}`
-      }).join("\n") +
-      `\n\n——————————————`
-    : ""
+  const blocoProdutos = ""
 
   const dataUnificada = fmtData(compra.data_compra ?? compra.data_live)
 
