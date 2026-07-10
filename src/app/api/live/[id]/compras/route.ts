@@ -3,7 +3,6 @@ import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { RegistrarCompraLiveUseCase } from "@/application/live/registrar-compra.use-case"
 import { LiveCompraRepositorySupabase } from "@/infrastructure/repositories/live-compra.repository"
-import { AsaasGateway } from "@/infrastructure/services/asaas.gateway"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
@@ -28,7 +27,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const sb = createServerClient()
     const useCase = new RegistrarCompraLiveUseCase(
       new LiveCompraRepositorySupabase(sb),
-      new AsaasGateway(),
     )
 
     const itens = ((body.itens as ItemBody[] | undefined) ?? []).map((it) => ({
