@@ -26,7 +26,6 @@ export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
         nome_cliente: compra.nomeCliente,
         whatsapp: compra.whatsapp,
         data_compra: compra.dataCompra,
-        cor_sacola: compra.corSacola,
         numero_sacola: compra.numeroSacola,
         quantidade_itens: compra.quantidadeItens,
         valor_total: compra.valorTotal.reais,

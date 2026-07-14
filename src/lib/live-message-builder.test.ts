@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "vitest"
+import { test, expect } from "vitest"
 import type { CompraData } from "./live-message-builder"
 import {
   buildCompleteMessage,
@@ -20,11 +20,10 @@ const baseCompra: CompraData = {
   data_compra:      "2026-06-10",
   data_live:        "2026-06-10",
   numero_sacola:    "1",
-  cor_sacola:       "AZUL",
   quantidade_itens: 3,
   valor_total:      26.0,
   nome_cliente:     "Ana Maria Felix Bonfim Falchti",
-  link_pagamento:   null,
+  chave_pix:        null,
 }
 
 // ─── countCharacters ────────────────────────────────────────────
@@ -116,13 +115,12 @@ test("buildFixedContent contém todos os campos obrigatórios", () => {
   const fixed = buildFixedContent(baseCompra, "sexta-feira")
   expect(fixed).toContain("LIVE/COMPRA:")
   expect(fixed).toContain("Sacola:")
-  expect(fixed).toContain("COR:")
   expect(fixed).toContain("QT:")
   expect(fixed).toContain("Valor Total:")
   expect(fixed).toContain("sexta-feira")
   expect(fixed).toContain("PIX")
   expect(fixed).toContain("Barão do Amazonas")
-  expect(fixed).toContain("promoção")
+  expect(fixed.toLowerCase()).toContain("promoção")
 })
 
 test("buildFixedContent formata número da sacola com zero à esquerda", () => {
@@ -141,7 +139,7 @@ test("buildFixedContent usa ITEM no singular e ITENS no plural", () => {
 test("buildFixedContent com campos nulos não quebra", () => {
   const compraVazia: CompraData = {
     data_compra: null, data_live: null, numero_sacola: null,
-    cor_sacola: null, quantidade_itens: null, valor_total: null,
+    quantidade_itens: null, valor_total: null,
     nome_cliente: null,
   }
   expect(() => buildFixedContent(compraVazia, "segunda-feira")).not.toThrow()
@@ -157,7 +155,7 @@ test("buildCompleteMessage: mensagem válida ≤ 990 chars", () => {
 
 test("buildCompleteMessage: contém todos os dados da compra", () => {
   const result = buildCompleteMessage(baseCompra)
-  expect(result.mensagem).toContain("AZUL")
+  expect(result.mensagem).toContain("Sacola: 01")
   expect(result.mensagem).toContain("R$ 26,00")
   expect(result.mensagem).toContain("PIX")
 })

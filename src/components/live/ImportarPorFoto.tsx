@@ -33,7 +33,6 @@ interface CompraLida {
   whatsapp: string | null
   instagram: string | null
   numero_sacola: string | null
-  cor_sacola: string | null
   quantidade_itens: number | null
   valor_total: number | null
   observacao: string | null
@@ -53,7 +52,6 @@ interface CompraRevisao {
   nome_cliente: string
   whatsapp: string
   numero_sacola: string
-  cor_sacola: string
   quantidade_itens: string
   valor_total: string
   observacao: string
@@ -66,7 +64,6 @@ interface CompraRevisao {
 
 type Fase = "captura" | "processando" | "revisao" | "salvando" | "concluido" | "erro"
 
-const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
 const COR_LIVE = "#e11d48"
 
 const MSGS_PROCESSANDO = [
@@ -184,7 +181,6 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
         nome_cliente:     c.nome_cliente ?? "",
         whatsapp:         c.whatsapp ?? "",
         numero_sacola:    c.numero_sacola ?? "",
-        cor_sacola:       c.cor_sacola ?? "",
         quantidade_itens: c.quantidade_itens != null ? String(c.quantidade_itens) : "",
         valor_total:      numParaInput(c.valor_total),
         observacao:       c.observacao ?? "",
@@ -221,7 +217,7 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
   function adicionarManual() {
     setCompras(cs => [...cs, {
       key: ++keyRef.current,
-      nome_cliente: "", whatsapp: "", numero_sacola: "", cor_sacola: "",
+      nome_cliente: "", whatsapp: "", numero_sacola: "",
       quantidade_itens: "", valor_total: "", observacao: "",
       confianca: {}, sugestoes: [], clienteSel: null,
     }])
@@ -251,7 +247,6 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
           nome_cliente:     c.nome_cliente.trim(),
           whatsapp:         c.whatsapp.trim() || undefined,
           data_compra:      liveData || undefined,
-          cor_sacola:       c.cor_sacola || undefined,
           numero_sacola:    c.numero_sacola.trim() || undefined,
           quantidade_itens: parseInt(c.quantidade_itens) || 1,
           valor_total:      valor,
@@ -605,22 +600,6 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
                             placeholder="—" inputMode="numeric"
                             className="w-full px-3 py-2.5 text-sm rounded-xl outline-none"
                             style={{ ...iSt, borderStyle: "solid", ...bordaConfianca(c, "numero_sacola") }}/>
-                        </div>
-                        <div>
-                          <span className={label} style={{ color: "var(--text-muted)" }}>Cor Sacola</span>
-                          <div className="relative">
-                            <select value={c.cor_sacola} disabled={c.salva}
-                              onChange={e => setCampo(c.key, "cor_sacola", e.target.value)}
-                              className="w-full px-3 py-2.5 text-sm rounded-xl outline-none appearance-none pr-7"
-                              style={{ ...iSt, borderStyle: "solid", ...bordaConfianca(c, "cor_sacola") }}>
-                              <option value="">—</option>
-                              {CORES_SACOLA.map(cor => <option key={cor} value={cor}>{cor}</option>)}
-                              {c.cor_sacola && !CORES_SACOLA.includes(c.cor_sacola) && (
-                                <option value={c.cor_sacola}>{c.cor_sacola}</option>
-                              )}
-                            </select>
-                            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }}/>
-                          </div>
                         </div>
                         <div>
                           <span className={label} style={{ color: "var(--text-muted)" }}>Qtd. Itens</span>

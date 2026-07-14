@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, Radio, Send,
-  Check, Search, ShoppingBag, User, ChevronDown, Package,
+  Check, Search, ShoppingBag, User, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon,
@@ -35,7 +35,6 @@ export interface Compra {
   nome_cliente: string
   whatsapp?: string
   numero_sacola?: string
-  cor_sacola?: string
   quantidade_itens?: number
   quantidade_volumes?: number
   valor_total: number
@@ -76,7 +75,7 @@ interface ProdutoVinculo {
 interface LiveForm { data_live: string; titulo: string; plataforma: string; tipo: "novidades" | "promocional"; link_live: string }
 interface CompraForm {
   cliente_id: number | null; nome_cliente: string; whatsapp: string
-  cor_sacola: string; numero_sacola: string
+  numero_sacola: string
   quantidade_itens: string
   valor_total: string; desconto: string; observacao: string
   link_pagamento: string
@@ -86,13 +85,11 @@ const hoje = new Date().toISOString().split("T")[0]
 const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram", tipo: "novidades", link_live: "" }
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
-  cor_sacola: "", numero_sacola: "",
+  numero_sacola: "",
   quantidade_itens: "",
   valor_total: "", desconto: "", observacao: "",
   link_pagamento: "",
 }
-
-const CORES_SACOLA = ["AMARELO","AZUL","BRANCO","LARANJA","ROSA PINK","VERDE","VERDE ÁGUA"]
 
 function gerarArroba(nome: string): string {
   const palavras = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/\s+/).filter(Boolean)
@@ -526,15 +523,11 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   const [cliBusca, setCliBusca] = useState("")
   const [cliRes,   setCliRes]   = useState<Cliente[]>([])
   const [cliSel,   setCli]      = useState<Cliente | null>(null)
-  const [corIdx,   setCorIdx]   = useState(0)
   const [saldoCredito, setSaldoCredito] = useState(0)
   const [cliFocused, setCliFocused] = useState(false)
 
   useEffect(() => { const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }; document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn) }, [onClose])
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
-  useEffect(() => {
-    if (step === 2) { const idx = form.cor_sacola ? CORES_SACOLA.indexOf(form.cor_sacola) : -1; setCorIdx(idx >= 0 ? idx : 0) }
-  }, [step]) // eslint-disable-line
 
   const buscarClientes = useCallback(async (val: string) => {
     setCliBusca(val); setCli(null)
@@ -584,7 +577,6 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
         nome_cliente:      form.nome_cliente || cliBusca.trim(),
         whatsapp:          form.whatsapp || undefined,
         data_compra:       liveData || undefined,
-        cor_sacola:        form.cor_sacola || undefined,
         numero_sacola:     form.numero_sacola || undefined,
         quantidade_itens:  parseInt(form.quantidade_itens) || 1,
         valor_total:       valorTotalNum,
@@ -599,7 +591,6 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
         id:              res.id,
         nome_cliente:    form.nome_cliente || cliBusca.trim(),
         whatsapp:        form.whatsapp || undefined,
-        cor_sacola:      form.cor_sacola || undefined,
         numero_sacola:   form.numero_sacola || undefined,
         quantidade_itens: parseInt(form.quantidade_itens) || 1,
         valor_total:     valorTotalNum,
@@ -613,22 +604,17 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   // Reseta o formulário para lançar outra compra rápido (fluxo de live)
   function novaCompra() {
     setCompraSalva(null); setForm(EMPTY_COMPRA)
-    setCli(null); setCliBusca(""); setCliRes([]); setSaldoCredito(0); setCorIdx(0)
+    setCli(null); setCliBusca(""); setCliRes([]); setSaldoCredito(0)
     setErro(""); setDir(-1); setStep(1)
   }
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
     if (compraSalva) return
     if (step === 1) { if (e.key === "Enter" && cliRes.length === 0) { e.preventDefault(); advance() }; return }
-    if (step === 2) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setCorIdx(i => { const n = (i+1)%CORES_SACOLA.length; setForm(f => ({...f, cor_sacola: CORES_SACOLA[n]})); return n }); return }
-      if (e.key === "ArrowUp")   { e.preventDefault(); setCorIdx(i => { const n = (i-1+CORES_SACOLA.length)%CORES_SACOLA.length; setForm(f => ({...f, cor_sacola: CORES_SACOLA[n]})); return n }); return }
-      if (e.key === "Enter" && form.cor_sacola) { e.preventDefault(); advance(); return }
-    }
     if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
     if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); salvar() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, cliRes, corIdx, compraSalva, saving])
+  }, [step, form, cliRes, compraSalva, saving])
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
@@ -767,27 +753,12 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
               {/* Step 2 — Sacola */}
               {step === 2 && <>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Sacola</h1>
-                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Informe a cor e o número da sacola.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>COR DA SACOLA</p>
-                    <div className="relative">
-                      <select value={form.cor_sacola} onChange={e => { const i = CORES_SACOLA.indexOf(e.target.value); setCorIdx(i >= 0 ? i : 0); set("cor_sacola", e.target.value) }}
-                        className="w-full px-4 py-4 text-base rounded-2xl outline-none transition-all border-2 appearance-none pr-10 font-medium"
-                        style={{ background: "var(--bg-surface)", borderColor: form.cor_sacola ? "var(--accent)" : "var(--border)", color: "var(--text-primary)" }}>
-                        <option value="">Selecione...</option>
-                        {CORES_SACOLA.map(cor => <option key={cor} value={cor}>{cor.toUpperCase()}</option>)}
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }}/>
-                    </div>
-                    <p className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>↑↓ para navegar · Enter para avançar</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>NÚMERO DA SACOLA</p>
-                    <input ref={inputRef} value={form.numero_sacola} onChange={e => set("numero_sacola", e.target.value)}
-                      placeholder="Ex: 43" className="w-full px-4 py-4 text-base rounded-2xl outline-none transition-all border-2"
-                      style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }} autoComplete="off"/>
-                  </div>
+                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Informe o número da sacola.</p>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>NÚMERO DA SACOLA</p>
+                  <input ref={inputRef} value={form.numero_sacola} onChange={e => set("numero_sacola", e.target.value)}
+                    placeholder="Ex: 43" className="w-full px-4 py-4 text-base rounded-2xl outline-none transition-all border-2"
+                    style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }} autoComplete="off"/>
                 </div>
               </>}
 
@@ -842,7 +813,6 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                     <div className="divide-y" style={{ borderColor: temCredito ? "rgba(52,211,153,0.15)" : "var(--border)" }}>
                       {[
                         { l: "Cliente",   v: form.nome_cliente || cliBusca || "—", h: false },
-                        { l: "Cor",       v: form.cor_sacola || "—",               h: false },
                         { l: "Nº Sacola", v: form.numero_sacola ? `#${form.numero_sacola}` : "—", h: false },
                         { l: "Itens",     v: `${form.quantidade_itens} item(ns)`,  h: false },
                       ].map(r => (
@@ -1155,10 +1125,6 @@ function ModalVinculo({
             <div>
               <p className="font-black text-base uppercase tracking-widest leading-tight" style={{ color: "var(--text-primary)" }}>{compra.nome_cliente}</p>
               <div className="flex items-center gap-2 mt-1">
-                {compra.cor_sacola && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-wide"
-                    style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>{compra.cor_sacola}</span>
-                )}
                 {compra.numero_sacola && (
                   <span className="text-[10px] font-bold" style={{ color: "var(--text-muted)" }}>#{compra.numero_sacola}</span>
                 )}
@@ -1775,14 +1741,11 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
   const [parcOpen, setParcOpen] = useState(false)
+  const [chavePix, setChavePix] = useState("")
   const iniciarDisparo = useDisparoStore(s => s.iniciarDisparo)
   const jobRodando     = useDisparoStore(s => s.job?.status === "running")
 
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
-  const [exLink, setExLink] = useState<string | null>(null)
-  const [gerandoLink, setGerandoLink] = useState(false)
-  const [erroLink, setErroLink] = useState(false)
-  const [erroLinkMsg, setErroLinkMsg] = useState<string | null>(null)
   const ex = pendentes[0]
 
   // Calcula valor final do primeiro pendente para detectar pagamento por crédito
@@ -1791,29 +1754,6 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const valorFinalEx0 = Math.max(0, valorTotalEx - parseFloat(String(ex?.desconto ?? 0)) - creditoEx)
   const pagoCreditoEx = valorFinalEx0 === 0 && creditoEx > 0
 
-  function gerarLink() {
-    if (!ex || pagoCreditoEx) return
-    setErroLink(false)
-    setErroLinkMsg(null)
-    setGerandoLink(true)
-    apiPost<{ id: number; link_pagamento?: string | null; erro?: string }>(`/live/${liveId}/disparar`, { compra_id: ex.id, apenas_link: true })
-      .then(r => {
-        if (r?.link_pagamento) setExLink(r.link_pagamento)
-        else { setErroLink(true); setErroLinkMsg(r?.erro ?? null) }
-      })
-      .catch(() => setErroLink(true))
-      .finally(() => setGerandoLink(false))
-  }
-
-  // Pré-gera o link Asaas quando o modal abre e a compra não tem link ainda
-  useEffect(() => {
-    if (!ex) return
-    if (pagoCreditoEx) { setExLink(null); return }
-    if (ex.link_pagamento) { setExLink(ex.link_pagamento); return }
-    gerarLink()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ex?.id, liveId])
-
   // Produtos ilustrativos para o preview (mostram o layout, não são os reais)
   const PRODUTOS_EXEMPLO: ProdutoMensagem[] = [
     { nome: "Blusa Floral", marca: "Farm", cor: "Rosa", tamanho: "M", preco: 35 },
@@ -1821,28 +1761,25 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     { nome: "Cinto", preco: 0 },
   ].slice(0, Math.max(1, Math.min(ex?.quantidade_itens ?? 1, 3)))
 
-  // Gera preview sempre que a compra, o link, o índice de small talk ou o estado mudarem
+  // Gera preview sempre que a compra, chave PIX, small talk ou crédito mudarem
   useEffect(() => {
     if (!ex) { setMsgResult(null); return }
     const compraData: CompraData = {
       data_compra:      liveData,
       data_live:        liveData,
       numero_sacola:    ex.numero_sacola,
-      cor_sacola:       ex.cor_sacola,
       quantidade_itens: ex.quantidade_itens,
       valor_total:      ex.valor_total,
       desconto:         ex.desconto,
       nome_cliente:     ex.nome_cliente,
       credito_aplicado: ex.credito_aplicado,
       pago_com_credito: pagoCreditoEx,
-      link_pagamento: pagoCreditoEx
-        ? null
-        : exLink ?? ex.link_pagamento ?? (gerandoLink ? undefined : null),
+      chave_pix:        pagoCreditoEx ? null : (chavePix || null),
       produtos: PRODUTOS_EXEMPLO,
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ex, liveData, exLink, gerandoLink, pagoCreditoEx, stIdx])
+  }, [ex, liveData, chavePix, pagoCreditoEx, stIdx])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -1855,13 +1792,10 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     if (msgResult) await navigator.clipboard.writeText(msgResult.mensagem)
   }
 
-  // Enfileira o disparo no store global e fecha o modal. O envio roda em
-  // segundo plano (widget flutuante no canto), com intervalo seguro entre
-  // cada mensagem — o operador continua usando o sistema normalmente.
   function disparar() {
     if (!msgResult?.valida) return
-    const ok = iniciarDisparo({ liveId, liveTitulo })
-    if (!ok) return   // já há um envio em andamento
+    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix })
+    if (!ok) return
     onSuccess()
     onClose()
   }
@@ -1900,7 +1834,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     )
   }
 
-  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !gerandoLink && !erroLink && !jobRodando
+  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !jobRodando && (pagoCreditoEx || chavePix.trim().length > 0)
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -2045,7 +1979,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                             <span>✅</span>
                             <div>
                               <p className="text-[11px] font-bold" style={{ color: "#34d399" }}>Pago com crédito</p>
-                              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>Nenhum link Asaas será gerado.</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>Nenhum pagamento adicional necessário.</p>
                             </div>
                           </div>
                         ) : (
@@ -2105,13 +2039,13 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                 {msgResult.valida
                   ? <span className="text-[11px] text-emerald-400">✓ Válida</span>
                   : <span className="text-[11px] text-red-400">✗ {msgResult.erro}</span>}
-                {/* Indicador Asaas */}
-                {!ex?.link_pagamento && (
+                {/* Indicador chave PIX */}
+                {!pagoCreditoEx && (
                   <motion.span
                     initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                     className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full"
-                    style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.25)" }}>
-                    💳 Link Asaas gerado no envio
+                    style={chavePix.trim() ? { background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.25)" } : { background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}>
+                    🔑 {chavePix.trim() ? `PIX: ${chavePix.trim()}` : "Informe a chave PIX"}
                   </motion.span>
                 )}
               </div>
@@ -2123,26 +2057,18 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       {/* Footer de ações */}
       {(
         <div className="shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          {/* Aviso de erro ao gerar link Asaas */}
-          {erroLink && !pagoCreditoEx && (
-            <div className="flex items-center justify-between gap-3 px-6 py-2.5" style={{ background: "rgba(248,113,113,0.08)", borderBottom: "1px solid rgba(248,113,113,0.2)" }}>
-              <p className="text-xs" style={{ color: "#f87171" }}>
-                ⚠️ {erroLinkMsg ?? "Não foi possível gerar o link de pagamento. A compra permanece pendente."}
-              </p>
-              <button onClick={gerarLink} disabled={gerandoLink}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shrink-0 disabled:opacity-50"
-                style={{ borderColor: "#f87171", color: "#f87171", background: "rgba(248,113,113,0.08)" }}>
-                <RefreshCw size={11}/> Tentar novamente
-              </button>
-            </div>
-          )}
-          {/* Gerando link */}
-          {gerandoLink && (
-            <div className="px-6 py-2 flex items-center gap-2" style={{ background: "rgba(99,102,241,0.06)", borderBottom: "1px solid rgba(99,102,241,0.15)" }}>
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <RefreshCw size={11} style={{ color: "#818cf8" }}/>
-              </motion.div>
-              <p className="text-xs" style={{ color: "#818cf8" }}>Gerando link de pagamento Asaas…</p>
+          {/* Campo chave PIX */}
+          {!pagoCreditoEx && (
+            <div className="flex items-center gap-3 px-6 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+              <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>🔑 Chave PIX:</span>
+              <input
+                type="text"
+                value={chavePix}
+                onChange={e => setChavePix(e.target.value)}
+                placeholder="CPF, e-mail, telefone ou chave aleatória"
+                className="flex-1 px-3 py-1.5 rounded-lg text-sm outline-none"
+                style={{ background: "var(--bg-surface)", border: `1px solid ${chavePix.trim() ? "rgba(52,211,153,0.5)" : "var(--border)"}`, color: "var(--text-primary)" }}
+              />
             </div>
           )}
           <div className="flex items-center justify-between gap-3 px-6 py-4">
@@ -2183,7 +2109,6 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
   const [form, setForm] = useState({
     nome_cliente: compra.nome_cliente ?? "",
     whatsapp: compra.whatsapp ?? "",
-    cor_sacola: compra.cor_sacola ?? "",
     numero_sacola: compra.numero_sacola ?? "",
     quantidade_itens: String(compra.quantidade_itens ?? 1),
     valor_total: (compra.valor_total ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
@@ -2200,7 +2125,6 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
       await apiPatch(`/live/${liveId}/compras/${compra.id}`, {
         nome_cliente: form.nome_cliente,
         whatsapp: form.whatsapp || null,
-        cor_sacola: form.cor_sacola || null,
         numero_sacola: form.numero_sacola || null,
         quantidade_itens: parseInt(form.quantidade_itens) || 1,
         valor_total: parseFloat(form.valor_total.replace(/\./g, "").replace(",", ".")) || 0,
@@ -2242,14 +2166,6 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>QTD DE ITENS</p>
             <input type="number" min="1" value={form.quantidade_itens} onChange={e => set("quantidade_itens", e.target.value)} className={iCls} style={iSt}/>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>COR DA SACOLA</p>
-            <select value={form.cor_sacola} onChange={e => set("cor_sacola", e.target.value)} className={iCls} style={iSt}>
-              <option value="">Selecione</option>
-              {CORES_SACOLA.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
           </div>
 
           <div>
@@ -2682,7 +2598,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
                         <td className="px-4 py-3.5">
                           <p className="text-xs font-bold uppercase" style={{ color: "var(--text-secondary)" }}>
-                            {[c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "—"}
+                            {c.numero_sacola ? `#${c.numero_sacola}` : "—"}
                           </p>
                         </td>
 

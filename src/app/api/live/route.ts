@@ -1,49 +1,57 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
+import { CriarLiveUseCase, ListarLivesUseCase } from "@/application/live"
+import { LiveRepositorySupabase } from "@/infrastructure/repositories/live.repository"
+import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
 export const GET = withAuth(async (req: NextRequest) => {
-  const { searchParams } = req.nextUrl
-  const status = searchParams.get("status")
-  const page   = parseInt(searchParams.get("page") ?? "1")
-  const limit  = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200)
-  const from   = (page - 1) * limit
-  const to     = from + limit - 1
+  try {
+    const { searchParams } = req.nextUrl
+    const useCase = new ListarLivesUseCase(new LiveRepositorySupabase(createServerClient()))
+    const resultado = await useCase.execute({
+      status: searchParams.get("status"),
+      page: parseInt(searchParams.get("page") ?? "1"),
+      limit: parseInt(searchParams.get("limit") ?? "50"),
+    })
 
-  const sb = createServerClient()
-  let q = sb.from("lives").select("*", { count: "exact" })
-  if (status) q = q.eq("status", status)
+    if (!resultado.ok) {
+      const { status, body } = apresentarErro(resultado.error)
+      return NextResponse.json(body, { status })
+    }
 
-  const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, to)
-  if (error) return NextResponse.json({ erro: "Não foi possível carregar as lives. Tente novamente." }, { status: 500 })
-  return NextResponse.json({ data, total: count })
+    return NextResponse.json(resultado.value)
+  } catch (err) {
+    const { status, body } = apresentarErro(err)
+    if (status === 500) console.error("[GET /api/live]", err)
+    return NextResponse.json(body, { status })
+  }
 })
 
 export const POST = withAuth(async (req: NextRequest) => {
-  const { titulo, data_live, plataforma, tipo, observacoes, link_live } = await req.json()
-  if (!data_live) return NextResponse.json({ erro: "Data da live é obrigatória." }, { status: 400 })
+  try {
+    const body = await req.json()
+    const useCase = new CriarLiveUseCase(new LiveRepositorySupabase(createServerClient()))
+    const resultado = await useCase.execute({
+      titulo: body.titulo,
+      dataLive: body.data_live,
+      plataforma: body.plataforma,
+      tipo: body.tipo,
+      observacoes: body.observacoes,
+      linkLive: body.link_live,
+    })
 
-  const sb = createServerClient()
-  const nomeDefault = titulo || `Live ${new Date(data_live + "T12:00:00").toLocaleDateString("pt-BR")}`
+    if (!resultado.ok) {
+      const { status, body: erro } = apresentarErro(resultado.error)
+      return NextResponse.json(erro, { status })
+    }
 
-  // Tenta inserir com campo tipo; se coluna não existir ainda, insere sem ela
-  let data, error
-  const withTipo = await sb.from("lives")
-    .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, tipo: tipo || "novidades", status: "aberta", observacoes: observacoes || null, link_live: link_live || null })
-    .select().single()
-
-  if (withTipo.error?.message?.includes("tipo") || withTipo.error?.message?.includes("link_live")) {
-    // Coluna tipo/link_live ainda não existe no banco — insere sem elas
-    const sem = await sb.from("lives")
-      .insert({ titulo: nomeDefault, data_live, plataforma: plataforma || null, status: "aberta", observacoes: observacoes || null })
-      .select().single()
-    data = sem.data; error = sem.error
-  } else {
-    data = withTipo.data; error = withTipo.error
+    return NextResponse.json(resultado.value, { status: 201 })
+  } catch (err) {
+    const { status, body: erro } = apresentarErro(err)
+    if (status === 500) console.error("[POST /api/live]", err)
+    return NextResponse.json(erro, { status })
   }
-
-  if (error) return NextResponse.json({ erro: "Não foi possível criar a live. Verifique os dados e tente novamente.", detalhe: error.message }, { status: 500 })
-  return NextResponse.json(data, { status: 201 })
 })

@@ -14,8 +14,8 @@ describe("LiveCompra", () => {
   })
 
   it("monta descrição da sacola", () => {
-    const r = LiveCompra.criar({ liveId: 1, valorTotal: 10, corSacola: "Rosa", numeroSacola: "12" })
-    expect(r.ok && r.value.descricaoSacola).toBe("Rosa #12")
+    const r = LiveCompra.criar({ liveId: 1, valorTotal: 10, numeroSacola: "12" })
+    expect(r.ok && r.value.descricaoSacola).toBe("#12")
   })
 
   it("rejeita live inválida e valores negativos", () => {

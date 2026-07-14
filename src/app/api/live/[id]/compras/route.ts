@@ -52,7 +52,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       nomeCliente: body.nome_cliente ?? null,
       whatsapp: body.whatsapp ?? null,
       dataCompra: body.data_compra ?? null,
-      corSacola: body.cor_sacola ?? null,
       numeroSacola: body.numero_sacola ?? null,
       quantidadeItens: body.quantidade_itens ?? 1,
       valorTotal: body.valor_total ?? 0,

@@ -28,7 +28,6 @@ interface CompraItem {
   cliente_id?: number | null
   nome_cliente: string
   whatsapp?: string | null
-  cor_sacola?: string | null
   numero_sacola?: string | null
   quantidade_itens?: number | null
   valor_total: number
@@ -155,7 +154,7 @@ function EmptyIllustration({ msg }: { msg: string }) {
 // ── Linha de compra ───────────────────────────────────────────────────────────
 
 function CompraRow({ c, onAbrirLive }: { c: CompraItem; onAbrirLive?: (liveId: number) => void }) {
-  const sacola = [c.cor_sacola, c.numero_sacola ? `#${c.numero_sacola}` : ""].filter(Boolean).join(" ") || "—"
+  const sacola = c.numero_sacola ? `#${c.numero_sacola}` : "—"
   const valor  = c.valor_total - (c.desconto ?? 0)
 
   return (

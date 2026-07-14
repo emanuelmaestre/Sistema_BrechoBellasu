@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { type SupabaseClient } from "@supabase/supabase-js"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
-import { gerarLinkAsaas } from "@/lib/asaas"
 import { enviarTexto } from "@/lib/zapi"
 import {
   buildCompleteMessage,
@@ -38,8 +37,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ ok: true, total: pendentes.length, pendentes })
 }
 
-// POST body { compra_id } — processa UMA compra: gera link Asaas, monta a
-// mensagem e envia via Z-API. Retorna o resultado individual.
+// POST body { compra_id, chave_pix } — processa UMA compra: monta a
+// mensagem com a chave PIX e envia via Z-API. Retorna o resultado individual.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -48,16 +47,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const body = await req.json().catch(() => ({})) as { compra_id?: number; apenas_link?: boolean }
+  const body = await req.json().catch(() => ({})) as { compra_id?: number; chave_pix?: string }
   const compraId = body.compra_id
-  const apenasLink = body.apenas_link === true
+  const chavePix = (body.chave_pix ?? "").trim()
   if (!compraId) {
     return NextResponse.json({ erro: "compra_id é obrigatório." }, { status: 400 })
   }
 
   // ── Dados da live ──
-  const { data: liveRow } = await sb.from("lives").select("data_live, tipo").eq("id", live_id).single()
-  const tipoLive = ((liveRow as Record<string, unknown>)?.tipo ?? "novidades") as "novidades" | "promocional"
+  const { data: liveRow } = await sb.from("lives").select("data_live").eq("id", live_id).single()
   const dataLive = ((liveRow as Record<string, unknown>)?.data_live ?? null) as string | null
 
   // ── A compra ──
@@ -70,31 +68,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // ── Dados do cliente ──
-  let cpf: string | null = null
   let nomeCadastro: string | null = null
   let celularCadastro: string | null = null
   let saldoCreditoAtual: number = 0
-  let dadosExtras: Record<string, string | null> = {}
 
   if (compra.cliente_id) {
     const { data: cli } = await sb.from("clientes")
-      .select("cpf_cnpj, nome, celular, email, saldo_credito, logradouro, numero, complemento, bairro, cidade, estado, cep")
+      .select("nome, celular, saldo_credito")
       .eq("id", compra.cliente_id).single()
-    cpf             = cli?.cpf_cnpj ?? null
-    nomeCadastro    = cli?.nome ?? null
-    celularCadastro = cli?.celular ?? null
+    nomeCadastro      = cli?.nome ?? null
+    celularCadastro   = cli?.celular ?? null
     saldoCreditoAtual = parseFloat(String(cli?.saldo_credito ?? 0)) || 0
-    dadosExtras     = {
-      email:       cli?.email ?? null,
-      celular:     cli?.celular ?? null,
-      logradouro:  cli?.logradouro ?? null,
-      numero:      cli?.numero ?? null,
-      complemento: cli?.complemento ?? null,
-      bairro:      cli?.bairro ?? null,
-      cidade:      cli?.cidade ?? null,
-      estado:      cli?.estado ?? null,
-      cep:         cli?.cep ?? null,
-    }
   }
 
   // ── Produtos vinculados à compra ──
@@ -128,137 +112,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const valorFinal      = Math.max(0, valorTotal - desconto - creditoAplicado)
 
   // ── Caso especial: crédito quita tudo ──
-  if (valorFinal === 0 && creditoAplicado > 0) {
-    if (apenasLink) {
-      return NextResponse.json({ id: compraId, link_pagamento: null, pago_com_credito: true })
-    }
-
-    // Monta mensagem de quitação por crédito
-    const compraData: CompraData = {
-      data_compra:            dataLive ?? compra.data_compra,
-      data_live:              dataLive ?? compra.data_compra ?? null,
-      numero_sacola:          compra.numero_sacola,
-      cor_sacola:             compra.cor_sacola,
-      quantidade_itens:       compra.quantidade_itens,
-      valor_total:            compra.valor_total,
-      desconto:               desconto,
-      nome_cliente:           nomeCadastro ?? compra.nome_cliente,
-      link_pagamento:         null,
-      credito_aplicado:       creditoAplicado,
-      pago_com_credito:       true,
-      saldo_credito_anterior: saldoCreditoAtual + creditoAplicado,
-      produtos,
-    }
-
-    const msgResult = buildCompleteMessage(compraData)
-    if (!msgResult.valida) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-      return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })
-    }
-
-    let resultadoZap
-    try {
-      resultadoZap = await enviarTexto(numero, msgResult.mensagem, "aviso_live")
-    } catch (e) {
-      resultadoZap = { ok: false, erro: e instanceof Error ? e.message : String(e) }
-    }
-
-    if (!resultadoZap.ok) {
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-      return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultadoZap.erro ?? "Falha Z-API" })
-    }
-
-    // Registra como pago com crédito
-    await sb.from("live_compras").update({ msg_status: "enviada", pagamento_status: "PAGO" }).eq("id", compraId)
-    try {
-      await sb.from("live_compras").update({
-        msg_enviada_em: new Date().toISOString(),
-        msg_texto: msgResult.mensagem,
-        msg_zapi_id: resultadoZap.messageId ?? null,
-      }).eq("id", compraId)
-    } catch { /* campos opcionais */ }
-
-    verificarLiveFinalizada(sb, live_id)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "enviada", messageId: resultadoZap.messageId, pago_com_credito: true })
-  }
-
-  // ── Integração Asaas não configurada ──
-  if (!compra.link_pagamento && valorFinal > 0 && !process.env.ASAAS_TOKEN) {
-    const detalhe = "Pagamento por link não está configurado (falta a chave da integração Asaas). Peça para configurar em Configurações → Integrações, ou marque esta compra como paga manualmente."
-    if (apenasLink) {
-      return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalhe })
-    }
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe })
-  }
-
-  // ── Valor abaixo do mínimo do Asaas (R$ 5,00) ──
-  const ASAAS_VALOR_MINIMO = 5
-  if (!compra.link_pagamento && valorFinal > 0 && valorFinal < ASAAS_VALOR_MINIMO) {
-    const detalhe = `Valor (${valorFinal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}) abaixo do mínimo do Asaas (R$ 5,00). Ajuste o valor ou marque como pago manualmente.`
-    if (apenasLink) {
-      return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalhe })
-    }
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe })
-  }
-
-
-  // ── Garante link Asaas ──
-  let linkPagamento: string = compra.link_pagamento || ""
-  if (!linkPagamento && valorFinal > 0) {
-    const sacola = [compra.cor_sacola, compra.numero_sacola ? `#${compra.numero_sacola}` : ""].filter(Boolean).join(" ")
-    const resultado = await gerarLinkAsaas({
-      nome: compra.nome_cliente,
-      cpf,
-      valor: valorFinal,
-      descricao: `Compra Live${sacola ? ` — Sacola ${sacola}` : ""}`,
-      tipoLive,
-      dataLive,
-      ...dadosExtras,
-    })
-    if (resultado) {
-      linkPagamento = resultado.url
-      const upd: Record<string, unknown> = { link_pagamento: resultado.url, pagamento_status: "EM_ABERTO" }
-      try { await sb.from("live_compras").update({ ...upd, asaas_payment_id: resultado.paymentId }).eq("id", compraId) }
-      catch { await sb.from("live_compras").update(upd).eq("id", compraId) }
-    } else {
-      // Asaas retornou null — falha ao gerar cobrança
-      console.error("[disparar] Asaas falhou ao gerar link para compra", compraId, {
-        cliente: compra.nome_cliente, valorFinal, cpf: cpf ? "***" : "ausente",
-      })
-      const detalheAsaas = "Não foi possível gerar o link de pagamento (Asaas). Verifique se o token está correto em Configurações → Integrações e tente novamente, ou marque a compra como paga manualmente."
-      if (apenasLink) {
-        return NextResponse.json({ id: compraId, link_pagamento: null, erro: detalheAsaas })
-      }
-      await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-      return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: detalheAsaas })
-    }
-  }
-
-  // ── Modo apenas_link: retorna o link sem enviar a mensagem ──
-  if (apenasLink) {
-    return NextResponse.json({ id: compraId, link_pagamento: linkPagamento || null })
-  }
-
-  // ── Valida: não dispara sem link (exceto crédito total, já tratado acima) ──
-  if (!linkPagamento && valorFinal > 0) {
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: "Link de pagamento não disponível. Tente novamente ou marque como pago manualmente." })
-  }
+  const pagoCreditoTotal = valorFinal === 0 && creditoAplicado > 0
 
   // ── Monta a mensagem ──
   const compraData: CompraData = {
     data_compra:            dataLive ?? compra.data_compra,
     data_live:              dataLive ?? compra.data_compra ?? null,
     numero_sacola:          compra.numero_sacola,
-    cor_sacola:             compra.cor_sacola,
     quantidade_itens:       compra.quantidade_itens,
     valor_total:            compra.valor_total,
     desconto:               desconto,
     nome_cliente:           nomeCadastro ?? compra.nome_cliente,
-    link_pagamento:         linkPagamento || null,
+    chave_pix:              pagoCreditoTotal ? null : (chavePix || null),
     credito_aplicado:       creditoAplicado || null,
+    pago_com_credito:       pagoCreditoTotal,
     saldo_credito_anterior: creditoAplicado > 0 ? saldoCreditoAtual + creditoAplicado : null,
     produtos,
   }
@@ -282,8 +149,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultadoZap.erro ?? "Falha Z-API" })
   }
 
-  // ── Marca enviada ──
-  await sb.from("live_compras").update({ msg_status: "enviada" }).eq("id", compraId)
+  // ── Marca enviada ── (quando o crédito quitou tudo, a compra já está paga)
+  const updateEnviada: Record<string, unknown> = { msg_status: "enviada" }
+  if (pagoCreditoTotal) updateEnviada.pagamento_status = "PAGO"
+  await sb.from("live_compras").update(updateEnviada).eq("id", compraId)
   try {
     await sb.from("live_compras").update({
       msg_enviada_em: new Date().toISOString(),

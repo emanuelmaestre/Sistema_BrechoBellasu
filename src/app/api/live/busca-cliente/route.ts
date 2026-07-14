@@ -10,7 +10,6 @@ interface CompraRow {
   cliente_id: number | null
   nome_cliente: string
   whatsapp: string | null
-  cor_sacola: string | null
   numero_sacola: string | null
   quantidade_itens: number | null
   quantidade_volumes: number | null
@@ -81,7 +80,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   ].filter(Boolean).join(",")
 
   const COLS =
-    "id, live_id, cliente_id, nome_cliente, whatsapp, cor_sacola, numero_sacola, " +
+    "id, live_id, cliente_id, nome_cliente, whatsapp, numero_sacola, " +
     "quantidade_itens, quantidade_volumes, valor_total, desconto, " +
     "status_compra, pagamento_status, msg_status, link_pagamento, " +
     "data_compra, observacoes_compra, created_at"

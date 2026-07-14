@@ -20,14 +20,13 @@ export interface CompraData {
   data_compra:             string | null
   data_live:               string | null
   numero_sacola:           string | null | undefined
-  cor_sacola:              string | null | undefined
   quantidade_itens:        number | null | undefined
   valor_total:             number | null | undefined
   desconto?:               number | null
   nome_cliente:            string | null | undefined
-  link_pagamento?:         string | null  // string=link, undefined=gerando, null=sem link
+  chave_pix?:              string | null  // chave PIX manual para pagamento
   credito_aplicado?:       number | null
-  pago_com_credito?:       boolean        // true = crédito quitou tudo, não gera link
+  pago_com_credito?:       boolean        // true = crédito quitou tudo
   saldo_credito_anterior?: number | null
   produtos?:               ProdutoMensagem[]
 }
@@ -306,19 +305,17 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   const blocoValor = linhasValor.join("\n")
 
   let blocoPagamento: string
-  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 (PIX ou Cartão) para garantir suas peças. 💖`
+  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 via PIX para garantir suas peças. 💖`
 
   if (compra.pago_com_credito) {
     blocoPagamento = `✅ Esta compra foi quitada com o seu saldo de crédito.
 Crédito utilizado: ${fmtVal(credito)}
 Saldo restante: R$ 0,00`
     blocoDeadline = "Nenhum valor a pagar. 💖"
-  } else if (compra.link_pagamento === undefined) {
-    blocoPagamento = `[ LINK ASAAS GERADO NO ENVIO ]`
-  } else if (compra.link_pagamento) {
-    blocoPagamento = compra.link_pagamento
+  } else if (compra.chave_pix) {
+    blocoPagamento = `🔑 Chave PIX: ${compra.chave_pix}`
   } else {
-    blocoPagamento = `[ LINK NÃO DISPONÍVEL ]`
+    blocoPagamento = `[ CHAVE PIX NÃO INFORMADA ]`
   }
 
   const blocoProdutos = ""
@@ -326,7 +323,7 @@ Saldo restante: R$ 0,00`
   const dataUnificada = fmtData(compra.data_compra ?? compra.data_live)
 
   return `📅 LIVE/COMPRA: ${dataUnificada}
-🛍️ Sacola: ${num} | COR: ${compra.cor_sacola || "—"} | QT: ${qtd} ${qtdLabel}
+🛍️ Sacola: ${num} | QT: ${qtd} ${qtdLabel}
 ${blocoValor}${blocoProdutos}
 
 Pagamento:

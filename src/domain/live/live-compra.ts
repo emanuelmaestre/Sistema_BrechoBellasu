@@ -13,7 +13,6 @@ export interface LiveCompraInput {
   nomeCliente?: string | null
   whatsapp?: string | null
   dataCompra?: string | null
-  corSacola?: string | null
   numeroSacola?: string | null
   quantidadeItens?: number
   valorTotal: number
@@ -34,7 +33,6 @@ export class LiveCompra {
     readonly nomeCliente: string | null,
     readonly whatsapp: string | null,
     readonly dataCompra: string,
-    readonly corSacola: string | null,
     readonly numeroSacola: string | null,
     readonly quantidadeItens: number,
     readonly valorTotal: Money,
@@ -78,7 +76,6 @@ export class LiveCompra {
         norm(input.nomeCliente),
         norm(input.whatsapp),
         norm(input.dataCompra) ?? new Date().toISOString().split("T")[0],
-        norm(input.corSacola),
         norm(input.numeroSacola),
         qtd,
         valorTotal.value,
@@ -97,11 +94,8 @@ export class LiveCompra {
       .clampNaoNegativo()
   }
 
-  /** Descrição da sacola para a cobrança (ex: "Rosa #12"). */
+  /** Descrição da sacola (ex: "#12"). */
   get descricaoSacola(): string {
-    return [this.corSacola, this.numeroSacola ? `#${this.numeroSacola}` : ""]
-      .filter(Boolean)
-      .join(" ")
-      .trim()
+    return this.numeroSacola ? `#${this.numeroSacola}` : ""
   }
 }

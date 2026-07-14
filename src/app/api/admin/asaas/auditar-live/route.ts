@@ -19,7 +19,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   const sb = createServerClient()
   const { data: compras, error } = await sb
     .from("live_compras")
-    .select("id, nome_cliente, cor_sacola, numero_sacola, valor_total, desconto, credito_aplicado, asaas_payment_id, link_pagamento, msg_status, pagamento_status")
+    .select("id, nome_cliente, numero_sacola, valor_total, desconto, credito_aplicado, asaas_payment_id, link_pagamento, msg_status, pagamento_status")
     .eq("live_id", liveId)
     .order("nome_cliente")
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
@@ -33,7 +33,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     if (!c.asaas_payment_id) {
       linhas.push({
         id: c.id, cliente: c.nome_cliente,
-        sacola: [c.cor_sacola, c.numero_sacola].filter(Boolean).join(" "),
+        sacola: c.numero_sacola ?? "",
         valor_atual: valorFinalAtual, valor_no_asaas: null,
         situacao: c.link_pagamento ? "sem_payment_id" : "sem_cobranca",
       })
@@ -44,7 +44,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     if (!asaas) {
       linhas.push({
         id: c.id, cliente: c.nome_cliente,
-        sacola: [c.cor_sacola, c.numero_sacola].filter(Boolean).join(" "),
+        sacola: c.numero_sacola ?? "",
         valor_atual: valorFinalAtual, valor_no_asaas: null,
         situacao: "nao_encontrada_no_asaas",
       })
@@ -54,7 +54,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     const divergente = Math.round(asaas.value * 100) !== Math.round(valorFinalAtual * 100)
     linhas.push({
       id: c.id, cliente: c.nome_cliente,
-      sacola: [c.cor_sacola, c.numero_sacola].filter(Boolean).join(" "),
+      sacola: c.numero_sacola ?? "",
       valor_atual: valorFinalAtual,
       valor_no_asaas: asaas.value,
       descricao_asaas: asaas.description,

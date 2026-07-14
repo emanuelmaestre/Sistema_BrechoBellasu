@@ -8,7 +8,6 @@ interface PatchBody {
   pagamento_status?: string
   nome_cliente?: string
   whatsapp?: string | null
-  cor_sacola?: string | null
   numero_sacola?: string | null
   quantidade_itens?: number
   valor_total?: number
@@ -44,7 +43,6 @@ export async function PATCH(
     update.nome_cliente = body.nome_cliente.trim()
   }
   if (body.whatsapp !== undefined)         update.whatsapp = body.whatsapp
-  if (body.cor_sacola !== undefined)       update.cor_sacola = body.cor_sacola
   if (body.numero_sacola !== undefined)    update.numero_sacola = body.numero_sacola
   if (body.quantidade_itens !== undefined) {
     if (!Number.isFinite(body.quantidade_itens) || body.quantidade_itens < 1) {
@@ -69,35 +67,12 @@ export async function PATCH(
     return NextResponse.json({ erro: "Nenhum dado para atualizar." }, { status: 400 })
   }
 
-  // Busca o estado atual para decidir se o link de pagamento ficou obsoleto.
-  const { data: atual } = await sb.from("live_compras")
-    .select("valor_total, desconto, cor_sacola, numero_sacola, link_pagamento")
-    .eq("id", parseInt(compraId)).eq("live_id", parseInt(id)).single()
-
-  // Se qualquer campo que compõe o VALOR ou a DESCRIÇÃO da cobrança mudou, o
-  // link Asaas existente aponta para uma cobrança com dados errados (ex.: valor
-  // antigo). Invalida o link/pagamento para que o próximo disparo gere um novo
-  // com os dados corretos — senão a cliente recebe o valor desatualizado.
-  const mudou = (novo: unknown, velho: unknown) =>
-    novo !== undefined && String(novo) !== String(velho ?? "")
-  const cobrancaAfetada = atual?.link_pagamento && (
-    mudou(update.valor_total,   atual.valor_total) ||
-    mudou(update.desconto,      atual.desconto) ||
-    mudou(update.cor_sacola,    atual.cor_sacola) ||
-    mudou(update.numero_sacola, atual.numero_sacola)
-  )
-  if (cobrancaAfetada) {
-    update.link_pagamento   = null
-    update.asaas_payment_id = null
-    update.pagamento_status = "EM_ABERTO"
-  }
-
   const { error } = await sb.from("live_compras")
     .update(update)
     .eq("id", parseInt(compraId))
     .eq("live_id", parseInt(id))
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, link_invalidado: !!cobrancaAfetada })
+  return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(
