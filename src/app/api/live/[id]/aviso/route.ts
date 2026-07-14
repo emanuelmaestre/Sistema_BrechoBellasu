@@ -4,6 +4,7 @@ import { verifyAuth } from "@/lib/auth"
 import { enviarTexto } from "@/lib/zapi"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 import { buildAvisoLive } from "@/lib/live-message-builder"
+import { ordenarFilaAviso } from "@/lib/aviso-fila"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -34,9 +35,44 @@ async function buscarClientesAviso(): Promise<ClienteAviso[]> {
     .eq("aceita_lives", "confirmado")
     .eq("ativo", true)
     .not("celular", "is", null)
-    .order("nome")
 
   return ((clientes ?? []) as ClienteAviso[]).filter((c) => !!c.celular)
+}
+
+// Conjunto de cliente_id que já compraram em QUALQUER live (histórico em
+// live_compras). Define quem entra no bloco prioritário do aviso.
+async function buscarCompradorasIds(sb: ReturnType<typeof createServerClient>): Promise<Set<number>> {
+  const { data } = await sb.from("live_compras").select("cliente_id").not("cliente_id", "is", null)
+  const ids = new Set<number>()
+  for (const row of (data ?? []) as { cliente_id: number | null }[]) {
+    if (typeof row.cliente_id === "number") ids.add(row.cliente_id)
+  }
+  return ids
+}
+
+// Monta a fila de envio do aviso: compradoras (embaralhadas) + demais
+// (embaralhadas), sem repetir a 1ª cliente do disparo anterior. Faz o IO
+// (buscar compradoras, ler/gravar a 1ª anterior) e delega a ordenação para a
+// função pura ordenarFilaAviso. Degrada com elegância se a coluna de controle
+// ainda não existir no banco.
+async function montarFilaAviso(liveId: number, clientes: ClienteAviso[]): Promise<ClienteAviso[]> {
+  const sb = createServerClient()
+  const compradoras = await buscarCompradorasIds(sb)
+
+  // 1ª cliente do disparo anterior (null se coluna ausente ou nunca disparado)
+  const anterior = await sb.from("lives").select("ultimo_aviso_primeiro_cliente_id").eq("id", liveId).single()
+  const ultimoPrimeiro = anterior.error
+    ? null
+    : ((anterior.data as Record<string, unknown> | null)?.ultimo_aviso_primeiro_cliente_id ?? null) as number | null
+
+  const fila = ordenarFilaAviso(clientes, compradoras, ultimoPrimeiro)
+
+  // Registra a nova 1ª cliente (ignora silenciosamente se a coluna não existir)
+  if (fila.length > 0) {
+    await sb.from("lives").update({ ultimo_aviso_primeiro_cliente_id: fila[0].id }).eq("id", liveId)
+  }
+
+  return fila
 }
 
 // GET /api/live/[id]/aviso — lista clientes elegiveis para o front orquestrar
@@ -52,10 +88,12 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (!live) return NextResponse.json({ erro: "Live não encontrada." }, { status: 404 })
   if (live.status === "encerrada") return NextResponse.json({ erro: "Live já encerrada." }, { status: 400 })
 
-  const clientes = await buscarClientesAviso()
-  if (!clientes.length) {
+  const clientesBase = await buscarClientesAviso()
+  if (!clientesBase.length) {
     return NextResponse.json({ ok: true, total: 0, clientes: [], mensagem: "Nenhum cliente com opt-in para lives." })
   }
+
+  const clientes = await montarFilaAviso(liveId, clientesBase)
 
   return NextResponse.json({
     ok: true,
@@ -112,7 +150,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
   }
 
-  const clientes = await buscarClientesAviso()
+  const clientes = await montarFilaAviso(liveId, await buscarClientesAviso())
   let enviados = 0
   let erros = 0
   let intervaloAnterior: number | undefined
