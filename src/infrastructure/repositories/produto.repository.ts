@@ -7,7 +7,7 @@ import type { IProdutoRepository } from "@/application/produtos/ports"
 import type { Produto } from "@/domain/produtos/produto"
 import { CodigoDuplicadoError } from "@/domain/produtos/errors"
 
-/** Próximo código sequencial (maior código numérico existente + 1, com 4 dígitos). */
+/** Próximo código sequencial (maior código numérico existente + 1, sem zeros à esquerda). */
 export async function calcularProximoCodigo(sb: SupabaseClient): Promise<string> {
   const { data: existing } = await sb
     .from("produtos")
@@ -18,7 +18,7 @@ export async function calcularProximoCodigo(sb: SupabaseClient): Promise<string>
     .map((p: { codigo: string | null }) => parseInt(p.codigo ?? "0", 10))
     .filter((n: number) => !isNaN(n) && n > 0)
     .reduce((max: number, n: number) => Math.max(max, n), 0)
-  return String(maxNum + 1).padStart(4, "0")
+  return String(maxNum + 1)
 }
 
 export class ProdutoRepositorySupabase implements IProdutoRepository {
