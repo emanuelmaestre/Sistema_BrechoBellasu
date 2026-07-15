@@ -20,6 +20,12 @@ import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 // Mesmo intervalo usado antes nas telas cheias (anti-bloqueio do WhatsApp)
 const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
 
+// Google Contatos NÃO é WhatsApp — não há risco de bloqueio, apenas a cota
+// da People API (~60 writes/min por usuário). O Google só exige que os writes
+// sejam sequenciais (um de cada vez), o que já fazemos. 3–6s deixa ~13/min,
+// ~4x abaixo do teto: 195 contatos em ~15min em vez de horas.
+const GOOGLE_SYNC_INTERVAL = { minMs: 3_000, maxMs: 6_000, deltaMinMs: 1_000 }
+
 export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
 
@@ -121,6 +127,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
   async function rodar(
     fetchFila: () => Promise<{ itens: Array<{ id: number; nome: string }>; aviso?: string }>,
     enviarItem: (item: { id: number; nome: string }) => Promise<JobItemResult>,
+    intervalo: { minMs: number; maxMs: number; deltaMinMs: number } = LIVE_SAFE_INTERVAL,
   ) {
     cancelFlag = false
     await pedirWakeLock()
@@ -149,7 +156,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
         const item = fila[i]
 
         if (i > 0) {
-          const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, LIVE_SAFE_INTERVAL)
+          const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, intervalo)
           intervaloAnterior = intervaloMs
           await esperarComContagem(Math.ceil(intervaloMs / 1000), item.nome, (p) => patchJob(p))
           if (cancelFlag) { patchJob({ status: "cancelled" }); return }
@@ -285,6 +292,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
             detalhe: r.erro,
           }
         },
+        GOOGLE_SYNC_INTERVAL,
       )
       return true
     },
