@@ -773,12 +773,13 @@ function AbaGoogle() {
     staleTime: 30_000,
   })
 
-  const paraExecutar = (data?.clientes ?? []).filter(c => c.acao !== "ignorar")
+  const paraExecutar = (data?.clientes ?? []).filter(c => c.acao !== "ignorar") // todos: criar + atualizar
+  const paraCriar    = (data?.clientes ?? []).filter(c => c.acao === "criar")   // só os novos
   const clientes = (data?.clientes ?? []).filter(c => filtro === "todos" ? true : c.acao === filtro)
 
-  function iniciarSync() {
-    if (!paraExecutar.length) return
-    iniciarGoogleSync(paraExecutar.map(c => c.id))
+  function iniciarSync(ids: number[]) {
+    if (!ids.length) return
+    iniciarGoogleSync(ids)
   }
 
   return (
@@ -846,15 +847,25 @@ function AbaGoogle() {
             </motion.div>
           )}
 
-          {/* Botão principal */}
+          {/* Botões de disparo — todos (criar + atualizar) OU só os novos (criar) */}
           {!syncRodando && (
-            <button
-              onClick={iniciarSync}
-              disabled={paraExecutar.length === 0}
-              className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
-              style={{ background: "var(--accent)", color: "#fff", border: "none" }}>
-              <Play size={14} /> Sincronizar {paraExecutar.length} cliente{paraExecutar.length !== 1 ? "s" : ""}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => iniciarSync(paraExecutar.map(c => c.id))}
+                disabled={paraExecutar.length === 0}
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+                style={{ background: "var(--accent)", color: "#fff", border: "none" }}>
+                <Play size={14} /> Sincronizar todos ({paraExecutar.length})
+              </button>
+              <button
+                onClick={() => iniciarSync(paraCriar.map(c => c.id))}
+                disabled={paraCriar.length === 0}
+                title="Adiciona ao Google só os clientes ainda não cadastrados, sem alterar os que já existem"
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+                style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.4)" }}>
+                <UserPlus size={14} /> Só criar novos ({paraCriar.length})
+              </button>
+            </div>
           )}
 
           {/* Filtros da lista */}
