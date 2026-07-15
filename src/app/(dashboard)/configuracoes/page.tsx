@@ -767,7 +767,7 @@ function AbaGoogle() {
   const syncRodando = disparoJob?.tipo === "google-sync" && disparoJob?.status === "running"
   const [filtro, setFiltro] = useState<"todos" | "criar" | "atualizar" | "ignorar">("todos")
 
-  const { data, isLoading, refetch } = useQuery<{ totais: { total: number; criarNovos: number; atualizar: number; semTelefone: number; telInvalido: number; ignorados: number }; clientes: PreviewCliente[] }>({
+  const { data, isLoading, refetch } = useQuery<{ totais: { total: number; criarNovos: number; atualizar: number; semTelefone: number; telInvalido: number; ignorados: number }; clientes: PreviewCliente[]; googleDesconectado?: boolean }>({
     queryKey: ["google-sync-preview"],
     queryFn: () => apiGet("/admin/google-sync-mass"),
     staleTime: 30_000,
@@ -776,6 +776,12 @@ function AbaGoogle() {
   const paraExecutar = (data?.clientes ?? []).filter(c => c.acao !== "ignorar") // todos: criar + atualizar
   const paraCriar    = (data?.clientes ?? []).filter(c => c.acao === "criar")   // só os novos
   const clientes = (data?.clientes ?? []).filter(c => filtro === "todos" ? true : c.acao === filtro)
+
+  // Token OAuth do Google expirado: detecta pelo preview (persiste após reload)
+  // ou pela última sincronização que acabou de falhar por autenticação.
+  const jobAuthErro = disparoJob?.tipo === "google-sync" && disparoJob.status !== "running"
+    && disparoJob.resultados.some(r => r.status === "erro" && (r.detalhe ?? "").includes("desconectad"))
+  const googleDesconectado = !!data?.googleDesconectado || !!jobAuthErro
 
   function iniciarSync(ids: number[]) {
     if (!ids.length) return
@@ -802,6 +808,25 @@ function AbaGoogle() {
           </button>
         )}
       </div>
+
+      {/* Aviso: token OAuth expirado — sincronização não funciona até reconectar */}
+      {googleDesconectado && (
+        <div className="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.35)" }}>
+          <AlertCircle size={20} className="shrink-0" style={{ color: "#f87171" }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold" style={{ color: "#f87171" }}>Google desconectado</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              A autorização expirou — por isso a sincronização falhou. Reconecte, copie o token gerado e cole em <strong>GOOGLE_REFRESH_TOKEN</strong> no Vercel (projeto <strong>brecho-bellasu-v2</strong>), depois faça o redeploy.
+            </p>
+          </div>
+          <a href="/api/google/auth" target="_blank" rel="noopener noreferrer"
+            className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white"
+            style={{ background: "#f87171" }}>
+            <RefreshCw size={14} /> Reconectar Google
+          </a>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">

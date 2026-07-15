@@ -11,9 +11,16 @@ export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data: clientes } = await sb
     .from("clientes")
-    .select("id,nome,apelido,instagram,celular,cidade,google_contact_id,google_sync_status")
+    .select("id,nome,apelido,instagram,celular,cidade,google_contact_id,google_sync_status,google_sync_erro")
     .eq("ativo", true)
     .order("nome")
+
+  // Sinaliza se a última sincronização falhou por autorização expirada (token OAuth),
+  // para a tela mostrar o aviso "Google desconectado" mesmo após recarregar.
+  const googleDesconectado = (clientes ?? []).some(
+    c => c.google_sync_status === "erro" &&
+      /desconectad|invalid_grant/i.test((c as Record<string, unknown>).google_sync_erro as string ?? ""),
+  )
 
   const preview = (clientes ?? []).map(c => {
     const tel  = normalizarTelefone(c.celular)
@@ -41,7 +48,7 @@ export const GET = withAuth(async () => {
     ignorados:   preview.filter(c => c.acao === "ignorar").length,
   }
 
-  return NextResponse.json({ totais, clientes: preview })
+  return NextResponse.json({ totais, clientes: preview, googleDesconectado })
 })
 
 // POST /api/admin/google-sync-mass — sincroniza UM cliente (body: { cliente_id })

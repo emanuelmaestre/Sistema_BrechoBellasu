@@ -35,6 +35,16 @@ export interface SincronizarResult {
   nomeMontado?:    string
   telefoneNorm?:   string
   erro?:           string
+  /** true quando a falha é de autenticação (token OAuth expirado/revogado) */
+  authError?:      boolean
+}
+
+// Erros de autenticação do Google (token expirado/revogado, credenciais inválidas).
+// Viram uma mensagem acionável em vez do "invalid_grant" cru que o Google devolve.
+const MSG_GOOGLE_DESCONECTADO =
+  "Google desconectado: a autorização expirou. Reconecte em Configurações → Google."
+function ehErroAuthGoogle(msg: string): boolean {
+  return /invalid_grant|invalid_client|unauthorized_client|access_denied/i.test(msg)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -83,7 +93,7 @@ async function buscarPorTelefone(
  */
 export async function sincronizarContato(params: SincronizarParams): Promise<SincronizarResult> {
   if (!process.env.GOOGLE_REFRESH_TOKEN) {
-    return { ok: false, acao: "erro", erro: "GOOGLE_REFRESH_TOKEN não configurado." }
+    return { ok: false, acao: "erro", authError: true, erro: MSG_GOOGLE_DESCONECTADO }
   }
 
   const nomeMontado = montarNomeContato({
@@ -160,6 +170,9 @@ export async function sincronizarContato(params: SincronizarParams): Promise<Sin
     return { ok: true, acao: "criar", googleContactId: newResourceName, nomeMontado, telefoneNorm }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    if (ehErroAuthGoogle(msg)) {
+      return { ok: false, acao: "erro", nomeMontado, telefoneNorm, authError: true, erro: MSG_GOOGLE_DESCONECTADO }
+    }
     return { ok: false, acao: "erro", nomeMontado, telefoneNorm, erro: msg.slice(0, 300) }
   }
 }
