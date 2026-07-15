@@ -56,8 +56,8 @@ export interface DisparoJob {
 interface DisparoState {
   job: DisparoJob | null
   minimized: boolean
-  /** Inicia o disparo das mensagens de compra. Retorna false se já há job rodando. */
-  iniciarDisparo: (p: { liveId: number; liveTitulo: string; chavePix: string }) => boolean
+  /** Inicia o disparo das mensagens de compra. `compraIds` restringe a um subconjunto (omitido = todas as pendentes). Retorna false se já há job rodando. */
+  iniciarDisparo: (p: { liveId: number; liveTitulo: string; chavePix: string; compraIds?: number[] }) => boolean
   /** Inicia o aviso de live (1º envio ou reenvio). Retorna false se já há job rodando. */
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string }) => boolean
   /** Inicia o disparo de consentimento (LGPD) para clientes ainda não notificados. Retorna false se já há job rodando. */
@@ -203,13 +203,19 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
     job: null,
     minimized: false,
 
-    iniciarDisparo: ({ liveId, liveTitulo, chavePix }) => {
+    iniciarDisparo: ({ liveId, liveTitulo, chavePix, compraIds }) => {
       if (get().job?.status === "running") return false
       set({ job: novoJob("disparo", liveTitulo, liveId), minimized: false })
       void rodar(
         async () => {
           const r = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
-          return { itens: r.pendentes ?? [] }
+          let itens = r.pendentes ?? []
+          // Restringe ao subconjunto marcado na tela (se houver seleção parcial)
+          if (compraIds && compraIds.length) {
+            const sel = new Set(compraIds)
+            itens = itens.filter(i => sel.has(i.id))
+          }
+          return { itens }
         },
         async (item) => {
           const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(

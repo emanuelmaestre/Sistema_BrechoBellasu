@@ -1748,6 +1748,18 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
   const ex = pendentes[0]
 
+  // Seleção de quais compras recebem o disparo. Guardamos os DESMARCADOS
+  // (padrão vazio = todas marcadas), assim não precisamos reconciliar via
+  // efeito quando a lista de pendentes muda — ids obsoletos aqui só não casam.
+  const [desmarcados, setDesmarcados] = useState<Set<number>>(new Set())
+  const selecionadosIds   = pendentes.filter(c => !desmarcados.has(c.id)).map(c => c.id)
+  const totalSelecionadas = selecionadosIds.length
+  const todasMarcadas     = pendentes.length > 0 && totalSelecionadas === pendentes.length
+  const toggleUm = (id: number) => setDesmarcados(s => {
+    const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n
+  })
+  const toggleTodas = () => setDesmarcados(todasMarcadas ? new Set(pendentes.map(c => c.id)) : new Set())
+
   // Calcula valor final do primeiro pendente para detectar pagamento por crédito
   const creditoEx = parseFloat(String(ex?.credito_aplicado ?? 0))
   const valorTotalEx = parseFloat(String(ex?.valor_total ?? 0))
@@ -1794,7 +1806,9 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
   function disparar() {
     if (!msgResult?.valida) return
-    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix })
+    // "todas" = deixa o servidor mandar todas as pendentes; seleção parcial = só as marcadas
+    const compraIds = todasMarcadas ? undefined : selecionadosIds
+    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix, compraIds })
     if (!ok) return
     onSuccess()
     onClose()
@@ -1834,7 +1848,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     )
   }
 
-  const podeEnviar = !!pendentes.length && !!msgResult?.valida && !jobRodando && (pagoCreditoEx || chavePix.trim().length > 0)
+  const podeEnviar = totalSelecionadas > 0 && !!msgResult?.valida && !jobRodando && (pagoCreditoEx || chavePix.trim().length > 0)
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1857,23 +1871,33 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       {/* Preview */}
       {(
         <div className="flex-1 overflow-hidden flex">
-          {/* Lista de clientes */}
+          {/* Lista de clientes — com seleção de quem recebe o disparo */}
           <div className="w-64 shrink-0 overflow-y-auto" style={{ borderRight: "1px solid var(--border)" }}>
-            <p className="px-4 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-              Clientes ({pendentes.length})
-            </p>
-            {pendentes.map(c => (
-              <div key={c.id} className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
-                  {c.nome_cliente[0]}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
-                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{fmtBRL(c.valor_total)}</p>
-                </div>
-              </div>
-            ))}
+            <label className="px-4 py-3 flex items-center gap-3 cursor-pointer select-none" style={{ borderBottom: "1px solid var(--border)" }}>
+              <input type="checkbox" checked={todasMarcadas} onChange={toggleTodas}
+                className="w-4 h-4 shrink-0 cursor-pointer" style={{ accentColor: COR_LIVE }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                {todasMarcadas ? "Todas" : `${totalSelecionadas}/${pendentes.length}`} selecionada{totalSelecionadas !== 1 ? "s" : ""}
+              </span>
+            </label>
+            {pendentes.map(c => {
+              const marcada = !desmarcados.has(c.id)
+              return (
+                <label key={c.id} className="px-4 py-3 flex items-center gap-3 cursor-pointer select-none transition-opacity"
+                  style={{ borderBottom: "1px solid var(--border)", opacity: marcada ? 1 : 0.45 }}>
+                  <input type="checkbox" checked={marcada} onChange={() => toggleUm(c.id)}
+                    className="w-4 h-4 shrink-0 cursor-pointer" style={{ accentColor: COR_LIVE }} />
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                    {c.nome_cliente[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{fmtBRL(c.valor_total)}</p>
+                  </div>
+                </label>
+              )
+            })}
           </div>
 
           {/* Preview mensagem */}
@@ -2087,7 +2111,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
             <div className="flex items-center gap-3">
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {pendentes.length} msg{pendentes.length !== 1 ? "s" : ""} será{pendentes.length !== 1 ? "ão" : ""} enviada{pendentes.length !== 1 ? "s" : ""}
+                {totalSelecionadas} msg{totalSelecionadas !== 1 ? "s" : ""} será{totalSelecionadas !== 1 ? "ão" : ""} enviada{totalSelecionadas !== 1 ? "s" : ""}
               </p>
               <motion.button onClick={disparar} disabled={!podeEnviar} whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
