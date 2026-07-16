@@ -305,7 +305,10 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   const blocoValor = linhasValor.join("\n")
 
   let blocoPagamento: string
-  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 via PIX para garantir suas peças. 💖`
+  // Pedido de comprovante faz parte das instruções de pagamento — some junto
+  // com o prazo quando a compra é quitada 100% com crédito (nada a pagar).
+  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 via PIX para garantir suas peças. 💖
+📎 Após o pagamento, por gentileza, envie o comprovante por aqui para a confirmação da sua compra. Agradecemos desde já! 🙏`
 
   if (compra.pago_com_credito) {
     blocoPagamento = `✅ Esta compra foi quitada com o seu saldo de crédito.
