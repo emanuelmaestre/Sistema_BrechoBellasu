@@ -9,8 +9,9 @@ import {
   X, ChevronLeft, ChevronRight, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2,
+  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera,
 } from "lucide-react"
+import ImportarClientePorFoto from "@/components/clientes/ImportarClientePorFoto"
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "@/services/api"
 import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -1825,7 +1826,7 @@ function WizardCliente({
     <Confete show={confete} />
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex flex-col"
+      className="fixed inset-0 z-[90] flex flex-col"
       style={{ background: "var(--bg-base)" }}
     >
       <SuccessOverlay show={salvoOk} titulo={editandoId ? "Cliente atualizado!" : "Cliente cadastrado!"} subtitulo={form.nome || ""} />
@@ -2377,6 +2378,7 @@ function ClientesPageInner() {
   const [toggleToast, setToggleToast] = useState<{ ativo: boolean } | null>(null)
   const [quickEditStep, setQuickEditStep] = useState<number | null>(null)
   const [wizard, setWizard]       = useState(false)
+  const [modalFoto, setModalFoto] = useState(false)
   const [fromVendas, setFromVendas] = useState(false)
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
@@ -2487,14 +2489,24 @@ function ClientesPageInner() {
             <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Clientes</h2>
             <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} registros</p>
           </div>
-          <button
-            onClick={() => { setEditForm(null); setEditId(null); setWizard(true) }}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg transition-opacity"
-            style={{ background: "var(--accent)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-            <Plus size={16} /> Novo Cliente
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalFoto(true)}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-card)" }}>
+              <Camera size={16} style={{ color: "var(--accent)" }} /> Importar por Foto
+            </button>
+            <button
+              onClick={() => { setEditForm(null); setEditId(null); setWizard(true) }}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg transition-opacity"
+              style={{ background: "var(--accent)" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
+              <Plus size={16} /> Novo Cliente
+            </button>
+          </div>
         </div>
 
         {/* Filtros */}
@@ -2652,6 +2664,16 @@ function ClientesPageInner() {
           </div>
         )}
       </div>
+
+      {/* Importar clientes por foto (prints WhatsApp/Instagram) */}
+      <AnimatePresence>
+        {modalFoto && (
+          <ImportarClientePorFoto
+            onClose={() => setModalFoto(false)}
+            onSalvo={() => qc.invalidateQueries({ queryKey: ["clientes"] })}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Wizard */}
       <AnimatePresence>
