@@ -26,7 +26,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   if (categoria_id) q = q.eq("categoria_id", categoria_id)
   if (marca)       q = q.ilike("marca", marca)
 
-  const { data, count, error } = await q.order("codigo", { ascending: ordemCodigo, nullsFirst: false }).order("nome").range(from, to)
+  const { data, count, error } = await q.order("codigo_num", { ascending: ordemCodigo, nullsFirst: false }).order("codigo", { ascending: ordemCodigo, nullsFirst: false }).order("nome").range(from, to)
   if (error) return NextResponse.json({ erro: "Não foi possível carregar os produtos. Tente novamente." }, { status: 500 })
 
   const rows = (data ?? []).map(p => ({ ...p, categoria_nome: (p.categorias as {nome:string}|null)?.nome ?? null, categorias: undefined }))
