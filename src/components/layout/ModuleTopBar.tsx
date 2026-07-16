@@ -11,6 +11,7 @@ import {
 import { useState, useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
+import { apiGet } from "@/services/api"
 
 const ROUTE_LABELS: Record<string, { label: string; Icon: React.ElementType; color: string }> = {
   "/vendas":        { label: "Vendas",        Icon: ShoppingCart, color: "#10b981" },
@@ -62,11 +63,20 @@ function usePopover() {
 }
 
 // ── Widget 1: Calendário ─────────────────────────────────
+interface Aniversariante { id: number; nome: string; apelido: string | null; celular: string; msgEnviada: boolean }
+
 export function CalendarioWidget() {
   const now = useClock()
   const { open, setOpen, ref } = usePopover()
   const [viewYear,  setViewYear]  = useState(now.getFullYear())
   const [viewMonth, setViewMonth] = useState(now.getMonth())
+  const [aniversariantes, setAniversariantes] = useState<Aniversariante[]>([])
+
+  useEffect(() => {
+    apiGet<{ total: number; aniversariantes: Aniversariante[] }>("/aniversariantes/hoje")
+      .then(r => setAniversariantes(r.aniversariantes ?? []))
+      .catch(() => {})
+  }, [])
 
   const hh = now.getHours().toString().padStart(2,"0")
   const mm = now.getMinutes().toString().padStart(2,"0")
@@ -86,6 +96,8 @@ export function CalendarioWidget() {
     ...Array.from({ length: diasNoMes }, (_, i) => i + 1),
   ]
 
+  const totalAniversariantes = aniversariantes.length
+
   return (
     <div className="relative" ref={ref}>
       <motion.button onClick={() => setOpen(o => !o)}
@@ -101,6 +113,12 @@ export function CalendarioWidget() {
         <span className="text-[10px] font-medium hidden sm:block" style={{ color: "var(--text-muted)", opacity: 0.8 }}>
           {DIAS_SEMANA[now.getDay()]}, {now.getDate().toString().padStart(2,"0")} {MESES_ABREV[now.getMonth()]} {now.getFullYear()}
         </span>
+        {totalAniversariantes > 0 && (
+          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black"
+            style={{ background: "#fef08a", color: "#854d0e" }}>
+            🎂 {totalAniversariantes}
+          </span>
+        )}
       </motion.button>
 
       <AnimatePresence>
@@ -187,6 +205,34 @@ export function CalendarioWidget() {
                 Hoje
               </motion.button>
             </div>
+
+            {/* Aniversariantes do dia */}
+            {aniversariantes.length > 0 && (
+              <div className="px-4 pb-4" style={{ borderTop: "1px solid var(--border)" }}>
+                <p className="text-[10px] font-black uppercase tracking-widest pt-3 pb-2 flex items-center gap-1.5"
+                  style={{ color: "#854d0e" }}>
+                  🎂 Aniversariantes de hoje
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {aniversariantes.map(a => (
+                    <div key={a.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl"
+                      style={{ background: "#fefce8", border: "1px solid #fef08a" }}>
+                      <div>
+                        <p className="text-xs font-bold" style={{ color: "#713f12" }}>
+                          {a.apelido || a.nome.split(" ")[0]}
+                        </p>
+                        <p className="text-[10px]" style={{ color: "#a16207" }}>{a.celular}</p>
+                      </div>
+                      {a.msgEnviada
+                        ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#166534" }}>✓ enviada</span>
+                        : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fef9c3", color: "#854d0e" }}>pendente</span>
+                      }
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

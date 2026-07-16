@@ -33,6 +33,7 @@ type LogTipo =
   | "consentimento_novidades"
   | "consentimento_lives"
   | "consentimento"
+  | "aniversario"
   | "teste_conexao"
   | "outro"
 
