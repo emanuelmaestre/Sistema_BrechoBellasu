@@ -307,7 +307,7 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   let blocoPagamento: string
   // Pedido de comprovante faz parte das instruções de pagamento — some junto
   // com o prazo quando a compra é quitada 100% com crédito (nada a pagar).
-  let blocoDeadline = `💝 Suas peças estão reservadas com muito carinho, esperando só por você! Pague até *${dataPrazo} às 23h59* via PIX para confirmá-las. 🛍️✨
+  let blocoDeadline = `💝 Suas peças estão reservadas com muito carinho, esperando só por você! Pague até ${dataPrazo} às 23h59 via PIX para confirmá-las. 🛍️✨
 📎 Após o pagamento, é só enviar o comprovante aqui e a gente cuida do resto! Agradecemos de coração. 🙏💖`
 
   if (compra.pago_com_credito) {
