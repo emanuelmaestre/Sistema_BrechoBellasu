@@ -9,15 +9,13 @@ import { CodigoDuplicadoError } from "@/domain/produtos/errors"
 
 /** Próximo código sequencial (maior código numérico existente + 1, sem zeros à esquerda). */
 export async function calcularProximoCodigo(sb: SupabaseClient): Promise<string> {
-  const { data: existing } = await sb
+  const { data } = await sb
     .from("produtos")
-    .select("codigo")
-    .not("codigo", "is", null)
-    .limit(10000)
-  const maxNum = (existing ?? [])
-    .map((p: { codigo: string | null }) => parseInt(p.codigo ?? "0", 10))
-    .filter((n: number) => !isNaN(n) && n > 0)
-    .reduce((max: number, n: number) => Math.max(max, n), 0)
+    .select("codigo_num")
+    .not("codigo_num", "is", null)
+    .order("codigo_num", { ascending: false })
+    .limit(1)
+  const maxNum = (data?.[0] as { codigo_num: number } | undefined)?.codigo_num ?? 0
   return String(maxNum + 1)
 }
 

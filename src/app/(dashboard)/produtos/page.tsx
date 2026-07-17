@@ -1004,7 +1004,7 @@ export default function ProdutosPage() {
   const { data, isLoading } = useQuery<{ data: Produto[]; total: number }>({
     queryKey: ["produtos", buscaDebounced, catFiltro, ordemCodigo],
     queryFn: () => {
-      const qs = new URLSearchParams({ limit: "1000", ordem_codigo: ordemCodigo, ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
+      const qs = new URLSearchParams({ limit: "9999", ordem_codigo: ordemCodigo, ...(buscaDebounced && { busca: buscaDebounced }), ...(catFiltro && { categoria_id: catFiltro }) }).toString()
       return apiGet(`/produtos?${qs}`)
     },
     staleTime: 30_000,
