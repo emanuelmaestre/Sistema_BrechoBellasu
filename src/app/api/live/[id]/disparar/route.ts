@@ -47,9 +47,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const body = await req.json().catch(() => ({})) as { compra_id?: number; chave_pix?: string }
+  const body = await req.json().catch(() => ({})) as { compra_id?: number; chave_pix?: string; dias_prazo?: number }
   const compraId = body.compra_id
   const chavePix = (body.chave_pix ?? "").trim()
+  const diasPrazo = typeof body.dias_prazo === "number" && body.dias_prazo >= 1 ? body.dias_prazo : 2
   if (!compraId) {
     return NextResponse.json({ erro: "compra_id é obrigatório." }, { status: 400 })
   }
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     produtos,
   }
 
-  const msgResult = buildCompleteMessage(compraData)
+  const msgResult = buildCompleteMessage(compraData, undefined, diasPrazo)
   if (!msgResult.valida) {
     await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })

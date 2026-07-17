@@ -17,6 +17,7 @@ import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import {
   buildCompleteMessage,
   selectSmallTalkIndex,
+  prazoPagamento,
   CHAR_LIMIT,
   CHAR_TARGET,
   type CompraData,
@@ -1742,6 +1743,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
   const [parcOpen, setParcOpen] = useState(false)
   const [chavePix, setChavePix] = useState("")
+  const [diasPrazo, setDiasPrazo] = useState(2)
   const iniciarDisparo = useDisparoStore(s => s.iniciarDisparo)
   const jobRodando     = useDisparoStore(s => s.job?.status === "running")
 
@@ -1789,9 +1791,9 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       chave_pix:        pagoCreditoEx ? null : (chavePix || null),
       produtos: PRODUTOS_EXEMPLO,
     }
-    setMsgResult(buildCompleteMessage(compraData, stIdx))
+    setMsgResult(buildCompleteMessage(compraData, stIdx, diasPrazo))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ex, liveData, chavePix, pagoCreditoEx, stIdx])
+  }, [ex, liveData, chavePix, pagoCreditoEx, stIdx, diasPrazo])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -1808,7 +1810,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
     if (!msgResult?.valida) return
     // "todas" = deixa o servidor mandar todas as pendentes; seleção parcial = só as marcadas
     const compraIds = todasMarcadas ? undefined : selecionadosIds
-    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix, compraIds })
+    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix, diasPrazo, compraIds })
     if (!ok) return
     onSuccess()
     onClose()
@@ -2095,6 +2097,21 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               />
             </div>
           )}
+          <div className="flex items-center gap-3 px-6 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+            <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>⏰ Prazo (dias):</span>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              value={diasPrazo}
+              onChange={e => setDiasPrazo(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-16 px-3 py-1.5 rounded-lg text-sm outline-none text-center"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              até <strong>{prazoPagamento(liveData ?? null, diasPrazo)}</strong> às 23h59
+            </span>
+          </div>
           <div className="flex items-center justify-between gap-3 px-6 py-4">
             <div className="flex items-center gap-2">
               <button onClick={gerarNovaVariacao}

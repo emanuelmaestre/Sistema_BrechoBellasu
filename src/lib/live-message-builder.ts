@@ -60,9 +60,9 @@ function fmtVal(v: unknown): string {
   return "R$ " + parseFloat(String(v ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
 }
 
-export function prazoPagamento(dataLive: string | null): string {
+export function prazoPagamento(dataLive: string | null, dias = 2): string {
   const base = dataLive ? new Date(dataLive + "T12:00:00") : new Date()
-  base.setDate(base.getDate() + 2)
+  base.setDate(base.getDate() + dias)
   return base.toLocaleDateString("pt-BR")
 }
 
@@ -191,8 +191,8 @@ export function buildSmallTalk(level: SmallTalkLevel, nome: string | null, idx: 
   return `${saudacao}\n\n${agradec} ${confirmacao}`
 }
 
-export function selectSmallTalkByAvailableLength(compra: CompraData, idx: number): SmallTalkLevel {
-  const dataPrazo = prazoPagamento(compra.data_live)
+export function selectSmallTalkByAvailableLength(compra: CompraData, idx: number, diasPrazo = 2): SmallTalkLevel {
+  const dataPrazo = prazoPagamento(compra.data_live, diasPrazo)
   const nome      = validateCustomerName(compra.nome_cliente)
   const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
   // Calcula com a variante que buildCompleteMessage vai usar: tenta com produtos, cai para sem
@@ -307,8 +307,8 @@ export function buildFixedContent(compra: CompraData, dataPrazo: string): string
   let blocoPagamento: string
   // Pedido de comprovante faz parte das instruções de pagamento — some junto
   // com o prazo quando a compra é quitada 100% com crédito (nada a pagar).
-  let blocoDeadline = `⏰ Pague até ${dataPrazo} às 23h59 via PIX para garantir suas peças. 💖
-📎 Após o pagamento, por gentileza, envie o comprovante por aqui para a confirmação da sua compra. Agradecemos desde já! 🙏`
+  let blocoDeadline = `💝 Suas peças estão reservadas com muito carinho, esperando só por você! Pague até *${dataPrazo} às 23h59* via PIX para confirmá-las. 🛍️✨
+📎 Após o pagamento, é só enviar o comprovante aqui e a gente cuida do resto! Agradecemos de coração. 🙏💖`
 
   if (compra.pago_com_credito) {
     blocoPagamento = `✅ Esta compra foi quitada com o seu saldo de crédito.
@@ -350,8 +350,8 @@ export function validateMessageLimit(mensagem: string): { valida: boolean; erro?
 
 // ─── Builder principal ────────────────────────────────────────────
 
-export function buildCompleteMessage(compra: CompraData, idx?: number): MessageResult {
-  const dataPrazo  = prazoPagamento(compra.data_live)
+export function buildCompleteMessage(compra: CompraData, idx?: number, diasPrazo = 2): MessageResult {
+  const dataPrazo  = prazoPagamento(compra.data_live, diasPrazo)
   const nomeValido = validateCustomerName(compra.nome_cliente)
   const chosenIdx  = idx ?? selectSmallTalkIndex()
   const levels: SmallTalkLevel[] = ["COMPLETO", "MEDIO", "CURTO", "FALLBACK"]
