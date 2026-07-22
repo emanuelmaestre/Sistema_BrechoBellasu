@@ -8,8 +8,9 @@ import {
   Check, Search, ShoppingBag, User, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon,
+  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert,
 } from "lucide-react"
+import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 import DatePicker from "@/components/DatePicker"
@@ -54,7 +55,7 @@ export interface Compra {
 type LiveDetalhe = Live & { compras: Compra[] }
 
 interface Cliente {
-  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null; instagram?: string | null; saldo_credito?: number | null
+  id: number; nome: string; cpf_cnpj?: string | null; celular?: string | null; instagram?: string | null; saldo_credito?: number | null; total_penalidades_ativas?: number | null
 }
 
 interface ProdutoVinculo {
@@ -525,6 +526,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   const [cliRes,   setCliRes]   = useState<Cliente[]>([])
   const [cliSel,   setCli]      = useState<Cliente | null>(null)
   const [saldoCredito, setSaldoCredito] = useState(0)
+  const [totalPenalidades, setTotalPenalidades] = useState(0)
   const [cliFocused, setCliFocused] = useState(false)
 
   useEffect(() => { const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }; document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn) }, [onClose])
@@ -551,6 +553,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
     setCli(c); setCliBusca(c.nome); setCliRes([])
     setForm(f => ({ ...f, cliente_id: c.id, nome_cliente: c.nome, whatsapp: c.celular ?? "" }))
     setSaldoCredito(Number(c.saldo_credito ?? 0))
+    setTotalPenalidades(Number(c.total_penalidades_ativas ?? 0))
   }
   const { hi: cliHi, onKeyDown: cliKD, reset: resetCli } = useDropdownKeyNav(cliRes, selCliente)
 
@@ -562,6 +565,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
       const nome = form.nome_cliente.trim() || cliBusca.trim()
       if (!nome) { setErro("Nome do cliente é obrigatório"); return }
       if (!form.nome_cliente.trim()) set("nome_cliente", cliBusca.trim())
+      if (totalPenalidades >= 3) { setErro("Cliente bloqueada por penalidades — contemplação impedida."); return }
     }
     if (step < TOTAL) go(step + 1)
   }
@@ -605,7 +609,7 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
   // Reseta o formulário para lançar outra compra rápido (fluxo de live)
   function novaCompra() {
     setCompraSalva(null); setForm(EMPTY_COMPRA)
-    setCli(null); setCliBusca(""); setCliRes([]); setSaldoCredito(0)
+    setCli(null); setCliBusca(""); setCliRes([]); setSaldoCredito(0); setTotalPenalidades(0)
     setErro(""); setDir(-1); setStep(1)
   }
 
@@ -704,18 +708,36 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Recentes</span>
                       </div>
                     )}
-                    {cliRes.map((c, idx) => (
+                    {cliRes.map((c, idx) => {
+                      const pen = Number(c.total_penalidades_ativas ?? 0)
+                      const penCor = pen === 0 ? null : pen === 1 ? "#f59e0b" : pen === 2 ? "#f97316" : "#ef4444"
+                      const penLabel = pen === 1 ? "Advertida" : pen === 2 ? "Restrita" : pen >= 3 ? "Bloqueada" : null
+                      return (
                       <button key={c.id} onMouseDown={() => selCliente(c)}
                         className="w-full px-4 py-3 text-left flex items-center gap-3 transition-colors"
                         style={{ borderBottom: idx < cliRes.length - 1 ? "1px solid var(--border)" : "none", background: cliHi === idx ? "var(--bg-hover)" : "var(--bg-surface)" }}>
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                          style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                          style={{ background: penCor ? `${penCor}20` : "var(--accent-bg)", color: penCor ?? "var(--accent)", border: penCor ? `1.5px solid ${penCor}50` : "none" }}>
                           {c.nome[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold uppercase truncate" style={{ color: "var(--text-primary)" }}>
-                            {c.nome}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold uppercase truncate" style={{ color: "var(--text-primary)" }}>
+                              {c.nome}
+                            </p>
+                            {penLabel && (
+                              <span className="relative shrink-0 inline-flex items-center">
+                                {pen >= 3 && (
+                                  <span className="absolute inset-0 rounded-full animate-ping"
+                                    style={{ background: `${penCor}40`, animationDuration: "1.4s" }} />
+                                )}
+                                <span className="relative text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full"
+                                  style={{ background: `${penCor}20`, color: penCor!, border: `1px solid ${penCor}40` }}>
+                                  {penLabel}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             {c.instagram && (
                               <span className="text-xs" style={{ color: "var(--accent)" }}>
@@ -729,16 +751,27 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
                         </div>
                         <ChevronRight size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }}/>
                       </button>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
-                {cliSel && (
-                  <div className="mt-2 px-4 py-2 rounded-xl flex items-center gap-2"
-                    style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-                    <Check size={13} style={{ color: "#16a34a" }}/>
-                    <p className="text-sm font-medium uppercase" style={{ color: "#15803d" }}>{cliSel.nome} selecionado</p>
-                  </div>
-                )}
+                {cliSel && (() => {
+                  const pen = totalPenalidades
+                  const penCor = pen === 0 ? "#16a34a" : pen === 1 ? "#d97706" : pen === 2 ? "#ea580c" : "#dc2626"
+                  const penBg  = pen === 0 ? "#f0fdf4" : pen === 1 ? "#fffbeb" : pen === 2 ? "#fff7ed" : "#fef2f2"
+                  const penBorder = pen === 0 ? "#bbf7d0" : pen === 1 ? "#fde68a" : pen === 2 ? "#fdba74" : "#fca5a5"
+                  const penLabel = pen === 0 ? "selecionada" : pen === 1 ? "⚠️ Advertida" : pen === 2 ? "🟠 Restrita" : "🔴 BLOQUEADA"
+                  return (
+                    <div className="mt-2 px-4 py-2 rounded-xl flex items-center gap-2"
+                      style={{ background: penBg, border: `1px solid ${penBorder}` }}>
+                      {pen === 0 ? <Check size={13} style={{ color: penCor }}/> : <Ban size={13} style={{ color: penCor }}/>}
+                      <p className="text-sm font-bold uppercase" style={{ color: penCor }}>
+                        {cliSel.nome} — {penLabel}
+                        {pen >= 3 ? " — contemplação bloqueada" : ""}
+                      </p>
+                    </div>
+                  )
+                })()}
                 <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
                   Digite o nome e pressione Enter se o cliente não estiver cadastrado.
                 </p>
@@ -2885,6 +2918,13 @@ export default function LivePage() {
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{data?.total ?? 0} lives</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/live/penalidades"
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-semibold px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(239,68,68,0.15)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(239,68,68,0.08)" }}>
+            <ShieldAlert size={15}/> <span className="hidden sm:inline">Penalidades</span>
+          </Link>
           <motion.button onClick={() => setConsulta(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
             className="flex items-center gap-1.5 sm:gap-2 text-sm font-semibold px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>

@@ -9,7 +9,7 @@ import {
   X, ChevronLeft, ChevronRight, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
   Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera,
+  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera, ShieldAlert,
 } from "lucide-react"
 import ImportarClientePorFoto from "@/components/clientes/ImportarClientePorFoto"
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "@/services/api"
@@ -203,7 +203,7 @@ function Confete({ show }: { show: boolean }) {
 
 // ─── Drawer Resumo do Cliente ─────────────────────────────
 // ─── Conteúdo com Tabs do Drawer ─────────────────────────
-type DrawerTab = "dados" | "historico" | "creditos" | "etiquetas" | "notificacoes"
+type DrawerTab = "dados" | "historico" | "creditos" | "etiquetas" | "notificacoes" | "penalidades"
 
 type CreditoMov = {
   id: number
@@ -262,8 +262,8 @@ function notificacaoStatusInfo(status?: string | null) {
   }
 }
 
-function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number }[]; onEditarCampo?: (step: number) => void }) {
-  const [tab, setTab] = useState<DrawerTab>("dados")
+function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number }[]; onEditarCampo?: (step: number) => void; initialTab?: DrawerTab }) {
+  const [tab, setTab] = useState<DrawerTab>(initialTab ?? "dados")
   const qc = useQueryClient()
 
   const { data: historico, isLoading: loadHist } = useQuery<HistoricoData>({
@@ -329,6 +329,45 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
     } finally { setCreditoLoading(false) }
   }
 
+  // ── Penalidades ───────────────────────────────────────────
+  const { data: penalidadesData, isLoading: loadPenalidades, refetch: refetchPenalidades } = useQuery<{
+    data: import("@/types").Penalidade[]; total: number; total_ativas: number; grau: string
+  }>({
+    queryKey: ["cliente-penalidades", cliente.id],
+    queryFn: () => apiGet(`/clientes/${cliente.id}/penalidades`),
+    enabled: tab === "penalidades",
+    staleTime: 30_000,
+  })
+  const [penForm, setPenForm] = useState(false)
+  const [penMotivo, setPenMotivo] = useState("")
+  const [penObs, setPenObs] = useState("")
+  const [penLoading, setPenLoading] = useState(false)
+  const [penErro, setPenErro] = useState("")
+  const [penRemovendo, setPenRemovendo] = useState<number | null>(null)
+
+  async function adicionarPenalidade() {
+    if (!penMotivo) { setPenErro("Selecione um motivo."); return }
+    setPenLoading(true); setPenErro("")
+    try {
+      await apiPost(`/clientes/${cliente.id}/penalidades`, { motivo: penMotivo, observacao: penObs || null })
+      setPenForm(false); setPenMotivo(""); setPenObs("")
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      refetchPenalidades()
+    } catch (e) {
+      setPenErro((e as Error).message || "Erro ao adicionar penalidade.")
+    } finally { setPenLoading(false) }
+  }
+
+  async function removerPenalidade(penId: number) {
+    setPenRemovendo(penId)
+    try {
+      await apiPatch(`/clientes/${cliente.id}/penalidades/${penId}`, { motivo_remocao: "Removida manualmente" })
+      qc.invalidateQueries({ queryKey: ["clientes"] })
+      refetchPenalidades()
+    } catch { /* silencia */ }
+    finally { setPenRemovendo(null) }
+  }
+
   // ── Google Sync ───────────────────────────────────────────
   const [googleSyncing, setGoogleSyncing] = useState(false)
   const [googleSyncMsg, setGoogleSyncMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
@@ -379,6 +418,7 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
     { key: "creditos",     label: "Créditos",     icon: <Wallet size={13} /> },
     { key: "etiquetas",    label: "Etiquetas",    icon: <Tag size={13} /> },
     { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
+    { key: "penalidades",  label: "Penalidades",  icon: <ShieldAlert size={13} /> },
   ]
 
   return (
@@ -957,6 +997,250 @@ function DrawerContent({ cliente, info, onEditarCampo }: { cliente: Cliente; inf
 
         {/* Aba Etiquetas */}
         {tab === "etiquetas" && <EtiquetasTab cliente={cliente} />}
+
+        {/* Aba Penalidades */}
+        {tab === "penalidades" && (() => {
+          const totalAtivas = penalidadesData?.total_ativas ?? (cliente as Cliente & { total_penalidades_ativas?: number }).total_penalidades_ativas ?? 0
+          const GRAU_COR: Record<string, string> = {
+            normal: "#10b981", advertida: "#f59e0b", restrita: "#f97316", bloqueada: "#ef4444",
+          }
+          const GRAU_BG: Record<string, string> = {
+            normal: "rgba(16,185,129,0.1)", advertida: "rgba(245,158,11,0.1)", restrita: "rgba(249,115,22,0.1)", bloqueada: "rgba(239,68,68,0.1)",
+          }
+          const MOTIVO_LABEL: Record<string, string> = {
+            nao_pagou_prazo: "Não pagou no prazo",
+            desistiu_apos_contemplar: "Desistiu após contemplar",
+          }
+          const grau = penalidadesData?.grau ?? (totalAtivas === 0 ? "normal" : totalAtivas === 1 ? "advertida" : totalAtivas === 2 ? "restrita" : "bloqueada")
+          const cor = GRAU_COR[grau] ?? "#94a3b8"
+          const bg  = GRAU_BG[grau]  ?? "rgba(148,163,184,0.08)"
+
+          return (
+            <div className="space-y-2 pb-4">
+              {/* Card de status */}
+              <motion.div initial={{ opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                className="rounded-2xl flex items-center justify-between overflow-hidden relative"
+                style={{ padding: "20px 20px", background: bg, border: `1.5px solid ${cor}40` }}>
+                {/* Glow de fundo para bloqueada */}
+                {grau === "bloqueada" && (
+                  <motion.div
+                    animate={{ opacity: [0.05, 0.15, 0.05] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: `radial-gradient(circle at 80% 50%, ${cor}30, transparent 70%)` }}
+                  />
+                )}
+                <div className="relative">
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: `${cor}80` }}>
+                    Status de penalidades
+                  </p>
+                  <motion.p
+                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+                    className="text-3xl font-black capitalize" style={{ color: cor }}>
+                    {grau}
+                  </motion.p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    <motion.span
+                      key={totalAtivas}
+                      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                      className="font-black" style={{ color: cor }}>
+                      {totalAtivas}
+                    </motion.span>
+                    {" "}penalidade{totalAtivas !== 1 ? "s" : ""} ativa{totalAtivas !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="relative shrink-0">
+                  {grau === "bloqueada" && (
+                    <motion.span
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
+                      transition={{ duration: 1.8, repeat: Infinity }}
+                      className="absolute inset-0 rounded-full"
+                      style={{ background: cor, margin: "-4px" }}
+                    />
+                  )}
+                  <motion.div
+                    animate={grau === "bloqueada"
+                      ? { rotate: [0, -8, 8, -8, 0] }
+                      : grau === "restrita"
+                      ? { y: [0, -3, 0] }
+                      : {}}
+                    transition={{ duration: grau === "bloqueada" ? 0.5 : 2, repeat: Infinity, repeatDelay: grau === "bloqueada" ? 2 : 1 }}>
+                    <ShieldAlert size={36} style={{ color: `${cor}70` }} />
+                  </motion.div>
+                </div>
+              </motion.div>
+
+              {/* Botão adicionar */}
+              <motion.button
+                onClick={() => { setPenForm(true); setPenErro(""); setPenMotivo(""); setPenObs("") }}
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.14)" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)" }}>
+                <Plus size={15} /> ADICIONAR PENALIDADE
+              </motion.button>
+
+              {/* Modal de adicionar */}
+              <AnimatePresence>
+                {penForm && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
+                    transition={{ type: "spring", stiffness: 340, damping: 30 }}
+                    className="fixed inset-0 z-[80] flex flex-col"
+                    style={{ background: "var(--bg-base)" }}>
+                    <div className="shrink-0 flex items-center justify-between px-5 sm:px-8 py-4"
+                      style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                          <ShieldAlert size={18} style={{ color: "#ef4444" }} />
+                        </div>
+                        <div>
+                          <p className="font-black text-sm uppercase tracking-widest" style={{ color: "var(--text-primary)" }}>ADICIONAR PENALIDADE</p>
+                          <p className="text-[11px] mt-0.5 uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{cliente.nome}</p>
+                        </div>
+                      </div>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={() => { setPenForm(false); setPenErro("") }}
+                        className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ color: "var(--text-secondary)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                        <X size={15} /> FECHAR
+                      </motion.button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto">
+                      <div className="max-w-lg mx-auto px-5 sm:px-8 py-6 space-y-5">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>1 — Motivo da penalidade</p>
+                          <div className="space-y-2">
+                            {(["nao_pagou_prazo", "desistiu_apos_contemplar"] as const).map(m => (
+                              <motion.button key={m} whileTap={{ scale: 0.97 }}
+                                onClick={() => setPenMotivo(m)}
+                                className="w-full flex items-center justify-between px-4 py-4 rounded-xl text-left transition-all"
+                                style={{
+                                  background: penMotivo === m ? "rgba(239,68,68,0.12)" : "var(--bg-card)",
+                                  border: `2px solid ${penMotivo === m ? "#ef4444" : "var(--border)"}`,
+                                }}>
+                                <span className="text-sm font-bold uppercase tracking-wide" style={{ color: penMotivo === m ? "#ef4444" : "var(--text-primary)" }}>
+                                  {MOTIVO_LABEL[m]}
+                                </span>
+                                {penMotivo === m && <Check size={15} style={{ color: "#ef4444" }} />}
+                              </motion.button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <AnimatePresence>
+                          {penMotivo && (
+                            <motion.div key="obs" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} style={{ overflow: "hidden" }}>
+                              <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>
+                                2 — Observação (opcional)
+                              </p>
+                              <textarea
+                                value={penObs} onChange={e => setPenObs(e.target.value)}
+                                placeholder="Ex: live do dia 15/07, sacola 23..."
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
+                                style={{ background: "var(--bg-card)", border: "2px solid var(--border)", color: "var(--text-primary)" }}
+                                onFocus={e => { e.currentTarget.style.borderColor = "#ef4444" }}
+                                onBlur={e => { e.currentTarget.style.borderColor = "var(--border)" }}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {penErro && <p className="text-sm font-bold text-red-400 text-center uppercase">{penErro}</p>}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 px-5 sm:px-8 py-4" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
+                      <motion.button onClick={adicionarPenalidade}
+                        disabled={!penMotivo || penLoading}
+                        whileHover={{ scale: penMotivo ? 1.01 : 1 }} whileTap={{ scale: penMotivo ? 0.98 : 1 }}
+                        className="w-full py-4 rounded-2xl text-base font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all disabled:opacity-40"
+                        style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)", color: "#fff", boxShadow: penMotivo ? "0 6px 24px rgba(239,68,68,0.35)" : "none" }}>
+                        {penLoading
+                          ? <><Loader2 size={18} className="animate-spin" /> CONFIRMANDO...</>
+                          : <><ShieldAlert size={18} /> CONFIRMAR PENALIDADE</>}
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Lista de penalidades */}
+              <p className="text-[10px] font-bold uppercase tracking-wider pt-1" style={{ color: "var(--text-muted)" }}>Histórico</p>
+              {loadPenalidades ? (
+                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+              ) : (penalidadesData?.data ?? []).length === 0 ? (
+                <div className="py-10 text-center">
+                  <ShieldAlert size={28} className="mx-auto mb-2 opacity-30" style={{ color: "var(--text-muted)" }} />
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma penalidade registrada.</p>
+                </div>
+              ) : (penalidadesData?.data ?? []).map((pen, i) => {
+                const ativa = pen.status === "ativa"
+                return (
+                  <motion.div key={pen.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                    style={{ background: "var(--bg-surface)", border: `1px solid ${ativa ? "rgba(239,68,68,0.25)" : "var(--border)"}` }}>
+                    <div className="mt-0.5 p-1.5 rounded-lg shrink-0"
+                      style={{ background: ativa ? "rgba(239,68,68,0.12)" : "rgba(148,163,184,0.1)" }}>
+                      <ShieldAlert size={13} style={{ color: ativa ? "#ef4444" : "#94a3b8" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase" style={{ color: ativa ? "#ef4444" : "#94a3b8" }}>
+                          {MOTIVO_LABEL[pen.motivo] ?? pen.motivo}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            {new Date(pen.created_at).toLocaleDateString("pt-BR")}
+                          </span>
+                          {ativa && (
+                            <motion.button onClick={() => removerPenalidade(pen.id)}
+                              disabled={penRemovendo === pen.id}
+                              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                              className="p-1 rounded-md opacity-40 hover:opacity-100 transition-opacity"
+                              style={{ color: "#f87171" }} title="Remover penalidade">
+                              {penRemovendo === pen.id
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <Trash2 size={11} />}
+                            </motion.button>
+                          )}
+                        </div>
+                      </div>
+                      {pen.observacao && (
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{pen.observacao}</p>
+                      )}
+                      {!ativa && pen.motivo_remocao && (
+                        <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                          Removida: {pen.motivo_remocao}
+                          {pen.removido_por_nome ? ` · ${pen.removido_por_nome}` : ""}
+                        </p>
+                      )}
+                      {pen.live_titulo && (
+                        <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>Live: {pen.live_titulo}</p>
+                      )}
+                      <div className="mt-1">
+                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full"
+                          style={{ background: ativa ? "rgba(239,68,68,0.12)" : "rgba(148,163,184,0.1)", color: ativa ? "#ef4444" : "#94a3b8" }}>
+                          {ativa ? "Ativa" : "Removida"}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )
+        })()}
       </motion.div>
       </AnimatePresence>
     </div>
@@ -1186,7 +1470,7 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
 }
 
 function DrawerCliente({
-  cliente, onClose, onEditar, onToggleStatus, onReenviarNotificacao, onEditarCampo,
+  cliente, onClose, onEditar, onToggleStatus, onReenviarNotificacao, onEditarCampo, initialTab,
 }: {
   cliente: Cliente
   onClose: () => void
@@ -1194,6 +1478,7 @@ function DrawerCliente({
   onToggleStatus: () => void
   onReenviarNotificacao: () => void
   onEditarCampo?: (step: number) => void
+  initialTab?: DrawerTab
 }) {
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -1390,7 +1675,7 @@ function DrawerCliente({
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }}
           className="flex-1 min-h-0 overflow-hidden">
-          <DrawerContent cliente={cliente} info={INFO} onEditarCampo={onEditarCampo} />
+          <DrawerContent cliente={cliente} info={INFO} onEditarCampo={onEditarCampo} initialTab={initialTab} />
         </motion.div>
       </motion.div>
     </div>
@@ -2383,13 +2668,27 @@ function ClientesPageInner() {
   const [editForm, setEditForm]   = useState<ClienteForm | null>(null)
   const [editId, setEditId]       = useState<number | null>(null)
   const [drawer, setDrawer]       = useState<Cliente | null>(null)
+  const [drawerTab, setDrawerTab] = useState<DrawerTab | undefined>(undefined)
   const [reenvioMsg, setReenvioMsg] = useState<{ ok: boolean; texto: string } | null>(null)
   const [reenvioLoading, setReenvioLoading] = useState(false)
 
   useEffect(() => {
-    const novo = searchParams.get("novo")
-    const from = searchParams.get("from")
-    const nome = searchParams.get("nome") ?? ""
+    const novo   = searchParams.get("novo")
+    const from   = searchParams.get("from")
+    const nome   = searchParams.get("nome") ?? ""
+    const idParam  = searchParams.get("id")
+    const tabParam = searchParams.get("tab") as DrawerTab | null
+
+    if (idParam) {
+      // Abre drawer direto pelo ID (ex: vindo de /live/penalidades)
+      apiGet<Cliente>(`/clientes/${idParam}`).then(c => {
+        setDrawer(c)
+        setDrawerTab(tabParam ?? undefined)
+        router.replace("/clientes", { scroll: false })
+      }).catch(() => {})
+      return
+    }
+
     if (novo !== "1") return
     router.replace("/clientes", { scroll: false })
     if (from === "vendas") setFromVendas(true)
@@ -2751,11 +3050,12 @@ function ClientesPageInner() {
         {drawer && (
           <DrawerCliente
             cliente={drawer}
-            onClose={() => { setDrawer(null); setReenvioMsg(null) }}
+            initialTab={drawerTab}
+            onClose={() => { setDrawer(null); setDrawerTab(undefined); setReenvioMsg(null) }}
             onEditar={() => abrirEdicao(drawer)}
             onToggleStatus={() => {
               toggleStatus.mutate({ id: drawer.id, ativo: !drawer.ativo })
-              setDrawer(null)
+              setDrawer(null); setDrawerTab(undefined)
             }}
             onReenviarNotificacao={() => reenviarNotificacao(drawer)}
             onEditarCampo={(step) => abrirEdicaoRapida(drawer, step)}

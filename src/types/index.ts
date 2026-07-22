@@ -46,6 +46,7 @@ export interface Cliente {
   google_sync_erro?: string | null
   google_sync_tentativas?: number
   saldo_credito?: number
+  total_penalidades_ativas?: number
 }
 
 export interface Categoria {
@@ -141,6 +142,21 @@ export interface Live {
   descricao?: string
   link_live?: string | null
   created_at: string
+}
+
+export interface Penalidade {
+  id: number
+  cliente_id: number
+  live_id?: number | null
+  live_titulo?: string | null
+  motivo: "nao_pagou_prazo" | "desistiu_apos_contemplar"
+  observacao?: string | null
+  status: "ativa" | "removida"
+  motivo_remocao?: string | null
+  criado_por_nome?: string | null
+  removido_por_nome?: string | null
+  created_at: string
+  removido_em?: string | null
 }
 
 export interface ApiResponse<T> {
