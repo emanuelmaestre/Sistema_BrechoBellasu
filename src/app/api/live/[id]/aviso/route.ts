@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { enviarTexto } from "@/lib/zapi"
-import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
-import { buildAvisoLive } from "@/lib/live-message-builder"
-import { ordenarFilaAviso } from "@/lib/aviso-fila"
+import { buildAvisoLive, buildAvisoReenvioLive } from "@/lib/live-message-builder"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -27,91 +25,101 @@ async function buscarLive(liveId: number) {
   return live
 }
 
-async function buscarClientesAviso(): Promise<ClienteAviso[]> {
-  const sb = createServerClient()
-  const { data: clientes } = await sb
-    .from("clientes")
-    .select("id, nome, celular")
-    .eq("aceita_lives", "confirmado")
-    .eq("ativo", true)
-    .not("celular", "is", null)
-
-  return ((clientes ?? []) as ClienteAviso[]).filter((c) => !!c.celular)
-}
-
-// Conjunto de cliente_id que já compraram em QUALQUER live (histórico em
-// live_compras). Define quem entra no bloco prioritário do aviso.
-async function buscarCompradorasIds(sb: ReturnType<typeof createServerClient>): Promise<Set<number>> {
-  const { data } = await sb.from("live_compras").select("cliente_id").not("cliente_id", "is", null)
-  const ids = new Set<number>()
-  for (const row of (data ?? []) as { cliente_id: number | null }[]) {
-    if (typeof row.cliente_id === "number") ids.add(row.cliente_id)
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
   }
-  return ids
+  return a
 }
 
-// Monta a fila de envio do aviso: compradoras (embaralhadas) + demais
-// (embaralhadas), sem repetir a 1ª cliente do disparo anterior. Faz o IO
-// (buscar compradoras, ler/gravar a 1ª anterior) e delega a ordenação para a
-// função pura ordenarFilaAviso. Degrada com elegância se a coluna de controle
-// ainda não existir no banco.
-async function montarFilaAviso(liveId: number, clientes: ClienteAviso[]): Promise<ClienteAviso[]> {
-  const sb = createServerClient()
-  const compradoras = await buscarCompradorasIds(sb)
-
-  // 1ª cliente do disparo anterior (null se coluna ausente ou nunca disparado)
-  const anterior = await sb.from("lives").select("ultimo_aviso_primeiro_cliente_id").eq("id", liveId).single()
-  const ultimoPrimeiro = anterior.error
-    ? null
-    : ((anterior.data as Record<string, unknown> | null)?.ultimo_aviso_primeiro_cliente_id ?? null) as number | null
-
-  const fila = ordenarFilaAviso(clientes, compradoras, ultimoPrimeiro)
-
-  // Registra a nova 1ª cliente (ignora silenciosamente se a coluna não existir)
-  if (fila.length > 0) {
-    await sb.from("lives").update({ ultimo_aviso_primeiro_cliente_id: fila[0].id }).eq("id", liveId)
-  }
-
-  return fila
-}
-
-// GET /api/live/[id]/aviso — lista clientes elegiveis para o front orquestrar
-// o envio sem rajadas nem timeout de servidor.
+// GET /api/live/[id]/aviso — retorna compradoras de qualquer live, excluindo
+// quem já recebeu este link específico (deduplicação via live_avisos_log).
+// A ordem é sempre aleatória (sem prioridade de compradoras recentes).
 export async function GET(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
   const { id } = await params
   const liveId = parseInt(id)
-  const live = await buscarLive(liveId)
+  const link = req.nextUrl.searchParams.get("link") ?? ""
 
+  const live = await buscarLive(liveId)
   if (!live) return NextResponse.json({ erro: "Live não encontrada." }, { status: 404 })
   if (live.status === "encerrada") return NextResponse.json({ erro: "Live já encerrada." }, { status: 400 })
 
-  const clientesBase = await buscarClientesAviso()
-  if (!clientesBase.length) {
-    return NextResponse.json({ ok: true, total: 0, clientes: [], mensagem: "Nenhum cliente com opt-in para lives." })
+  const sb = createServerClient()
+
+  // Todas as clientes que já compraram em qualquer live (com celular)
+  const { data: compraRows } = await sb
+    .from("live_compras")
+    .select("cliente_id, clientes!inner(id, nome, celular, ativo)")
+    .not("cliente_id", "is", null)
+    .limit(50_000)
+
+  if (!compraRows?.length) {
+    return NextResponse.json({ ok: true, total: 0, clientes: [], mensagem: "Nenhuma compradora encontrada no histórico de lives." })
   }
 
-  const clientes = await montarFilaAviso(liveId, clientesBase)
+  // Deduplica por cliente_id e filtra ativas com celular
+  const vistas = new Set<number>()
+  const candidatas: ClienteAviso[] = []
+  type CompraRow = { cliente_id: number; clientes: { id: number; nome: string; celular: string | null; ativo: boolean } | null }
+  for (const row of (compraRows as unknown as CompraRow[])) {
+    if (!row.cliente_id || vistas.has(row.cliente_id)) continue
+    const c = row.clientes
+    if (!c || !c.ativo || !c.celular) continue
+    vistas.add(row.cliente_id)
+    candidatas.push({ id: c.id, nome: c.nome, celular: c.celular })
+  }
+
+  if (!candidatas.length) {
+    return NextResponse.json({ ok: true, total: 0, clientes: [], mensagem: "Nenhuma compradora ativa com celular encontrada." })
+  }
+
+  // Exclui quem já recebeu este link específico nesta live
+  const jaEnviadas = new Set<number>()
+  if (link) {
+    const { data: logRows } = await sb
+      .from("live_avisos_log")
+      .select("cliente_id")
+      .eq("live_id", liveId)
+      .eq("link", link)
+    for (const r of (logRows ?? []) as { cliente_id: number }[]) {
+      jaEnviadas.add(r.cliente_id)
+    }
+  }
+
+  const pendentes = candidatas.filter(c => !jaEnviadas.has(c.id))
+
+  if (!pendentes.length) {
+    return NextResponse.json({ ok: true, total: 0, clientes: [], mensagem: "Todas as compradoras já receberam este link." })
+  }
+
+  const fila = shuffleArray(pendentes)
 
   return NextResponse.json({
     ok: true,
-    total: clientes.length,
-    clientes: clientes.map((c) => ({ id: c.id, nome: c.nome })),
+    total: fila.length,
+    clientes: fila.map((c) => ({ id: c.id, nome: c.nome })),
   })
 }
 
-// POST /api/live/[id]/aviso — envia um aviso. Preferencialmente recebe
-// { link, cliente_id } para processar uma cliente por chamada. Sem cliente_id,
-// mantém fallback legado em modo sequencial conservador.
+// POST /api/live/[id]/aviso — envia aviso para uma cliente e registra no log.
 export async function POST(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
   const { id } = await params
   const liveId = parseInt(id)
-  const { link, cliente_id } = await req.json().catch(() => ({})) as { link?: string; cliente_id?: number }
+  const { link, cliente_id, reenvio } = await req.json().catch(() => ({})) as {
+    link?: string
+    cliente_id?: number
+    reenvio?: boolean
+  }
+
+  if (!cliente_id) return NextResponse.json({ erro: "cliente_id é obrigatório." }, { status: 400 })
 
   const sb = createServerClient()
   const live = await buscarLive(liveId)
@@ -126,47 +134,36 @@ export async function POST(req: NextRequest, { params }: Params) {
     await sb.from("lives").update({ link_live: link }).eq("id", liveId)
   }
 
-  if (cliente_id) {
-    const { data: cliente } = await sb
-      .from("clientes")
-      .select("id, nome, celular")
-      .eq("id", cliente_id)
-      .eq("aceita_lives", "confirmado")
-      .eq("ativo", true)
-      .single()
+  const { data: cliente } = await sb
+    .from("clientes")
+    .select("id, nome, celular")
+    .eq("id", cliente_id)
+    .eq("ativo", true)
+    .single()
 
-    if (!cliente?.celular) {
-      return NextResponse.json({ id: cliente_id, status: "erro", detalhe: "Cliente sem opt-in ou sem celular." })
-    }
-
-    const mensagem = buildAvisoLive(cliente.nome, linkFinal)
-    const resultado = await enviarTexto(cliente.celular, mensagem, "aviso_live")
-    return NextResponse.json({
-      id: cliente.id,
-      cliente: cliente.nome,
-      status: resultado.ok ? "enviado" : "erro",
-      messageId: resultado.messageId,
-      detalhe: resultado.erro,
-    })
+  if (!cliente?.celular) {
+    return NextResponse.json({ id: cliente_id, status: "erro", detalhe: "Cliente sem celular ou inativa." })
   }
 
-  const clientes = await montarFilaAviso(liveId, await buscarClientesAviso())
-  let enviados = 0
-  let erros = 0
-  let intervaloAnterior: number | undefined
+  const mensagem = reenvio
+    ? buildAvisoReenvioLive(cliente.nome, linkFinal)
+    : buildAvisoLive(cliente.nome, linkFinal)
 
-  for (let i = 0; i < clientes.length; i++) {
-    if (i > 0) {
-      const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, { minMs: 80_000, maxMs: 150_000, deltaMinMs: 10_000 })
-      intervaloAnterior = intervaloMs
-      await new Promise((resolve) => setTimeout(resolve, intervaloMs))
-    }
+  const resultado = await enviarTexto(cliente.celular, mensagem, "aviso_live")
 
-    const mensagem = buildAvisoLive(clientes[i].nome, linkFinal)
-    const resultado = await enviarTexto(clientes[i].celular, mensagem, "aviso_live")
-    if (resultado.ok) enviados++
-    else erros++
+  if (resultado.ok) {
+    // Registra envio para deduplicação futura (upsert ignora duplicatas)
+    await sb.from("live_avisos_log").upsert(
+      { live_id: liveId, cliente_id: cliente.id, link: linkFinal },
+      { onConflict: "live_id,cliente_id,link", ignoreDuplicates: true },
+    )
   }
 
-  return NextResponse.json({ ok: true, enviados, erros, total: clientes.length })
+  return NextResponse.json({
+    id: cliente.id,
+    cliente: cliente.nome,
+    status: resultado.ok ? "enviado" : "erro",
+    messageId: resultado.messageId,
+    detalhe: resultado.erro,
+  })
 }

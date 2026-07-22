@@ -14,32 +14,35 @@ import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, Aler
 import { useDisparoStore } from "@/stores/disparo.store"
 
 const LABEL: Record<string, string> = {
-  disparo: "Disparando mensagens",
-  aviso: "Avisando clientes",
-  consentimento: "Enviando consentimentos",
-  "google-sync": "Sincronizando Google Contatos",
+  disparo:      "Disparando mensagens",
+  aviso:        "Avisando clientes",
+  consentimento:"Enviando consentimentos",
+  "google-sync":"Sincronizando Google Contatos",
 }
 
 const COR: Record<string, string> = {
-  disparo: "#25d366",
-  aviso: "#10b981",
-  consentimento: "#7c3aed",
-  "google-sync": "#4285F4",
+  disparo:      "#25d366",
+  aviso:        "#10b981",
+  consentimento:"#7c3aed",
+  "google-sync":"#4285F4",
 }
 
 const ICONE: Record<string, typeof Send> = {
-  disparo: Send,
-  aviso: Radio,
-  consentimento: ShieldCheck,
-  "google-sync": RefreshCw,
+  disparo:      Send,
+  aviso:        Radio,
+  consentimento:ShieldCheck,
+  "google-sync":RefreshCw,
 }
 
 export default function DisparoWidget() {
-  const job = useDisparoStore((s) => s.job)
-  const minimized = useDisparoStore((s) => s.minimized)
-  const setMinimized = useDisparoStore((s) => s.setMinimized)
-  const cancelar = useDisparoStore((s) => s.cancelar)
-  const dispensar = useDisparoStore((s) => s.dispensar)
+  const job              = useDisparoStore((s) => s.job)
+  const minimized        = useDisparoStore((s) => s.minimized)
+  const jobSalvo         = useDisparoStore((s) => s.jobSalvo)
+  const setMinimized     = useDisparoStore((s) => s.setMinimized)
+  const cancelar         = useDisparoStore((s) => s.cancelar)
+  const dispensar        = useDisparoStore((s) => s.dispensar)
+  const retomar          = useDisparoStore((s) => s.retomar)
+  const descartarJobSalvo = useDisparoStore((s) => s.descartarJobSalvo)
 
   const qc = useQueryClient()
   const [detalhes, setDetalhes] = useState(false)
@@ -59,12 +62,79 @@ export default function DisparoWidget() {
     }
   }, [job, qc])
 
+  // ── Nada a mostrar ──
+  if (!job && !jobSalvo) return null
+
+  // ── Prompt de retomada (job interrompido detectado) ──
+  if (!job && jobSalvo) {
+    const cor    = COR[jobSalvo.tipo]   ?? "#10b981"
+    const Icone  = ICONE[jobSalvo.tipo] ?? Send
+    const label  = LABEL[jobSalvo.tipo] ?? "Envio"
+    const subtitulo =
+      jobSalvo.tipo === "disparo"      ? jobSalvo.liveTitulo :
+      jobSalvo.tipo === "aviso"        ? jobSalvo.liveTitulo :
+      jobSalvo.tipo === "google-sync"  ? `${jobSalvo.clienteIds.length} cliente(s)` :
+      "Clientes sem consentimento"
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          key="resume-prompt"
+          initial={{ opacity: 0, y: 24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 24, scale: 0.96 }}
+          className="fixed bottom-4 right-4 z-[9999] w-[300px] rounded-2xl overflow-hidden shadow-2xl"
+          style={{ background: "var(--bg-surface)", border: `1px solid ${cor}44` }}>
+
+          {/* Header */}
+          <div className="flex items-center gap-2 px-4 py-3"
+            style={{ borderBottom: "1px solid var(--border)", background: "rgba(245,158,11,0.08)" }}>
+            <AlertTriangle size={14} style={{ color: "#f59e0b" }} />
+            <p className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>Envio interrompido</p>
+          </div>
+
+          <div className="px-4 py-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Icone size={14} style={{ color: cor }} />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{label}</p>
+                {subtitulo && (
+                  <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{subtitulo}</p>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[11px] leading-snug" style={{ color: "var(--text-secondary)" }}>
+              O envio foi interrompido. Retomar vai continuar de onde parou — sem reenviar para quem já recebeu.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={retomar}
+                className="flex-1 py-2 rounded-xl text-xs font-bold text-white inline-flex items-center justify-center gap-1.5"
+                style={{ background: cor }}>
+                <RefreshCw size={12} /> Retomar envio
+              </button>
+              <button
+                onClick={descartarJobSalvo}
+                title="Descartar"
+                className="px-3 py-2 rounded-xl border inline-flex items-center justify-center"
+                style={{ borderColor: "var(--border)", color: "var(--text-muted)", background: "var(--bg-base)" }}>
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    )
+  }
+
   if (!job) return null
 
-  const running = job.status === "running"
-  const pct = job.total > 0 ? Math.round((job.atual / job.total) * 100) : 0
-  const cor = COR[job.tipo] ?? "#10b981"
-  const Icone = ICONE[job.tipo] ?? Send
+  const running  = job.status === "running"
+  const pct      = job.total > 0 ? Math.round((job.atual / job.total) * 100) : 0
+  const cor      = COR[job.tipo]   ?? "#10b981"
+  const Icone    = ICONE[job.tipo] ?? Send
   const errosLista = job.resultados.filter((r) => r.status === "erro")
 
   // ── Minimizado: pílula compacta ──
@@ -73,7 +143,7 @@ export default function DisparoWidget() {
       <motion.button
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         onClick={() => setMinimized(false)}
-        className="fixed bottom-4 right-4 z-[80] flex items-center gap-2 px-3 py-2 rounded-full shadow-lg"
+        className="fixed bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-2 rounded-full shadow-lg"
         style={{ background: "var(--bg-surface)", border: `1px solid ${cor}55` }}>
         <motion.span animate={running ? { scale: [1, 1.2, 1] } : {}} transition={{ repeat: Infinity, duration: 1.4 }}>
           <Icone size={15} style={{ color: cor }} />
@@ -90,7 +160,7 @@ export default function DisparoWidget() {
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.96 }}
-        className="fixed bottom-4 right-4 z-[80] w-[320px] rounded-2xl overflow-hidden shadow-2xl"
+        className="fixed bottom-4 right-4 z-[9999] w-[320px] rounded-2xl overflow-hidden shadow-2xl"
         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
 
         {/* Header */}

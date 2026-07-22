@@ -8,23 +8,24 @@
 // continua rodando ao navegar entre páginas. Um widget flutuante lê este
 // estado e mostra o progresso.
 //
+// Persistência: os parâmetros do job são salvos no localStorage antes de
+// iniciar. Se a aba fechar ou o tablet desligar durante o envio, ao voltar
+// o widget oferece retomar de onde parou (a API retorna só os pendentes).
+//
 // Limitação conhecida: como os envios são orquestrados no navegador
 // (contorna o teto de 60s da Vercel), o job sobrevive à troca de página
-// mas NÃO a fechar a aba / dar refresh — igual às telas cheias antigas.
+// mas NÃO a fechar a aba / dar refresh — por isso a persistência via
+// localStorage + retomada automática.
 // ══════════════════════════════════════════════════════════════════
 
 import { create } from "zustand"
 import { apiGet, apiPost } from "@/services/api"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 
-// Mesmo intervalo usado antes nas telas cheias (anti-bloqueio do WhatsApp)
 const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
-
-// Google Contatos NÃO é WhatsApp — não há risco de bloqueio, apenas a cota
-// da People API (~60 writes/min por usuário). O Google só exige que os writes
-// sejam sequenciais (um de cada vez), o que já fazemos. 3–6s deixa ~13/min,
-// ~4x abaixo do teto: 195 contatos em ~15min em vez de horas.
 const GOOGLE_SYNC_INTERVAL = { minMs: 3_000, maxMs: 6_000, deltaMinMs: 1_000 }
+const STORAGE_KEY = "disparo_job_pendente"
+const MAX_IDADE_JOB_MS = 24 * 60 * 60 * 1_000 // descarta salvos com mais de 24h
 
 export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
@@ -39,57 +40,87 @@ export interface JobItemResult {
 export interface DisparoJob {
   id: string
   tipo: JobTipo
-  liveId?: number        // ausente em jobs que não são de uma live (ex: consentimento)
-  liveTitulo: string     // subtítulo exibido no widget
+  liveId?: number
+  liveTitulo: string
   total: number
-  atual: number          // itens já processados
+  atual: number
   nomeAtual: string
-  aguardando: number     // segundos até o próximo envio
+  aguardando: number
   status: JobStatus
   enviadas: number
   erros: number
   resultados: JobItemResult[]
-  erroFatal?: string     // falha que abortou o job (ex: fila não carregou)
+  erroFatal?: string
   startedAt: number
 }
+
+// Parâmetros mínimos para retomar cada tipo de job após queda
+export type JobSalvo =
+  | { tipo: "disparo";      liveId: number; liveTitulo: string; chavePix: string; diasPrazo: number; compraIds?: number[]; savedAt: number }
+  | { tipo: "aviso";        liveId: number; liveTitulo: string; link: string; reenvio: boolean;     savedAt: number }
+  | { tipo: "consentimento";                                                                          savedAt: number }
+  | { tipo: "google-sync";  clienteIds: number[];                                                    savedAt: number }
 
 interface DisparoState {
   job: DisparoJob | null
   minimized: boolean
-  /** Inicia o disparo das mensagens de compra. `compraIds` restringe a um subconjunto (omitido = todas as pendentes). Retorna false se já há job rodando. */
+  /** Job interrompido detectado no localStorage — exibido no widget como prompt de retomada. */
+  jobSalvo: JobSalvo | null
   iniciarDisparo: (p: { liveId: number; liveTitulo: string; chavePix: string; diasPrazo?: number; compraIds?: number[] }) => boolean
-  /** Inicia o aviso de live (1º envio ou reenvio). Retorna false se já há job rodando. */
-  iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string }) => boolean
-  /** Inicia o disparo de consentimento (LGPD) para clientes ainda não notificados. Retorna false se já há job rodando. */
+  iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string; reenvio?: boolean }) => boolean
   iniciarConsentimento: () => boolean
-  /** Inicia a sincronização em massa com Google Contatos. Retorna false se já há job rodando. */
   iniciarGoogleSync: (clienteIds: number[]) => boolean
+  /** Retoma o job salvo no localStorage (continua de onde parou). */
+  retomar: () => boolean
+  /** Descarta o job salvo sem retomar. */
+  descartarJobSalvo: () => void
   cancelar: () => void
   dispensar: () => void
   setMinimized: (v: boolean) => void
 }
 
-// Estado de controle fora do React (sobrevive a re-render/navegação)
+// ─── Estado de controle fora do React ────────────────────────────
 let cancelFlag = false
 let wakeLock: WakeLockSentinel | null = null
 let wakeLockVisibilityListener: (() => void) | null = null
+
+// ─── localStorage ─────────────────────────────────────────────────
+
+function salvarJob(params: JobSalvo): void {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(params)) } catch { /* sem suporte */ }
+}
+
+function limparJobSalvo(): void {
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* sem suporte */ }
+}
+
+function carregarJobSalvo(): JobSalvo | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as JobSalvo
+    if (Date.now() - parsed.savedAt > MAX_IDADE_JOB_MS) { limparJobSalvo(); return null }
+    return parsed
+  } catch { return null }
+}
+
+// ─── Wake Lock ────────────────────────────────────────────────────
 
 async function pedirWakeLock() {
   try {
     if (!("wakeLock" in navigator)) return
     wakeLock = await navigator.wakeLock.request("screen")
-    // Quando o browser libera o Wake Lock (minimizar, trocar aba, tela escurecer),
-    // re-solicita assim que a página volta a ficar visível
     if (!wakeLockVisibilityListener) {
       wakeLockVisibilityListener = async () => {
         if (document.visibilityState === "visible" && wakeLock !== null) {
-          try { wakeLock = await navigator.wakeLock.request("screen") } catch { /* sem suporte */ }
+          try { wakeLock = await navigator.wakeLock.request("screen") } catch { }
         }
       }
       document.addEventListener("visibilitychange", wakeLockVisibilityListener)
     }
-  } catch { /* sem suporte ou negado — segue sem */ }
+  } catch { }
 }
+
 function soltarWakeLock() {
   wakeLock?.release().catch(() => {})
   wakeLock = null
@@ -99,31 +130,49 @@ function soltarWakeLock() {
   }
 }
 
-/** Espera `segundos`, atualizando o contador regressivo a cada 1s. Aborta se cancelado. */
+// ─── Retry para falhas de rede momentâneas ───────────────────────
+
+async function comRetry<T>(fn: () => Promise<T>, tentativas = 3, delayMs = 3_000): Promise<T> {
+  let lastErr: Error = new Error("Falha desconhecida")
+  for (let i = 0; i < tentativas; i++) {
+    try { return await fn() } catch (e) {
+      lastErr = e as Error
+      if (i < tentativas - 1) await new Promise(r => setTimeout(r, delayMs))
+    }
+  }
+  throw lastErr
+}
+
+// ─── Contagem regressiva usando relógio real ──────────────────────
+// Usa Date.now() em vez de 120 setTimeouts de 1s: quando o browser
+// throttla timers em background, o tempo real passa e o próximo tick
+// recalcula corretamente — a contagem não trava.
+
 async function esperarComContagem(
   segundos: number,
   nome: string,
   set: (patch: Partial<DisparoJob>) => void,
 ) {
-  let restante = segundos
-  set({ nomeAtual: nome, aguardando: restante })
-  while (restante > 0) {
+  const endTime = Date.now() + segundos * 1_000
+  set({ nomeAtual: nome, aguardando: segundos })
+  while (true) {
     if (cancelFlag) return
-    await new Promise((r) => setTimeout(r, 1000))
-    restante--
+    const restante = Math.max(0, Math.ceil((endTime - Date.now()) / 1_000))
     set({ aguardando: restante })
+    if (restante <= 0) break
+    await new Promise(r => setTimeout(r, Math.min(1_000, restante * 1_000)))
   }
 }
 
+// ─── Store ────────────────────────────────────────────────────────
+
 export const useDisparoStore = create<DisparoState>()((set, get) => {
-  // Atualiza campos do job atual de forma segura
   const patchJob = (patch: Partial<DisparoJob>) => {
     const j = get().job
     if (!j) return
     set({ job: { ...j, ...patch } })
   }
 
-  // Runner genérico: busca a fila e processa 1 a 1 com intervalo seguro
   async function rodar(
     fetchFila: () => Promise<{ itens: Array<{ id: number; nome: string }>; aviso?: string }>,
     enviarItem: (item: { id: number; nome: string }) => Promise<JobItemResult>,
@@ -135,16 +184,18 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       let fila: Array<{ id: number; nome: string }> = []
       let avisoVazio: string | undefined
       try {
-        const r = await fetchFila()
+        const r = await comRetry(fetchFila)
         fila = r.itens
         avisoVazio = r.aviso
       } catch (e) {
         patchJob({ status: "error", erroFatal: (e as Error).message || "Falha ao carregar a fila." })
+        limparJobSalvo()
         return
       }
 
       if (fila.length === 0) {
         patchJob({ status: "done", total: 0, erroFatal: avisoVazio })
+        limparJobSalvo()
         return
       }
 
@@ -152,14 +203,14 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       let intervaloAnterior: number | undefined
 
       for (let i = 0; i < fila.length; i++) {
-        if (cancelFlag) { patchJob({ status: "cancelled" }); return }
+        if (cancelFlag) { patchJob({ status: "cancelled" }); limparJobSalvo(); return }
         const item = fila[i]
 
         if (i > 0) {
           const intervaloMs = gerarIntervaloAleatorio(intervaloAnterior, intervalo)
           intervaloAnterior = intervaloMs
-          await esperarComContagem(Math.ceil(intervaloMs / 1000), item.nome, (p) => patchJob(p))
-          if (cancelFlag) { patchJob({ status: "cancelled" }); return }
+          await esperarComContagem(Math.ceil(intervaloMs / 1_000), item.nome, (p) => patchJob(p))
+          if (cancelFlag) { patchJob({ status: "cancelled" }); limparJobSalvo(); return }
         }
 
         patchJob({ nomeAtual: item.nome, aguardando: 0, atual: i + 1 })
@@ -178,12 +229,13 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
             ...j,
             resultados: [...j.resultados, res],
             enviadas: j.enviadas + (res.status === "enviada" ? 1 : 0),
-            erros: j.erros + (res.status === "erro" ? 1 : 0),
+            erros:    j.erros    + (res.status === "erro"    ? 1 : 0),
           },
         })
       }
 
       patchJob({ status: "done", aguardando: 0, nomeAtual: "" })
+      limparJobSalvo()
     } finally {
       soltarWakeLock()
     }
@@ -199,18 +251,21 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
     }
   }
 
+  const jobSalvoInicial = typeof window !== "undefined" ? carregarJobSalvo() : null
+
   return {
     job: null,
     minimized: false,
+    jobSalvo: jobSalvoInicial,
 
     iniciarDisparo: ({ liveId, liveTitulo, chavePix, diasPrazo = 2, compraIds }) => {
       if (get().job?.status === "running") return false
-      set({ job: novoJob("disparo", liveTitulo, liveId), minimized: false })
+      salvarJob({ tipo: "disparo", liveId, liveTitulo, chavePix, diasPrazo, compraIds, savedAt: Date.now() })
+      set({ job: novoJob("disparo", liveTitulo, liveId), minimized: false, jobSalvo: null })
       void rodar(
         async () => {
           const r = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
           let itens = r.pendentes ?? []
-          // Restringe ao subconjunto marcado na tela (se houver seleção parcial)
           if (compraIds && compraIds.length) {
             const sel = new Set(compraIds)
             itens = itens.filter(i => sel.has(i.id))
@@ -231,17 +286,20 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       return true
     },
 
-    iniciarAviso: ({ liveId, liveTitulo, link }) => {
+    iniciarAviso: ({ liveId, liveTitulo, link, reenvio = false }) => {
       if (get().job?.status === "running") return false
-      set({ job: novoJob("aviso", liveTitulo, liveId), minimized: false })
+      salvarJob({ tipo: "aviso", liveId, liveTitulo, link, reenvio, savedAt: Date.now() })
+      set({ job: novoJob("aviso", liveTitulo, liveId), minimized: false, jobSalvo: null })
       void rodar(
         async () => {
-          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; mensagem?: string }>(`/live/${liveId}/aviso`)
+          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; mensagem?: string }>(
+            `/live/${liveId}/aviso`, { link },
+          )
           return { itens: r.clientes ?? [], aviso: r.mensagem }
         },
         async (item) => {
           const r = await apiPost<{ status: string; detalhe?: string }>(
-            `/live/${liveId}/aviso`, { link, cliente_id: item.id },
+            `/live/${liveId}/aviso`, { link, cliente_id: item.id, reenvio },
           )
           return {
             id: item.id, nome: item.nome,
@@ -255,7 +313,8 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
 
     iniciarConsentimento: () => {
       if (get().job?.status === "running") return false
-      set({ job: novoJob("consentimento", "Clientes sem consentimento"), minimized: false })
+      salvarJob({ tipo: "consentimento", savedAt: Date.now() })
+      set({ job: novoJob("consentimento", "Clientes sem consentimento"), minimized: false, jobSalvo: null })
       void rodar(
         async () => {
           const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>("/admin/consentimento-nao-enviado")
@@ -277,11 +336,10 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
 
     iniciarGoogleSync: (clienteIds) => {
       if (get().job?.status === "running") return false
-      const itens = clienteIds.map((id) => ({ id, nome: `Cliente #${id}` }))
-      set({ job: novoJob("google-sync", "Google Contatos"), minimized: false })
+      salvarJob({ tipo: "google-sync", clienteIds, savedAt: Date.now() })
+      set({ job: novoJob("google-sync", "Google Contatos"), minimized: false, jobSalvo: null })
       void rodar(
         async () => {
-          // Busca nomes reais para exibir no widget
           const r = await apiGet<{ clientes: Array<{ id: number; nome: string }> }>("/admin/google-sync-mass")
           const mapa = Object.fromEntries((r.clientes ?? []).map((c) => [c.id, c.nome]))
           const itensNomeados = clienteIds.map((id) => ({ id, nome: mapa[id] ?? `Cliente #${id}` }))
@@ -303,8 +361,21 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       return true
     },
 
-    cancelar: () => { cancelFlag = true },
-    dispensar: () => { cancelFlag = true; set({ job: null, minimized: false }) },
+    retomar: () => {
+      const salvo = get().jobSalvo
+      if (!salvo) return false
+      const store = get()
+      if (salvo.tipo === "disparo")      return store.iniciarDisparo({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, chavePix: salvo.chavePix, diasPrazo: salvo.diasPrazo, compraIds: salvo.compraIds })
+      if (salvo.tipo === "aviso")        return store.iniciarAviso({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, link: salvo.link, reenvio: salvo.reenvio })
+      if (salvo.tipo === "consentimento") return store.iniciarConsentimento()
+      if (salvo.tipo === "google-sync")  return store.iniciarGoogleSync(salvo.clienteIds)
+      return false
+    },
+
+    descartarJobSalvo: () => { limparJobSalvo(); set({ jobSalvo: null }) },
+
+    cancelar: () => { cancelFlag = true; limparJobSalvo() },
+    dispensar: () => { cancelFlag = true; limparJobSalvo(); set({ job: null, minimized: false }) },
     setMinimized: (v) => set({ minimized: v }),
   }
 })

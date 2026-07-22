@@ -391,6 +391,52 @@ export function buildCompleteMessage(compra: CompraData, idx?: number, diasPrazo
   }
 }
 
+// ─── Reenvio de Aviso de Live (live caiu e voltou) ───────────────
+
+const AVISO_REENVIO_CHAMADAS: string[] = [
+  "🔴 A live caiu por um momento, mas *VOLTAMOS* com novo link! 🎉",
+  "✨ Tivemos uma instabilidade, mas estamos *DE VOLTA ao vivo*! Novo link aqui: 🔴",
+  "💫 A live teve uma queda mas já voltamos! *Novo link* pra acessar: 📲",
+  "🙌 De volta ao ar! Aqui está o *novo link de acesso*: 🔴",
+  "⚡ Resolvemos e já estamos *DE VOLTA*! Novo link da live: 🔴",
+  "🔴 *Voltamos!* A live caiu por um momento mas agora tá tudo certo! Novo link: 📲",
+  "💖 Boa notícia: a live voltou! Aqui está o *novo link*: 🔴",
+  "🎉 *Estamos de volta!* A live caiu mas voltamos mais fortes! Novo link: 📲",
+]
+
+const AVISO_REENVIO_TOTAL = AVISO_ABERTURAS.length * AVISO_REENVIO_CHAMADAS.length * AVISO_FECHAMENTOS.length
+let _avisoReenvioUnusedPool: number[] = []
+const _avisoReenvioRecentUsed: number[] = []
+
+function refillReenvioPool(excludeRecent: number[]): void {
+  const all = Array.from({ length: AVISO_REENVIO_TOTAL }, (_, i) => i)
+  _avisoReenvioUnusedPool = shuffle(all.filter(i => !excludeRecent.includes(i)))
+  if (_avisoReenvioUnusedPool.length === 0) _avisoReenvioUnusedPool = shuffle(all)
+}
+
+function selectReenvioIndex(): number {
+  if (_avisoReenvioUnusedPool.length === 0) refillReenvioPool(_avisoReenvioRecentUsed.slice(-8))
+  const recent = _avisoReenvioRecentUsed.slice(-8)
+  let candidates = _avisoReenvioUnusedPool.filter(i => !recent.includes(i))
+  if (candidates.length === 0) candidates = _avisoReenvioUnusedPool
+  const chosen = candidates[0]
+  _avisoReenvioUnusedPool = _avisoReenvioUnusedPool.filter(i => i !== chosen)
+  _avisoReenvioRecentUsed.push(chosen)
+  if (_avisoReenvioRecentUsed.length > AVISO_REENVIO_TOTAL) _avisoReenvioRecentUsed.shift()
+  return chosen
+}
+
+export function buildAvisoReenvioLive(nome: string | null, link: string): string {
+  const idx = selectReenvioIndex()
+  const nC  = AVISO_REENVIO_CHAMADAS.length
+  const nF  = AVISO_FECHAMENTOS.length
+  const a   = Math.floor(idx / (nC * nF))
+  const c   = Math.floor((idx % (nC * nF)) / nF)
+  const f   = idx % nF
+  const nomeValido = validateCustomerName(nome)
+  return `${AVISO_ABERTURAS[a](nomeValido)}\n\n${AVISO_REENVIO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f](link)}`
+}
+
 // ─── Idempotência ─────────────────────────────────────────────────
 
 export function generateNotificationId(liveId: number, compraId: number): string {

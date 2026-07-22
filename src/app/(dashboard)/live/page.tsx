@@ -1639,14 +1639,10 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
 
   const reenvio = numeroEnvio > 0
 
-  // Mensagem varia se é o 1º disparo ou reenvio (live caiu e voltou)
+  // Preview ilustrativo da mensagem (o texto real tem variações aleatórias)
   const previewMsg = reenvio
-    ? tipo === "promocional"
-      ? `⚡ Voltamos! A live caiu mas estamos DE VOLTA com PROMOÇÕES!\n\nNovo link de acesso: ${link || "[link]"}\n\nCorre que ainda dá tempo! 🔥`
-      : `💫 Voltamos! A live caiu mas estamos DE VOLTA com NOVIDADES!\n\nNovo link de acesso: ${link || "[link]"}\n\nTe esperamos com muito amor! 💖`
-    : tipo === "promocional"
-      ? `🏷️ Estamos AO VIVO com PROMOÇÕES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nCorre! 🔥`
-      : `✨ Estamos AO VIVO com NOVIDADES agora!\n\nAcesse aqui: ${link || "[link]"}\n\nTe esperamos! 💖`
+    ? `Oi! Saudades! 🥰\n\n🔴 A live caiu por um momento, mas *VOLTAMOS* com novo link! 🎉\n\nCorre lá: ${link || "[link]"}\n\nTe esperamos! 🙌🏼❤️`
+    : `Oi! Tem coisa boa aqui pra você! 🛍️\n\n🔴 A propósito, estamos *AO VIVO* agora e tem coisa especial esperando por você! 🎉✨\n\nCorre lá: ${link || "[link]"}\n\nTe esperamos! 🙌🏼❤️`
 
   // Enfileira o aviso no store e fecha o modal. O envio para todas as
   // clientes roda em SEGUNDO PLANO (widget flutuante no canto), com
@@ -1657,6 +1653,7 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
       liveId,
       liveTitulo: reenvio ? "Reenvio de aviso da live" : "Aviso da live",
       link: link.trim(),
+      reenvio,
     })
     if (!ok) { setErro("Já há um envio em andamento. Aguarde terminar."); return }
     onSuccess(-1, link.trim())   // -1 = envio em segundo plano (contagem no widget)
@@ -1666,9 +1663,9 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={e => e.stopPropagation()} className="w-full max-w-md rounded-2xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
         {/* Header — muda cor e título se for reenvio */}
         <div className="flex items-center justify-between px-5 py-4"
@@ -1692,8 +1689,8 @@ function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSucce
 
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             {reenvio
-              ? "Cole o novo link da live. A mensagem já será diferente — as clientes saberão que a live voltou."
-              : <>Envia para todas as clientes com consentimento de <b>avisos de lives</b> confirmado. Tipo: <b>{tipo === "promocional" ? "Promocional 🏷️" : "Novidades ✨"}</b>.</>}
+              ? "Cole o novo link da live. A mensagem já informará que a live voltou — somente quem ainda não recebeu este link será contatada."
+              : "Envia para todas as clientes que já compraram em qualquer live do brechó, de forma aleatória. Quem já recebeu este link não recebe de novo."}
           </p>
 
           <div>
