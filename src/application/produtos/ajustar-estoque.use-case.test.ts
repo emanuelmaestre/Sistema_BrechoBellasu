@@ -1,11 +1,10 @@
 import { describe, it, expect } from "vitest"
 import { AjustarEstoqueUseCase } from "./ajustar-estoque.use-case"
 import type { IProdutoRepository } from "./ports"
-import type { Produto } from "@/domain/produtos/produto"
 
 class FakeProdutoRepository implements IProdutoRepository {
   constructor(private estoque: Record<number, number>) {}
-  async criar(_produto: Produto): Promise<{ id: number }> {
+  async criar(): Promise<{ id: number }> {
     return { id: 1 }
   }
   async buscarEstoque(id: number): Promise<number | null> {

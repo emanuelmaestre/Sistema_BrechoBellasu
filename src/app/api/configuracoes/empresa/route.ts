@@ -4,7 +4,7 @@ import { withAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data, error } = await sb.from("configuracoes").select("*").eq("chave", "empresa").maybeSingle()
   if (error) return NextResponse.json({ erro: "Não foi possível carregar as configurações. Tente novamente." }, { status: 500 })

@@ -5,7 +5,7 @@ import { meSaldo, meRecarregar } from "@/lib/melhorenvio"
 export const dynamic = "force-dynamic"
 
 // GET /api/etiquetas/saldo
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   try {
     const data = await meSaldo()
     const total     = Number(data.balance ?? 0)

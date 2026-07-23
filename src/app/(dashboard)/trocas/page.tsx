@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, RefreshCw, Check, Search, ChevronRight,
   CheckCircle2, XCircle, Clock, Send, Eye, Pencil,
 } from "lucide-react"
-import { apiGet, apiPost, apiPatch, apiPut } from "@/services/api"
+import { apiGet, apiPost, apiPut } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtData, cn } from "@/lib/utils"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
@@ -1056,11 +1056,6 @@ function DrawerVerTroca({
     } catch (e: unknown) {
       setNotifMsg({ ok: false, texto: (e as Error).message || "Erro ao enviar." })
     } finally { setEnviando(false) }
-  }
-
-  const statusColor: Record<string, string> = {
-    concluido: "#10b981", recusado: "#f87171",
-    solicitado: "#10b981", analisando: "#10b981", aprovado: "#10b981",
   }
 
   const campos = [

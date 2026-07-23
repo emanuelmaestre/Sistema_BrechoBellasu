@@ -3,9 +3,9 @@
 import { useState, useRef, useCallback } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
-  Search, X, ShoppingBag, TrendingUp, CheckCircle2, Clock,
-  MessageSquare, Link2, Package, ChevronRight, ChevronDown,
-  Loader2, AlertCircle, Radio, ExternalLink,
+  Search, X, ShoppingBag, CheckCircle2, Clock,
+  MessageSquare, ChevronRight,
+  Loader2, AlertCircle, ExternalLink,
 } from "lucide-react"
 import { apiGet } from "@/services/api"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"

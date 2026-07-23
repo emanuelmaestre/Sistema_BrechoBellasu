@@ -4,8 +4,6 @@ import { ContaReceber } from "@/domain/financeiro/conta-receber"
 import { PagarContaUseCase } from "./contas-pagar.use-cases"
 import { ReceberContaUseCase } from "./contas-receber.use-cases"
 import type { IContaPagarRepository, IContaReceberRepository } from "./ports"
-import type { ContaPagar as CP } from "@/domain/financeiro/conta-pagar"
-import type { ContaReceber as CR } from "@/domain/financeiro/conta-receber"
 
 describe("ContaPagar / ContaReceber", () => {
   it("cria conta válida", () => {
@@ -24,7 +22,7 @@ describe("PagarContaUseCase / ReceberContaUseCase", () => {
   it("registra a data de pagamento (pago_em)", async () => {
     let recebido: { id: number; data: string } | null = null
     const repo: IContaPagarRepository = {
-      async criar(_c: CP) {
+      async criar() {
         return { id: 1 }
       },
       async marcarPago(id: number, pagoEm: string) {
@@ -39,7 +37,7 @@ describe("PagarContaUseCase / ReceberContaUseCase", () => {
   it("registra a data de recebimento (recebido_em)", async () => {
     let recebido: { id: number; data: string } | null = null
     const repo: IContaReceberRepository = {
-      async criar(_c: CR) {
+      async criar() {
         return { id: 1 }
       },
       async marcarRecebido(id: number, recebidoEm: string) {
@@ -53,7 +51,7 @@ describe("PagarContaUseCase / ReceberContaUseCase", () => {
 
   it("rejeita id inválido", async () => {
     const repo: IContaPagarRepository = {
-      async criar(_c: CP) {
+      async criar() {
         return { id: 1 }
       },
       async marcarPago() {},

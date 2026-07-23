@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 
@@ -184,12 +184,13 @@ async function checkViaCep(): Promise<IntegracaoStatus> {
   }
 }
 
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const results = await Promise.allSettled([
     checkSupabase(),
     checkMelhorEnvio(),
     checkZApi(),
     checkAsaas(),
+    checkResend(),
     checkOpenAI(),
     checkVercel(),
     checkViaCep(),

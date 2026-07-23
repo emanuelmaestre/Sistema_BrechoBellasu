@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 
 export const dynamic = "force-dynamic"
 
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data, error } = await sb
     .from("usuarios")

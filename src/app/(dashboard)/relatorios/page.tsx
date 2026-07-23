@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { apiGet } from "@/services/api"
 import { DatePickerCompact } from "@/components/DatePicker"
-import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import { fmtBRL, fmtData } from "@/lib/utils"
 import { exportExcelProfissional, exportPdfProfissional } from "@/lib/export-helpers"
 
 // ─── Tipos ────────────────────────────────────────────────

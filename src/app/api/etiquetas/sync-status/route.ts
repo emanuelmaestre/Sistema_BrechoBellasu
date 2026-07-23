@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
@@ -7,7 +7,7 @@ import { enviarTexto } from "@/lib/zapi"
 export const dynamic = "force-dynamic"
 
 // POST /api/etiquetas/sync-status — Sincroniza status das etiquetas e notifica mudanças
-export const POST = withAuth(async (_req: NextRequest) => {
+export const POST = withAuth(async () => {
   const sb = createServerClient()
 
   // Busca etiquetas ativas (não entregues e não canceladas)
@@ -59,7 +59,7 @@ export const POST = withAuth(async (_req: NextRequest) => {
           if (novoStatus === "em_transito" && !et.notificado_transito) {
             await enviarTexto(
               cliente.celular,
-              `Oi ${nome}! 🚚\n\nSeu pedido está *a caminho*! Rastreie aqui:\n${linkRastreio}`,
+              `Oi ${nome}! ??\n\nSeu pedido está *a caminho*! Rastreie aqui:\n${linkRastreio}`,
               "status_envio",
             )
             updates.notificado_transito = true
@@ -69,7 +69,7 @@ export const POST = withAuth(async (_req: NextRequest) => {
           if (novoStatus === "entregue" && !et.notificado_entregue) {
             await enviarTexto(
               cliente.celular,
-              `Oi ${nome}! ✅\n\nSeu pedido foi *entregue*! Qualquer dúvida, estamos aqui. 💛`,
+              `Oi ${nome}! ?\n\nSeu pedido foi *entregue*! Qualquer dúvida, estamos aqui. ??`,
               "status_envio",
             )
             updates.notificado_entregue = true

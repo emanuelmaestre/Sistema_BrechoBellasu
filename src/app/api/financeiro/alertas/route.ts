@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
@@ -6,7 +6,7 @@ import { enviarTexto } from "@/lib/zapi"
 export const dynamic = "force-dynamic"
 
 // GET /api/financeiro/alertas — Retorna contas a vencer nos próximos 3 dias
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
@@ -46,7 +46,7 @@ export const GET = withAuth(async (_req: NextRequest) => {
 })
 
 // POST /api/financeiro/alertas — Dispara alertas via WhatsApp manualmente
-export const POST = withAuth(async (_req: NextRequest) => {
+export const POST = withAuth(async () => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
@@ -83,7 +83,7 @@ export const POST = withAuth(async (_req: NextRequest) => {
     return `  • ${c.descricao} — vence em ${dt} — R$ ${val}`
   }).join("\n")
 
-  const msg = `⚠️ *Alerta Brechó Bellasu*\n\nVocê tem *${pagar.length} conta(s)* vencendo nos próximos 3 dias:\n\n${lista}`
+  const msg = `?? *Alerta Brechó Bellasu*\n\nVocê tem *${pagar.length} conta(s)* vencendo nos próximos 3 dias:\n\n${lista}`
 
   // Dispara para todos os números
   const resultados = await Promise.allSettled(

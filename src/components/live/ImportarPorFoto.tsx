@@ -10,7 +10,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   X, Camera, ImageIcon, Sparkles, RefreshCw, Trash2, Check,
-  AlertTriangle, ChevronDown, UserCheck, UserPlus, Loader2,
+  AlertTriangle, UserCheck, UserPlus, Loader2,
   CheckCircle2, XCircle, Plus, ScanLine, Wallet,
 } from "lucide-react"
 import { apiPost } from "@/services/api"

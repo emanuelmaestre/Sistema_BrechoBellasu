@@ -5,7 +5,7 @@ import { withAuth } from "@/lib/with-auth"
 export const dynamic = "force-dynamic"
 
 // GET /api/configuracoes/alertas — Retorna configurações de alertas
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data } = await sb.from("config_alertas").select("chave, valor")
 

@@ -44,10 +44,10 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 
 // ─── Card ──────────────────────────────────────────────────
 function ModuleCard({
-  href, label, icon: Icon, desc, color, glow, delay, onNavigate,
+  href, label, icon: Icon, color, glow, delay, onNavigate,
 }: {
   href: string; label: string; icon: React.ElementType
-  desc: string; color: string; glow: string; delay: number
+  color: string; glow: string; delay: number
   onNavigate: (href: string, color: string) => void
 }) {
   const [hovered, setHovered] = useState(false)

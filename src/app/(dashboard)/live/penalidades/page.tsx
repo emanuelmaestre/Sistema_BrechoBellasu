@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
-import { Loader2, ShieldAlert, Printer, ArrowLeft, Search, AlertTriangle, Ban, AlertCircle } from "lucide-react"
+import { ShieldAlert, Printer, ArrowLeft, Search, AlertTriangle, Ban, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { apiGet, apiPatch } from "@/services/api"
+import { apiGet } from "@/services/api"
 import { GRAU_CONFIG, MOTIVO_LABEL } from "@/domain/live/penalidade"
 import { cn } from "@/lib/utils"
 
@@ -149,7 +149,6 @@ function EmptyIllustration({ busca }: { busca: boolean }) {
 }
 
 export default function PenalidadesPage() {
-  const qc = useQueryClient()
   const [busca, setBusca] = useState("")
 
   const { data, isLoading } = useQuery<{ data: ClientePenalizado[]; total: number }>({

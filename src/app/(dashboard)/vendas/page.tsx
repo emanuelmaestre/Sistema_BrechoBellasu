@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
-  Loader2, RefreshCw, Pencil, ShoppingCart, Trash2, MessageCircle,
+  Loader2, RefreshCw, Pencil, ShoppingCart,
   CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
@@ -562,12 +562,6 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
-
-  const enderecoResumo = [
-    clienteNome || "Consumidor Final",
-    `${itens.length} produto(s)`,
-    fmtBRL(totalFinal),
-  ]
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

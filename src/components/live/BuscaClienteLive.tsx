@@ -153,7 +153,7 @@ function EmptyIllustration({ msg }: { msg: string }) {
 
 // ── Linha de compra ───────────────────────────────────────────────────────────
 
-function CompraRow({ c, onAbrirLive }: { c: CompraItem; onAbrirLive?: (liveId: number) => void }) {
+function CompraRow({ c }: { c: CompraItem }) {
   const sacola = c.numero_sacola ? `#${c.numero_sacola}` : "—"
   const valor  = c.valor_total - (c.desconto ?? 0)
 
@@ -212,11 +212,10 @@ function CompraRow({ c, onAbrirLive }: { c: CompraItem; onAbrirLive?: (liveId: n
 // ── Bloco de uma live ─────────────────────────────────────────────────────────
 
 function LiveBloco({
-  grupo, defaultExpanded, onAbrirLive,
+  grupo, defaultExpanded,
 }: {
   grupo: LiveAgrupada
   defaultExpanded?: boolean
-  onAbrirLive?: (liveId: number) => void
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? true)
   const cfg = STATUS_LIVE[grupo.live_status ?? "encerrada"] ?? STATUS_LIVE.encerrada
@@ -264,7 +263,7 @@ function LiveBloco({
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}>
-                  <CompraRow c={c} onAbrirLive={onAbrirLive} />
+                  <CompraRow c={c} />
                 </motion.div>
               ))}
             </div>
@@ -277,12 +276,9 @@ function LiveBloco({
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-interface Props {
-  liveId: number
-  liveTitulo?: string
-}
+interface Props { liveId: number }
 
-export default function BuscaClienteLive({ liveId, liveTitulo }: Props) {
+export default function BuscaClienteLive({ liveId }: Props) {
   const [aberto, setAberto]     = useState(false)
   const [query, setQuery]       = useState("")
   const [escopo, setEscopo]     = useState<"esta_live" | "todas">("esta_live")

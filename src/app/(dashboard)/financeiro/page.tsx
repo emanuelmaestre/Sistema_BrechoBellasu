@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, Check, Trash2,
   X, ChevronLeft, ArrowRight, Wallet, TrendingDown, TrendingUp,
-  AlertTriangle, Bell, Send,
+  AlertTriangle, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"

@@ -1,11 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
 import { meUsuario } from "@/lib/melhorenvio"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/etiquetas/status — verifica se o token está configurado e válido
-export const GET = withAuth(async (_req: NextRequest) => {
+export const GET = withAuth(async () => {
   const token = process.env.MELHOR_ENVIO_TOKEN
   const env   = process.env.MELHOR_ENVIO_ENV ?? "sandbox"
 

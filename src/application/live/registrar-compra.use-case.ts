@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════════
 import { type Result, ok } from "@/domain/shared/result"
 import { LiveCompra, type LiveCompraInput } from "@/domain/live/live-compra"
-import type { ILiveCompraRepository, IPagamentoGateway, ItemCompraInput } from "./ports"
+import type { ILiveCompraRepository, ItemCompraInput } from "./ports"
 
 export interface RegistrarCompraInput extends LiveCompraInput {
   cpf?: string | null

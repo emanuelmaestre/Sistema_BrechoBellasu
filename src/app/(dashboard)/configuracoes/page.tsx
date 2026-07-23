@@ -8,7 +8,7 @@ import {
   Loader2, Save, Building2, Users, X, Eye, EyeOff,
   Check, ShieldCheck, UserPlus, Pencil, Power,
   Plug, RefreshCw, Wifi, WifiOff, Database, Truck,
-  MessageCircle, Globe, MapPin, AlertCircle, Mail, Bot, DollarSign,
+  MessageCircle, Globe, MapPin, AlertCircle, Bot, DollarSign,
   Play, CheckCircle2, XCircle, Clock, Send, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
