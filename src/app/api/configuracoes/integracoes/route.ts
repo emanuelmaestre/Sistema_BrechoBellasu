@@ -144,7 +144,10 @@ async function checkSuperFrete(): Promise<IntegracaoStatus> {
   }
   const t0 = Date.now()
   try {
-    const res = await fetch("https://api.superfrete.com/api/v0/user/me", {
+    const base = process.env.SUPERFRETE_ENV === "sandbox"
+      ? "https://sandbox.superfrete.com/api/v0"
+      : "https://api.superfrete.com/api/v0"
+    const res = await fetch(`${base}/user/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",

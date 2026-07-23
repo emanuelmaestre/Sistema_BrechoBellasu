@@ -7,7 +7,17 @@
 //   SUPERFRETE_CEP_ORIGEM (opcional) — sobrescreve MELHOR_ENVIO_CEP_ORIGEM
 // ══════════════════════════════════════════════════════════
 
-const SF_BASE_URL = "https://api.superfrete.com/api/v0"
+// Ambiente configurável: por padrão produção. Defina SUPERFRETE_ENV=sandbox
+// para testar com um token de sandbox (etiquetas de sandbox NÃO são válidas
+// para envio real). ATENÇÃO: tokens são específicos por ambiente — um token
+// de sandbox contra a URL de produção retorna 401 "Token inválida!".
+export function sfBaseUrl(): string {
+  return process.env.SUPERFRETE_ENV === "sandbox"
+    ? "https://sandbox.superfrete.com/api/v0"
+    : "https://api.superfrete.com/api/v0"
+}
+
+const SF_BASE_URL = sfBaseUrl()
 
 // A API do Super Frete EXIGE o header User-Agent no formato
 // "Aplicação versão (email de contato)". Sem ele a API responde
