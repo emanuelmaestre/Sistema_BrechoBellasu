@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
@@ -12,7 +12,7 @@ export const POST = withAuth(async (req: NextRequest) => {
 
   const { data: etiqueta } = await sb
     .from("etiquetas")
-    .select("id, rastreio, cliente_id, notificado_envio")
+    .select("id, rastreio, cliente_id, notificado_envio, carrier")
     .eq("id", etiqueta_id)
     .single()
 
@@ -28,8 +28,11 @@ export const POST = withAuth(async (req: NextRequest) => {
 
   if (!cliente?.celular) return NextResponse.json({ erro: "Cliente sem celular." }, { status: 400 })
 
+  const carrier = (etiqueta.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
   const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
-  const linkRastreio = `https://melhorrastreio.com.br/rastreio/${etiqueta.rastreio}`
+  const linkRastreio = carrier === "superfrete"
+    ? `https://superfrete.com/rastreio/${etiqueta.rastreio}`
+    : `https://melhorrastreio.com.br/rastreio/${etiqueta.rastreio}`
 
   const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${etiqueta.rastreio}*`
 
@@ -41,8 +44,5 @@ export const POST = withAuth(async (req: NextRequest) => {
       .eq("id", etiqueta_id)
   }
 
-  return NextResponse.json({
-    ok: resultado.ok,
-    erro: resultado.erro,
-  })
+  return NextResponse.json({ ok: resultado.ok, erro: resultado.erro })
 })

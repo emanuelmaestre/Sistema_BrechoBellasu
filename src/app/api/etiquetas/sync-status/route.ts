@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
+import { sfRastrear, sfConfigurado } from "@/lib/superfrete"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
@@ -10,10 +11,9 @@ export const dynamic = "force-dynamic"
 export const POST = withAuth(async () => {
   const sb = createServerClient()
 
-  // Busca etiquetas ativas (não entregues e não canceladas)
   const { data: etiquetas } = await sb
     .from("etiquetas")
-    .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue")
+    .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
     .not("rastreio", "is", null)
     .not("ultimo_status", "in", '("entregue","cancelada")')
 
@@ -24,11 +24,20 @@ export const POST = withAuth(async () => {
 
   for (const et of etiquetas) {
     try {
-      const tracking = await rastrearEtiqueta(et.rastreio)
-      if (!tracking) continue
+      const carrier = (et.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
 
-      // Determina novo status pela descrição do último evento
-      const eventos = tracking.events ?? []
+      let eventos: Array<{ description: string; date: string; location: string }> = []
+      if (carrier === "superfrete" && sfConfigurado()) {
+        const tracking = await sfRastrear(et.rastreio)
+        eventos = tracking.events ?? []
+      } else if (carrier === "melhorenvio") {
+        const tracking = await rastrearEtiqueta(et.rastreio)
+        if (!tracking) continue
+        eventos = tracking.events ?? []
+      } else {
+        continue
+      }
+
       const ultimoEvento = eventos[0]?.description?.toLowerCase() ?? ""
       let novoStatus = et.ultimo_status
       if (ultimoEvento.includes("entreg")) {
@@ -41,10 +50,8 @@ export const POST = withAuth(async () => {
 
       if (novoStatus === et.ultimo_status) continue
 
-      // Atualiza status
       const updates: Record<string, unknown> = { ultimo_status: novoStatus }
 
-      // Busca cliente para notificação
       if (et.cliente_id) {
         const { data: cliente } = await sb
           .from("clientes")
@@ -54,12 +61,14 @@ export const POST = withAuth(async () => {
 
         if (cliente?.celular) {
           const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
-          const linkRastreio = `https://melhorrastreio.com.br/rastreio/${et.rastreio}`
+          const linkRastreio = carrier === "superfrete"
+            ? `https://superfrete.com/rastreio/${et.rastreio}`
+            : `https://melhorrastreio.com.br/rastreio/${et.rastreio}`
 
           if (novoStatus === "em_transito" && !et.notificado_transito) {
             await enviarTexto(
               cliente.celular,
-              `Oi ${nome}! ??\n\nSeu pedido está *a caminho*! Rastreie aqui:\n${linkRastreio}`,
+              `Oi ${nome}! 🚚\n\nSeu pedido está *a caminho*! Rastreie aqui:\n${linkRastreio}`,
               "status_envio",
             )
             updates.notificado_transito = true
@@ -69,7 +78,7 @@ export const POST = withAuth(async () => {
           if (novoStatus === "entregue" && !et.notificado_entregue) {
             await enviarTexto(
               cliente.celular,
-              `Oi ${nome}! ?\n\nSeu pedido foi *entregue*! Qualquer dúvida, estamos aqui. ??`,
+              `Oi ${nome}! ✅\n\nSeu pedido foi *entregue*! Qualquer dúvida, estamos aqui. 💛`,
               "status_envio",
             )
             updates.notificado_entregue = true
