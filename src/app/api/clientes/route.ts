@@ -22,8 +22,22 @@ export const GET = withAuth(async (req: NextRequest) => {
   let q = sb.from("clientes").select("*", { count: "exact" })
 
   if (busca) {
-    const b = busca.replace(/^@/, "")
-    q = q.or(`nome.ilike.%${b}%,cpf_cnpj.ilike.%${b}%,celular.ilike.%${b}%,instagram.ilike.%${b}%`)
+    const b = busca.trim()
+    const eCpf       = /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(b)
+    const eTelefone  = /^[\d\s\(\)\-\+]{7,}$/.test(b)
+    const eInstagram = b.startsWith("@")
+
+    if (eCpf || eTelefone || eInstagram) {
+      // Busca exata por campo específico
+      const val = b.replace(/^@/, "")
+      q = q.or(`cpf_cnpj.ilike.%${val}%,celular.ilike.%${val}%,instagram.ilike.%${val}%`)
+    } else {
+      // Busca por nome: quebra em tokens e exige que TODOS estejam no nome (qualquer ordem)
+      const tokens = b.split(/\s+/).filter(Boolean)
+      for (const token of tokens) {
+        q = q.ilike("nome", `%${token}%`)
+      }
+    }
   }
   if (status === "inativo") q = q.eq("ativo", false)
   else if (status !== "todos") q = q.neq("ativo", false)
