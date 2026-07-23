@@ -2975,8 +2975,8 @@ function ClientesPageInner() {
       </div>
 
       {/* Tabela */}
-      <div className="rounded-2xl overflow-hidden"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="rounded-2xl"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden" }}>
         <div
           tabIndex={0}
           onKeyDown={tableKeyDown}
