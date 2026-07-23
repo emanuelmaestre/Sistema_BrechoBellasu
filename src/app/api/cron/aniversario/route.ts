@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
-import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 import { requireCronAuth } from "@/lib/server-guards"
+import { readIntEnv } from "@/lib/server-env"
 
 export const dynamic = "force-dynamic"
 
@@ -26,15 +26,15 @@ function montarMensagem(nome: string, mes: number): string {
   )
 }
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 // GET /api/cron/aniversario — Vercel Cron: roda todo dia às 8h (11:00 UTC)
 export async function GET(req: NextRequest) {
   const authError = requireCronAuth(req)
   if (authError) return authError
 
+  const startedAt = Date.now()
+  const maxEnvios = readIntEnv("ANIVERSARIO_CRON_MAX_ENVIOS", 8, 1, 50)
+  const maxRuntimeMs = readIntEnv("ANIVERSARIO_CRON_MAX_RUNTIME_MS", 45_000, 10_000, 240_000)
+  const safetyWindowMs = 20_000
   const sb = createServerClient()
 
   // Dia e mês em horário de Brasília (UTC-3)
@@ -56,16 +56,18 @@ export async function GET(req: NextRequest) {
     if (!c.data_nasc) return false
     const [, m, d] = c.data_nasc.split("-").map(Number)
     return m === mes && d === dia && c.aniversario_msg_ano !== anoAtual
-  })
+  }).sort((a, b) => Number(a.id) - Number(b.id))
 
   if (!aniversariantes.length) {
     return NextResponse.json({ ok: true, total: 0, mensagem: "Nenhuma aniversariante hoje." })
   }
 
   const resultados: Array<{ id: number; nome: string; ok: boolean; erro?: string }> = []
+  const lote = aniversariantes.slice(0, maxEnvios)
 
-  for (let i = 0; i < aniversariantes.length; i++) {
-    const c = aniversariantes[i]
+  for (const c of lote) {
+    if (Date.now() - startedAt > maxRuntimeMs - safetyWindowMs) break
+
     const mensagem = montarMensagem(c.nome ?? "Cliente", mes)
 
     const result = await enviarTexto(c.celular!, mensagem, "aniversario")
@@ -78,17 +80,14 @@ export async function GET(req: NextRequest) {
     }
 
     resultados.push({ id: c.id, nome: c.nome ?? "", ok: result.ok, erro: result.erro })
-
-    // Aguarda intervalo entre mensagens (exceto após a última)
-    if (i < aniversariantes.length - 1) {
-      const ms = gerarIntervaloAleatorio(undefined, { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 })
-      await sleep(ms)
-    }
   }
 
   return NextResponse.json({
     ok: true,
     total: aniversariantes.length,
+    processadas: resultados.length,
+    pendentes: Math.max(0, aniversariantes.length - resultados.length),
+    limite_envios: maxEnvios,
     enviadas: resultados.filter(r => r.ok).length,
     erros: resultados.filter(r => !r.ok).length,
     resultados,

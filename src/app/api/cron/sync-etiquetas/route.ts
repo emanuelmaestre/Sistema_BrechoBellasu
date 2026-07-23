@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
 import { enviarTexto } from "@/lib/zapi"
 import { requireCronAuth } from "@/lib/server-guards"
+import { readIntEnv } from "@/lib/server-env"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +13,10 @@ export async function GET(req: NextRequest) {
   const authError = requireCronAuth(req)
   if (authError) return authError
 
+  const startedAt = Date.now()
+  const maxEtiquetas = readIntEnv("SYNC_ETIQUETAS_CRON_MAX_ITENS", 40, 1, 200)
+  const maxRuntimeMs = readIntEnv("SYNC_ETIQUETAS_CRON_MAX_RUNTIME_MS", 50_000, 10_000, 240_000)
+  const safetyWindowMs = 15_000
   const sb = createServerClient()
 
   const { data: etiquetas } = await sb
@@ -19,13 +24,20 @@ export async function GET(req: NextRequest) {
     .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue")
     .not("rastreio", "is", null)
     .not("ultimo_status", "in", '("entregue","cancelada")')
+    .order("id", { ascending: true })
+    .limit(maxEtiquetas)
 
   if (!etiquetas?.length) return NextResponse.json({ ok: true, atualizadas: 0 })
 
   let atualizadas = 0
   let notificadas = 0
+  let processadas = 0
+  const erros: Array<{ id: number; erro: string }> = []
 
   for (const et of etiquetas) {
+    if (Date.now() - startedAt > maxRuntimeMs - safetyWindowMs) break
+    processadas++
+
     try {
       const tracking = await rastrearEtiqueta(et.rastreio)
       if (!tracking) continue
@@ -85,8 +97,20 @@ export async function GET(req: NextRequest) {
 
       await sb.from("etiquetas").update(updates).eq("id", et.id)
       atualizadas++
-    } catch { /* continua para próxima */ }
+    } catch (err) {
+      erros.push({ id: et.id, erro: err instanceof Error ? err.message : String(err) })
+    }
   }
 
-  return NextResponse.json({ ok: true, atualizadas, notificadas })
+  return NextResponse.json({
+    ok: true,
+    limite: maxEtiquetas,
+    carregadas: etiquetas.length,
+    processadas,
+    pendentes_lote: Math.max(0, etiquetas.length - processadas),
+    atualizadas,
+    notificadas,
+    erros: erros.length,
+    detalhes_erros: erros.slice(0, 20),
+  })
 }
