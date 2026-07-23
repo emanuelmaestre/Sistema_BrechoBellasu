@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
-import { sincronizarContato } from "@/lib/google-contacts"
+import { sincronizarContato, verificarTokenGoogle } from "@/lib/google-contacts"
 import { normalizarTelefone, montarNomeContato } from "@/lib/google-contact-nome"
 
 export const dynamic = "force-dynamic"
@@ -15,12 +15,10 @@ export const GET = withAuth(async () => {
     .eq("ativo", true)
     .order("nome")
 
-  // Sinaliza se a última sincronização falhou por autorização expirada (token OAuth),
-  // para a tela mostrar o aviso "Google desconectado" mesmo após recarregar.
-  const googleDesconectado = (clientes ?? []).some(
-    c => c.google_sync_status === "erro" &&
-      /desconectad|invalid_grant/i.test((c as Record<string, unknown>).google_sync_erro as string ?? ""),
-  )
+  // Verifica se o token atual é válido — é a fonte de verdade real.
+  // Histórico de erros no banco não é suficiente: após reconectar e redeploiar,
+  // o aviso deve sumir mesmo que clientes ainda tenham google_sync_status = 'erro'.
+  const googleDesconectado = !(await verificarTokenGoogle())
 
   const preview = (clientes ?? []).map(c => {
     const tel  = normalizarTelefone(c.celular)

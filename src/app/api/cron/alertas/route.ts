@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase"
 import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 import { enviarTexto } from "@/lib/zapi"
 import { requireCronAuth } from "@/lib/server-guards"
+import { verificarTokenGoogle } from "@/lib/google-contacts"
 
 export const dynamic = "force-dynamic"
 
@@ -18,12 +19,13 @@ export async function GET(req: NextRequest) {
   const authError = requireCronAuth(req)
   if (authError) return authError
 
-  const [financeiro, consentimentoFollowup] = await Promise.all([
+  const [financeiro, consentimentoFollowup, google] = await Promise.all([
     processarAlertasFinanceiros(),
     processarFollowupConsentimento(),
+    verificarConexaoGoogle(),
   ])
 
-  return NextResponse.json({ ok: true, financeiro, consentimento_followup: consentimentoFollowup })
+  return NextResponse.json({ ok: true, financeiro, consentimento_followup: consentimentoFollowup, google })
 }
 
 async function processarAlertasFinanceiros() {
@@ -126,4 +128,26 @@ async function processarFollowupConsentimento() {
   }
 
   return { enviados, erros, total: clientes.length }
+}
+
+async function verificarConexaoGoogle() {
+  const conectado = await verificarTokenGoogle()
+  if (conectado) return { desconectado: false }
+
+  const sb = createServerClient()
+  const { data: configs } = await sb
+    .from("config_alertas")
+    .select("chave, valor")
+    .in("chave", ["alerta_numero_1", "alerta_numero_2"])
+
+  const numeros = (configs ?? []).map(c => c.valor?.trim()).filter(Boolean)
+  if (numeros.length === 0) return { desconectado: true, alerta_enviado: false, motivo: "sem_numeros" }
+
+  const msg = `⚠️ *Brechó Bellasu — Ação necessária*\n\nA integração com o *Google Contatos* está desconectada.\n\nAcesse o sistema em *Configurações → Google* e clique em *Reconectar Google* para restaurar a sincronização.`
+
+  await Promise.allSettled(
+    numeros.map(n => enviarTexto(n, msg, "alerta_google_desconectado"))
+  )
+
+  return { desconectado: true, alerta_enviado: true, numeros: numeros.length }
 }

@@ -85,6 +85,26 @@ async function buscarPorTelefone(
   }
 }
 
+// ── Verificação de conectividade ──────────────────────────────────
+
+/**
+ * Testa se o refresh token atual ainda é válido.
+ * Retorna true se conectado, false se o token expirou/foi revogado.
+ */
+export async function verificarTokenGoogle(): Promise<boolean> {
+  if (!process.env.GOOGLE_REFRESH_TOKEN) return false
+  try {
+    const auth = criarOAuth2()
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+    // getAccessToken() força uma troca do refresh token → revela invalid_grant
+    await auth.getAccessToken()
+    return true
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return !ehErroAuthGoogle(msg)
+  }
+}
+
 // ── Função principal ──────────────────────────────────────────────
 
 /**

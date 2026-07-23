@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
     access_type: "offline",
     prompt: "consent",
     scope: ["https://www.googleapis.com/auth/contacts"],
+    login_hint: "bellasu.brecho@gmail.com",
   })
 
   return NextResponse.redirect(url)
