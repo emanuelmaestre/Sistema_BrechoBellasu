@@ -9,6 +9,13 @@
 
 const SF_BASE_URL = "https://api.superfrete.com/api/v0"
 
+// A API do Super Frete EXIGE o header User-Agent no formato
+// "Aplicação versão (email de contato)". Sem ele a API responde
+// 401 "Token inválida!" mesmo com o Bearer token correto.
+const SF_USER_AGENT =
+  process.env.SUPERFRETE_USER_AGENT ??
+  "Brecho Bellasu (bellasu.brecho@gmail.com)"
+
 function getToken() {
   const t = process.env.SUPERFRETE_TOKEN
   if (!t) throw new Error("SUPERFRETE_TOKEN não configurado. Adicione nas variáveis de ambiente da Vercel.")
@@ -50,6 +57,7 @@ async function sfRequest<T>(method: string, path: string, body?: unknown): Promi
       Authorization:  `Bearer ${getToken()}`,
       "Content-Type": "application/json",
       Accept:         "application/json",
+      "User-Agent":   SF_USER_AGENT,
     },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(8000),

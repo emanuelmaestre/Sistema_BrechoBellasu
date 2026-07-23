@@ -145,7 +145,12 @@ async function checkSuperFrete(): Promise<IntegracaoStatus> {
   const t0 = Date.now()
   try {
     const res = await fetch("https://api.superfrete.com/api/v0/user/me", {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        // Super Frete exige User-Agent — sem ele retorna 401 "Token inválida!"
+        "User-Agent": process.env.SUPERFRETE_USER_AGENT ?? "Brecho Bellasu (bellasu.brecho@gmail.com)",
+      },
       signal: AbortSignal.timeout(4000),
     })
     return {
