@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { checkoutEtiquetas, gerarEtiquetas, buscarPedido, imprimirEtiqueta, cancelarEtiqueta } from "@/lib/melhorenvio"
+import { sfCheckout, sfGerarEtiquetas, sfBuscarPedido, sfImprimirEtiqueta, sfCancelarEtiqueta, sfConfigurado } from "@/lib/superfrete"
+import { createServerClient } from "@/lib/supabase"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +13,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params
 
+  // Detecta o carrier a partir do banco (fallback: melhorenvio)
+  const sb = createServerClient()
+  const { data: row } = await sb.from("etiquetas").select("carrier").eq("me_order_id", id).maybeSingle()
+  const carrier = (row?.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
+
   try {
+    if (carrier === "superfrete") {
+      if (!sfConfigurado()) {
+        return NextResponse.json({ erro: "Super Frete não configurado." }, { status: 503 })
+      }
+      const checkout = await sfCheckout([id])
+      if (checkout.errors.length > 0) {
+        const errStr = typeof checkout.errors[0] === "string" ? checkout.errors[0] : JSON.stringify(checkout.errors[0])
+        return NextResponse.json({ erro: `Super Frete checkout: ${errStr}` }, { status: 422 })
+      }
+      await sfGerarEtiquetas([id]).catch(() => {})
+      const pedido = await sfBuscarPedido(id).catch(() => null)
+      const printed = await sfImprimirEtiqueta([id]).catch(() => null)
+      return NextResponse.json({ ...pedido, label_url: printed?.url ?? pedido?.label_url ?? null, carrier: "superfrete" })
+    }
+
+    // Melhor Envio
     try {
       await checkoutEtiquetas([id])
     } catch (e) {
@@ -38,7 +61,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
 
+  // Detecta o carrier a partir do banco (fallback: melhorenvio)
+  const sb = createServerClient()
+  const { data: row } = await sb.from("etiquetas").select("carrier").eq("me_order_id", id).maybeSingle()
+  const carrier = (row?.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
+
   try {
+    if (carrier === "superfrete") {
+      if (!sfConfigurado()) {
+        return NextResponse.json({ erro: "Super Frete não configurado." }, { status: 503 })
+      }
+      const result = await sfCancelarEtiqueta(id)
+      return NextResponse.json(result)
+    }
+
     const result = await cancelarEtiqueta(id)
     return NextResponse.json(result)
   } catch (err) {

@@ -33,6 +33,7 @@ export interface RegistroEtiqueta {
   endereco_snapshot: Record<string, unknown>
   tipo_etiqueta: string | null
   dados_json: Record<string, unknown>
+  carrier: "melhorenvio" | "superfrete"
 }
 
 export function montarEnderecoSnapshot(d: DestinatarioEtiqueta): Record<string, unknown> {
@@ -59,6 +60,7 @@ export function montarRegistroEtiqueta(params: {
   tipo_etiqueta?: string | null
   label_url?: string | null
   criado_por?: number | null
+  carrier?: "melhorenvio" | "superfrete"
 }): RegistroEtiqueta {
   const { destinatario: d } = params
   return {
@@ -76,5 +78,6 @@ export function montarRegistroEtiqueta(params: {
     endereco_snapshot:     montarEnderecoSnapshot(d),
     tipo_etiqueta:         params.tipo_etiqueta ?? null,
     dados_json:            { destinatario: d, service_id: params.service_id },
+    carrier:               params.carrier ?? "melhorenvio",
   }
 }

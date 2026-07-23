@@ -172,6 +172,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
           tipo_etiqueta: tipo_etiqueta ?? null,
           label_url:     labelUrlSF ?? resultSF.label_url ?? null,
           criado_por:    auth.id,
+          carrier:       "superfrete",
         }))
       } catch (e) {
         console.error("[POST /api/etiquetas] SF: falha ao salvar histórico:", (e as Error).message)

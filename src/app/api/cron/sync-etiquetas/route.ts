@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
+import { sfRastrear, sfConfigurado } from "@/lib/superfrete"
 import { enviarTexto } from "@/lib/zapi"
 import { requireCronAuth } from "@/lib/server-guards"
 import { readIntEnv } from "@/lib/server-env"
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data: etiquetas } = await sb
     .from("etiquetas")
-    .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue")
+    .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
     .not("rastreio", "is", null)
     .not("ultimo_status", "in", '("entregue","cancelada")')
     .order("id", { ascending: true })
@@ -39,10 +40,21 @@ export async function GET(req: NextRequest) {
     processadas++
 
     try {
-      const tracking = await rastrearEtiqueta(et.rastreio)
-      if (!tracking) continue
+      const carrier = (et.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
 
-      const eventos = tracking.events ?? []
+      // Rastreia pela transportadora correta
+      let eventos: Array<{ description: string; date: string; location: string }> = []
+      if (carrier === "superfrete" && sfConfigurado()) {
+        const tracking = await sfRastrear(et.rastreio)
+        eventos = tracking.events ?? []
+      } else if (carrier === "melhorenvio") {
+        const tracking = await rastrearEtiqueta(et.rastreio)
+        if (!tracking) continue
+        eventos = tracking.events ?? []
+      } else {
+        continue
+      }
+
       const ultimoEvento = eventos[0]?.description?.toLowerCase() ?? ""
       let novoStatus = et.ultimo_status
 
@@ -71,7 +83,9 @@ export async function GET(req: NextRequest) {
 
         if (cliente?.celular) {
           const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
-          const linkRastreio = `https://melhorrastreio.com.br/rastreio/${et.rastreio}`
+          const linkRastreio = carrier === "superfrete"
+            ? `https://superfrete.com/rastreio/${et.rastreio}`
+            : `https://melhorrastreio.com.br/rastreio/${et.rastreio}`
 
           if (novoStatus === "em_transito" && !et.notificado_transito) {
             await enviarTexto(

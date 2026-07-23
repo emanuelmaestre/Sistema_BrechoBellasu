@@ -1307,7 +1307,7 @@ const AUTOMACOES: AutomacaoDef[] = [
     nome: "Rastreamento de Envios",
     frequencia: "A cada 6 horas",
     resumo: "Atualiza o status de rastreamento das etiquetas automaticamente",
-    descricao: "A cada 6 horas o sistema consulta a Melhor Envio para atualizar o status de todas as etiquetas em trânsito. Quando um pacote é entregue, o status é atualizado automaticamente na tela de Etiquetas.",
+    descricao: "A cada 6 horas o sistema consulta a Melhor Envio e o Super Frete para atualizar o status de todas as etiquetas em trânsito. Quando um pacote é entregue, o status é atualizado automaticamente na tela de Etiquetas e a cliente recebe aviso pelo WhatsApp.",
     cor: "#f97316",
     icone: <Tag size={18} />,
   },
