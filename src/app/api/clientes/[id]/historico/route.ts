@@ -4,7 +4,7 @@ import { verifyAuth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-// GET /api/clientes/[id]/historico — Histórico completo de compras do cliente
+// GET /api/clientes/[id]/historico — Histórico completo: vendas, lives, trocas e envios
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -13,65 +13,111 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const clienteId = parseInt(id)
   const sb = createServerClient()
 
-  // Busca vendas do cliente
-  const { data: vendas, error } = await sb
-    .from("vendas")
-    .select("id, created_at, total, forma_pagamento, status, desconto, obs")
-    .eq("cliente_id", clienteId)
-    .order("created_at", { ascending: false })
+  const [vendasRes, trocasRes, enviosRes, liveComprasRes] = await Promise.all([
+    // Vendas PDV
+    sb.from("vendas")
+      .select("id, created_at, total, forma_pagamento, status, desconto, obs")
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false }),
 
-  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+    // Trocas / devoluções
+    sb.from("trocas")
+      .select("id, tipo, status, motivo, created_at, venda_id")
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false }),
 
-  // Busca itens de todas as vendas
-  const ids = (vendas ?? []).map(v => v.id)
-  const itensMap: Record<number, { nome: string; qtd: number; preco_unit: number; subtotal: number }[]> = {}
+    // Etiquetas / envios
+    sb.from("etiquetas")
+      .select("id, created_at, me_tracking, status")
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false }),
 
-  if (ids.length > 0) {
-    const { data: itens } = await sb
-      .from("venda_itens")
-      .select("venda_id, nome, qtd, preco_unit, subtotal")
-      .in("venda_id", ids)
+    // Compras de live
+    sb.from("live_compras")
+      .select(`
+        id, created_at, numero_sacola, quantidade_itens,
+        valor_total, desconto, credito_aplicado, status_compra, pagamento_status,
+        lives ( id, titulo, data_live, plataforma ),
+        live_compra_produtos ( nome_produto, quantidade, preco_live )
+      `)
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false }),
+  ])
 
-    for (const it of (itens ?? []) as { venda_id: number; nome: string; qtd: number; preco_unit: number; subtotal: number }[]) {
-      if (!itensMap[it.venda_id]) itensMap[it.venda_id] = []
-      itensMap[it.venda_id].push({ nome: it.nome, qtd: it.qtd, preco_unit: it.preco_unit, subtotal: it.subtotal })
-    }
-  }
-
-  // Busca trocas do cliente
-  const { data: trocas } = await sb
-    .from("trocas")
-    .select("id, tipo, status, motivo, created_at, venda_id")
-    .eq("cliente_id", clienteId)
-    .order("created_at", { ascending: false })
-
-  // Busca envios do cliente
-  const { data: enviosRaw } = await sb
-    .from("etiquetas")
-    .select("id, created_at, me_tracking, status")
-    .eq("cliente_id", clienteId)
-    .order("created_at", { ascending: false })
-
-  const envios = (enviosRaw ?? []).map(e => ({
+  const vendas = vendasRes.data ?? []
+  const trocas = trocasRes.data ?? []
+  const envios = (enviosRes.data ?? []).map(e => ({
     id: e.id,
     created_at: e.created_at,
     rastreio: e.me_tracking,
     ultimo_status: e.status,
   }))
 
-  const resultado = (vendas ?? []).map(v => ({
+  // Itens das vendas
+  const vendaIds = vendas.map(v => v.id)
+  const itensMap: Record<number, { nome: string; qtd: number; preco_unit: number; subtotal: number }[]> = {}
+  if (vendaIds.length > 0) {
+    const { data: itens } = await sb
+      .from("venda_itens")
+      .select("venda_id, nome, qtd, preco_unit, subtotal")
+      .in("venda_id", vendaIds)
+    for (const it of (itens ?? []) as { venda_id: number; nome: string; qtd: number; preco_unit: number; subtotal: number }[]) {
+      if (!itensMap[it.venda_id]) itensMap[it.venda_id] = []
+      itensMap[it.venda_id].push({ nome: it.nome, qtd: it.qtd, preco_unit: it.preco_unit, subtotal: it.subtotal })
+    }
+  }
+
+  const vendasFormatadas = vendas.map(v => ({
     ...v,
     data: v.created_at,
     itens: itensMap[v.id] ?? [],
   }))
 
+  // Compras de live formatadas
+  type LiveCompraRow = {
+    id: number
+    created_at: string
+    numero_sacola: number | null
+    quantidade_itens: number
+    valor_total: number
+    desconto: number
+    credito_aplicado: number
+    status_compra: string
+    pagamento_status: string
+    lives: { id: number; titulo: string; data_live: string; plataforma: string } | null
+    live_compra_produtos: { nome_produto: string; quantidade: number; preco_live: number }[]
+  }
+
+  const liveCompras = (liveComprasRes.data ?? [] as unknown as LiveCompraRow[]).map((c: LiveCompraRow) => ({
+    id: c.id,
+    created_at: c.created_at,
+    numero_sacola: c.numero_sacola,
+    quantidade_itens: c.quantidade_itens,
+    valor_total: Number(c.valor_total),
+    desconto: Number(c.desconto ?? 0),
+    credito_aplicado: Number(c.credito_aplicado ?? 0),
+    valor_final: Math.max(0, Number(c.valor_total) - Number(c.desconto ?? 0) - Number(c.credito_aplicado ?? 0)),
+    status_compra: c.status_compra,
+    pagamento_status: c.pagamento_status,
+    live: c.lives,
+    produtos: c.live_compra_produtos ?? [],
+  }))
+
+  // Totais: vendas não canceladas + compras de live pagas
+  const totalVendas = vendasFormatadas
+    .filter(v => v.status !== "cancelada")
+    .reduce((s, v) => s + Number(v.total), 0)
+
+  const totalLives = liveCompras
+    .filter(c => c.pagamento_status === "PAGO")
+    .reduce((s, c) => s + c.valor_final, 0)
+
   return NextResponse.json({
-    vendas: resultado,
-    trocas: trocas ?? [],
-    envios: envios ?? [],
-    total_gasto: resultado
-      .filter(v => v.status !== "cancelada")
-      .reduce((sum, v) => sum + Number(v.total), 0),
-    total_compras: resultado.filter(v => v.status !== "cancelada").length,
+    vendas: vendasFormatadas,
+    trocas,
+    envios,
+    live_compras: liveCompras,
+    total_gasto: totalVendas + totalLives,
+    total_compras: vendasFormatadas.filter(v => v.status !== "cancelada").length + liveCompras.length,
   })
 }

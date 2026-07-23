@@ -227,6 +227,14 @@ type HistoricoData = {
   vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
   trocas: { id: number; tipo: string; status: string; motivo: string; created_at: string }[]
   envios: { id: number; created_at: string; rastreio: string; ultimo_status: string }[]
+  live_compras: {
+    id: number; created_at: string; numero_sacola: number | null
+    quantidade_itens: number; valor_total: number; desconto: number
+    credito_aplicado: number; valor_final: number
+    status_compra: string; pagamento_status: string
+    live: { id: number; titulo: string; data_live: string; plataforma: string } | null
+    produtos: { nome_produto: string; quantidade: number; preco_live: number }[]
+  }[]
   total_gasto: number
   total_compras: number
 }
@@ -575,64 +583,164 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
           loadHist ? (
             <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
           ) : (
-            <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-4">
+
               {/* Resumo */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                   <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Total gasto</p>
                   <p className="text-lg font-bold" style={{ color: "#10b981" }}>R$ {(historico?.total_gasto ?? 0).toFixed(2).replace(".", ",")}</p>
-                </div>
-                <div className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                  <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Compras</p>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="rounded-xl p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Pedidos</p>
                   <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{historico?.total_compras ?? 0}</p>
-                </div>
+                </motion.div>
               </div>
 
-              {/* Vendas */}
-              <p className="text-[10px] font-bold uppercase tracking-wider pt-2" style={{ color: "var(--text-muted)" }}>Compras</p>
-              {(historico?.vendas ?? []).length === 0 ? (
-                <p className="text-sm py-4 text-center" style={{ color: "var(--text-muted)" }}>Nenhuma compra registrada.</p>
-              ) : (historico?.vendas ?? []).map(v => (
-                <div key={v.id} className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold" style={{ color: "var(--accent)" }}>Venda #{v.id}</span>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(v.data).toLocaleDateString("pt-BR")}</span>
-                  </div>
-                  <div className="space-y-0.5">
-                    {v.itens.map((it, i) => (
-                      <p key={i} className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {it.qtd}x {it.nome} — R$ {Number(it.subtotal).toFixed(2).replace(".", ",")}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{v.forma_pagamento}</span>
-                    <span className="text-sm font-bold" style={{ color: "#10b981" }}>R$ {Number(v.total).toFixed(2).replace(".", ",")}</span>
-                  </div>
+              {/* Vendas PDV */}
+              {(historico?.vendas ?? []).length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                    <ShoppingBag size={11} /> Vendas na loja
+                  </p>
+                  {historico!.vendas.map((v, i) => (
+                    <motion.div key={v.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold" style={{ color: "var(--accent)" }}>Venda #{v.id}</span>
+                        <div className="flex items-center gap-2">
+                          {v.status === "cancelada" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 uppercase">cancelada</span>
+                          )}
+                          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{new Date(v.data).toLocaleDateString("pt-BR")}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 mb-2">
+                        {v.itens.map((it, j) => (
+                          <p key={j} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                            {it.qtd}× {it.nome} — R$ {Number(it.subtotal).toFixed(2).replace(".", ",")}
+                          </p>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{v.forma_pagamento ?? "—"}</span>
+                        <span className="text-sm font-bold" style={{ color: v.status === "cancelada" ? "var(--text-muted)" : "#10b981" }}>
+                          R$ {Number(v.total).toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Compras em Live */}
+              {(historico?.live_compras ?? []).length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                    <Package size={11} /> Compras em live
+                  </p>
+                  {historico!.live_compras.map((c, i) => (
+                    <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold" style={{ color: "#a78bfa" }}>
+                            {c.live?.titulo ?? `Live #${c.id}`}
+                          </span>
+                          {c.numero_sacola && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold" style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa" }}>
+                              Sacola {String(c.numero_sacola).padStart(2, "0")}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {c.live?.data_live ? new Date(c.live.data_live + "T12:00:00").toLocaleDateString("pt-BR") : new Date(c.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      {c.produtos.length > 0 && (
+                        <div className="space-y-0.5 mb-2">
+                          {c.produtos.map((p, j) => (
+                            <p key={j} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                              {p.quantidade}× {p.nome_produto} — R$ {Number(p.preco_live).toFixed(2).replace(".", ",")}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
+                          c.pagamento_status === "PAGO" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+                        )}>{c.pagamento_status === "PAGO" ? "pago" : "em aberto"}</span>
+                        <span className="text-sm font-bold" style={{ color: c.pagamento_status === "PAGO" ? "#10b981" : "var(--text-primary)" }}>
+                          R$ {c.valor_final.toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* Trocas / Devoluções */}
+              {(historico?.trocas ?? []).length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                    <RefreshCw size={11} /> Trocas e devoluções
+                  </p>
+                  {historico!.trocas.map((t, i) => (
+                    <motion.div key={t.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                          {t.tipo === "troca" ? "Troca" : "Devolução"} #{t.id}
+                        </span>
+                        {t.motivo && <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.motivo}</span>}
+                        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(t.created_at).toLocaleDateString("pt-BR")}</span>
+                      </div>
+                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
+                        t.status === "concluida" ? "bg-emerald-500/15 text-emerald-400" :
+                        t.status === "cancelada" ? "bg-red-500/15 text-red-400" :
+                        "bg-amber-500/15 text-amber-400"
+                      )}>{t.status}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
 
               {/* Envios */}
               {(historico?.envios ?? []).length > 0 && (
-                <>
-                  <p className="text-[10px] font-bold uppercase tracking-wider pt-2" style={{ color: "var(--text-muted)" }}>Envios</p>
-                  {historico!.envios.map(e => (
-                    <div key={e.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                    <Truck size={11} /> Envios
+                  </p>
+                  {historico!.envios.map((e, i) => (
+                    <motion.div key={e.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      className="flex items-center justify-between px-4 py-2.5 rounded-xl"
                       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                       <div>
-                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{e.rastreio}</p>
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{e.rastreio ?? "Sem rastreio"}</p>
                         <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{new Date(e.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                       <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
                         e.ultimo_status === "entregue" ? "bg-emerald-500/15 text-emerald-400" :
                         e.ultimo_status === "em_transito" ? "bg-blue-500/15 text-blue-400" :
                         "bg-amber-500/15 text-amber-400"
-                      )}>{e.ultimo_status?.replace("_", " ") ?? "gerada"}</span>
-                    </div>
+                      )}>{e.ultimo_status?.replace(/_/g, " ") ?? "gerada"}</span>
+                    </motion.div>
                   ))}
-                </>
+                </div>
               )}
-            </>
+
+              {/* Vazio total */}
+              {(historico?.vendas ?? []).length === 0 &&
+               (historico?.live_compras ?? []).length === 0 &&
+               (historico?.trocas ?? []).length === 0 &&
+               (historico?.envios ?? []).length === 0 && (
+                <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>Nenhuma movimentação registrada.</p>
+              )}
+
+            </motion.div>
           )
         )}
 
