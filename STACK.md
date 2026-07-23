@@ -132,7 +132,6 @@
 | Serviço | Finalidade |
 |---|---|
 | **Supabase** | Banco de dados PostgreSQL + Storage |
-| **Asaas** | Pagamentos (PIX + Cartão de Crédito) |
 | **Z-API** | Envio de mensagens via WhatsApp |
 | **Melhor Envio** | Cálculo de frete + Etiquetas de envio |
 | **OpenAI** | Agente de IA |
@@ -149,10 +148,6 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anônima Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave service role Supabase |
 | `JWT_SECRET` | Segredo para geração de tokens JWT |
-| `ASAAS_URL` | URL base da API Asaas |
-| `ASAAS_TOKEN` | Token de autenticação Asaas |
-| `ASAAS_WALLET_ID` | ID da carteira Asaas |
-| `ASAAS_WEBHOOK_TOKEN` | Token para validação de webhooks Asaas |
 | `RESEND_API_KEY` | Chave da API Resend |
 | `OPENAI_API_KEY` | Chave da API OpenAI |
 | `NEXT_PUBLIC_APP_URL` | URL pública da aplicação |

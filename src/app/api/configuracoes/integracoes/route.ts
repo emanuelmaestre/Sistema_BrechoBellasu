@@ -4,10 +4,6 @@ import { withAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
-// Cache em memória para o resultado do Asaas (evita 429 por excesso de chamadas)
-let asaasCache: { result: IntegracaoStatus; expiresAt: number } | null = null
-const ASAAS_CACHE_MS = 8 * 60 * 1000 // 8 minutos
-
 export interface IntegracaoStatus {
   id: string
   nome: string
@@ -78,34 +74,6 @@ async function checkZApi(): Promise<IntegracaoStatus> {
     }
   } catch {
     return { id: "zapi", nome: "Z-API (WhatsApp)", descricao: "Envio de mensagens WhatsApp", conectado: false, configurado: true, detalhe: "Timeout ou erro de rede" }
-  }
-}
-
-async function checkAsaas(): Promise<IntegracaoStatus> {
-  const token = process.env.ASAAS_TOKEN ?? ""
-  if (!token) return { id: "asaas", nome: "Asaas", descricao: "Cobranças e pagamentos online", conectado: false, configurado: false, detalhe: "Token não configurado" }
-
-  // Retorna cache se ainda válido
-  if (asaasCache && Date.now() < asaasCache.expiresAt) return asaasCache.result
-
-  const t0 = Date.now()
-  try {
-    const base = process.env.ASAAS_URL ?? "https://api.asaas.com/v3"
-    const res = await fetch(`${base}/myAccount`, {
-      headers: { access_token: token, Accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
-    })
-    // 429 = rate limit, mas token está correto — trata como conectado
-    const conectado = res.ok || res.status === 429
-    const detalhe   = res.ok ? "Conta ativa" : res.status === 429 ? "Conta ativa" : `HTTP ${res.status}`
-    const result: IntegracaoStatus = {
-      id: "asaas", nome: "Asaas", descricao: "Cobranças e pagamentos online",
-      conectado, configurado: true, detalhe, latencia: Date.now() - t0,
-    }
-    asaasCache = { result, expiresAt: Date.now() + ASAAS_CACHE_MS }
-    return result
-  } catch {
-    return { id: "asaas", nome: "Asaas", descricao: "Cobranças e pagamentos online", conectado: false, configurado: true, detalhe: "Timeout ou erro de rede" }
   }
 }
 
@@ -189,7 +157,6 @@ export const GET = withAuth(async () => {
     checkSupabase(),
     checkMelhorEnvio(),
     checkZApi(),
-    checkAsaas(),
     checkResend(),
     checkOpenAI(),
     checkVercel(),

@@ -11,7 +11,6 @@ ALTER TABLE public.lives
 
 -- ── 2. Colunas de pagamento/mensagem em live_compras ────────────────
 ALTER TABLE public.live_compras
-  ADD COLUMN IF NOT EXISTS asaas_payment_id  TEXT,
   ADD COLUMN IF NOT EXISTS pagamento_status  TEXT DEFAULT 'EM_ABERTO',
   ADD COLUMN IF NOT EXISTS msg_zapi_id       TEXT,
   ADD COLUMN IF NOT EXISTS msg_texto         TEXT,

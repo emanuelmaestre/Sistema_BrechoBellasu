@@ -54,14 +54,12 @@ e os reparos de bugs funcionam. Faça na ordem.
       **persistiram** (antes eram descartados)
 - [ ] Editar um cliente existente → alterações salvam
 
-## 5. Live (pagamento + vínculo + finalização)
+## 5. Live (pagamento manual + vínculo + finalização)
 
 - [ ] Criar uma live
-- [ ] Adicionar uma **compra** com valor > 0 → é gerado um **link de pagamento**
-- [ ] **Recarregar a página** → o link de pagamento **continua salvo** na compra
-      (antes se perdia)
-- [ ] Rodar a sincronização de pagamentos (ou abrir a live, que dispara o sync) →
-      **não dá erro**; compras pagas no Asaas viram "PAGO"
+- [ ] Adicionar uma **compra** com valor > 0 → salva sem gerar cobrança externa
+- [ ] Marcar pagamento manualmente → status muda para "PAGO"
+- [ ] **Recarregar a página** → o status de pagamento continua salvo
 - [ ] **Vincular um produto** à compra → estoque do produto baixa; status da compra
       muda (aguardando_vinculo → vinculo_parcial/vinculada)
 - [ ] Remover o produto vinculado → estoque **volta**

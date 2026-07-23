@@ -4,7 +4,6 @@ import type {
   ILiveCompraRepository,
   ItemCompraInput,
   DadosCliente,
-  PendenteComPagamento,
 } from "./ports"
 import type { LiveCompra } from "@/domain/live/live-compra"
 
@@ -16,16 +15,9 @@ class FakeRepo implements ILiveCompraRepository {
     this.ultima = compra
     return { id: 55 }
   }
-  async salvarPagamento(compraId: number, dados: { url: string; paymentId: string }) {
-    this.pagamentos[compraId] = dados
-  }
   async dadosCliente(): Promise<DadosCliente | null> {
     return this.cliente
   }
-  async listarPendentes(): Promise<PendenteComPagamento[]> {
-    return []
-  }
-  async marcarPago(): Promise<void> {}
 }
 
 const itens: ItemCompraInput[] = [{ nomeProduto: "Blusa", quantidade: 1, precoUnitario: 70 }]

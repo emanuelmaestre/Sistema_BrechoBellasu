@@ -2350,10 +2350,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
     queryKey: ["live-detalhe", liveId],
     queryFn: async () => {
       const live = await apiGet<LiveDetalhe>(`/live/${liveId}`)
-      // Sincroniza pagamentos em background (silencioso)
-      if (live?.compras?.some((c: Compra) => c.link_pagamento && c.pagamento_status !== "PAGO")) {
-        apiPost(`/live/${liveId}/sync-pagamentos`, {}).catch(() => {})
-      }
       return live
     },
     staleTime: 0,         // sempre busca dados frescos ao invalidar

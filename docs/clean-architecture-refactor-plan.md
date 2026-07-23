@@ -17,7 +17,7 @@ infraestrutura, HTTP e UI sem reescrever o sistema de uma vez.
 src/
   domain/              entidades, value objects, regras puras e erros
   application/         use cases, DTOs e ports
-  infrastructure/      adapters Supabase, Asaas, Z-API, Melhor Envio, Google, OpenAI e PDF
+  infrastructure/      adapters Supabase, Z-API, Melhor Envio, Google, OpenAI e PDF
   presentation/
     http/              presenters, validadores e helpers de controller
     frontend/          view-models, hooks e componentes de feature
@@ -35,7 +35,7 @@ src/
 
 - Tornar Route Handlers finos: autenticar, ler request, chamar use case, apresentar resposta.
 - Mover queries Supabase para repositories/readers.
-- Mover Asaas, Z-API, Melhor Envio, Google e OpenAI para gateways.
+- Mover Z-API, Melhor Envio, Google e OpenAI para gateways.
 - Prioridade: `live`, `clientes`, `etiquetas`, `vendas/trocas`, `financeiro/configuracoes/cron`.
 
 ## Fase 2 - dominio e aplicacao

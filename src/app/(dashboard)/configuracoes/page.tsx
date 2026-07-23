@@ -8,8 +8,8 @@ import {
   Loader2, Save, Building2, Users, X, Eye, EyeOff,
   Check, ShieldCheck, UserPlus, Pencil, Power,
   Plug, RefreshCw, Wifi, WifiOff, Database, Truck,
-  MessageCircle, Globe, MapPin, AlertCircle, Bot, DollarSign,
-  Play, CheckCircle2, XCircle, Clock, Send, Trash2,
+  MessageCircle, Globe, MapPin, AlertCircle, Bot,
+  Play, CheckCircle2, XCircle, Clock, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { cn } from "@/lib/utils"
@@ -336,7 +336,6 @@ const ICONE_INTEGRACAO: Record<string, React.ReactNode> = {
   supabase:    <Database size={20} />,
   melhorenvio: <Truck size={20} />,
   zapi:        <MessageCircle size={20} />,
-  asaas:       <DollarSign size={20} />,
   openai:      <Bot size={20} />,
   vercel:      <Globe size={20} />,
   viacep:      <MapPin size={20} />,
@@ -346,7 +345,6 @@ const COR_INTEGRACAO: Record<string, string> = {
   supabase:    "#3ecf8e",
   melhorenvio: "#00b4d8",
   zapi:        "#25d366",
-  asaas:       "#f59e0b",
   openai:      "#10a37f",
   vercel:      "#ffffff",
   viacep:      "#a78bfa",
@@ -549,188 +547,10 @@ function AbaIntegracoes() {
         Verificação automática a cada 5 horas · Clique em Atualizar para verificar agora
       </motion.p>
 
-      {/* Limpeza de cobranças Asaas */}
-      <AsaasLimpeza />
     </div>
   )
 }
 
-// ── Limpeza de cobranças Asaas da Live ───────────────────────
-type LimpezaFase = "idle" | "verificando" | "preview" | "excluindo" | "resultado"
-type LimpezaPreview = { quantidade: number; valor_total: number; preview: { id: string; valor: number; vencimento: string; status: string }[] }
-type LimpezaResultado = { excluidas: number; erros: number }
-
-function AsaasLimpeza() {
-  const [fase, setFase] = useState<LimpezaFase>("idle")
-  const [preview, setPreview] = useState<LimpezaPreview | null>(null)
-  const [resultado, setResultado] = useState<LimpezaResultado | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
-
-  async function verificar() {
-    setFase("verificando"); setErro(null); setPreview(null)
-    try {
-      const res = await apiGet<LimpezaPreview>("/admin/asaas/limpar-vencidas")
-      setPreview(res)
-      setFase("preview")
-    } catch (e: unknown) {
-      setErro((e as Error).message || "Erro ao verificar")
-      setFase("idle")
-    }
-  }
-
-  async function excluir() {
-    setFase("excluindo"); setErro(null)
-    try {
-      const res = await apiPost<LimpezaResultado>("/admin/asaas/limpar-vencidas", { confirmar: true })
-      setResultado(res)
-      setFase("resultado")
-    } catch (e: unknown) {
-      setErro((e as Error).message || "Erro ao excluir")
-      setFase("preview")
-    }
-  }
-
-  function resetar() { setFase("idle"); setPreview(null); setResultado(null); setErro(null) }
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      className="rounded-2xl p-5 mt-4"
-      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-          style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}>
-          <Trash2 size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Limpar cobranças Asaas da Live</p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Remove cobranças <strong>pendentes</strong> e <strong>vencidas</strong> geradas pelo módulo Live (links enviados via WhatsApp).
-          </p>
-
-          {erro && (
-            <p className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
-              {erro}
-            </p>
-          )}
-
-          {/* Estado: idle */}
-          {fase === "idle" && (
-            <button onClick={verificar}
-              className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white"
-              style={{ background: "#f59e0b" }}>
-              <Trash2 size={13} /> Verificar cobranças
-            </button>
-          )}
-
-          {/* Estado: verificando */}
-          {fase === "verificando" && (
-            <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              <Loader2 size={13} className="animate-spin" /> Consultando Asaas…
-            </div>
-          )}
-
-          {/* Estado: preview */}
-          {fase === "preview" && preview && (
-            <div className="mt-3 space-y-3">
-              {preview.quantidade === 0 ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
-                  style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", color: "#4ade80" }}>
-                  <CheckCircle2 size={13} /> Nenhuma cobrança pendente/vencida encontrada.
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-4 px-4 py-3 rounded-xl"
-                    style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
-                    <div className="text-center">
-                      <p className="text-xl font-bold" style={{ color: "#f59e0b" }}>{preview.quantidade}</p>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>cobranças</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold" style={{ color: "#f59e0b" }}>
-                        {preview.valor_total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      </p>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>valor total</p>
-                    </div>
-                  </div>
-
-                  {preview.preview.length > 0 && (
-                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                      {preview.preview.map((c, i) => (
-                        <div key={c.id} className="flex items-center justify-between px-3 py-2 text-xs"
-                          style={{ borderBottom: i < preview.preview.length - 1 ? "1px solid var(--border)" : "none", background: "var(--bg-base)" }}>
-                          <span className="font-mono truncate" style={{ color: "var(--text-muted)" }}>{c.id}</span>
-                          <span style={{ color: "var(--text-secondary)" }}>{c.vencimento}</span>
-                          <span className="font-semibold" style={{ color: "#f59e0b" }}>
-                            {c.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{ background: c.status === "OVERDUE" ? "rgba(248,113,113,0.12)" : "rgba(251,191,36,0.12)", color: c.status === "OVERDUE" ? "#f87171" : "#fbbf24" }}>
-                            {c.status === "OVERDUE" ? "Vencida" : "Pendente"}
-                          </span>
-                        </div>
-                      ))}
-                      {preview.quantidade > 10 && (
-                        <p className="text-[10px] text-center py-2" style={{ color: "var(--text-muted)" }}>
-                          + {preview.quantidade - 10} mais…
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <p className="text-[11px] px-3 py-2 rounded-xl"
-                    style={{ background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.15)", color: "#f87171" }}>
-                    ⚠️ Esta ação é irreversível. As cobranças serão excluídas permanentemente do Asaas.
-                  </p>
-
-                  <div className="flex gap-2">
-                    <button onClick={resetar}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                      style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                      Cancelar
-                    </button>
-                    <button onClick={excluir}
-                      className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
-                      style={{ background: "#ef4444" }}>
-                      <Trash2 size={12} className="inline mr-1.5" />
-                      Excluir {preview.quantidade} cobranças
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {preview.quantidade === 0 && (
-                <button onClick={resetar} className="text-xs" style={{ color: "var(--text-muted)" }}>Fechar</button>
-              )}
-            </div>
-          )}
-
-          {/* Estado: excluindo */}
-          {fase === "excluindo" && (
-            <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              <Loader2 size={13} className="animate-spin" /> Excluindo cobranças no Asaas…
-            </div>
-          )}
-
-          {/* Estado: resultado */}
-          {fase === "resultado" && resultado && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold"
-                style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", color: "#4ade80" }}>
-                <CheckCircle2 size={13} />
-                {resultado.excluidas} cobrança{resultado.excluidas !== 1 ? "s" : ""} excluída{resultado.excluidas !== 1 ? "s" : ""} com sucesso!
-                {resultado.erros > 0 && <span style={{ color: "#f87171" }}> · {resultado.erros} erro{resultado.erros !== 1 ? "s" : ""}</span>}
-              </div>
-              <button onClick={resetar} className="text-xs" style={{ color: "var(--text-muted)" }}>Fechar</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-// ── Logo Google (SVG inline) ──────────────────────────────────
 function GoogleLogo({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none">

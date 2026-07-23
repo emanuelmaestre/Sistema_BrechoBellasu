@@ -1,17 +1,5 @@
-// ══════════════════════════════════════════════════════════════════
-// LiveCompraRepositorySupabase — implementação de ILiveCompraRepository.
-// Usa as colunas REAIS do banco (confirmadas por introspecção):
-//   • observacoes_compra (não "observacao")
-//   • link_pagamento / asaas_payment_id / pagamento_status (migration 010)
-//   • live_compra_itens exige live_compra_id/nome/preco_unit/qtd (NOT NULL)
-// ══════════════════════════════════════════════════════════════════
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type {
-  ILiveCompraRepository,
-  ItemCompraInput,
-  DadosCliente,
-  PendenteComPagamento,
-} from "@/application/live/ports"
+import type { DadosCliente, ILiveCompraRepository, ItemCompraInput } from "@/application/live/ports"
 import type { LiveCompra } from "@/domain/live/live-compra"
 
 export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
@@ -43,11 +31,9 @@ export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
       const rows = itens.map((it) => ({
         live_compra_id: id,
         produto_id: it.produtoId ?? null,
-        // colunas legadas NOT NULL
         nome: it.nomeProduto,
         preco_unit: it.precoUnitario,
         qtd: it.quantidade,
-        // colunas novas usadas pela UI
         nome_produto: it.nomeProduto,
         quantidade: it.quantidade,
         preco_unitario: it.precoUnitario,
@@ -59,18 +45,6 @@ export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
     }
 
     return { id }
-  }
-
-  async salvarPagamento(compraId: number, dados: { url: string; paymentId: string }): Promise<void> {
-    const { error } = await this.sb
-      .from("live_compras")
-      .update({
-        link_pagamento: dados.url,
-        asaas_payment_id: dados.paymentId,
-        pagamento_status: "EM_ABERTO",
-      })
-      .eq("id", compraId)
-    if (error) throw new Error(error.message)
   }
 
   async dadosCliente(clienteId: number): Promise<DadosCliente | null> {
@@ -85,27 +59,5 @@ export class LiveCompraRepositorySupabase implements ILiveCompraRepository {
       whatsapp: (data.celular as string) ?? null,
       cpf: (data.cpf_cnpj as string) ?? null,
     }
-  }
-
-  async listarPendentes(liveId: number): Promise<PendenteComPagamento[]> {
-    const { data, error } = await this.sb
-      .from("live_compras")
-      .select("id, asaas_payment_id")
-      .eq("live_id", liveId)
-      .neq("pagamento_status", "PAGO")
-      .not("link_pagamento", "is", null)
-    if (error || !data) return []
-    return data.map((r) => ({
-      id: r.id as number,
-      asaasPaymentId: (r.asaas_payment_id as string) ?? null,
-    }))
-  }
-
-  async marcarPago(compraId: number): Promise<void> {
-    const { error } = await this.sb
-      .from("live_compras")
-      .update({ pagamento_status: "PAGO" })
-      .eq("id", compraId)
-    if (error) throw new Error(error.message)
   }
 }
