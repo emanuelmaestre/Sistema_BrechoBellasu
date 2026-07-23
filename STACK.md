@@ -101,7 +101,6 @@
 
 | Tecnologia | Versão |
 |---|---|
-| Resend | ^6.12.3 |
 | react-email | ^6.3.0 |
 
 ---
@@ -135,7 +134,6 @@
 | **Z-API** | Envio de mensagens via WhatsApp |
 | **Melhor Envio** | Cálculo de frete + Etiquetas de envio |
 | **OpenAI** | Agente de IA |
-| **Resend** | Emails transacionais |
 | **Vercel** | Hospedagem e deploy |
 
 ---
@@ -148,7 +146,6 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anônima Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave service role Supabase |
 | `JWT_SECRET` | Segredo para geração de tokens JWT |
-| `RESEND_API_KEY` | Chave da API Resend |
 | `OPENAI_API_KEY` | Chave da API OpenAI |
 | `NEXT_PUBLIC_APP_URL` | URL pública da aplicação |
 | `ZAPI_INSTANCE_ID` | ID da instância Z-API |

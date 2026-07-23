@@ -77,26 +77,6 @@ async function checkZApi(): Promise<IntegracaoStatus> {
   }
 }
 
-async function checkResend(): Promise<IntegracaoStatus> {
-  const token = process.env.RESEND_API_KEY ?? ""
-  if (!token) return { id: "resend", nome: "Resend", descricao: "Envio de e-mails transacionais", conectado: false, configurado: false, detalhe: "Chave de API não configurada" }
-  const t0 = Date.now()
-  try {
-    const res = await fetch("https://api.resend.com/domains", {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(4000),
-    })
-    return {
-      id: "resend", nome: "Resend", descricao: "Envio de e-mails transacionais",
-      conectado: res.ok, configurado: true,
-      detalhe: res.ok ? "API ativa" : `HTTP ${res.status}`,
-      latencia: Date.now() - t0,
-    }
-  } catch {
-    return { id: "resend", nome: "Resend", descricao: "Envio de e-mails transacionais", conectado: false, configurado: true, detalhe: "Timeout ou erro de rede" }
-  }
-}
-
 async function checkOpenAI(): Promise<IntegracaoStatus> {
   const token = process.env.OPENAI_API_KEY ?? ""
   if (!token) return { id: "openai", nome: "OpenAI (IA)", descricao: "Agente inteligente e automações", conectado: false, configurado: false, detalhe: "Chave de API não configurada" }
@@ -157,7 +137,6 @@ export const GET = withAuth(async () => {
     checkSupabase(),
     checkMelhorEnvio(),
     checkZApi(),
-    checkResend(),
     checkOpenAI(),
     checkVercel(),
     checkViaCep(),
