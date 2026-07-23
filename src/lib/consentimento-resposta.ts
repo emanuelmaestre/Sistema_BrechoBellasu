@@ -4,8 +4,8 @@
 // reprocessam o histórico de mensagens recebidas.
 // ══════════════════════════════════════════════════════════════════
 
-const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo", "ok", "ta", "certo", "positivo"])
-const NAO_WORDS = new Set(["nao", "n", "no", "nao quero", "recuso", "pare", "nao autorizo", "cancela", "cancelar", "negativo"])
+const SIM_WORDS = new Set(["sim", "s", "yes", "y", "quero", "aceito", "claro", "pode", "autorizo", "ok", "ta", "certo", "positivo", "tá", "tudo bem", "concordo", "com certeza", "claro que sim"])
+const NAO_WORDS = new Set(["nao", "n", "no", "x", "nao quero", "recuso", "pare", "nao autorizo", "cancela", "cancelar", "negativo", "obrigada nao", "obrigado nao", "nao obrigada", "nao obrigado", "por enquanto nao", "agora nao"])
 
 // Remove emojis, pontuação e acentos para permitir comparação tolerante.
 // Cobre tanto quem digita "não" solto quanto quem copia o texto do botão
