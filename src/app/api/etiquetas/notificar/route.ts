@@ -12,12 +12,12 @@ export const POST = withAuth(async (req: NextRequest) => {
 
   const { data: etiqueta } = await sb
     .from("etiquetas")
-    .select("id, rastreio, cliente_id, notificado_envio, carrier")
+    .select("id, me_tracking, cliente_id, notificado_envio, carrier")
     .eq("id", etiqueta_id)
     .single()
 
   if (!etiqueta) return NextResponse.json({ erro: "Etiqueta não encontrada. Ela pode ter sido cancelada." }, { status: 404 })
-  if (!etiqueta.rastreio) return NextResponse.json({ erro: "Etiqueta sem código de rastreio." }, { status: 400 })
+  if (!etiqueta.me_tracking) return NextResponse.json({ erro: "Etiqueta sem código de rastreio." }, { status: 400 })
   if (!etiqueta.cliente_id) return NextResponse.json({ erro: "Etiqueta sem cliente vinculado." }, { status: 400 })
 
   const { data: cliente } = await sb
@@ -30,11 +30,12 @@ export const POST = withAuth(async (req: NextRequest) => {
 
   const carrier = (etiqueta.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
   const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
+  const codigo = etiqueta.me_tracking
   const linkRastreio = carrier === "superfrete"
-    ? `https://superfrete.com/rastreio/${etiqueta.rastreio}`
-    : `https://melhorrastreio.com.br/rastreio/${etiqueta.rastreio}`
+    ? `https://superfrete.com/rastreio/${codigo}`
+    : `https://melhorrastreio.com.br/rastreio/${codigo}`
 
-  const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${etiqueta.rastreio}*`
+  const mensagem = `Oi ${nome}! 📦\n\nSeu pedido foi enviado! Acompanhe aqui:\n${linkRastreio}\n\nCódigo de rastreio: *${codigo}*`
 
   const resultado = await enviarTexto(cliente.celular, mensagem, "rastreio_envio")
 

@@ -53,6 +53,7 @@ interface MEOrder {
   to?: { name: string; postal_code: string; city: string; state_abbr: string }
   company?: { name: string; picture: string }
   delivery_range?: { min: number; max: number }
+  carrier?: string
 }
 
 interface StatusInfo {
@@ -1521,7 +1522,7 @@ export default function EtiquetasPage() {
     : filtroStatus === "entregues"
     ? todosItens.filter(e => e.status === "delivered")
     : todosItens
-  const [pdfOrderId, setPdfOrderId] = useState<string | null>(null)
+  const [pdfMeta, setPdfMeta] = useState<{ orderId: string; carrier?: string } | null>(null)
 
   return (
     <div className="space-y-5 pt-3 sm:pt-6">
@@ -1716,7 +1717,7 @@ export default function EtiquetasPage() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {["released", "generated", "posted", "delivered"].includes(e.status) && (
-                        <button onClick={() => setPdfOrderId(e.id)}
+                        <button onClick={() => setPdfMeta({ orderId: e.id, carrier: e.carrier })}
                           title="Visualizar etiqueta"
                           className="p-1.5 rounded-lg transition-all" style={{ color: "var(--text-muted)" }}
                           onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--accent)" }}
@@ -1777,7 +1778,7 @@ export default function EtiquetasPage() {
           />
         )}
         {rastreioId && <ModalRastreio orderId={rastreioId} onClose={() => setRastreio(null)} />}
-        {pdfOrderId && <EtiquetaPDFModal orderId={pdfOrderId} onClose={() => setPdfOrderId(null)} />}
+        {pdfMeta && <EtiquetaPDFModal orderId={pdfMeta.orderId} carrier={pdfMeta.carrier} onClose={() => setPdfMeta(null)} />}
       </AnimatePresence>
     </div>
   )

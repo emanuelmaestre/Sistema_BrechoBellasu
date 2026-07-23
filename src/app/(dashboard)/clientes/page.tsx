@@ -1288,6 +1288,7 @@ type EtiquetaRow = {
   quantidade_reimpressoes: number
   data_ultima_reimpressao: string | null
   created_at: string
+  carrier?: string | null
 }
 type EtiquetasResp = {
   data: EtiquetaRow[]
@@ -1316,7 +1317,7 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
   const [statusF, setStatusF] = useState("")
   const [de, setDe] = useState("")
   const [ate, setAte] = useState("")
-  const [pdfOrderId, setPdfOrderId] = useState<string | null>(null)
+  const [pdfMeta, setPdfMeta] = useState<{ orderId: string; carrier?: string } | null>(null)
   const [reimprimindo, setReimprimindo] = useState<number | null>(null)
   const [copiadoId, setCopiadoId] = useState<number | null>(null)
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null)
@@ -1350,7 +1351,7 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
     setReimprimindo(et.id); setMsg(null)
     try {
       await apiPost(`/etiquetas/${et.id}/reimprimir`, {})
-      setPdfOrderId(et.me_order_id)
+      setPdfMeta({ orderId: et.me_order_id, carrier: et.carrier ?? "melhorenvio" })
       setMsg({ tipo: "ok", texto: "Etiqueta reaberta para reimpressão." })
       refetch()
     } catch (e) {
@@ -1464,7 +1465,7 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
             )}
 
             <div className="flex items-center gap-1 pt-1">
-              <button onClick={() => setPdfOrderId(et.me_order_id)} title="Visualizar"
+              <button onClick={() => setPdfMeta({ orderId: et.me_order_id, carrier: et.carrier ?? "melhorenvio" })} title="Visualizar"
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                 <Eye size={13} /> Visualizar
@@ -1485,7 +1486,7 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
       })}
 
       <AnimatePresence>
-        {pdfOrderId && <EtiquetaPDFModal orderId={pdfOrderId} onClose={() => setPdfOrderId(null)} />}
+        {pdfMeta && <EtiquetaPDFModal orderId={pdfMeta.orderId} carrier={pdfMeta.carrier} onClose={() => setPdfMeta(null)} />}
       </AnimatePresence>
     </div>
   )

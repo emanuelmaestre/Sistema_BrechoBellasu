@@ -8,7 +8,7 @@ import { Printer, Download, X, Loader2, AlertCircle } from "lucide-react"
 // devolve os bytes do PDF, não uma URL do Melhor Envio) e exibe embutido no
 // modal via <iframe>. O navegador nunca navega para o domínio do Melhor Envio.
 // Reutilizado na página de etiquetas e na aba "Etiquetas" do cadastro do cliente.
-export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+export function EtiquetaPDFModal({ orderId, carrier = "melhorenvio", onClose }: { orderId: string; carrier?: string; onClose: () => void }) {
   const [estado, setEstado] = useState<"carregando" | "pronto" | "erro">("carregando")
   const [url, setUrl] = useState<string | null>(null)
   const [erro, setErro] = useState("")
@@ -27,7 +27,7 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
     setUrl(null)
     setErro("")
 
-    fetch(`/api/etiquetas/imprimir?order_id=${encodeURIComponent(orderId)}`, { method: "GET" })
+    fetch(`/api/etiquetas/imprimir?order_id=${encodeURIComponent(orderId)}&carrier=${encodeURIComponent(carrier)}`, { method: "GET" })
       .then(async (res) => {
         if (!ativo) return
         if (res.ok && res.headers.get("content-type")?.includes("pdf")) {

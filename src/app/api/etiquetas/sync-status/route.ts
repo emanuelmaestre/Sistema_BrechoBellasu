@@ -13,8 +13,8 @@ export const POST = withAuth(async () => {
 
   const { data: etiquetas } = await sb
     .from("etiquetas")
-    .select("id, rastreio, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
-    .not("rastreio", "is", null)
+    .select("id, me_tracking, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
+    .not("me_tracking", "is", null)
     .not("ultimo_status", "in", '("entregue","cancelada")')
 
   if (!etiquetas?.length) return NextResponse.json({ ok: true, atualizadas: 0 })
@@ -28,10 +28,10 @@ export const POST = withAuth(async () => {
 
       let eventos: Array<{ description: string; date: string; location: string }> = []
       if (carrier === "superfrete" && sfConfigurado()) {
-        const tracking = await sfRastrear(et.rastreio)
+        const tracking = await sfRastrear(et.me_tracking)
         eventos = tracking.events ?? []
       } else if (carrier === "melhorenvio") {
-        const tracking = await rastrearEtiqueta(et.rastreio)
+        const tracking = await rastrearEtiqueta(et.me_tracking)
         if (!tracking) continue
         eventos = tracking.events ?? []
       } else {
@@ -62,8 +62,8 @@ export const POST = withAuth(async () => {
         if (cliente?.celular) {
           const nome = cliente.nome?.split(" ")[0] ?? "Cliente"
           const linkRastreio = carrier === "superfrete"
-            ? `https://superfrete.com/rastreio/${et.rastreio}`
-            : `https://melhorrastreio.com.br/rastreio/${et.rastreio}`
+            ? `https://superfrete.com/rastreio/${et.me_tracking}`
+            : `https://melhorrastreio.com.br/rastreio/${et.me_tracking}`
 
           if (novoStatus === "em_transito" && !et.notificado_transito) {
             await enviarTexto(
