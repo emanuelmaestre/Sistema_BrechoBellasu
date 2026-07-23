@@ -35,6 +35,7 @@ type LogTipo =
   | "consentimento"
   | "aniversario"
   | "teste_conexao"
+  | "alerta_google_desconectado"
   | "outro"
 
 // ── Funções internas ─────────────────────────────────────────
