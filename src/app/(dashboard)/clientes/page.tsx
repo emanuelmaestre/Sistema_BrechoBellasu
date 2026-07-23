@@ -2550,7 +2550,7 @@ function ClientesPageInner() {
           <table className="w-full min-w-[600px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Nome", "WhatsApp", "Instagram", "Notificações", "Ações"].map(h => (
+                {["Nome", "WhatsApp", "Instagram", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
@@ -2597,17 +2597,6 @@ function ClientesPageInner() {
                     {c.instagram ? `@${c.instagram.replace(/^@/, "")}` : "—"}
                   </td>
 
-                  <td className="px-4 py-3">
-                    <span className={cn(
-                      "text-xs font-semibold px-2.5 py-1 rounded-full uppercase",
-                      c.ativo ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400",
-                    )}>
-                      {c.ativo ? "Ativo" : "Inativo"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <BadgeNotificacao status={c.notificacao_status} />
-                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button onClick={() => abrirDrawer(c)}

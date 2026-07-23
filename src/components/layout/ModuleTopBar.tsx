@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useRouter, usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
@@ -134,7 +134,7 @@ export function CalendarioWidget() {
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 460, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+            style={{ width: 540, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
 
             {/* Header com relógio */}
             <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(135deg,var(--accent-bg),var(--bg-surface))" }}>
@@ -283,24 +283,48 @@ export function AniversariantesWidget() {
         onClick={() => setOpen(o => !o)}
         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
         title="Aniversariantes de hoje"
-        className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all select-none"
+        className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all select-none overflow-hidden"
         style={{
-          background: open ? "rgba(251,191,36,0.15)" : "var(--bg-surface)",
-          border: `1px solid ${open ? "#f59e0b" : temAniversariantes ? "rgba(251,191,36,0.5)" : "var(--border)"}`,
+          background: temAniversariantes
+            ? open ? "rgba(251,191,36,0.22)" : "rgba(251,191,36,0.1)"
+            : open ? "rgba(251,191,36,0.15)" : "var(--bg-surface)",
+          border: `1px solid ${open ? "#f59e0b" : temAniversariantes ? "#f59e0b" : "var(--border)"}`,
           color: open || temAniversariantes ? "#b45309" : "var(--text-muted)",
         }}
       >
-        {/* Pulso quando há aniversariantes */}
+        {/* Shimmer quando há aniversariantes */}
+        {temAniversariantes && (
+          <motion.span
+            className="absolute inset-0 pointer-events-none"
+            animate={{ x: ["-100%", "150%"] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", repeatDelay: 1.5 }}
+            style={{ background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.35), transparent)", width: "60%" }}
+          />
+        )}
+        {/* Pulso externo */}
         {temAniversariantes && !open && (
           <motion.span
             className="absolute inset-0 rounded-xl pointer-events-none"
-            animate={{ boxShadow: ["0 0 0 0px rgba(251,191,36,0.4)", "0 0 0 5px rgba(251,191,36,0)"] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+            animate={{ boxShadow: ["0 0 0 0px rgba(251,191,36,0.5)", "0 0 0 6px rgba(251,191,36,0)"] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
           />
         )}
-        <Cake size={13} />
+        {/* Ícone com shake quando tem aniversariantes */}
+        <motion.span
+          animate={temAniversariantes && !open ? { rotate: [-8, 8, -6, 6, 0] } : { rotate: 0 }}
+          transition={temAniversariantes && !open ? { duration: 0.5, repeat: Infinity, repeatDelay: 2.5 } : {}}
+        >
+          <Cake size={14} />
+        </motion.span>
         {temAniversariantes && (
-          <span className="text-[11px] font-black tabular-nums">{total}</span>
+          <motion.span
+            className="text-[11px] font-black tabular-nums px-1 py-0.5 rounded-md"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
+            style={{ background: "rgba(251,191,36,0.25)", color: "#92400e" }}
+          >
+            {total}
+          </motion.span>
         )}
       </motion.button>
 
@@ -312,7 +336,7 @@ export function AniversariantesWidget() {
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 320, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
+            style={{ width: 400, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
           >
             {/* Header */}
             <div className="px-5 pt-5 pb-4"
@@ -561,21 +585,21 @@ export function CalculadoraWidget() {
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
             className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 240, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
+            style={{ width: 300, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
           >
             {/* Display */}
-            <div className="px-4 pt-4 pb-3" style={{ background: "linear-gradient(135deg, var(--accent-bg), var(--bg-surface))" }}>
-              <p className="text-[10px] font-medium h-4 text-right truncate" style={{ color: "var(--text-muted)" }}>
+            <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(135deg, var(--accent-bg), var(--bg-surface))" }}>
+              <p className="text-[11px] font-medium h-5 text-right truncate" style={{ color: "var(--text-muted)" }}>
                 {history || " "}
               </p>
-              <p className="text-3xl font-black text-right tabular-nums leading-tight break-all"
-                style={{ color: "var(--text-primary)", letterSpacing: "-1px", fontSize: display.length > 10 ? "1.25rem" : undefined }}>
+              <p className="text-4xl font-black text-right tabular-nums leading-tight break-all"
+                style={{ color: "var(--text-primary)", letterSpacing: "-1px", fontSize: display.length > 10 ? "1.5rem" : undefined }}>
                 {display}
               </p>
             </div>
 
             {/* Botões */}
-            <div className="grid grid-cols-4 gap-1 p-2">
+            <div className="grid grid-cols-4 gap-1.5 p-3">
               {BTNS.map(b => (
                 <motion.button
                   key={b.label}
