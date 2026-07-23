@@ -1,0 +1,30 @@
+{
+  "introductions": [
+    "O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:",
+    "Gostaríamos da sua autorização para te enviar mensagens pelo WhatsApp com:",
+    "Para continuar te avisando pelo WhatsApp, precisamos da sua autorização para enviar:",
+    "O Brechó Bellasu gostaria da sua permissão para te enviar mensagens no WhatsApp sobre:",
+    "Para te manter informada pelo WhatsApp, precisamos que você autorize o envio de:"
+  ],
+  "closings": [
+    "Você pode cancelar quando quiser, é só nos avisar. 😊",
+    "Pode cancelar a qualquer momento, basta nos dizer. 💕",
+    "Se quiser parar de receber, é só nos avisar. Sem problemas!",
+    "A qualquer momento você pode cancelar, é só falar com a gente.",
+    "Fica tranquila! Você pode cancelar quando quiser. 💖"
+  ],
+  "greetings": [
+    "Oi, {nome}! 👋",
+    "Olá, {nome}! 😊",
+    "Oi, {nome}! Tudo bem? 💖",
+    "Olá, {nome}! Que bom falar com você. ✨",
+    "Oi, {nome}! Passando para um recadinho rápido. 🛍️",
+    "Oi, {nome}! Que alegria te encontrar por aqui. 🌸",
+    "Olá, {nome}! Espero que esteja bem. 💛",
+    "Oi, {nome}! Tenho um recadinho especial pra você. 🎀",
+    "Oi, {nome}! Passando rapidinho aqui. 😉",
+    "Olá, {nome}! Tudo certo por aí? 🌟"
+  ],
+  "authorizationBlock": "O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:\n\n* 🛍️ Novidades, promoções e ofertas exclusivas\n* 🎥 Avisos das nossas lives com peças selecionadas\n\nVocê pode cancelar quando quiser, é só nos avisar.\n\nResponda:\n✅ SIM — Autorizo\n❌ NÃO — Não autorizo",
+  "followupBlock": "Ainda precisamos da sua autorização para te enviar mensagens pelo WhatsApp sobre:\n\n* 🛍️ Novidades, promoções e ofertas exclusivas\n* 🎥 Avisos das nossas lives com peças selecionadas\n\nSe preferir não receber, tudo bem também.\n\nResponda:\n✅ SIM — Autorizo\n❌ NÃO — Não autorizo"
+}

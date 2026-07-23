@@ -1,0 +1,24 @@
+{
+  "periods": [
+    {
+      "key": "hoje",
+      "label": "Hoje"
+    },
+    {
+      "key": "semana",
+      "label": "7 dias"
+    },
+    {
+      "key": "mes",
+      "label": "30 dias"
+    },
+    {
+      "key": "ano",
+      "label": "Este ano"
+    },
+    {
+      "key": "custom",
+      "label": "Personalizado"
+    }
+  ]
+}

@@ -4,18 +4,14 @@ import { useQuery } from "@tanstack/react-query"
 import { Globe, ExternalLink, Package, ShoppingBag, Settings2, AlertCircle } from "lucide-react"
 import { apiGet } from "@/services/api"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import statusData from "@/data/ui/status.json"
+
+const STATUS_COLORS: Record<string, string> = statusData.siteOrderColors
+
 
 type Pedido = {
   id: number; status: string; total: number; created_at: string
   cliente_nome?: string; email?: string
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  pendente:    "bg-amber-600/15 text-amber-400",
-  processando: "bg-blue-600/15 text-blue-400",
-  enviado:     "bg-purple-600/15 text-purple-400",
-  entregue:    "bg-emerald-600/15 text-emerald-400",
-  cancelado:   "bg-red-600/15 text-red-400",
 }
 
 const SITE_URL = "https://www.brechobellasu.com.br"

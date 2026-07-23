@@ -3,6 +3,13 @@ import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { getClientIp, rateLimit } from "@/lib/rateLimit"
+import clientPhotoImport from "@/data/ai/client-photo-import.json"
+import statesData from "@/data/address/states.json"
+
+const JSON_SCHEMA = clientPhotoImport.responseFormat
+const PROMPT = clientPhotoImport.prompt
+const NOME_PARA_SIGLA: Record<string, string> = statesData.nameToCode
+
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -39,99 +46,6 @@ const ExtracaoSchema = z.object({
   motivo_ilegivel: z.string().nullable(),
   clientes: z.array(ClienteExtraido),
 })
-
-// JSON Schema (formato do OpenAI structured outputs — strict)
-const CONFIANCA_PROPS = Object.fromEntries(
-  CAMPOS_CONFIANCA.map(c => [c, { type: "string", enum: ["alta", "media", "baixa"] }]),
-)
-
-const JSON_SCHEMA = {
-  name: "extracao_cadastro_clientes",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["legivel", "motivo_ilegivel", "clientes"],
-    properties: {
-      legivel: { type: "boolean", description: "false se as imagens estiverem ilegíveis, desfocadas ou sem nenhum dado cadastral de cliente" },
-      motivo_ilegivel: { type: ["string", "null"], description: "Se legivel=false, explique o problema em uma frase curta e amigável" },
-      clientes: {
-        type: "array",
-        description: "Uma entrada por PESSOA identificada nos prints. Prints diferentes da MESMA pessoa geram UMA única entrada com os dados combinados.",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["nome","apelido","cpf_cnpj","data_nasc","celular","instagram","email","cep","logradouro","numero","complemento","bairro","cidade","estado","observacao_leitura","confianca"],
-          properties: {
-            nome:        { type: ["string", "null"], description: "Nome completo da cliente" },
-            apelido:     { type: ["string", "null"], description: "Apelido ou nome de exibição, se diferente do nome completo" },
-            cpf_cnpj:    { type: ["string", "null"], description: "CPF ou CNPJ, apenas dígitos" },
-            data_nasc:   { type: ["string", "null"], description: "Data de nascimento no formato YYYY-MM-DD" },
-            celular:     { type: ["string", "null"], description: "Celular/WhatsApp, apenas dígitos com DDD (sem +55). Ex: 16991234567" },
-            instagram:   { type: ["string", "null"], description: "Usuário do Instagram, sem o @" },
-            email:       { type: ["string", "null"], description: "E-mail, se aparecer" },
-            cep:         { type: ["string", "null"], description: "CEP, apenas dígitos (8)" },
-            logradouro:  { type: ["string", "null"], description: "Rua/Avenida SEM o número. Ex: 'Rua das Flores'" },
-            numero:      { type: ["string", "null"], description: "Número do endereço" },
-            complemento: { type: ["string", "null"], description: "Apto, bloco, casa, fundos etc." },
-            bairro:      { type: ["string", "null"], description: "Bairro" },
-            cidade:      { type: ["string", "null"], description: "Cidade" },
-            estado:      { type: ["string", "null"], description: "Sigla do estado com 2 letras (ex: SP)" },
-            observacao_leitura: { type: ["string", "null"], description: "Alguma informação cadastral relevante que não coube nos campos, em uma frase curta" },
-            confianca: {
-              type: "object",
-              additionalProperties: false,
-              required: [...CAMPOS_CONFIANCA],
-              properties: CONFIANCA_PROPS,
-            },
-          },
-        },
-      },
-    },
-  },
-} as const
-
-const PROMPT = `Você está lendo PRINTS (capturas de tela) enviados pela dona de um brechó. Os prints são de conversas de WhatsApp, perfis/DM do Instagram ou anotações, e contêm DADOS CADASTRAIS de clientes — nome, telefone, endereço, CPF, data de nascimento, e-mail, @ do Instagram.
-
-Sua missão: extrair SOMENTE informações de cadastro e organizá-las nos campos corretos. Seja minucioso — varra CADA print inteiro (topo, mensagens, rodapé, bio) e não deixe passar nenhum dado cadastral visível.
-
-ONDE OS DADOS COSTUMAM APARECER:
-- Topo da conversa/perfil do WhatsApp: nome do contato e, na tela "Dados do contato", o número de telefone e o recado/status.
-- Perfil do Instagram: o @ (usuário) no título, o nome de exibição e a bio (que às vezes traz cidade e WhatsApp).
-- Mensagens onde a cliente digita os próprios dados ("meu endereço é...", "CPF: ...", "CEP ...", "meu insta é...").
-- Cartões de contato compartilhados na conversa (nome + número).
-- Uma foto/print encaminhado DENTRO da conversa (ex: print de um comprovante com endereço).
-
-REGRAS:
-1. UMA entrada por PESSOA. Se vários prints forem claramente da MESMA pessoa (mesmo nome/telefone/@), combine tudo em UMA entrada só. Se houver pessoas diferentes, crie uma entrada para cada.
-2. IGNORE todo o resto da conversa: preços, produtos, pagamentos, saudações, horários das mensagens, mensagens da LOJA. Extraia apenas dado cadastral DA CLIENTE.
-3. NOME: prefira SEMPRE o nome que a própria cliente escreveu/assinou em mensagem, pois o nome salvo no contato do WhatsApp pode ser um apelido criado pela loja (ex: "Maria Live Sexta", "Cliente Ju"). Se só existir o nome do contato e ele parecer conter etiquetas da loja, extraia apenas a parte que é nome de pessoa e marque confiança "media". Remova emojis, símbolos e decorações do nome (ex: "✨ Ana Paula 🌸" → "Ana Paula").
-4. ENDEREÇO: separe nos componentes corretos — logradouro (sem número), numero, complemento, bairro, cidade, estado (sigla 2 letras), cep (8 dígitos). Se a cliente escreveu tudo junto ("Rua das Flores 123 apto 4 Centro Araraquara SP 14800-000"), distribua cada parte no campo certo. Se a cidade aparecer sem estado e você tiver certeza razoável do estado pelo DDD do telefone ou pelo contexto, preencha com confiança "media"; caso contrário deixe null. Cidade citada na bio do Instagram pode ser usada com confiança "media".
-5. TELEFONE: apenas dígitos, com DDD, sem o +55 (código do país). Se aparecer "+55 16 99134-7476", retorne "16991347476". O número exibido pelo WhatsApp no topo do perfil é confiável. Se a cliente digitou um número SEM DDD (8-9 dígitos), retorne os dígitos como estão e marque confiança "baixa" — nunca invente o DDD. Se houver dois números (fixo e celular), prefira o celular (começa com 9).
-6. DATA DE NASCIMENTO: converta para YYYY-MM-DD ("15/03/1990" → "1990-03-15"). Só preencha se for claramente data de NASCIMENTO — nunca use datas de mensagens ou de entrega.
-7. CPF/CNPJ: apenas dígitos. Só preencha se for claramente um CPF/CNPJ (11 ou 14 dígitos) — não confunda com telefone ou CEP.
-8. INSTAGRAM: sem o @, em minúsculas. Nome de exibição do perfil não é o usuário — o usuário é o que aparece no título do perfil, na URL ou após um @.
-9. APELIDO: só se houver um nome curto/informal claramente distinto do nome completo (ex: nome completo "Maria Aparecida Silva" e ela assina "Cida").
-10. NÃO INVENTE NADA. Campo não visível nos prints = null. NUNCA complete um dado parcial com suposição (ex: não invente dígitos que faltam num telefone nem o número da casa que não aparece).
-11. Confiança por campo: "alta" = leitura clara e certa; "media" = legível mas com dúvida (corte na imagem, abreviação ambígua, dado deduzido do contexto); "baixa" = quase ilegível ou incompleto. Campo null = "alta".
-12. Se sobrar alguma informação cadastral relevante que não coube nos campos (ex: ponto de referência da entrega, segundo telefone), resuma em observacao_leitura.
-13. Se as imagens não contiverem NENHUM dado cadastral (ou estiverem ilegíveis), retorne legivel=false com um motivo curto e amigável em português.
-
-Responda SOMENTE com o JSON no formato solicitado.`
-
-// ─── Saneamento pós-IA ────────────────────────────────────
-// Defesa em profundidade: mesmo que a IA desobedeça o formato pedido,
-// os dados chegam limpos na tela de revisão (telefone sem +55, data
-// ISO, estado em sigla, CPF/CEP só dígitos). O que não der para
-// corrigir com segurança é mantido e rebaixado para confiança "baixa".
-const NOME_PARA_SIGLA: Record<string, string> = {
-  "ACRE":"AC","ALAGOAS":"AL","AMAPA":"AP","AMAZONAS":"AM","BAHIA":"BA","CEARA":"CE",
-  "DISTRITO FEDERAL":"DF","ESPIRITO SANTO":"ES","GOIAS":"GO","MARANHAO":"MA",
-  "MATO GROSSO":"MT","MATO GROSSO DO SUL":"MS","MINAS GERAIS":"MG","PARA":"PA",
-  "PARAIBA":"PB","PARANA":"PR","PERNAMBUCO":"PE","PIAUI":"PI","RIO DE JANEIRO":"RJ",
-  "RIO GRANDE DO NORTE":"RN","RIO GRANDE DO SUL":"RS","RONDONIA":"RO","RORAIMA":"RR",
-  "SANTA CATARINA":"SC","SAO PAULO":"SP","SERGIPE":"SE","TOCANTINS":"TO",
-}
 
 function semAcentos(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "")

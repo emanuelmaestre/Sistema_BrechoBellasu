@@ -9,6 +9,11 @@ import {
 } from "lucide-react"
 import { apiGet } from "@/services/api"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import statusData from "@/data/ui/status.json"
+
+const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string }> = statusData.liveSearchPurchase
+const STATUS_LIVE: Record<string, { cor: string }> = statusData.liveSearchLive
+
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -67,23 +72,6 @@ interface BuscaResult {
   cliente?: ClienteInfo | null
   resumo?: Resumo
   lives?: LiveAgrupada[]
-}
-
-// ── Status configs ────────────────────────────────────────────────────────────
-
-const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string }> = {
-  aguardando_vinculo: { label: "Ag. Vínculo",  cor: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
-  vinculo_parcial:    { label: "Parcial",       cor: "#f97316", bg: "rgba(249,115,22,0.12)"  },
-  vinculada:          { label: "Vinculada",     cor: "#10b981", bg: "rgba(16,185,129,0.12)"  },
-  finalizada:         { label: "Finalizada",    cor: "#10b981", bg: "rgba(16,185,129,0.15)"  },
-  retirada:           { label: "Retirada",      cor: "#639922", bg: "rgba(99,153,34,0.15)"   },
-  cadastrada:         { label: "Cadastrada",    cor: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-}
-
-const STATUS_LIVE: Record<string, { cor: string }> = {
-  aberta:    { cor: "#10b981" },
-  disparada: { cor: "#3b82f6" },
-  encerrada: { cor: "#6b7280" },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

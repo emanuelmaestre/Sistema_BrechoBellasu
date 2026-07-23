@@ -1,0 +1,65 @@
+{
+  "slogan": "O Desapego é o Esporte da Felicidade!",
+  "colors": {
+    "primaria": [
+      15,
+      23,
+      42
+    ],
+    "secundaria": [
+      30,
+      41,
+      59
+    ],
+    "accent": [
+      180,
+      130,
+      20
+    ],
+    "accentCl": [
+      212,
+      170,
+      60
+    ],
+    "headerTxt": [
+      255,
+      255,
+      255
+    ],
+    "totalBg": [
+      241,
+      245,
+      249
+    ],
+    "totalTxt": [
+      15,
+      23,
+      42
+    ],
+    "linhaAlt": [
+      248,
+      250,
+      252
+    ],
+    "borda": [
+      203,
+      213,
+      225
+    ],
+    "muted": [
+      100,
+      116,
+      139
+    ],
+    "verde": [
+      22,
+      163,
+      74
+    ],
+    "vermelho": [
+      220,
+      38,
+      38
+    ]
+  }
+}

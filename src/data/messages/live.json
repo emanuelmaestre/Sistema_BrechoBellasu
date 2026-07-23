@@ -1,0 +1,180 @@
+{
+  "thanks": [
+    "Foi um prazer ter você com a gente durante a live!",
+    "Ficamos muito felizes com a sua participação na live!",
+    "Adoramos ter você com a gente em mais uma live!",
+    "Obrigada por acompanhar e participar da nossa live!",
+    "Foi lindo ter você com a gente durante a live!",
+    "Sua presença na live foi muito especial pra gente!",
+    "Que alegria ter você participando da nossa live!",
+    "Foi um momento muito especial ter você com a gente!",
+    "Obrigada de coração por participar da live!",
+    "Sua participação na live foi muito importante pra gente!",
+    "Que emoção ter você na live mais uma vez!",
+    "Você faz nossa live ainda mais especial! Obrigada! 💖"
+  ],
+  "confirmations": [
+    "Suas peças foram cuidadosamente separadas.",
+    "Suas escolhas já estão separadas com muito carinho.",
+    "Suas peças foram reservadas e organizadas com amor.",
+    "Já deixamos suas peças separadinhas esperando por você.",
+    "Suas peças estão reservadas e prontas pra você!",
+    "Com muito cuidado, separamos suas peças com amor. 🛍️",
+    "Suas peças estão organizadas com todo o carinho.",
+    "Cada peça foi separada com muito capricho pra você.",
+    "Suas peças já estão reservadas e guardadas com carinho. 💕",
+    "Tudo separadinho e organizado esperando por você! 🛍️",
+    "Suas peças estão safe e esperando por você com amor. 💖",
+    "Fizemos questão de separar suas peças com muito cuidado."
+  ],
+  "announcementCalls": [
+    "🔴 A propósito, estamos *AO VIVO* agora e tem coisa especial esperando por você! 🎉✨",
+    "🔴 A live tá *bombando* e você não pode ficar de fora! Coisas incríveis aqui! 🔥",
+    "✨ Tem *novidade especial* te esperando na live agora! Entra lá! 🎉",
+    "🛍️ A live começou e as peças tão *voando*! Vem antes que acabe! 🔴",
+    "🎉 Estamos *AO VIVO* com peças lindas e promoções imperdíveis! Não perde! 💖",
+    "🔴 Nossa live começou agora e está *cheia de surpresas* pra você! ✨🛍️",
+    "💥 Peças novas, preços incríveis e a gente *AO VIVO* agora! Vem! 🔴🎉",
+    "✨ Estamos *AO VIVO* agora com seleção especial e muito amor! 💖🔴",
+    "🔴 A live abriu e já tem muita coisa bonita passando! Não perde! 🛍️✨",
+    "🎀 Estamos *AO VIVO* com peças garimpadas com muito carinho pra você! 🔴💖",
+    "🔴 Começo de live e as melhores peças aparecem primeiro! Corre! 🔥🛍️",
+    "💫 Estamos *AO VIVO* agora! Tem peça boa, preço justo e muito estilo! 🔴✨"
+  ],
+  "reminderCalls": [
+    "🔴 A live caiu por um momento, mas *VOLTAMOS* com novo link! 🎉",
+    "✨ Tivemos uma instabilidade, mas estamos *DE VOLTA ao vivo*! Novo link aqui: 🔴",
+    "💫 A live teve uma queda mas já voltamos! *Novo link* pra acessar: 📲",
+    "🙌 De volta ao ar! Aqui está o *novo link de acesso*: 🔴",
+    "⚡ Resolvemos e já estamos *DE VOLTA*! Novo link da live: 🔴",
+    "🔴 *Voltamos!* A live caiu por um momento mas agora tá tudo certo! Novo link: 📲",
+    "💖 Boa notícia: a live voltou! Aqui está o *novo link*: 🔴",
+    "🎉 *Estamos de volta!* A live caiu mas voltamos mais fortes! Novo link: 📲"
+  ],
+  "greetings": [
+    {
+      "withValue": "Oi, {nome}! Que bom falar com você. 💖",
+      "withoutValue": "Oi! Que bom falar com você. 💖"
+    },
+    {
+      "withValue": "Oi, {nome}! Tudo bem com você? 😊",
+      "withoutValue": "Oi! Tudo bem com você? 😊"
+    },
+    {
+      "withValue": "Olá, {nome}! Que alegria falar com você! 😍",
+      "withoutValue": "Olá! Que alegria falar com você! 😍"
+    },
+    {
+      "withValue": "Oi, {nome}! Estava pensando em você! 💖",
+      "withoutValue": "Oi! Estava pensando em você! 💖"
+    },
+    {
+      "withValue": "Olá, {nome}! Que bom te ver por aqui! ✨",
+      "withoutValue": "Olá! Que bom te ver por aqui! ✨"
+    },
+    {
+      "withValue": "Ei, {nome}! Passando com novidade especial! 🎉",
+      "withoutValue": "Ei! Passando com novidade especial! 🎉"
+    },
+    {
+      "withValue": "Oi, {nome}! Saudades! Tô aqui com seu recado. 🥰",
+      "withoutValue": "Oi! Saudades! Tô aqui com seu recado. 🥰"
+    },
+    {
+      "withValue": "Olá, {nome}! Você é especial pra gente! 🌸",
+      "withoutValue": "Olá! Você é especial pra gente! 🌸"
+    },
+    {
+      "withValue": "Oi, {nome}! Vim com carinho te dar um recado. 💌",
+      "withoutValue": "Oi! Vim com carinho te dar um recado. 💌"
+    },
+    {
+      "withValue": "Ei, {nome}! Feliz em falar com você hoje! 🥰",
+      "withoutValue": "Ei! Feliz em falar com você hoje! 🥰"
+    },
+    {
+      "withValue": "Olá, {nome}! Passando com muito carinho! 💕",
+      "withoutValue": "Olá! Passando com muito carinho! 💕"
+    },
+    {
+      "withValue": "Oi, {nome}! Que bom que você esteve com a gente! ✨",
+      "withoutValue": "Oi! Que bom que você esteve com a gente! ✨"
+    },
+    {
+      "withValue": "Ei, {nome}! Tô super feliz de falar com você! 🎀",
+      "withoutValue": "Ei! Tô super feliz de falar com você! 🎀"
+    },
+    {
+      "withValue": "Olá, {nome}! Vim com uma novidade linda pra você! 🛍️",
+      "withoutValue": "Olá! Vim com uma novidade linda pra você! 🛍️"
+    },
+    {
+      "withValue": "Oi, {nome}! Você faz parte dessa história com a gente! 💖",
+      "withoutValue": "Oi! Você faz parte dessa história com a gente! 💖"
+    },
+    {
+      "withValue": "Ei, {nome}! Que dia especial por ter você! 🌟",
+      "withoutValue": "Ei! Que dia especial por ter você! 🌟"
+    },
+    {
+      "withValue": "Olá, {nome}! Tô aqui com muito amor pra contar. 💗",
+      "withoutValue": "Olá! Tô aqui com muito amor pra contar. 💗"
+    },
+    {
+      "withValue": "Oi, {nome}! Sempre um prazer falar com você! 😊",
+      "withoutValue": "Oi! Sempre um prazer falar com você! 😊"
+    }
+  ],
+  "announcementOpenings": [
+    {
+      "withValue": "Oi, {nome}! Tudo bem com você? 😊",
+      "withoutValue": "Oi! Tudo bem com você? 😊"
+    },
+    {
+      "withValue": "Oi, {nome}! Saudades! 🥰",
+      "withoutValue": "Oi! Saudades! 🥰"
+    },
+    {
+      "withValue": "Olá, {nome}! Que bom te ver por aqui! ✨",
+      "withoutValue": "Olá! Que bom te ver por aqui! ✨"
+    },
+    {
+      "withValue": "Ei, {nome}! Tô passando rapidinho... 🏃‍♀️💨",
+      "withoutValue": "Ei! Tô passando rapidinho... 🏃‍♀️💨"
+    },
+    {
+      "withValue": "Oi, {nome}! Estava pensando em você! 💖",
+      "withoutValue": "Oi! Estava pensando em você! 💖"
+    },
+    {
+      "withValue": "Olá, {nome}! Passando com novidade! 🎉",
+      "withoutValue": "Olá! Passando com novidade! 🎉"
+    },
+    {
+      "withValue": "Ei, {nome}! Tem coisa boa aqui pra você! 🛍️",
+      "withoutValue": "Ei! Tem coisa boa aqui pra você! 🛍️"
+    },
+    {
+      "withValue": "Oi, {nome}! Vim te dar um recado especial! 💌",
+      "withoutValue": "Oi! Vim te dar um recado especial! 💌"
+    },
+    {
+      "withValue": "Oi, {nome}! Você é especial pra gente! 🌸",
+      "withoutValue": "Oi! Você é especial pra gente! 🌸"
+    },
+    {
+      "withValue": "Olá, {nome}! Que alegria falar com você! 😍",
+      "withoutValue": "Olá! Que alegria falar com você! 😍"
+    }
+  ],
+  "announcementClosings": [
+    "Corre lá: {link}\n\nTe esperamos! 🙌🏼❤️",
+    "Entra aqui agora: {link}\n\nA gente tá te esperando! 💖",
+    "Vem com a gente: {link}\n\nTe esperamos com muita alegria! 🎉",
+    "Acessa agora: {link}\n\nTe esperamos lá! 🔴✨",
+    "Tô te esperando: {link}\n\nVem! 🛍️💖",
+    "Entra aqui: {link}\n\nÉ rapidinho e vale muito! 💫",
+    "Acessa agora e vem se surpreender: {link}\n\n❤️",
+    "Passa lá: {link}\n\nTem coisa linda esperando por você! 🌸"
+  ]
+}

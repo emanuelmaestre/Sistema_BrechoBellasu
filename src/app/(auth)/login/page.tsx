@@ -11,6 +11,10 @@ import { useAuthStore } from "@/stores/auth.store"
 import { apiPost } from "@/services/api"
 import { cn } from "@/lib/utils"
 import type { Usuario } from "@/types"
+import loginData from "@/data/ui/login.json"
+
+const SLOGAN_WORDS = loginData.sloganWords
+
 
 const loginSchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -22,9 +26,6 @@ type LoginForm = z.infer<typeof loginSchema>
 interface LoginResponse {
   usuario: Usuario
 }
-
-// Slogan partido em palavras para animação staggered
-const SLOGAN_WORDS = ["O", "Desapego", "é", "o", "esporte", "da", "felicidade"]
 
 // Partícula flutuante decorativa
 function Particle({ x, y, delay, size }: { x: string; y: string; delay: number; size: number }) {

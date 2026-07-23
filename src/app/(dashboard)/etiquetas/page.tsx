@@ -13,6 +13,8 @@ import {
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
+import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
+import { camposFaltantesEnvio } from "@/lib/endereco-parser"
 import { fmtBRL, cn } from "@/lib/utils"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 
@@ -317,6 +319,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
   const [cepStatus, setCepStatus] = useState<CepStatus>("idle")
 
   // Step 5 — frete
+  const [carrier, setCarrier]     = useState<"melhorenvio" | "superfrete">("melhorenvio")
   const [servicos, setServicos]   = useState<Servico[]>([])
   const [servicoSel, setServicoSel] = useState<Servico | null>(null)
   const [cotando, setCotando]     = useState(false)
@@ -414,49 +417,48 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
 
   function go(next: number) { setDir(next > step ? 1 : -1); setStep(next); setErro("") }
 
-  async function buscarCep(cep: string): Promise<boolean> {
-    const limpo = cep.replace(/\D/g, "")
-    if (limpo.length !== 8) return false
-    setCepStatus("buscando")
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
-      const d = await r.json()
-      if (!d.erro) {
-        setForm(f => ({
-          ...f,
-          logradouro: d.logradouro ?? "",
-          bairro:     d.bairro     ?? "",
-          cidade:     d.localidade ?? "",
-          estado:     d.uf         ?? "",
-        }))
-        setCepStatus("encontrado")
-        return true
-      } else {
-        setCepStatus("invalido")
-        return false
-      }
-    } catch {
-      setCepStatus("invalido")
-      return false
-    }
+  // Texto mostrado no campo de endereço ao entrar no passo 2 — vem do
+  // cadastro do cliente escolhido no passo 1.
+  const enderecoTexto = [form.logradouro, form.bairro, form.cidade, form.estado, form.cep]
+    .filter(Boolean).join(", ")
+
+  function selecionarEndereco(end: EnderecoEscolhido) {
+    setForm(f => ({
+      ...f,
+      cep:        end.cep,
+      logradouro: end.logradouro,
+      bairro:     end.bairro,
+      cidade:     end.cidade,
+      estado:     end.estado,
+      ...(end.numero ? { numero: end.numero } : {}),
+      ...(end.complemento && !f.complemento ? { complemento: end.complemento } : {}),
+    }))
+    setCepStatus("encontrado")
   }
 
-  async function advanceCep() {
-    const limpo = form.cep.replace(/\D/g, "")
-    if (!limpo) { go(step + 1); return }
-    if (cepStatus === "encontrado" || cepStatus === "manual") { go(step + 1); return }
-    if (cepStatus === "invalido") { setErro("Corrija o CEP ou preencha manualmente."); return }
-    const ok = await buscarCep(form.cep)
-    if (ok) go(step + 1)
+  function advanceCep() {
+    if (!form.logradouro.trim()) {
+      setErro("Escolha um endereço na lista ou preencha manualmente.")
+      return
+    }
+    // Digitou algo novo mas não escolheu da lista: os campos estruturados
+    // ainda seguram o endereço anterior. Seguir aqui geraria etiqueta para
+    // o endereço errado sem ninguém perceber.
+    if (cepStatus !== "encontrado" && cepStatus !== "manual") {
+      setErro("Escolha um endereço na lista ou use “preencher manualmente”.")
+      return
+    }
+    go(step + 1)
   }
 
   async function cotar() {
-    setCotando(true); setErroFrete("")
+    setCotando(true); setErroFrete(""); setServicos([]); setServicoSel(null)
     try {
       const res = await apiPost<{ servicos: Servico[]; erros: unknown[] }>("/etiquetas/cotacao", {
         cep_destino: form.cep.replace(/\D/g, ""),
         peso: form.peso, altura: form.altura,
         largura: form.largura, comprimento: form.comprimento,
+        carrier,
       })
       setServicos(res.servicos ?? [])
     } catch (e: unknown) {
@@ -493,6 +495,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
         cliente_id: cliSel?.id,
         tipo_etiqueta: tipoEtiqueta(),
         checkout_auto,
+        carrier,
         destinatario: destinatarioPayload(),
       })
       setOrder(res)
@@ -699,25 +702,22 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                   )}
                 </>}
 
-                {/* ── Step 2: CEP ── */}
+                {/* ── Step 2: Endereço ── */}
                 {step === 2 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Qual o CEP de destino?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>O endereço é preenchido automaticamente.</p>
+                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Qual o endereço de destino?</h1>
+                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+                    CEP, nome da rua ou endereço completo — buscamos automaticamente.
+                  </p>
 
-                  <div className="relative">
-                    <input ref={inputRef} value={form.cep}
-                      onChange={e => { set("cep", e.target.value); setCepStatus("idle") }}
-                      onBlur={e => {
-                        const limpo = e.target.value.replace(/\D/g, "")
-                        if (limpo.length === 8 && cepStatus === "idle") buscarCep(e.target.value)
-                      }}
-                      placeholder="00000-000"
-                      className={iBase}
-                      style={{ ...iSt, borderColor: cepStatus === "encontrado" ? "#10b981" : cepStatus === "invalido" ? "#f87171" : "var(--border)" }}
-                      maxLength={9} />
-                    {cepStatus === "buscando" && <Loader2 size={18} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--accent)" }} />}
-                    {cepStatus === "encontrado" && <Check size={18} className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "#10b981" }} />}
-                  </div>
+                  <EnderecoAutocomplete
+                    inputRef={inputRef}
+                    textoInicial={enderecoTexto}
+                    inputClassName={iBase}
+                    inputStyle={iSt}
+                    confirmado={cepStatus === "encontrado"}
+                    onSelecionar={selecionarEndereco}
+                    onEditar={() => setCepStatus("idle")}
+                  />
 
                   <AnimatePresence>
                     {cepStatus === "encontrado" && (
@@ -730,27 +730,25 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                             {[form.logradouro, form.bairro].filter(Boolean).join(", ")}
                           </p>
                           <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                            {[form.cidade, form.estado].filter(Boolean).join(" – ")}
+                            {[form.cidade, form.estado, form.cep].filter(Boolean).join(" – ")}
                           </p>
                         </div>
                       </motion.div>
                     )}
-                    {cepStatus === "invalido" && (
-                      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle size={15} style={{ color: "#f87171" }} />
-                          <p className="text-sm font-medium" style={{ color: "#f87171" }}>CEP não encontrado.</p>
-                        </div>
-                        <button onClick={() => { setCepStatus("manual"); setErro("") }}
-                          className="text-xs font-medium underline underline-offset-2"
-                          style={{ color: "var(--text-muted)" }}>
-                          Preencher endereço manualmente →
-                        </button>
-                      </motion.div>
+
+                    {cepStatus !== "manual" && (
+                      <motion.button key="manual-toggle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => { setCepStatus("manual"); setErro("") }}
+                        className="mt-4 text-xs font-medium underline underline-offset-2"
+                        style={{ color: "var(--text-muted)" }}>
+                        Preencher endereço manualmente →
+                      </motion.button>
                     )}
+
                     {cepStatus === "manual" && (
-                      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-4 space-y-2">
-                        <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Preencha manualmente:</p>
+                      <motion.div key="manual-campos" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-4 space-y-2">
+                        <input value={form.cep} onChange={e => set("cep", e.target.value)}
+                          placeholder="CEP" maxLength={9} className={cn(iBase, "!text-base !py-3")} style={iSt} />
                         <input value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
                           placeholder="Rua / Avenida" className={cn(iBase, "!text-base !py-3")} style={iSt} />
                         <div className="grid grid-cols-2 gap-2">
@@ -759,11 +757,25 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                           <input value={form.cidade} onChange={e => set("cidade", e.target.value)}
                             placeholder="Cidade" className={cn(iBase, "!text-base !py-3")} style={iSt} />
                         </div>
-                        <input value={form.estado} onChange={e => set("estado", e.target.value)}
+                        <input value={form.estado} onChange={e => set("estado", e.target.value.toUpperCase())}
                           placeholder="UF" maxLength={2} className={cn(iBase, "!text-base !py-3")} style={iSt} />
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {/* Checagem antecipada dos campos que o Melhor Envio exige. */}
+                  {(() => {
+                    const faltam = camposFaltantesEnvio({ ...form, numero: form.numero || "1" })
+                    return faltam.length > 0 ? (
+                      <div className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl"
+                        style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.30)" }}>
+                        <AlertCircle size={14} className="shrink-0" style={{ color: "#f59e0b" }} />
+                        <p className="text-xs font-medium" style={{ color: "#f59e0b" }}>
+                          Falta {faltam.join(", ")} para gerar a etiqueta.
+                        </p>
+                      </div>
+                    ) : null
+                  })()}
                 </>}
 
                 {/* ── Step 3: Número e Complemento ── */}
@@ -906,11 +918,31 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                         <Truck size={36} style={{ color: COR }} />
                       </div>
                       <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                        Clique para buscar as opções de frete disponíveis para este destino.
+                        Escolha a transportadora e clique para buscar as opções de frete.
                       </p>
+
+                      {/* Seletor de transportadora */}
+                      <div className="flex gap-2 p-1 rounded-2xl w-full max-w-xs"
+                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                        {([
+                          { id: "melhorenvio" as const, label: "Melhor Envio", cor: "#00b4d8" },
+                          { id: "superfrete"  as const, label: "Super Frete",  cor: "#ff6b00" },
+                        ] as const).map(opt => (
+                          <button key={opt.id}
+                            onClick={() => { setCarrier(opt.id); setServicos([]); setServicoSel(null) }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all"
+                            style={{
+                              background: carrier === opt.id ? opt.cor : "transparent",
+                              color: carrier === opt.id ? "#fff" : "var(--text-secondary)",
+                            }}>
+                            <Truck size={12} /> {opt.label}
+                          </button>
+                        ))}
+                      </div>
+
                       <button onClick={cotar}
                         className="flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-white text-lg shadow-xl transition-opacity"
-                        style={{ background: COR }}
+                        style={{ background: carrier === "superfrete" ? "#ff6b00" : COR }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
                         <Truck size={20} /> Calcular fretes disponíveis

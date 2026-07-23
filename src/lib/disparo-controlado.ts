@@ -11,6 +11,11 @@
 
 import { enviarTexto, enviarDocumento, type ZAPIResult } from "./zapi"
 import { gerarIntervaloAleatorio } from "./intervalo-aleatorio"
+import dispatchData from "@/data/messages/dispatch.json"
+
+const ICONE_MODULO: Record<ModuloOrigem, string> = dispatchData.moduleIcons
+const ICONE_TIPO: Record<TipoMensagem, string> = dispatchData.typeIcons
+
 
 // Re-exporta para manter compatibilidade com imports existentes.
 export { gerarIntervaloAleatorio }
@@ -98,18 +103,6 @@ function fmtHorario(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit", minute: "2-digit", second: "2-digit"
   })
-}
-
-const ICONE_MODULO: Record<ModuloOrigem, string> = {
-  CLIENTES: "👤",
-  LIVE:     "📺",
-  VENDAS:   "🏪",
-}
-
-const ICONE_TIPO: Record<TipoMensagem, string> = {
-  consentimento: "📋",
-  compras_live:  "🛍️",
-  recibo_venda:  "🧾",
 }
 
 function logDisparo(r: ResultadoDisparo, pos: number, total: number): void {

@@ -13,6 +13,14 @@ import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
 import type { Produto, Categoria } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
+import productData from "@/data/catalog/products.json"
+
+const TAMANHOS = productData.sizes
+const CORES_PRODUTO: { nome: string; hex: string }[] = productData.colors
+const KEYWORDS: [string[], string[]][] = productData.categoryKeywords.map(
+  ({ keywords, categories }) => [keywords, categories],
+)
+
 
 // ─── Tipos ────────────────────────────────────────────────
 interface ProdutoForm {
@@ -31,124 +39,6 @@ const EMPTY: ProdutoForm = {
   preco_venda: "", preco_custo: "",
   cor: "", tamanho: "",
 }
-
-const TAMANHOS = ["U", "P", "M", "G", "GG", "EG", "EXG"]
-
-const CORES_PRODUTO: { nome: string; hex: string }[] = [
-  // ── Neutros claros ──────────────────────────────────────
-  { nome: "BRANCO",       hex: "#f1f5f9" },
-  { nome: "OFF WHITE",    hex: "#faf7f0" },
-  { nome: "NUDE",         hex: "#e8c9a0" },
-  { nome: "BEGE",         hex: "#d4b896" },
-  { nome: "PÊSSEGO",      hex: "#fdba74" },
-  // ── Amarelos / Dourados ──────────────────────────────────
-  { nome: "AMARELO",      hex: "#fbbf24" },
-  { nome: "DOURADO",      hex: "#eab308" },
-  { nome: "MOSTARDA",     hex: "#ca8a04" },
-  // ── Laranjas ────────────────────────────────────────────
-  { nome: "LARANJA",      hex: "#f97316" },
-  { nome: "CORAL",        hex: "#fb6f3b" },
-  { nome: "SALMÃO",       hex: "#fb923c" },
-  { nome: "CARAMELO",     hex: "#d97706" },
-  // ── Vermelhos ───────────────────────────────────────────
-  { nome: "VERMELHO",     hex: "#ef4444" },
-  { nome: "ESCARLATE",    hex: "#ff2400" },
-  { nome: "CEREJA",       hex: "#be123c" },
-  { nome: "RUBI",         hex: "#9b111e" },
-  { nome: "VINHO",        hex: "#722f37" },
-  { nome: "GRANADA",      hex: "#6e1423" },
-  { nome: "BORDÔ",        hex: "#7f1d1d" },
-  // ── Rosas / Fúcsias ─────────────────────────────────────
-  { nome: "ROSA BEBÊ",    hex: "#fbcfe8" },
-  { nome: "ROSA",         hex: "#f472b6" },
-  { nome: "ROSA PINK",    hex: "#ec4899" },
-  { nome: "ROSA CHOQUE",  hex: "#f72585" },
-  { nome: "ROSE GOLD",    hex: "#e8a598" },
-  { nome: "ROSA ANTIGO",  hex: "#b76e79" },
-  { nome: "FÚCSIA",       hex: "#d946ef" },
-  { nome: "MAGENTA",      hex: "#c026d3" },
-  { nome: "AMEIXA",       hex: "#7e1d5f" },
-  // ── Roxos / Lilás ────────────────────────────────────────
-  { nome: "LILÁS",        hex: "#ddd6fe" },
-  { nome: "LAVANDA",      hex: "#a78bfa" },
-  { nome: "VIOLETA",      hex: "#7c3aed" },
-  { nome: "AMETISTA",     hex: "#9333ea" },
-  { nome: "ROXO",         hex: "#7e22ce" },
-  { nome: "PÚRPURA",      hex: "#581c87" },
-  { nome: "BERINJELA",    hex: "#3c1053" },
-  // ── Azuis ───────────────────────────────────────────────
-  { nome: "AZUL BEBÊ",      hex: "#bfdbfe" },
-  { nome: "AZUL SERENITY",  hex: "#92a8d1" },
-  { nome: "TURQUESA",       hex: "#2dd4bf" },
-  { nome: "AZUL",           hex: "#3b82f6" },
-  { nome: "AZUL ROYAL",     hex: "#2541b2" },
-  { nome: "AZUL PETRÓLEO",  hex: "#154360" },
-  { nome: "JEANS",          hex: "#1e40af" },
-  { nome: "AZUL MARINHO",   hex: "#0c2340" },
-  // ── Verdes ──────────────────────────────────────────────
-  { nome: "VERDE LIMÃO",    hex: "#a3e635" },
-  { nome: "MENTA",          hex: "#86efac" },
-  { nome: "VERDE ÁGUA",     hex: "#5eead4" },
-  { nome: "VERDE",          hex: "#22c55e" },
-  { nome: "VERDE BANDEIRA", hex: "#009639" },
-  { nome: "VERDE ESMERALDA", hex: "#059669" },
-  { nome: "VERDE OLIVA",    hex: "#808000" },
-  { nome: "VERDE MILITAR",  hex: "#4b5320" },
-  { nome: "VERDE MUSGO",    hex: "#606c38" },
-  { nome: "CAMUFLADO",      hex: "#4a5e3a" },
-  // ── Terrosos / Marrons ───────────────────────────────────
-  { nome: "TERRACOTA",    hex: "#c2410c" },
-  { nome: "BRONZE",       hex: "#b45309" },
-  { nome: "COBRE",        hex: "#b87333" },
-  { nome: "MARROM",       hex: "#78350f" },
-  { nome: "CAFÉ",         hex: "#6f4e37" },
-  { nome: "CHOCOLATE",    hex: "#3d1f0d" },
-  { nome: "BRIM",         hex: "#8a7560" },
-  { nome: "TRICÔ",        hex: "#c9a876" },
-  // ── Cinzas / Neutros escuros ─────────────────────────────
-  { nome: "PRATA",        hex: "#cbd5e1" },
-  { nome: "CINZA CLARO",  hex: "#b0b8c1" },
-  { nome: "CINZA",        hex: "#94a3b8" },
-  { nome: "CINZA MESCLA", hex: "#8b93a1" },
-  { nome: "GRAFITE",      hex: "#5f6b7a" },
-  { nome: "CHUMBO",       hex: "#475569" },
-  { nome: "ARDÓSIA",      hex: "#3b4759" },
-  { nome: "ANTRACITE",    hex: "#2c333d" },
-  { nome: "PRETO",        hex: "#0f172a" },
-  // ── Estampados / Padronagens ─────────────────────────────
-  { nome: "ANIMAL PRINT", hex: "#c8953a" },
-  { nome: "FLORAL",       hex: "#f9a8d4" },
-  { nome: "ESTAMPADO",    hex: "linear-gradient(135deg,#6366f1,#ec4899,#f97316)" },
-  { nome: "LISTRADA",     hex: "repeating-linear-gradient(90deg,#0f172a 0px,#0f172a 6px,#f1f5f9 6px,#f1f5f9 12px)" },
-  { nome: "XADREZ",       hex: "repeating-conic-gradient(#1e293b 0% 25%,#94a3b8 0% 50%) 0 0/12px 12px" },
-  { nome: "POÁ",          hex: "#1e293b" },
-  { nome: "TIE DYE",      hex: "linear-gradient(135deg,#f87171,#a78bfa,#34d399,#60a5fa)" },
-  { nome: "COLORIDA",     hex: "linear-gradient(135deg,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa)" },
-]
-
-// ─── Sugestão inteligente de categoria ───────────────────
-const KEYWORDS: [string[], string[]][] = [
-  [["vestido", "dress"],                               ["vestido", "vestidos"]],
-  [["calca", "calça", "jeans", "legging", "leggings"], ["calca", "calças", "calca", "jeans", "legging"]],
-  [["shorts", "short"],                                ["shorts"]],
-  [["blusa", "blusinha"],                              ["blusa", "blusas"]],
-  [["camisa", "camisao"],                              ["camisa", "camisas"]],
-  [["camiseta", "t-shirt", "tshirt"],                  ["camiseta", "camisetas"]],
-  [["saia", "sainha"],                                 ["saia", "saias"]],
-  [["jaqueta", "jacket"],                              ["jaqueta", "jaquetas"]],
-  [["casaco", "blazer", "sobretudo"],                  ["casaco", "casacos", "blazer"]],
-  [["moletom", "moleton", "hoodie", "agasalho"],       ["moletom", "moletons"]],
-  [["cropped"],                                        ["cropped"]],
-  [["body", "macacão", "macacao"],                     ["body", "bodies", "macacão"]],
-  [["bermuda"],                                        ["bermuda", "bermudas"]],
-  [["top", "regata"],                                  ["top", "regata", "regatas"]],
-  [["trico", "tricô", "sueter", "suéter"],             ["trico", "tricô"]],
-  [["tênis", "tenis", "sapato", "sandalia", "sandália", "bota", "chinelo", "rasteira"], ["calcado", "calçado", "sapatos", "tenis", "sapato"]],
-  [["bolsa", "carteira", "mochila"],                   ["bolsa", "bolsas", "acessorio"]],
-  [["cinto", "colar", "brinco", "anel", "pulseira"],   ["acessorio", "acessórios"]],
-  [["pijama", "robe", "camisola"],                     ["pijama", "camisola"]],
-  [["maio", "biquini", "biquíni", "sunga"],             ["moda praia", "biquini"]],
-]
 
 function normalize(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()

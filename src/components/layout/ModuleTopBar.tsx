@@ -6,7 +6,7 @@ import {
   LayoutGrid, LogOut, Sun, Moon, Palette,
   ShoppingCart, Users, Package, Wallet,
   RefreshCw, BarChart2, Radio, Tag, Globe, Settings,
-  Calculator, CalendarDays, ChevronLeft, ChevronRight,
+  Calculator, CalendarDays, ChevronLeft, ChevronRight, Cake,
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/auth.store"
@@ -63,7 +63,14 @@ function usePopover() {
 }
 
 // ── Widget 1: Calendário ─────────────────────────────────
-interface Aniversariante { id: number; nome: string; apelido: string | null; celular: string; msgEnviada: boolean }
+interface Aniversariante {
+  id: number
+  nome: string
+  apelido: string | null
+  celular: string
+  data_nasc: string
+  msgEnviada: boolean
+}
 
 export function CalendarioWidget() {
   const now = useClock()
@@ -240,23 +247,353 @@ export function CalendarioWidget() {
   )
 }
 
-// ── Widget 2: Calculadora ────────────────────────────────
-// Abre a Calculadora nativa do Windows via protocolo "calculator:".
-// Funciona apenas no Windows (Edge/Chrome com o handler registrado);
-// em outros sistemas o clique não tem efeito.
-export function CalculadoraWidget() {
-  function abrirCalculadora() {
-    window.location.href = "calculator:"
+// ── Widget 2: Aniversariantes ────────────────────────────
+function calcularIdade(dataNasc: string): number {
+  const [ano, mes, dia] = dataNasc.split("-").map(Number)
+  const hoje = new Date()
+  let idade = hoje.getFullYear() - ano
+  if (hoje.getMonth() + 1 < mes || (hoje.getMonth() + 1 === mes && hoje.getDate() < dia)) idade--
+  return idade
+}
+
+export function AniversariantesWidget() {
+  const { open, setOpen, ref } = usePopover()
+  const [lista, setLista] = useState<Aniversariante[]>([])
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    apiGet<{ total: number; aniversariantes: Aniversariante[] }>("/aniversariantes/hoje")
+      .then(r => setLista(r.aniversariantes ?? []))
+      .catch(() => {})
+      .finally(() => setCarregando(false))
+  }, [])
+
+  const total = lista.length
+  const temAniversariantes = total > 0
+
+  function abrirWhatsApp(celular: string, nome: string) {
+    const num = celular.replace(/\D/g, "")
+    const texto = encodeURIComponent(`Olá ${nome}! 🎂🎉`)
+    window.open(`https://wa.me/55${num}?text=${texto}`, "_blank")
   }
 
   return (
-    <motion.button onClick={abrirCalculadora}
-      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-      title="Abrir Calculadora do Windows"
-      className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
-      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-      <Calculator size={14}/>
-    </motion.button>
+    <div className="relative" ref={ref}>
+      <motion.button
+        onClick={() => setOpen(o => !o)}
+        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+        title="Aniversariantes de hoje"
+        className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all select-none"
+        style={{
+          background: open ? "rgba(251,191,36,0.15)" : "var(--bg-surface)",
+          border: `1px solid ${open ? "#f59e0b" : temAniversariantes ? "rgba(251,191,36,0.5)" : "var(--border)"}`,
+          color: open || temAniversariantes ? "#b45309" : "var(--text-muted)",
+        }}
+      >
+        {/* Pulso quando há aniversariantes */}
+        {temAniversariantes && !open && (
+          <motion.span
+            className="absolute inset-0 rounded-xl pointer-events-none"
+            animate={{ boxShadow: ["0 0 0 0px rgba(251,191,36,0.4)", "0 0 0 5px rgba(251,191,36,0)"] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+          />
+        )}
+        <Cake size={13} />
+        {temAniversariantes && (
+          <span className="text-[11px] font-black tabular-nums">{total}</span>
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+            style={{ width: 320, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
+          >
+            {/* Header */}
+            <div className="px-5 pt-5 pb-4"
+              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(251,191,36,0.03))" }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-base font-black" style={{ color: "var(--text-primary)" }}>
+                    🎂 Aniversariantes
+                  </p>
+                  <p className="text-[11px] font-medium mt-0.5 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}
+                  </p>
+                </div>
+                {temAniversariantes && (
+                  <span className="text-2xl font-black" style={{ color: "#b45309" }}>{total}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Lista */}
+            <div className="px-4 pb-4 flex flex-col gap-2" style={{ maxHeight: 320, overflowY: "auto" }}>
+              {carregando ? (
+                <div className="py-6 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                  Carregando...
+                </div>
+              ) : !temAniversariantes ? (
+                <div className="py-8 flex flex-col items-center gap-2">
+                  <span className="text-3xl">🎉</span>
+                  <p className="text-xs font-medium text-center" style={{ color: "var(--text-muted)" }}>
+                    Nenhum aniversário hoje
+                  </p>
+                </div>
+              ) : (
+                lista.map((a, i) => {
+                  const idade = a.data_nasc ? calcularIdade(a.data_nasc) : null
+                  return (
+                    <motion.div
+                      key={a.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.25)" }}
+                    >
+                      {/* Avatar */}
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-black"
+                        style={{ background: "rgba(251,191,36,0.2)", color: "#b45309" }}>
+                        {(a.apelido || a.nome)[0].toUpperCase()}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>
+                          {a.apelido || a.nome.split(" ")[0]}
+                          {idade !== null && (
+                            <span className="ml-1.5 font-normal text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              {idade} anos
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>{a.celular}</p>
+                      </div>
+
+                      {/* Status + WhatsApp */}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {a.msgEnviada
+                          ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#166534" }}>✓ enviada</span>
+                          : <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fef9c3", color: "#854d0e" }}>pendente</span>
+                        }
+                        <motion.button
+                          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                          onClick={() => abrirWhatsApp(a.celular, a.apelido || a.nome.split(" ")[0])}
+                          className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }}
+                        >
+                          WhatsApp
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Widget 3: Calculadora ────────────────────────────────
+// Desktop Windows → abre a Calculadora nativa via protocolo "calculator:"
+// Mobile / tablet / outros → abre calculadora embutida em popover
+
+type CalcOp = "+" | "-" | "×" | "÷" | null
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setMobile(window.matchMedia("(pointer: coarse)").matches)
+    check()
+    window.matchMedia("(pointer: coarse)").addEventListener("change", check)
+    return () => window.matchMedia("(pointer: coarse)").removeEventListener("change", check)
+  }, [])
+  return mobile
+}
+
+export function CalculadoraWidget() {
+  const isMobile = useIsMobile()
+  const { open, setOpen, ref } = usePopover()
+
+  // Estado da calculadora inline
+  const [display, setDisplay]   = useState("0")
+  const [prev, setPrev]         = useState<number | null>(null)
+  const [op, setOp]             = useState<CalcOp>(null)
+  const [waitNext, setWaitNext] = useState(false)
+  const [history, setHistory]   = useState("")
+
+  function input(digit: string) {
+    if (waitNext) { setDisplay(digit); setWaitNext(false); return }
+    setDisplay(d => d === "0" && digit !== "." ? digit : d.includes(".") && digit === "." ? d : d.length >= 14 ? d : d + digit)
+  }
+
+  function clear() { setDisplay("0"); setPrev(null); setOp(null); setWaitNext(false); setHistory("") }
+
+  function toggleSign() { setDisplay(d => d.startsWith("-") ? d.slice(1) : d === "0" ? d : "-" + d) }
+
+  function percent() {
+    const n = parseFloat(display)
+    if (prev !== null && op) {
+      setDisplay(String(prev * n / 100))
+    } else {
+      setDisplay(String(n / 100))
+    }
+    setWaitNext(false)
+  }
+
+  function applyOp(nextOp: CalcOp) {
+    const cur = parseFloat(display)
+    if (prev !== null && op && !waitNext) {
+      const res = calcResult(prev, cur, op)
+      setDisplay(fmtResult(res))
+      setHistory(`${fmtResult(res)} ${nextOp ?? ""}`)
+      setPrev(res)
+    } else {
+      setHistory(`${fmtResult(cur)} ${nextOp ?? ""}`)
+      setPrev(cur)
+    }
+    setOp(nextOp)
+    setWaitNext(true)
+  }
+
+  function calcResult(a: number, b: number, o: CalcOp): number {
+    if (o === "+") return a + b
+    if (o === "-") return a - b
+    if (o === "×") return a * b
+    if (o === "÷") return b === 0 ? 0 : a / b
+    return b
+  }
+
+  function fmtResult(n: number): string {
+    if (!isFinite(n)) return "Erro"
+    const s = String(parseFloat(n.toPrecision(12)))
+    return s.length > 14 ? n.toExponential(6) : s
+  }
+
+  function equals() {
+    if (prev === null || op === null) return
+    const cur = parseFloat(display)
+    const res = calcResult(prev, cur, op)
+    setHistory(`${fmtResult(prev)} ${op} ${fmtResult(cur)} =`)
+    setDisplay(fmtResult(res))
+    setPrev(null); setOp(null); setWaitNext(true)
+  }
+
+  function backspace() {
+    setDisplay(d => d.length <= 1 || (d.length === 2 && d.startsWith("-")) ? "0" : d.slice(0, -1))
+  }
+
+  // Desktop: abre calculadora nativa
+  if (!isMobile) {
+    return (
+      <motion.button
+        onClick={() => { window.location.href = "calculator:" }}
+        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+        title="Abrir Calculadora do Windows"
+        className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+        <Calculator size={14}/>
+      </motion.button>
+    )
+  }
+
+  // Mobile / tablet: calculadora inline em popover
+  const BTNS: { label: string; type: "num" | "op" | "eq" | "fn" }[] = [
+    { label: "C",   type: "fn" }, { label: "+/-", type: "fn" }, { label: "%", type: "fn" }, { label: "÷", type: "op" },
+    { label: "7",   type: "num" }, { label: "8",  type: "num" }, { label: "9", type: "num" }, { label: "×", type: "op" },
+    { label: "4",   type: "num" }, { label: "5",  type: "num" }, { label: "6", type: "num" }, { label: "-", type: "op" },
+    { label: "1",   type: "num" }, { label: "2",  type: "num" }, { label: "3", type: "num" }, { label: "+", type: "op" },
+    { label: "⌫",  type: "fn"  }, { label: "0",  type: "num" }, { label: ".", type: "num" }, { label: "=", type: "eq" },
+  ]
+
+  const BG: Record<string, string> = {
+    fn: "var(--bg-surface)",
+    op: "var(--accent-bg)",
+    eq: "var(--accent)",
+    num: "var(--bg-card)",
+  }
+  const FG: Record<string, string> = {
+    fn: "var(--text-secondary)",
+    op: "var(--accent)",
+    eq: "#fff",
+    num: "var(--text-primary)",
+  }
+
+  function handleBtn(label: string, type: string) {
+    if (type === "num") { input(label); return }
+    if (type === "op")  { applyOp(label as CalcOp); return }
+    if (type === "eq")  { equals(); return }
+    if (label === "C")   { clear(); return }
+    if (label === "+/-") { toggleSign(); return }
+    if (label === "%")   { percent(); return }
+    if (label === "⌫")  { backspace(); return }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button
+        onClick={() => setOpen(o => !o)}
+        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+        title="Calculadora"
+        className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+        style={{
+          background: open ? "var(--accent-bg)" : "var(--bg-surface)",
+          border: `1px solid ${open ? "var(--accent)" : "var(--border)"}`,
+          color: open ? "var(--accent)" : "var(--text-muted)",
+        }}>
+        <Calculator size={14}/>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+            style={{ width: 240, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}
+          >
+            {/* Display */}
+            <div className="px-4 pt-4 pb-3" style={{ background: "linear-gradient(135deg, var(--accent-bg), var(--bg-surface))" }}>
+              <p className="text-[10px] font-medium h-4 text-right truncate" style={{ color: "var(--text-muted)" }}>
+                {history || " "}
+              </p>
+              <p className="text-3xl font-black text-right tabular-nums leading-tight break-all"
+                style={{ color: "var(--text-primary)", letterSpacing: "-1px", fontSize: display.length > 10 ? "1.25rem" : undefined }}>
+                {display}
+              </p>
+            </div>
+
+            {/* Botões */}
+            <div className="grid grid-cols-4 gap-1 p-2">
+              {BTNS.map(b => (
+                <motion.button
+                  key={b.label}
+                  whileTap={{ scale: 0.88 }}
+                  onClick={() => handleBtn(b.label, b.type)}
+                  className="h-12 rounded-xl font-bold text-sm flex items-center justify-center transition-colors"
+                  style={{ background: BG[b.type], color: FG[b.type], border: "1px solid var(--border)" }}
+                  onMouseEnter={e => { if (b.type !== "eq") (e.currentTarget as HTMLButtonElement).style.opacity = "0.75" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
+                >
+                  {b.label}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -322,6 +659,11 @@ export function ModuleTopBar() {
       {/* Calendário — só sm+ */}
       <div className="hidden sm:block">
         <CalendarioWidget />
+      </div>
+
+      {/* Aniversariantes — só sm+ */}
+      <div className="hidden sm:block">
+        <AniversariantesWidget />
       </div>
 
       {/* Calculadora — só desktop */}

@@ -10,10 +10,20 @@ import {
   Plug, RefreshCw, Wifi, WifiOff, Database, Truck,
   MessageCircle, Globe, MapPin, AlertCircle, Bot,
   Play, CheckCircle2, XCircle, Clock, Send,
+  Zap, ChevronDown, Cake, Bell, Package, Tag,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { cn } from "@/lib/utils"
 import { useDisparoStore } from "@/stores/disparo.store"
+import businessData from "@/data/config/business.json"
+import integrationData from "@/data/ui/integrations.json"
+
+const DEFAULTS: EmpresaConfig = businessData.defaults
+const PERFIS = businessData.profiles
+const REGIME_OPTIONS = businessData.taxRegimes
+const COR_INTEGRACAO: Record<string, string> = integrationData.serviceColors
+const ACAO_COR: Record<string, string> = integrationData.syncActionColors
+
 
 // ── Tipos ────────────────────────────────────────────────────
 interface EmpresaConfig {
@@ -29,32 +39,13 @@ interface Usuario {
   id: number; nome: string; email: string; perfil: string; ativo: boolean
 }
 
-type Tab = "empresa" | "usuarios" | "integracoes" | "alertas" | "google"
+type Tab = "empresa" | "usuarios" | "integracoes" | "alertas" | "google" | "automacoes"
 
 interface IntegracaoStatus {
   id: string; nome: string; descricao: string
   conectado: boolean; configurado: boolean
   detalhe?: string; latencia?: number
 }
-
-const DEFAULTS: EmpresaConfig = {
-  razao_social:      "SUELI VAZ MAESTRE DOS SANTOS",
-  nome_fantasia:     "BRECHÓ BELLASU",
-  cnpj:              "30.131.755/0001-96",
-  ie:                "ISENTO",
-  telefone:          "(16) 99134-7476",
-  email:             "bellasu.brecho@gmail.com",
-  logradouro:        "R. BARÃO DO AMAZONAS",
-  numero:            "1035",
-  bairro:            "CENTRO",
-  cidade:            "RIBEIRÃO PRETO",
-  estado:            "SP",
-  cep:               "14080-270",
-  regime_tributario: "MEI",
-}
-
-const PERFIS = ["admin", "operador", "caixa", "estoque"]
-const REGIME_OPTIONS = ["MEI", "Simples Nacional", "Lucro Presumido", "Lucro Real"]
 
 // ── Estilos base ─────────────────────────────────────────────
 const iBase = "w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all border focus:border-[color:var(--accent)]"
@@ -339,15 +330,8 @@ const ICONE_INTEGRACAO: Record<string, React.ReactNode> = {
   openai:      <Bot size={20} />,
   vercel:      <Globe size={20} />,
   viacep:      <MapPin size={20} />,
-}
-
-const COR_INTEGRACAO: Record<string, string> = {
-  supabase:    "#3ecf8e",
-  melhorenvio: "#00b4d8",
-  zapi:        "#25d366",
-  openai:      "#10a37f",
-  vercel:      "#ffffff",
-  viacep:      "#a78bfa",
+  google:      <GoogleLogo size={20} />,
+  superfrete:  <Package size={20} />,
 }
 
 function AbaIntegracoes() {
@@ -576,12 +560,6 @@ const SYNC_STATUS_ICON: Record<string, React.ReactNode> = {
   erro:          <XCircle       size={13} className="text-red-400" />,
 }
 
-const ACAO_COR: Record<string, string> = {
-  criar:     "text-emerald-400",
-  atualizar: "text-blue-400",
-  ignorar:   "text-slate-500",
-}
-
 function AbaGoogle() {
   const { iniciarGoogleSync, job: disparoJob } = useDisparoStore()
   const syncRodando = disparoJob?.tipo === "google-sync" && disparoJob?.status === "running"
@@ -799,6 +777,7 @@ export default function ConfiguracoesPage() {
     { key: "integracoes",  label: "Integrações",  icon: <Plug size={14} /> },
     { key: "alertas",      label: "Alertas",      icon: <AlertCircle size={14} /> },
     { key: "google",       label: "Google",       icon: <GoogleLogo size={14} /> },
+    { key: "automacoes",   label: "Automações",   icon: <Zap size={14} /> },
   ]
 
   if (isLoading) return (
@@ -1007,6 +986,12 @@ export default function ConfiguracoesPage() {
         {tab === "google" && (
           <motion.div key="google" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <AbaGoogle />
+          </motion.div>
+        )}
+
+        {tab === "automacoes" && (
+          <motion.div key="automacoes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <AbaAutomacoes />
           </motion.div>
         )}
       </AnimatePresence>
@@ -1260,5 +1245,229 @@ function DisparoConsentimentoNaoEnviado() {
         )}
       </AnimatePresence>
     </>
+  )
+}
+
+// ─── Aba Automações ──────────────────────────────────────
+interface AutomacaoDef {
+  id: string
+  grupo: string
+  nome: string
+  frequencia: string
+  resumo: string
+  descricao: string
+  cor: string
+  icone: React.ReactNode
+}
+
+const AUTOMACOES: AutomacaoDef[] = [
+  {
+    id: "aniversario",
+    grupo: "Clientes",
+    nome: "Parabéns Automático",
+    frequencia: "Diário às 09h",
+    resumo: "Envia mensagem de aniversário com cupom de 15% de desconto",
+    descricao: "Todo dia às 09h o sistema verifica quais clientes fazem aniversário naquele dia e envia automaticamente uma mensagem de parabéns pelo WhatsApp com um cupom de 15% de desconto. O sistema registra o ano em que a mensagem foi enviada para não repetir.",
+    cor: "#f59e0b",
+    icone: <Cake size={18} />,
+  },
+  {
+    id: "consentimento",
+    grupo: "Clientes",
+    nome: "Pedido de Consentimento LGPD",
+    frequencia: "Ao cadastrar cliente",
+    resumo: "Envia pedido de autorização de WhatsApp para clientes novos",
+    descricao: "Quando um cliente é cadastrado sem autorização de WhatsApp, o sistema envia automaticamente uma mensagem pedindo consentimento para receber novidades e avisos. O cliente responde com 'sim' ou 'não' e o sistema registra a resposta. Respostas como 'quero', 'pode mandar', 'aceito' também são reconhecidas.",
+    cor: "#3b82f6",
+    icone: <Bell size={18} />,
+  },
+  {
+    id: "consentimento-correcao",
+    grupo: "Clientes",
+    nome: "Correção de Consentimento",
+    frequencia: "Diário às 03h",
+    resumo: "Corrige clientes que ficaram com consentimento pendente por engano",
+    descricao: "Todo dia às 03h o sistema verifica se há clientes que responderam ao pedido de consentimento mas o registro não foi atualizado corretamente. Caso encontre, corrige automaticamente o status sem precisar de ação manual.",
+    cor: "#6366f1",
+    icone: <ShieldCheck size={18} />,
+  },
+  {
+    id: "alertas",
+    grupo: "Financeiro",
+    nome: "Alertas Financeiros",
+    frequencia: "Diário (horário configurável)",
+    resumo: "Avisa sobre contas a vencer nos próximos dias",
+    descricao: "O sistema verifica diariamente as contas a pagar com vencimento próximo e envia um aviso pelo WhatsApp para os números configurados em Configurações > Alertas. Você pode configurar até 2 números para receber os alertas.",
+    cor: "#ef4444",
+    icone: <AlertCircle size={18} />,
+  },
+  {
+    id: "etiquetas-sync",
+    grupo: "Etiquetas",
+    nome: "Rastreamento de Envios",
+    frequencia: "A cada 6 horas",
+    resumo: "Atualiza o status de rastreamento das etiquetas automaticamente",
+    descricao: "A cada 6 horas o sistema consulta a Melhor Envio para atualizar o status de todas as etiquetas em trânsito. Quando um pacote é entregue, o status é atualizado automaticamente na tela de Etiquetas.",
+    cor: "#f97316",
+    icone: <Tag size={18} />,
+  },
+  {
+    id: "google-alerta",
+    grupo: "Integrações",
+    nome: "Alerta de Desconexão Google",
+    frequencia: "Verificação contínua",
+    resumo: "Detecta quando o Google Contatos desconecta e avisa por WhatsApp",
+    descricao: "Quando a sincronização com o Google Contacts falha por token expirado (acontece a cada ~7 dias), o sistema envia automaticamente um aviso por WhatsApp para reconectar a conta. Basta acessar Configurações > Google e clicar em Reconectar.",
+    cor: "#4285f4",
+    icone: <GoogleLogo size={18} />,
+  },
+  {
+    id: "live-aviso",
+    grupo: "Live",
+    nome: "Disparo de Aviso de Live",
+    frequencia: "Manual (acionado na Live)",
+    resumo: "Envia aviso de live para compradoras históricas em ordem aleatória",
+    descricao: "Ao clicar em Disparar na tela de Live, o sistema envia mensagens em lote para clientes que já compraram em lives anteriores, priorizando compradoras históricas. A lista é embaralhada a cada disparo e o sistema garante que o mesmo link não seja enviado duas vezes para a mesma pessoa.",
+    cor: "#e11d48",
+    icone: <Send size={18} />,
+  },
+  {
+    id: "live-comprovante",
+    grupo: "Live",
+    nome: "Pedido de Comprovante de Pagamento",
+    frequencia: "Automático ao registrar compra",
+    resumo: "Pede comprovante de pagamento na mensagem de confirmação de compra",
+    descricao: "Quando uma compra é registrada na Live e a mensagem de confirmação é enviada para a cliente, o sistema inclui automaticamente um pedido de envio do comprovante de pagamento. O prazo de pagamento pode ser definido manualmente em dias antes de enviar.",
+    cor: "#e11d48",
+    icone: <CheckCircle2 size={18} />,
+  },
+]
+
+const GRUPOS = [...new Set(AUTOMACOES.map(a => a.grupo))]
+
+function AbaAutomacoes() {
+  const [expandido, setExpandido] = useState<string | null>(null)
+
+  function toggle(id: string) {
+    setExpandido(prev => prev === id ? null : id)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(99,102,241,0.12)" }}>
+          <Zap size={18} style={{ color: "#6366f1" }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Automações do Sistema</h3>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            {AUTOMACOES.length} automações configuradas · Clique em qualquer card para ver os detalhes
+          </p>
+        </div>
+      </div>
+
+      {/* Grupos */}
+      {GRUPOS.map(grupo => (
+        <div key={grupo}>
+          {/* Título do grupo */}
+          <p className="text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2"
+            style={{ color: "var(--text-muted)" }}>
+            <span className="h-px flex-1" style={{ background: "var(--border)" }} />
+            {grupo}
+            <span className="h-px flex-1" style={{ background: "var(--border)" }} />
+          </p>
+
+          <div className="space-y-2">
+            {AUTOMACOES.filter(a => a.grupo === grupo).map((auto, i) => {
+              const aberto = expandido === auto.id
+              return (
+                <motion.div
+                  key={auto.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                >
+                  {/* Linha principal — clicável */}
+                  <button
+                    onClick={() => toggle(auto.id)}
+                    className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors"
+                    style={{ background: aberto ? `${auto.cor}06` : "transparent" }}
+                  >
+                    {/* Barra lateral colorida */}
+                    <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full"
+                      style={{ background: auto.cor }} />
+
+                    {/* Ícone */}
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: `${auto.cor}18`, color: auto.cor }}>
+                      {auto.icone}
+                    </div>
+
+                    {/* Texto */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{auto.nome}</p>
+                        {/* Badge ativa */}
+                        <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
+                          style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>
+                          <motion.span
+                            className="w-1.5 h-1.5 rounded-full inline-block"
+                            style={{ background: "#4ade80" }}
+                            animate={{ opacity: [1, 0.3, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                          Ativa
+                        </span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                          style={{ background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                          {auto.frequencia}
+                        </span>
+                      </div>
+                      <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{auto.resumo}</p>
+                    </div>
+
+                    {/* Chevron */}
+                    <motion.div
+                      animate={{ rotate: aberto ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="shrink-0"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      <ChevronDown size={15} />
+                    </motion.div>
+                  </button>
+
+                  {/* Detalhe expandido */}
+                  <AnimatePresence>
+                    {aberto && (
+                      <motion.div
+                        key="detail"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        <div className="px-5 pb-5 pt-1" style={{ borderTop: `1px solid ${auto.cor}20` }}>
+                          <div className="rounded-xl p-4" style={{ background: `${auto.cor}08`, border: `1px solid ${auto.cor}20` }}>
+                            <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                              {auto.descricao}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

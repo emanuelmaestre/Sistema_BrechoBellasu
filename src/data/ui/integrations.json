@@ -1,0 +1,17 @@
+{
+  "serviceColors": {
+    "supabase": "#3ecf8e",
+    "melhorenvio": "#00b4d8",
+    "zapi": "#25d366",
+    "openai": "#10a37f",
+    "vercel": "#ffffff",
+    "viacep": "#a78bfa",
+    "google": "#4285f4",
+    "superfrete": "#ff6b00"
+  },
+  "syncActionColors": {
+    "criar": "text-emerald-400",
+    "atualizar": "text-blue-400",
+    "ignorar": "text-slate-500"
+  }
+}

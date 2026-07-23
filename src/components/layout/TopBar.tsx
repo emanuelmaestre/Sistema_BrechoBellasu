@@ -1,19 +1,10 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import navigationData from "@/data/ui/navigation.json"
 
-const TITLES: Record<string, string> = {
-  "/vendas":        "Vendas",
-  "/clientes":      "Clientes",
-  "/produtos":      "Produtos",
-  "/financeiro":    "Financeiro",
-  "/trocas":        "Trocas",
-  "/relatorios":    "Relatórios",
-  "/live":          "Live Commerce",
-  "/etiquetas":     "Etiquetas de Envio",
-  "/site":          "Site & E-commerce",
-  "/configuracoes": "Configurações",
-}
+const TITLES: Record<string, string> = navigationData.routeTitles
+
 
 export function TopBar() {
   const pathname = usePathname()

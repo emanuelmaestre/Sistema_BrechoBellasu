@@ -12,6 +12,10 @@ import { apiGet } from "@/services/api"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData } from "@/lib/utils"
 import { exportExcelProfissional, exportPdfProfissional } from "@/lib/export-helpers"
+import reportData from "@/data/ui/reports.json"
+
+const PERIODOS = reportData.periods
+
 
 // ─── Tipos ────────────────────────────────────────────────
 type VendasPeriodo   = { dia: string; qtd: number; total: number }
@@ -27,15 +31,6 @@ type ReportKey =
   | "ticket" | "formas-pagamento" | "mais-vendidos"
   | "fluxo-caixa" | "contas-pagar" | "contas-receber"
   | "trocas-periodo" | "trocas-motivo"
-
-// ─── Período ──────────────────────────────────────────────
-const PERIODOS = [
-  { key: "hoje",   label: "Hoje" },
-  { key: "semana", label: "7 dias" },
-  { key: "mes",    label: "30 dias" },
-  { key: "ano",    label: "Este ano" },
-  { key: "custom", label: "Personalizado" },
-]
 
 function getPeriodo(key: string, de: string, ate: string) {
   const fmt = (d: Date) => d.toISOString().split("T")[0]

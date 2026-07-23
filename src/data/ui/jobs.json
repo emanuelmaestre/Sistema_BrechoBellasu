@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "disparo": "Disparando mensagens",
+    "aviso": "Avisando clientes",
+    "consentimento": "Enviando consentimentos",
+    "google-sync": "Sincronizando Google Contatos"
+  },
+  "colors": {
+    "disparo": "#25d366",
+    "aviso": "#10b981",
+    "consentimento": "#7c3aed",
+    "google-sync": "#4285F4"
+  }
+}

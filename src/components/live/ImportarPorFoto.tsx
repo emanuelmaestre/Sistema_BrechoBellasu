@@ -15,6 +15,10 @@ import {
 } from "lucide-react"
 import { apiPost } from "@/services/api"
 import { fmtBRL } from "@/lib/utils"
+import processingMessages from "@/data/messages/processing.json"
+
+const MSGS_PROCESSANDO = processingMessages.livePhotoImport
+
 
 // ─── Tipos ────────────────────────────────────────────────
 type NivelConfianca = "alta" | "media" | "baixa"
@@ -65,13 +69,6 @@ interface CompraRevisao {
 type Fase = "captura" | "processando" | "revisao" | "salvando" | "concluido" | "erro"
 
 const COR_LIVE = "#e11d48"
-
-const MSGS_PROCESSANDO = [
-  "Lendo as informações da imagem...",
-  "Identificando clientes, sacolas e valores...",
-  "Conferindo clientes já cadastradas...",
-  "Organizando as compras encontradas...",
-]
 
 // ─── Compressão da imagem no cliente ──────────────────────
 // Fotos de celular chegam a 12MB; reduz para ~2200px JPEG (letra manuscrita

@@ -1,3 +1,22 @@
+import liveMessageData from "@/data/messages/live.json"
+
+const SAUDACOES = liveMessageData.greetings
+const AVISO_ABERTURAS = liveMessageData.announcementOpenings
+const AVISO_FECHAMENTOS = liveMessageData.announcementClosings
+
+function renderNamedTemplate(
+  template: { withValue: string; withoutValue: string },
+  value: string | null,
+): string {
+  const selected = value ? template.withValue : template.withoutValue
+  const firstName = value?.trim().split(/\s+/)[0] ?? ""
+  return selected.replace("{nome}", firstName)
+}
+
+const AGRADECIMENTOS = liveMessageData.thanks
+const CONFIRMACOES = liveMessageData.confirmations
+const AVISO_CHAMADAS = liveMessageData.announcementCalls
+const AVISO_REENVIO_CHAMADAS = liveMessageData.reminderCalls
 // ══════════════════════════════════════════════════════════════════
 // LivePurchaseMessageBuilder
 // Serviço central de composição de mensagens de compra da live.
@@ -91,60 +110,6 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-// ─── Small Talk — mensagens de compra da live ────────────────────
-// 18 saudações × 12 agradecimentos × 12 confirmações = 2.592 combinações
-
-const SAUDACOES: Array<(n: string | null) => string> = [
-  n => n ? `Oi, ${n.split(" ")[0]}! Que bom falar com você. 💖`             : "Oi! Que bom falar com você. 💖",
-  n => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊`                  : "Oi! Tudo bem com você? 😊",
-  n => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍`         : "Olá! Que alegria falar com você! 😍",
-  n => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖`             : "Oi! Estava pensando em você! 💖",
-  n => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨`            : "Olá! Que bom te ver por aqui! ✨",
-  n => n ? `Ei, ${n.split(" ")[0]}! Passando com novidade especial! 🎉`      : "Ei! Passando com novidade especial! 🎉",
-  n => n ? `Oi, ${n.split(" ")[0]}! Saudades! Tô aqui com seu recado. 🥰`   : "Oi! Saudades! Tô aqui com seu recado. 🥰",
-  n => n ? `Olá, ${n.split(" ")[0]}! Você é especial pra gente! 🌸`          : "Olá! Você é especial pra gente! 🌸",
-  n => n ? `Oi, ${n.split(" ")[0]}! Vim com carinho te dar um recado. 💌`    : "Oi! Vim com carinho te dar um recado. 💌",
-  n => n ? `Ei, ${n.split(" ")[0]}! Feliz em falar com você hoje! 🥰`        : "Ei! Feliz em falar com você hoje! 🥰",
-  n => n ? `Olá, ${n.split(" ")[0]}! Passando com muito carinho! 💕`         : "Olá! Passando com muito carinho! 💕",
-  n => n ? `Oi, ${n.split(" ")[0]}! Que bom que você esteve com a gente! ✨` : "Oi! Que bom que você esteve com a gente! ✨",
-  n => n ? `Ei, ${n.split(" ")[0]}! Tô super feliz de falar com você! 🎀`   : "Ei! Tô super feliz de falar com você! 🎀",
-  n => n ? `Olá, ${n.split(" ")[0]}! Vim com uma novidade linda pra você! 🛍️`: "Olá! Vim com uma novidade linda pra você! 🛍️",
-  n => n ? `Oi, ${n.split(" ")[0]}! Você faz parte dessa história com a gente! 💖`: "Oi! Você faz parte dessa história com a gente! 💖",
-  n => n ? `Ei, ${n.split(" ")[0]}! Que dia especial por ter você! 🌟`       : "Ei! Que dia especial por ter você! 🌟",
-  n => n ? `Olá, ${n.split(" ")[0]}! Tô aqui com muito amor pra contar. 💗` : "Olá! Tô aqui com muito amor pra contar. 💗",
-  n => n ? `Oi, ${n.split(" ")[0]}! Sempre um prazer falar com você! 😊`     : "Oi! Sempre um prazer falar com você! 😊",
-]
-
-const AGRADECIMENTOS: string[] = [
-  "Foi um prazer ter você com a gente durante a live!",
-  "Ficamos muito felizes com a sua participação na live!",
-  "Adoramos ter você com a gente em mais uma live!",
-  "Obrigada por acompanhar e participar da nossa live!",
-  "Foi lindo ter você com a gente durante a live!",
-  "Sua presença na live foi muito especial pra gente!",
-  "Que alegria ter você participando da nossa live!",
-  "Foi um momento muito especial ter você com a gente!",
-  "Obrigada de coração por participar da live!",
-  "Sua participação na live foi muito importante pra gente!",
-  "Que emoção ter você na live mais uma vez!",
-  "Você faz nossa live ainda mais especial! Obrigada! 💖",
-]
-
-const CONFIRMACOES: string[] = [
-  "Suas peças foram cuidadosamente separadas.",
-  "Suas escolhas já estão separadas com muito carinho.",
-  "Suas peças foram reservadas e organizadas com amor.",
-  "Já deixamos suas peças separadinhas esperando por você.",
-  "Suas peças estão reservadas e prontas pra você!",
-  "Com muito cuidado, separamos suas peças com amor. 🛍️",
-  "Suas peças estão organizadas com todo o carinho.",
-  "Cada peça foi separada com muito capricho pra você.",
-  "Suas peças já estão reservadas e guardadas com carinho. 💕",
-  "Tudo separadinho e organizado esperando por você! 🛍️",
-  "Suas peças estão safe e esperando por você com amor. 💖",
-  "Fizemos questão de separar suas peças com muito cuidado.",
-]
-
 const TOTAL_COMBINACOES = SAUDACOES.length * AGRADECIMENTOS.length * CONFIRMACOES.length
 
 let _unusedPool: number[] = []
@@ -184,7 +149,7 @@ export function buildSmallTalk(level: SmallTalkLevel, nome: string | null, idx: 
     return "Olá! 💖 Obrigada por participar da nossa live! Suas peças já estão separadas. 🛍️"
   }
   const { s, a, c } = comboIndexToComponents(idx)
-  const saudacao    = SAUDACOES[s](nome)
+  const saudacao    = renderNamedTemplate(SAUDACOES[s], nome)
   const agradec     = AGRADECIMENTOS[a]
   const confirmacao = CONFIRMACOES[c]
   if (level === "CURTO") return `${saudacao} ${agradec} ${confirmacao}`
@@ -208,47 +173,6 @@ export function selectSmallTalkByAvailableLength(compra: CompraData, idx: number
   }
   return "FALLBACK"
 }
-
-// ─── Aviso de Live (transmissão ao vivo) ─────────────────────────
-
-const AVISO_ABERTURAS: Array<(n: string | null) => string> = [
-  n => n ? `Oi, ${n.split(" ")[0]}! Tudo bem com você? 😊` : "Oi! Tudo bem com você? 😊",
-  n => n ? `Oi, ${n.split(" ")[0]}! Saudades! 🥰` : "Oi! Saudades! 🥰",
-  n => n ? `Olá, ${n.split(" ")[0]}! Que bom te ver por aqui! ✨` : "Olá! Que bom te ver por aqui! ✨",
-  n => n ? `Ei, ${n.split(" ")[0]}! Tô passando rapidinho... 🏃‍♀️💨` : "Ei! Tô passando rapidinho... 🏃‍♀️💨",
-  n => n ? `Oi, ${n.split(" ")[0]}! Estava pensando em você! 💖` : "Oi! Estava pensando em você! 💖",
-  n => n ? `Olá, ${n.split(" ")[0]}! Passando com novidade! 🎉` : "Olá! Passando com novidade! 🎉",
-  n => n ? `Ei, ${n.split(" ")[0]}! Tem coisa boa aqui pra você! 🛍️` : "Ei! Tem coisa boa aqui pra você! 🛍️",
-  n => n ? `Oi, ${n.split(" ")[0]}! Vim te dar um recado especial! 💌` : "Oi! Vim te dar um recado especial! 💌",
-  n => n ? `Oi, ${n.split(" ")[0]}! Você é especial pra gente! 🌸` : "Oi! Você é especial pra gente! 🌸",
-  n => n ? `Olá, ${n.split(" ")[0]}! Que alegria falar com você! 😍` : "Olá! Que alegria falar com você! 😍",
-]
-
-const AVISO_CHAMADAS: string[] = [
-  "🔴 A propósito, estamos *AO VIVO* agora e tem coisa especial esperando por você! 🎉✨",
-  "🔴 A live tá *bombando* e você não pode ficar de fora! Coisas incríveis aqui! 🔥",
-  "✨ Tem *novidade especial* te esperando na live agora! Entra lá! 🎉",
-  "🛍️ A live começou e as peças tão *voando*! Vem antes que acabe! 🔴",
-  "🎉 Estamos *AO VIVO* com peças lindas e promoções imperdíveis! Não perde! 💖",
-  "🔴 Nossa live começou agora e está *cheia de surpresas* pra você! ✨🛍️",
-  "💥 Peças novas, preços incríveis e a gente *AO VIVO* agora! Vem! 🔴🎉",
-  "✨ Estamos *AO VIVO* agora com seleção especial e muito amor! 💖🔴",
-  "🔴 A live abriu e já tem muita coisa bonita passando! Não perde! 🛍️✨",
-  "🎀 Estamos *AO VIVO* com peças garimpadas com muito carinho pra você! 🔴💖",
-  "🔴 Começo de live e as melhores peças aparecem primeiro! Corre! 🔥🛍️",
-  "💫 Estamos *AO VIVO* agora! Tem peça boa, preço justo e muito estilo! 🔴✨",
-]
-
-const AVISO_FECHAMENTOS: Array<(link: string) => string> = [
-  link => `Corre lá: ${link}\n\nTe esperamos! 🙌🏼❤️`,
-  link => `Entra aqui agora: ${link}\n\nA gente tá te esperando! 💖`,
-  link => `Vem com a gente: ${link}\n\nTe esperamos com muita alegria! 🎉`,
-  link => `Acessa agora: ${link}\n\nTe esperamos lá! 🔴✨`,
-  link => `Tô te esperando: ${link}\n\nVem! 🛍️💖`,
-  link => `Entra aqui: ${link}\n\nÉ rapidinho e vale muito! 💫`,
-  link => `Acessa agora e vem se surpreender: ${link}\n\n❤️`,
-  link => `Passa lá: ${link}\n\nTem coisa linda esperando por você! 🌸`,
-]
 
 const AVISO_TOTAL = AVISO_ABERTURAS.length * AVISO_CHAMADAS.length * AVISO_FECHAMENTOS.length
 let _avisoUnusedPool: number[] = []
@@ -280,7 +204,7 @@ export function buildAvisoLive(nome: string | null, link: string): string {
   const c   = Math.floor((idx % (nC * nF)) / nF)
   const f   = idx % nF
   const nomeValido = validateCustomerName(nome)
-  return `${AVISO_ABERTURAS[a](nomeValido)}\n\n${AVISO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f](link)}`
+  return `${renderNamedTemplate(AVISO_ABERTURAS[a], nomeValido)}\n\n${AVISO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f].replace("{link}", link)}`
 }
 
 // ─── Bloco fixo da mensagem de compra ────────────────────────────
@@ -391,19 +315,6 @@ export function buildCompleteMessage(compra: CompraData, idx?: number, diasPrazo
   }
 }
 
-// ─── Reenvio de Aviso de Live (live caiu e voltou) ───────────────
-
-const AVISO_REENVIO_CHAMADAS: string[] = [
-  "🔴 A live caiu por um momento, mas *VOLTAMOS* com novo link! 🎉",
-  "✨ Tivemos uma instabilidade, mas estamos *DE VOLTA ao vivo*! Novo link aqui: 🔴",
-  "💫 A live teve uma queda mas já voltamos! *Novo link* pra acessar: 📲",
-  "🙌 De volta ao ar! Aqui está o *novo link de acesso*: 🔴",
-  "⚡ Resolvemos e já estamos *DE VOLTA*! Novo link da live: 🔴",
-  "🔴 *Voltamos!* A live caiu por um momento mas agora tá tudo certo! Novo link: 📲",
-  "💖 Boa notícia: a live voltou! Aqui está o *novo link*: 🔴",
-  "🎉 *Estamos de volta!* A live caiu mas voltamos mais fortes! Novo link: 📲",
-]
-
 const AVISO_REENVIO_TOTAL = AVISO_ABERTURAS.length * AVISO_REENVIO_CHAMADAS.length * AVISO_FECHAMENTOS.length
 let _avisoReenvioUnusedPool: number[] = []
 const _avisoReenvioRecentUsed: number[] = []
@@ -434,7 +345,7 @@ export function buildAvisoReenvioLive(nome: string | null, link: string): string
   const c   = Math.floor((idx % (nC * nF)) / nF)
   const f   = idx % nF
   const nomeValido = validateCustomerName(nome)
-  return `${AVISO_ABERTURAS[a](nomeValido)}\n\n${AVISO_REENVIO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f](link)}`
+  return `${renderNamedTemplate(AVISO_ABERTURAS[a], nomeValido)}\n\n${AVISO_REENVIO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f].replace("{link}", link)}`
 }
 
 // ─── Idempotência ─────────────────────────────────────────────────

@@ -1,6 +1,10 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import statusData from "@/data/ui/status.json"
+
+const DEFAULT_COLOR_MAP: Record<string, ColorEntry> = statusData.defaultBadgeColors
+
 
 interface ColorEntry {
   bg: string
@@ -12,41 +16,6 @@ interface StatusBadgeProps {
   status: string
   colorMap?: Record<string, ColorEntry>
   className?: string
-}
-
-const DEFAULT_COLOR_MAP: Record<string, ColorEntry> = {
-  // pending / pendente
-  pending:  { bg: "bg-amber-500/10",   text: "text-amber-400",   dot: "bg-amber-400" },
-  pendente: { bg: "bg-amber-500/10",   text: "text-amber-400",   dot: "bg-amber-400" },
-  // approved / aprovado / ativo / active
-  aprovado: { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  ativo:    { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  active:   { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  // recusado / inativo / inactive / canceled / cancelado
-  recusado:  { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
-  inativo:   { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
-  inactive:  { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
-  canceled:  { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
-  cancelado: { bg: "bg-red-500/10", text: "text-red-400", dot: "bg-red-400" },
-  // concluido / completed / delivered
-  concluido: { bg: "bg-blue-500/10",   text: "text-blue-400",   dot: "bg-blue-400" },
-  completed: { bg: "bg-blue-500/10",   text: "text-blue-400",   dot: "bg-blue-400" },
-  delivered: { bg: "bg-blue-500/10",   text: "text-blue-400",   dot: "bg-blue-400" },
-  // enviado / posted / in transit
-  enviado:    { bg: "bg-sky-500/10",  text: "text-sky-400",  dot: "bg-sky-400" },
-  posted:     { bg: "bg-sky-500/10",  text: "text-sky-400",  dot: "bg-sky-400" },
-  "in transit": { bg: "bg-sky-500/10", text: "text-sky-400", dot: "bg-sky-400" },
-  // erro / error
-  erro:  { bg: "bg-rose-500/10", text: "text-rose-400", dot: "bg-rose-400" },
-  error: { bg: "bg-rose-500/10", text: "text-rose-400", dot: "bg-rose-400" },
-  // generated / released
-  generated: { bg: "bg-violet-500/10", text: "text-violet-400", dot: "bg-violet-400" },
-  released:  { bg: "bg-purple-500/10", text: "text-purple-400", dot: "bg-purple-400" },
-  // pago / recebido
-  pago:     { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  recebido: { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  // vencido
-  vencido: { bg: "bg-orange-500/10", text: "text-orange-400", dot: "bg-orange-400" },
 }
 
 export function StatusBadge({ status, colorMap, className }: StatusBadgeProps) {

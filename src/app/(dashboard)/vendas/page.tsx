@@ -16,6 +16,11 @@ import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import type { Cliente, Produto } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF, imprimirRecibo } from "@/lib/recibo-pdf"
+import salesData from "@/data/ui/sales.json"
+
+const FORMAS = salesData.paymentMethods
+const PERIODO_OPTIONS = salesData.periodOptions
+
 
 // ─── Tipos ────────────────────────────────────────────────
 interface VendaListItem {
@@ -35,14 +40,6 @@ interface WizItem {
   quantidade: number; preco_unitario: number
   marca?: string | null
 }
-
-const FORMAS = ["Dinheiro", "Pix", "Cartão de Débito", "Cartão de Crédito", "Crédito"]
-const PERIODO_OPTIONS = [
-  { key: "hoje",   label: "Hoje" },
-  { key: "semana", label: "7 dias" },
-  { key: "mes",    label: "30 dias" },
-  { key: "custom", label: "Período" },
-]
 const COR = "#10b981"
 
 function getPeriodoParams(periodo: string, de: string, ate: string) {

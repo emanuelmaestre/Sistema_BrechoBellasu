@@ -12,6 +12,12 @@ import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtData, cn } from "@/lib/utils"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF } from "@/lib/recibo-pdf"
+import exchangeData from "@/data/catalog/exchanges.json"
+
+const STATUS_LABELS: Record<string, string> = exchangeData.legacyStatusLabels
+const MOTIVOS_TROCA: TopicoMotivo[] = exchangeData.exchangeReasons
+const MOTIVOS_DEVOLUCAO: TopicoMotivo[] = exchangeData.returnReasons
+
 
 // ─── Tipos ────────────────────────────────────────────────
 type Troca = {
@@ -37,13 +43,6 @@ function BadgeNotif({ status }: { status?: "pendente" | "enviado" | "erro" | nul
   )
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  // Mapeamento de legado (registros antigos) — não usados em novos registros
-  solicitado: "Concluído", analisando: "Concluído",
-  aprovado: "Concluído", recusado: "Cancelado",
-  concluido: "Concluído",
-}
-
 interface TrocaForm {
   tipo: string
   nome_produto: string
@@ -59,111 +58,6 @@ type ProdComprado = { produto_id: number | null; nome: string; preco_unit: numbe
 
 // ─── Dados de Motivos ─────────────────────────────────────
 type TopicoMotivo = { topico: string; emoji: string; cor: string; motivos: string[] }
-
-const MOTIVOS_TROCA: TopicoMotivo[] = [
-  {
-    topico: "Tamanho ou Ajuste", emoji: "📏", cor: "#6366f1",
-    motivos: [
-      "Tamanho pequeno", "Tamanho grande", "Modelagem não serviu",
-      "Peça ficou apertada", "Peça ficou larga", "Comprimento inadequado",
-      "Caimento não agradou", "Peça não vestiu bem", "Cliente prefere outro tamanho",
-    ],
-  },
-  {
-    topico: "Preferência da Cliente", emoji: "💜", cor: "#a855f7",
-    motivos: [
-      "Cliente não gostou da peça", "Cliente mudou de ideia", "Cliente prefere outro modelo",
-      "Cliente prefere outra cor", "Cliente prefere outra estampa", "Peça não combinou com a cliente",
-      "Peça não atendeu à expectativa", "Cliente comprou por engano",
-      "Cliente deseja trocar por outro produto",
-    ],
-  },
-  {
-    topico: "Condição do Produto", emoji: "🔎", cor: "#f59e0b",
-    motivos: [
-      "Produto com defeito", "Produto com avaria", "Produto com mancha",
-      "Produto com rasgo", "Produto com furo", "Costura solta",
-      "Peça descosturada", "Zíper com problema", "Botão faltando",
-      "Botão danificado", "Elástico danificado", "Fecho com problema",
-      "Peça com odor", "Peça com desgaste não identificado antes da venda",
-    ],
-  },
-  {
-    topico: "Erro Operacional", emoji: "⚠️", cor: "#ef4444",
-    motivos: [
-      "Produto separado errado", "Produto entregue errado", "Produto enviado errado",
-      "Cor separada incorretamente", "Tamanho separado incorretamente",
-      "Peça trocada entre sacolas", "Peça trocada entre pedidos",
-      "Pedido entregue incompleto", "Divergência entre produto anunciado e produto entregue",
-    ],
-  },
-  {
-    topico: "Live", emoji: "📱", cor: "#ec4899",
-    motivos: [
-      "Peça não correspondeu à expectativa da live", "Cliente não visualizou detalhe informado na live",
-      "Cliente não percebeu detalhe da peça", "Cliente comprou por engano na live",
-      "Cliente desistiu após reserva", "Cliente solicitou troca antes da retirada",
-      "Cliente confundiu a peça durante a live", "Cliente escolheu a peça errada na live",
-    ],
-  },
-]
-
-const MOTIVOS_DEVOLUCAO: TopicoMotivo[] = [
-  {
-    topico: "Desistência", emoji: "↩️", cor: "#6366f1",
-    motivos: [
-      "Cliente desistiu da compra", "Arrependimento da compra",
-      "Cliente mudou de ideia", "Cliente não deseja mais o produto",
-      "Compra realizada por engano", "Cliente comprou item duplicado",
-      "Cliente encontrou outra opção", "Cliente solicitou cancelamento da compra",
-    ],
-  },
-  {
-    topico: "Problema no Produto", emoji: "🔎", cor: "#f59e0b",
-    motivos: [
-      "Produto com defeito", "Produto com avaria", "Produto danificado",
-      "Produto com mancha", "Produto com rasgo", "Produto com furo",
-      "Produto incompleto", "Produto diferente do anunciado",
-      "Produto em condição diferente da informada", "Produto não atendeu à expectativa da cliente",
-    ],
-  },
-  {
-    topico: "Problema no Pedido", emoji: "📦", cor: "#ef4444",
-    motivos: [
-      "Produto errado entregue", "Pedido incorreto", "Pedido incompleto",
-      "Produto não recebido", "Extravio na entrega", "Atraso na entrega",
-      "Entrega realizada no endereço incorreto", "Cliente não recebeu todos os itens",
-    ],
-  },
-  {
-    topico: "Pagamento ou Financeiro", emoji: "💳", cor: "#10b981",
-    motivos: [
-      "Pagamento duplicado", "Cobrança indevida", "Valor cobrado incorretamente",
-      "Cancelamento por falta de pagamento", "Cancelamento solicitado antes do envio",
-      "Cancelamento solicitado antes da retirada", "Cliente solicitou estorno",
-      "Cliente solicitou crédito na loja",
-    ],
-  },
-  {
-    topico: "Logística ou Retirada", emoji: "🚚", cor: "#0ea5e9",
-    motivos: [
-      "Cliente não retirou no prazo", "Cliente não conseguiu retirar",
-      "Cliente solicitou cancelamento antes da retirada", "Cliente ausente na entrega",
-      "Endereço informado incorretamente", "Produto retornou para a loja",
-      "Cliente não informou dados para entrega", "Cliente não respondeu sobre a retirada",
-    ],
-  },
-  {
-    topico: "Administrativo", emoji: "🗂️", cor: "#8b5cf6",
-    motivos: [
-      "Ajuste interno de estoque", "Correção de lançamento", "Cancelamento administrativo",
-      "Lançamento feito em duplicidade", "Produto cadastrado incorretamente",
-      "Venda registrada incorretamente", "Troca autorizada pela gerência",
-      "Devolução autorizada pela gerência", "Tratativa excepcional com cliente",
-      "Motivo não informado pela cliente",
-    ],
-  },
-]
 
 // ─── Seletor de Motivo ────────────────────────────────────
 function SeletorMotivo({

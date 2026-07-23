@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { ChevronLeft, ChevronRight, CalendarDays, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import calendarData from "@/data/ui/calendar.json"
 
-// ── helpers ──────────────────────────────────────────────
-const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
-const DIAS_SEMANA = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
+const MESES = calendarData.months
+const DIAS_SEMANA = calendarData.weekdaysShort
+
 
 function parseISO(v: string): Date | null {
   if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null

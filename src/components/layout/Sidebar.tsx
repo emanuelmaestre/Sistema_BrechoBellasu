@@ -13,25 +13,27 @@ import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import themeData from "@/data/ui/themes.json"
+import navigationData from "@/data/ui/navigation.json"
 
-const NAV_ITEMS = [
-  { href: "/vendas",        label: "Vendas",        icon: ShoppingCart },
-  { href: "/clientes",      label: "Clientes",      icon: Users        },
-  { href: "/produtos",      label: "Produtos",      icon: Package      },
-  { href: "/financeiro",    label: "Financeiro",    icon: Wallet       },
-  { href: "/trocas",        label: "Trocas e Dev.", icon: RefreshCw    },
-  { href: "/relatorios",    label: "Relatórios",    icon: BarChart2    },
-  { href: "/live",          label: "Live",          icon: Radio        },
-  { href: "/etiquetas",     label: "Etiquetas",     icon: Tag          },
-  { href: "/site",          label: "Site",          icon: Globe        },
-  { href: "/configuracoes", label: "Configurações", icon: Settings     },
-]
+const THEMES = themeData.themes as Array<{ value: Theme; label: string; dot: string }>
 
-const THEMES: { value: Theme; label: string; dot: string }[] = [
-  { value: "light", label: "Light", dot: "bg-white border-slate-300"   },
-  { value: "dark",  label: "Dark",  dot: "bg-slate-800 border-slate-600" },
-  { value: "blue",  label: "Blue",  dot: "bg-indigo-900 border-indigo-500" },
-]
+const NAV_ICONS: Record<string, React.ElementType> = {
+  "/vendas": ShoppingCart,
+  "/clientes": Users,
+  "/produtos": Package,
+  "/financeiro": Wallet,
+  "/trocas": RefreshCw,
+  "/relatorios": BarChart2,
+  "/live": Radio,
+  "/etiquetas": Tag,
+  "/site": Globe,
+  "/configuracoes": Settings,
+}
+const NAV_ITEMS = navigationData.sidebar.map((item) => ({
+  ...item,
+  icon: NAV_ICONS[item.href],
+}))
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark")  return <Moon    size={14} />

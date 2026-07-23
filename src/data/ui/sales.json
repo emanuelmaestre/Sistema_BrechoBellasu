@@ -1,0 +1,27 @@
+{
+  "paymentMethods": [
+    "Dinheiro",
+    "Pix",
+    "Cartão de Débito",
+    "Cartão de Crédito",
+    "Crédito"
+  ],
+  "periodOptions": [
+    {
+      "key": "hoje",
+      "label": "Hoje"
+    },
+    {
+      "key": "semana",
+      "label": "7 dias"
+    },
+    {
+      "key": "mes",
+      "label": "30 dias"
+    },
+    {
+      "key": "custom",
+      "label": "Período"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "routeTitles": {
+    "/vendas": "Vendas",
+    "/clientes": "Clientes",
+    "/produtos": "Produtos",
+    "/financeiro": "Financeiro",
+    "/trocas": "Trocas",
+    "/relatorios": "Relatórios",
+    "/live": "Live Commerce",
+    "/etiquetas": "Etiquetas de Envio",
+    "/site": "Site & E-commerce",
+    "/configuracoes": "Configurações"
+  },
+  "sidebar": [
+    {
+      "href": "/vendas",
+      "label": "Vendas"
+    },
+    {
+      "href": "/clientes",
+      "label": "Clientes"
+    },
+    {
+      "href": "/produtos",
+      "label": "Produtos"
+    },
+    {
+      "href": "/financeiro",
+      "label": "Financeiro"
+    },
+    {
+      "href": "/trocas",
+      "label": "Trocas e Dev."
+    },
+    {
+      "href": "/relatorios",
+      "label": "Relatórios"
+    },
+    {
+      "href": "/live",
+      "label": "Live"
+    },
+    {
+      "href": "/etiquetas",
+      "label": "Etiquetas"
+    },
+    {
+      "href": "/site",
+      "label": "Site"
+    },
+    {
+      "href": "/configuracoes",
+      "label": "Configurações"
+    }
+  ]
+}

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import routingData from "@/data/config/routing.json"
 
-// Next.js 16: "middleware" passou a se chamar "proxy" (arquivo proxy.ts,
-// função `proxy`). Mesma função: gate otimista de rotas antes da request.
-// A autorização real é feita em cada route handler via verifyAuth().
+const PUBLIC_ROUTES = routingData.publicRoutes
 
-const PUBLIC_ROUTES = ["/login"]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

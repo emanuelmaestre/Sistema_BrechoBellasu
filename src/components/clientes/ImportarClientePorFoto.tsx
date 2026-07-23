@@ -15,6 +15,10 @@ import {
   CheckCircle2, XCircle, Plus, ScanLine, UserPlus,
 } from "lucide-react"
 import { apiPost } from "@/services/api"
+import processingMessages from "@/data/messages/processing.json"
+
+const MSGS_PROCESSANDO = processingMessages.customerPhotoImport
+
 
 // ─── Tipos ────────────────────────────────────────────────
 type NivelConfianca = "alta" | "media" | "baixa"
@@ -82,13 +86,6 @@ type Fase = "captura" | "processando" | "revisao" | "salvando" | "concluido" | "
 const COR = "#3b82f6"
 const COR_ESCURA = "#1d4ed8"
 const MAX_PRINTS = 4
-
-const MSGS_PROCESSANDO = [
-  "Lendo os prints enviados...",
-  "Identificando nome, WhatsApp e endereço...",
-  "Separando cada dado no campo certo...",
-  "Conferindo se a cliente já está cadastrada...",
-]
 
 // ─── Compressão da imagem no cliente ──────────────────────
 // Prints de celular chegam grandes; reduz para ~2000px JPEG

@@ -1,0 +1,12 @@
+{
+  "moduleIcons": {
+    "CLIENTES": "👤",
+    "LIVE": "📺",
+    "VENDAS": "🏪"
+  },
+  "typeIcons": {
+    "consentimento": "📋",
+    "compras_live": "🛍️",
+    "recibo_venda": "🧾"
+  }
+}

@@ -3,6 +3,11 @@ import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
 import { getClientIp, rateLimit } from "@/lib/rateLimit"
+import livePhotoImport from "@/data/ai/live-photo-import.json"
+
+const JSON_SCHEMA = livePhotoImport.responseFormat
+const PROMPT = livePhotoImport.prompt
+
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -33,76 +38,6 @@ const ExtracaoSchema = z.object({
   motivo_ilegivel: z.string().nullable(),
   compras: z.array(CompraExtraida),
 })
-
-// JSON Schema (formato do OpenAI structured outputs — strict)
-const JSON_SCHEMA = {
-  name: "extracao_compras_live",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["legivel", "motivo_ilegivel", "compras"],
-    properties: {
-      legivel: { type: "boolean", description: "false se a imagem estiver ilegível, desfocada ou sem anotações de compras" },
-      motivo_ilegivel: { type: ["string", "null"], description: "Se legivel=false, explique o problema em uma frase curta e amigável" },
-      compras: {
-        type: "array",
-        description: "Uma entrada por compra/cliente identificada na página",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["nome_cliente","whatsapp","instagram","numero_sacola","quantidade_itens","valor_total","observacao","confianca"],
-          properties: {
-            nome_cliente:     { type: ["string", "null"], description: "Nome da cliente como está escrito" },
-            whatsapp:         { type: ["string", "null"], description: "Telefone/WhatsApp se anotado, apenas dígitos" },
-            instagram:        { type: ["string", "null"], description: "@ do Instagram se anotado, sem o @" },
-            numero_sacola:    { type: ["string", "null"], description: "Número da sacola" },
-            quantidade_itens: { type: ["number", "null"], description: "Quantidade de itens/peças" },
-            valor_total:      { type: ["number", "null"], description: "Valor total em reais, ex: 150.50" },
-            observacao:       { type: ["string", "null"], description: "Qualquer anotação extra relevante desta compra" },
-            confianca: {
-              type: "object",
-              additionalProperties: false,
-              required: ["nome_cliente","whatsapp","instagram","numero_sacola","quantidade_itens","valor_total"],
-              properties: {
-                nome_cliente:     { type: "string", enum: ["alta","media","baixa"] },
-                whatsapp:         { type: "string", enum: ["alta","media","baixa"] },
-                instagram:        { type: "string", enum: ["alta","media","baixa"] },
-                numero_sacola:    { type: "string", enum: ["alta","media","baixa"] },
-                quantidade_itens: { type: "string", enum: ["alta","media","baixa"] },
-                valor_total:      { type: "string", enum: ["alta","media","baixa"] },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-} as const
-
-const PROMPT = `Você está lendo a foto de uma página de caderno com uma TABELA onde a dona de um brechó anota, à mão, as compras das clientes durante uma live de vendas no Instagram. A foto pode estar rotacionada — a tabela pode aparecer de lado; leia normalmente mesmo assim.
-
-FORMATO FIXO DA TABELA (colunas, da esquerda para a direita):
-- "Nº" → número da sacola (numero_sacola). É o identificador da compra, não o total de itens.
-- "NOME OU INSTAGRAM" → nome completo da cliente OU o @ do Instagram dela. Se for claramente um @ ou handle de rede social, use o campo instagram; se for um nome de pessoa, use nome_cliente.
-- "ITEM1" até "ITEM6" → o valor em reais de CADA peça individual comprada (uma coluna por peça). Estas colunas NÃO viram campo próprio na resposta — servem só para você calcular quantidade_itens e valor_total, como descrito abaixo.
-- "QT" → quantidade de itens. Deve ser igual ao número de colunas ITEM1-6 preenchidas com algum valor naquela linha (conte quantas células de ITEM1 a ITEM6 têm número escrito). Se a coluna QT já tiver um número anotado, use-o para conferir; se divergir do que você contou, prefira o que você contou nas colunas ITEM1-6.
-- "TOTAL" → valor total da compra. Deve ser igual à SOMA dos valores preenchidos em ITEM1 até ITEM6 daquela linha. Se a coluna TOTAL já tiver um número anotado, use-o para conferir; se divergir da soma que você calculou, prefira a soma calculada a partir de ITEM1-6.
-
-Cada LINHA da tabela é UMA compra de UMA cliente.
-
-REGRAS:
-1. Extraia TODAS as linhas/compras que conseguir identificar na tabela.
-2. Valores em reais: converta para número (ex: "R$ 1.250,50" -> 1250.50).
-3. Telefone/WhatsApp: só preencha se houver uma anotação de telefone claramente separada da tabela (a tabela normal não tem essa coluna); caso contrário, null.
-4. Instagram: retorne sem o "@".
-5. NÃO invente dados. Se uma célula estiver vazia, borrada além de leitura, ou fora da tabela, o campo correspondente = null. NUNCA preencha nome, sacola ou valor com algo que não esteja escrito naquela linha específica.
-6. ISOLAMENTO POR LINHA: leia e calcule os valores de cada linha usando SOMENTE o que está fisicamente escrito naquela linha. NUNCA copie, reutilize ou "herde" um valor (nome, número, item, QT, total) de uma linha vizinha, mesmo que os números pareçam coincidir com os de outra linha ou você não tenha certeza de qual valor pertence a qual linha. Na dúvida sobre a qual linha um número pertence, prefira null a adivinhar.
-7. Confiança por campo: "alta" = leitura clara e certa; "media" = legível mas com alguma dúvida (letra ambígua, número borrado); "baixa" = chute com base em rabisco quase ilegível. Campo null = "alta" (não há o que duvidar).
-8. Se a página inteira estiver ilegível, desfocada, escura ou não contiver uma tabela de compras, retorne legivel=false com um motivo curto e amigável em português.
-10. Ignore linhas riscadas/tachadas (compra cancelada) e linhas totalmente vazias (sem nenhuma célula preenchida).
-
-Responda SOMENTE com o JSON no formato solicitado.`
 
 // ─── Matching com clientes cadastradas ────────────────────
 interface ClienteRow {

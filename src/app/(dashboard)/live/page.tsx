@@ -30,6 +30,7 @@ import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParce
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 import ImportarPorFoto from "@/components/live/ImportarPorFoto"
+import liveUiData from "@/data/ui/live.json"
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000
@@ -128,39 +129,24 @@ function gerarArroba(nome: string): string {
 }
 const COR_LIVE = "#e11d48"
 
-// ─── Status colors (lista) ────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  aberta:    "bg-emerald-500/10 text-emerald-400",
-  encerrada: "bg-slate-500/15 text-slate-400",
-  disparada: "bg-blue-500/10 text-blue-400",
+const STATUS_COLORS: Record<string, string> = liveUiData.statusListColors
+const STATUS_LIVE: Record<string, { label: string; cor: string; bg: string }> = liveUiData.liveStatuses
+const STATUS_COMPRA_ICONS: Record<string, React.ReactNode> = {
+  cadastrada: <Circle size={11}/>,
+  msg_pendente: <Clock size={11}/>,
+  msg_enviada: <MessageSquare size={11}/>,
+  aguardando_vinculo: <Link2 size={11}/>,
+  vinculo_parcial: <Package size={11}/>,
+  vinculada: <PackageCheck size={11}/>,
+  finalizada: <Clock size={11}/>,
+  retirada: <CheckCircle2 size={11}/>,
 }
-
-// ─── Status configs ────────────────────────────────────────
-const STATUS_LIVE: Record<string, { label: string; cor: string; bg: string }> = {
-  aberta:      { label: "Aberta",       cor: "#10b981", bg: "rgba(16,185,129,0.12)" },
-  disparada:   { label: "Msgs enviadas",cor: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  encerrada:   { label: "Encerrada",    cor: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-}
-const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string; icon: React.ReactNode }> = {
-  cadastrada:       { label: "Cadastrada",           cor: "#6b7280", bg: "rgba(107,114,128,0.1)",  icon: <Circle size={11}/> },
-  msg_pendente:     { label: "Msg pendente",         cor: "#f59e0b", bg: "rgba(245,158,11,0.1)",   icon: <Clock size={11}/> },
-  msg_enviada:      { label: "Msg enviada",          cor: "#3b82f6", bg: "rgba(59,130,246,0.1)",   icon: <MessageSquare size={11}/> },
-  aguardando_vinculo: { label: "Aguardando vínculo", cor: "#8b5cf6", bg: "rgba(139,92,246,0.1)",  icon: <Link2 size={11}/> },
-  vinculo_parcial:  { label: "Vínculo parcial",      cor: "#f97316", bg: "rgba(249,115,22,0.1)",   icon: <Package size={11}/> },
-  vinculada:        { label: "Produtos vinculados",  cor: "#10b981", bg: "rgba(16,185,129,0.1)",   icon: <PackageCheck size={11}/> },
-  finalizada:       { label: "Não Retirado",          cor: "#f97316", bg: "rgba(249,115,22,0.15)",  icon: <Clock size={11}/> },
-  retirada:         { label: "Retirado",             cor: "#10b981", bg: "rgba(16,185,129,0.2)",   icon: <CheckCircle2 size={11}/> },
-}
-
-// ─── Progresso da live ────────────────────────────────────
-const ETAPAS_LIVE = [
-  { id: 1, label: "Criada" },
-  { id: 2, label: "Compras" },
-  { id: 3, label: "Mensagens" },
-  { id: 4, label: "Produtos" },
-  { id: 5, label: "Estoque" },
-  { id: 6, label: "Encerrada" },
-]
+const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string; icon: React.ReactNode }> =
+  Object.fromEntries(Object.entries(liveUiData.purchaseStatuses).map(([status, config]) => [
+    status,
+    { ...config, icon: STATUS_COMPRA_ICONS[status] },
+  ]))
+const ETAPAS_LIVE = liveUiData.stages
 
 function calcEtapa(live: LiveDetalhe): number {
   // Etapas visuais: 1=CRIADA 2=COMPRAS 3=MENSAGENS 4=PRODUTOS 5=ESTOQUE 6=ENCERRADA
@@ -217,11 +203,15 @@ function IconYouTube() {
     </svg>
   )
 }
-const PLATAFORMAS = [
-  { value: "instagram", label: "Instagram", icon: <IconInstagram /> },
-  { value: "tiktok",    label: "TikTok",    icon: <IconTikTok />    },
-  { value: "youtube",   label: "YouTube",   icon: <IconYouTube />   },
-]
+const PLATFORM_ICONS: Record<string, React.ReactNode> = {
+  instagram: <IconInstagram />,
+  tiktok: <IconTikTok />,
+  youtube: <IconYouTube />,
+}
+const PLATAFORMAS = liveUiData.platforms.map((platform) => ({
+  ...platform,
+  icon: PLATFORM_ICONS[platform.value],
+}))
 
 // ══════════════════════════════════════════════════════════
 // WIZARD — Nova Live

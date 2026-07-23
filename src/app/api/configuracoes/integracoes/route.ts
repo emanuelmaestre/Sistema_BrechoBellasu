@@ -132,14 +132,64 @@ async function checkViaCep(): Promise<IntegracaoStatus> {
   }
 }
 
+async function checkSuperFrete(): Promise<IntegracaoStatus> {
+  const token    = process.env.SUPERFRETE_TOKEN ?? ""
+  const senderId = process.env.SUPERFRETE_SENDER_ID ?? ""
+  if (!token || !senderId) {
+    return {
+      id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
+      conectado: false, configurado: false,
+      detalhe: "SUPERFRETE_TOKEN e SUPERFRETE_SENDER_ID não configurados",
+    }
+  }
+  const t0 = Date.now()
+  try {
+    const res = await fetch("https://api.superfrete.com/api/v0/user/me", {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(4000),
+    })
+    return {
+      id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
+      conectado: res.ok, configurado: true,
+      detalhe: res.ok ? "Conta ativa" : `HTTP ${res.status}`,
+      latencia: Date.now() - t0,
+    }
+  } catch {
+    return {
+      id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
+      conectado: false, configurado: true, detalhe: "Timeout ou erro de rede",
+    }
+  }
+}
+
+async function checkGoogle(): Promise<IntegracaoStatus> {
+  const sb = createServerClient()
+  const { data } = await sb
+    .from("configuracoes")
+    .select("valor")
+    .eq("chave", "google_tokens")
+    .maybeSingle()
+  const tokens = data?.valor as Record<string, string> | null
+  if (!tokens?.access_token) {
+    return { id: "google", nome: "Google Contatos", descricao: "Sincronização de clientes com Google Contacts", conectado: false, configurado: false, detalhe: "Conta Google não conectada" }
+  }
+  return {
+    id: "google", nome: "Google Contatos", descricao: "Sincronização de clientes com Google Contacts",
+    conectado: true, configurado: true,
+    detalhe: tokens.email ? `Conectado como ${tokens.email}` : "Conta conectada",
+  }
+}
+
 export const GET = withAuth(async () => {
   const results = await Promise.allSettled([
     checkSupabase(),
     checkMelhorEnvio(),
+    checkSuperFrete(),
     checkZApi(),
     checkOpenAI(),
     checkVercel(),
     checkViaCep(),
+    checkGoogle(),
   ])
 
   const integracoes = results.map(r =>

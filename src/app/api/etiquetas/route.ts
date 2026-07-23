@@ -13,6 +13,18 @@ import {
   defaultVolume,
   type MECartItem,
 } from "@/lib/melhorenvio"
+import {
+  sfAdicionarCarrinho,
+  sfCheckout,
+  sfGerarEtiquetas,
+  sfBuscarPedido,
+  sfImprimirEtiqueta,
+  sfCancelarEtiqueta,
+  sfCepOrigem,
+  sfDefaultVolume,
+  sfConfigurado,
+  type SFCartItem,
+} from "@/lib/superfrete"
 import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
 import { montarRegistroEtiqueta } from "@/lib/etiqueta-snapshot"
@@ -39,29 +51,144 @@ export const GET = withAuth(async (req: NextRequest) => {
 export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   try {
     const body = await req.json()
-    const { service_id, venda_id, cliente_id, tipo_etiqueta, destinatario, checkout_auto } = body
+    const { service_id, venda_id, cliente_id, tipo_etiqueta, destinatario, checkout_auto, carrier = "melhorenvio" } = body
 
     if (!service_id || !destinatario?.postal_code) {
       return NextResponse.json({ erro: "Selecione um serviço de envio e informe o CEP do destinatário." }, { status: 400 })
     }
 
-    // ME exige CPF/CNPJ do destinatário para emitir a etiqueta
     if (!String(destinatario?.cpf ?? "").replace(/\D/g, "")) {
       return NextResponse.json({ erro: "Informe o CPF/CNPJ do destinatário para gerar a etiqueta." }, { status: 400 })
     }
 
-    // Busca config empresa para remetente
     const sb = createServerClient()
     const { data: config } = await sb.from("configuracoes").select("valor").eq("chave", "empresa").maybeSingle()
     const empresa = (config?.valor ?? {}) as Record<string, string>
 
-    // Valida campos obrigatórios da empresa antes de chamar ME
     if (!empresa.logradouro || !empresa.cidade) {
       return NextResponse.json({
         erro: "Endereço da empresa incompleto. Configure o logradouro e cidade em Configurações → Empresa.",
       }, { status: 422 })
     }
 
+    const fmt = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`
+
+    // ── Super Frete ────────────────────────────────────────────
+    if (carrier === "superfrete") {
+      if (!sfConfigurado()) {
+        return NextResponse.json({
+          erro: "Super Frete não configurado. Adicione SUPERFRETE_TOKEN e SUPERFRETE_SENDER_ID nas variáveis de ambiente.",
+        }, { status: 503 })
+      }
+
+      const vol = sfDefaultVolume()
+      const cartItem: SFCartItem = {
+        service:   Number(service_id),
+        sender_id: "",  // preenchido dentro de sfAdicionarCarrinho via getSenderId()
+        from: {
+          name:        empresa.nome       ?? "Brechó Bellasu",
+          phone:       empresa.telefone   ?? "",
+          email:       empresa.email      ?? "",
+          address:     empresa.logradouro ?? "",
+          number:      empresa.numero     ?? "S/N",
+          district:    empresa.bairro     ?? "",
+          city:        empresa.cidade     ?? "",
+          state:       empresa.estado     ?? "SP",
+          country:     "BR",
+          postal_code: sfCepOrigem().replace(/\D/g, ""),
+        },
+        to: {
+          name:        destinatario.nome        ?? "Cliente",
+          phone:       destinatario.telefone    ?? "",
+          email:       destinatario.email       ?? "",
+          document:    String(destinatario.cpf  ?? "").replace(/\D/g, ""),
+          address:     destinatario.logradouro  ?? "",
+          number:      destinatario.numero      ?? "S/N",
+          district:    destinatario.bairro      ?? "",
+          city:        destinatario.cidade      ?? "",
+          state:       destinatario.estado      ?? "SP",
+          country:     "BR",
+          postal_code: String(destinatario.postal_code).replace(/\D/g, ""),
+          complement:  destinatario.complemento ?? "",
+        },
+        volumes: [{
+          height: parseFloat(destinatario.altura      ?? String(vol.height)),
+          width:  parseFloat(destinatario.largura     ?? String(vol.width)),
+          length: parseFloat(destinatario.comprimento ?? String(vol.length)),
+          weight: parseFloat(destinatario.peso        ?? String(vol.weight)),
+        }],
+        options: {
+          insurance_value: parseFloat(destinatario.valor_declarado ?? "0") || undefined,
+          non_commercial:  true,
+          platform:        "Brechó Bellasu",
+        },
+        products: [{
+          name: "Produtos de vestuário usados",
+          quantity: 1,
+          unitary_value: parseFloat(destinatario.valor_declarado ?? "0") || 1,
+        }],
+        tag: venda_id ? `Venda #${venda_id}` : undefined,
+      }
+
+      const pedidoSF = await sfAdicionarCarrinho(cartItem)
+      if (!pedidoSF?.id) throw new Error("Super Frete: falha ao adicionar ao carrinho.")
+
+      let resultSF = pedidoSF
+      let labelUrlSF: string | undefined
+
+      if (checkout_auto) {
+        try {
+          const checkout = await sfCheckout([pedidoSF.id])
+          if (checkout.errors.length > 0) {
+            await sfCancelarEtiqueta(pedidoSF.id).catch(() => {})
+            const errStr = typeof checkout.errors[0] === "string" ? checkout.errors[0] : JSON.stringify(checkout.errors[0])
+            return NextResponse.json({ erro: `Super Frete checkout: ${errStr}` }, { status: 422 })
+          }
+        } catch (e) {
+          await sfCancelarEtiqueta(pedidoSF.id).catch(() => {})
+          return NextResponse.json({
+            erro: `Não foi possível finalizar a compra via Super Frete: ${(e as Error).message.slice(0, 200)}`,
+          }, { status: 422 })
+        }
+
+        await sfGerarEtiquetas([pedidoSF.id]).catch(() => {})
+        const atualizadoSF = await sfBuscarPedido(pedidoSF.id).catch(() => null)
+        if (atualizadoSF) resultSF = atualizadoSF
+
+        const printedSF = await sfImprimirEtiqueta([pedidoSF.id]).catch(() => null)
+        if (printedSF?.url) labelUrlSF = printedSF.url
+      }
+
+      try {
+        await sb.from("etiquetas").insert(montarRegistroEtiqueta({
+          me_order_id:   resultSF.id,
+          me_protocol:   resultSF.protocol,
+          me_tracking:   resultSF.tracking,
+          cliente_id:    cliente_id ? Number(cliente_id) : null,
+          venda_id:      venda_id ?? null,
+          service_id:    parseInt(service_id),
+          status:        resultSF.status ?? "pending",
+          destinatario,
+          tipo_etiqueta: tipo_etiqueta ?? null,
+          label_url:     labelUrlSF ?? resultSF.label_url ?? null,
+          criado_por:    auth.id,
+        }))
+      } catch (e) {
+        console.error("[POST /api/etiquetas] SF: falha ao salvar histórico:", (e as Error).message)
+      }
+
+      const codigoSF = resultSF.tracking ?? resultSF.self_tracking ?? null
+      const telefoneSF = destinatario.telefone || resultSF.to?.phone
+      if (codigoSF && telefoneSF) {
+        const nome = (destinatario.nome ?? resultSF.to?.name ?? "Cliente").split(" ")[0]
+        const link = `https://superfrete.com/rastreio/${codigoSF}`
+        enviarTexto(telefoneSF, `Oi ${nome}! 📦\n\nSeu pedido foi enviado via Super Frete!\n${link}\n\nCódigo: *${codigoSF}*`, "rastreio_envio").catch(() => {})
+      }
+
+      return NextResponse.json({ ...resultSF, label_url: labelUrlSF ?? resultSF.label_url ?? null, carrier: "superfrete" }, { status: 201 })
+    }
+
+    // ── Melhor Envio (padrão) ──────────────────────────────────
     const vol = defaultVolume()
 
     const cartItem: MECartItem = {
@@ -82,7 +209,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
         name:       destinatario.nome       ?? "Cliente",
         phone:      destinatario.telefone   ?? "",
         email:      destinatario.email      ?? "",
-        document:   String(destinatario.cpf ?? "").replace(/\D/g, ""), // ME exige CPF/CNPJ do destinatário
+        document:   String(destinatario.cpf ?? "").replace(/\D/g, ""),
         address:    destinatario.logradouro ?? "",
         number:     destinatario.numero     ?? "S/N",
         district:   destinatario.bairro     ?? "",
@@ -103,7 +230,6 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
         non_commercial:  true,
         platform:        "Brechó Bellasu",
       },
-      // ME sempre exige products (declaração de conteúdo obrigatória)
       products: [{
         name: "Produtos de vestuário usados",
         quantity: 1,
@@ -119,19 +245,12 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     let result = pedido
     let label_url: string | undefined
 
-    // 2. Checkout (opcional via flag checkout_auto=true) — paga com saldo da carteira
+    // 2. Checkout
     if (checkout_auto) {
-      const fmt = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`
-
-      // Mensagem amigável para o limite de envios simultâneos do Melhor Envio
-      // (conta atingiu o teto de etiquetas geradas e ainda não postadas).
       const MSG_LIMITE = "Limite de envios do Melhor Envio atingido. Você tem etiquetas já geradas que ainda não foram despachadas — poste-as na transportadora (ou cancele as que não vai usar) para liberar a geração de novas. Esse limite aumenta conforme você posta seus envios."
       const ehLimiteEnvios = (s: string) =>
         s.includes("limite de envios") || s.includes("simultane") || s.includes("simultâne") || s.includes("simultâneos")
 
-      // ── Checagem proativa: o preço real do pedido (já no carrinho) pode ser
-      //    maior que a cotação exibida (seguro, taxas). Comparamos com o saldo
-      //    real e, se faltar, informamos o déficit EXATO e desfazemos o carrinho.
       const precoPedido = parseFloat(String(pedido.price ?? "0"))
       if (precoPedido > 0) {
         try {
@@ -149,49 +268,31 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
 
       try {
         const checkout = await checkoutEtiquetas([pedido.id])
-        // ME às vezes retorna HTTP 200 mas com errors no corpo
         const erros = checkout?.errors
         if (Array.isArray(erros) && erros.length > 0) {
           await cancelarEtiqueta(pedido.id).catch(() => {})
           const errStr = typeof erros[0] === "string" ? erros[0] : JSON.stringify(erros[0])
           const errMsg = errStr.toLowerCase()
           if (errMsg.includes("saldo") || errMsg.includes("insufficient") || errMsg.includes("funds")) {
-            return NextResponse.json({
-              erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
-            }, { status: 402 })
+            return NextResponse.json({ erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta." }, { status: 402 })
           }
-          if (ehLimiteEnvios(errMsg)) {
-            return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
-          }
+          if (ehLimiteEnvios(errMsg)) return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
           return NextResponse.json({ erro: `Erro no checkout: ${errStr}` }, { status: 422 })
         }
       } catch (e) {
-        // Rollback: remove o pedido órfão do carrinho para não acumular lixo.
         await cancelarEtiqueta(pedido.id).catch(() => {})
         const m  = (e as Error).message
         const ml = m.toLowerCase()
         if (ml.includes("saldo") || ml.includes("insufficient") || ml.includes("funds")) {
-          return NextResponse.json({
-            erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta.",
-          }, { status: 402 })
+          return NextResponse.json({ erro: "Saldo insuficiente na carteira do Melhor Envio. Recarregue para gerar a etiqueta." }, { status: 402 })
         }
-        if (ehLimiteEnvios(ml)) {
-          return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
-        }
-        // Mostra o erro REAL do Melhor Envio em vez de mascarar como saldo.
-        return NextResponse.json({
-          erro: `Não foi possível finalizar a compra da etiqueta: ${m.slice(0, 200)}`,
-        }, { status: 422 })
+        if (ehLimiteEnvios(ml)) return NextResponse.json({ erro: MSG_LIMITE }, { status: 409 })
+        return NextResponse.json({ erro: `Não foi possível finalizar a compra da etiqueta: ${m.slice(0, 200)}` }, { status: 422 })
       }
 
-      // Gera a etiqueta (dispara a geração; não dependemos do formato de retorno)
       await gerarEtiquetas([pedido.id]).catch(() => {})
-
-      // Fonte de verdade: busca o pedido atualizado (status/tracking corretos)
       const atualizado = await buscarPedido(pedido.id).catch(() => null)
       if (atualizado) result = atualizado
-
-      // URL do PDF da etiqueta (não gera cobrança — pedido já está pago)
       const printed = await imprimirEtiqueta([pedido.id]).catch(() => null)
       if (printed?.url) label_url = printed.url
     }

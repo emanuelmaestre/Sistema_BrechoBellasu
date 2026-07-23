@@ -1,0 +1,106 @@
+{
+  "statusListColors": {
+    "aberta": "bg-emerald-500/10 text-emerald-400",
+    "encerrada": "bg-slate-500/15 text-slate-400",
+    "disparada": "bg-blue-500/10 text-blue-400"
+  },
+  "liveStatuses": {
+    "aberta": {
+      "label": "Aberta",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.12)"
+    },
+    "disparada": {
+      "label": "Msgs enviadas",
+      "cor": "#3b82f6",
+      "bg": "rgba(59,130,246,0.12)"
+    },
+    "encerrada": {
+      "label": "Encerrada",
+      "cor": "#6b7280",
+      "bg": "rgba(107,114,128,0.12)"
+    }
+  },
+  "purchaseStatuses": {
+    "cadastrada": {
+      "label": "Cadastrada",
+      "cor": "#6b7280",
+      "bg": "rgba(107,114,128,0.1)"
+    },
+    "msg_pendente": {
+      "label": "Msg pendente",
+      "cor": "#f59e0b",
+      "bg": "rgba(245,158,11,0.1)"
+    },
+    "msg_enviada": {
+      "label": "Msg enviada",
+      "cor": "#3b82f6",
+      "bg": "rgba(59,130,246,0.1)"
+    },
+    "aguardando_vinculo": {
+      "label": "Aguardando vínculo",
+      "cor": "#8b5cf6",
+      "bg": "rgba(139,92,246,0.1)"
+    },
+    "vinculo_parcial": {
+      "label": "Vínculo parcial",
+      "cor": "#f97316",
+      "bg": "rgba(249,115,22,0.1)"
+    },
+    "vinculada": {
+      "label": "Produtos vinculados",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.1)"
+    },
+    "finalizada": {
+      "label": "Não Retirado",
+      "cor": "#f97316",
+      "bg": "rgba(249,115,22,0.15)"
+    },
+    "retirada": {
+      "label": "Retirado",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.2)"
+    }
+  },
+  "stages": [
+    {
+      "id": 1,
+      "label": "Criada"
+    },
+    {
+      "id": 2,
+      "label": "Compras"
+    },
+    {
+      "id": 3,
+      "label": "Mensagens"
+    },
+    {
+      "id": 4,
+      "label": "Produtos"
+    },
+    {
+      "id": 5,
+      "label": "Estoque"
+    },
+    {
+      "id": 6,
+      "label": "Encerrada"
+    }
+  ],
+  "platforms": [
+    {
+      "value": "instagram",
+      "label": "Instagram"
+    },
+    {
+      "value": "tiktok",
+      "label": "TikTok"
+    },
+    {
+      "value": "youtube",
+      "label": "YouTube"
+    }
+  ]
+}

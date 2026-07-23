@@ -12,20 +12,11 @@ import { AnimatePresence, motion } from "motion/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus, RefreshCw } from "lucide-react"
 import { useDisparoStore } from "@/stores/disparo.store"
+import jobData from "@/data/ui/jobs.json"
 
-const LABEL: Record<string, string> = {
-  disparo:      "Disparando mensagens",
-  aviso:        "Avisando clientes",
-  consentimento:"Enviando consentimentos",
-  "google-sync":"Sincronizando Google Contatos",
-}
+const LABEL: Record<string, string> = jobData.labels
+const COR: Record<string, string> = jobData.colors
 
-const COR: Record<string, string> = {
-  disparo:      "#25d366",
-  aviso:        "#10b981",
-  consentimento:"#7c3aed",
-  "google-sync":"#4285F4",
-}
 
 const ICONE: Record<string, typeof Send> = {
   disparo:      Send,

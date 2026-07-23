@@ -1,39 +1,11 @@
-// ══════════════════════════════════════════════════════════
-// Mensagem de consentimento LGPD com Small Talk variável
-// Parte fixa: lista de serviços + bloco SIM/NÃO
-// Parte variável: saudação + apresentação do pedido
-// ══════════════════════════════════════════════════════════
+import consentData from "@/data/messages/consent.json"
 
-// ─── Pools de variação ───────────────────────────────────
+const SAUDACOES_CONSENT = consentData.greetings
+const BLOCO_AUTORIZACAO = consentData.authorizationBlock
+const BLOCO_FOLLOWUP = consentData.followupBlock
 
-const SAUDACOES_CONSENT = [
-  (nome: string) => `Oi, ${nome}! 👋`,
-  (nome: string) => `Olá, ${nome}! 😊`,
-  (nome: string) => `Oi, ${nome}! Tudo bem? 💖`,
-  (nome: string) => `Olá, ${nome}! Que bom falar com você. ✨`,
-  (nome: string) => `Oi, ${nome}! Passando para um recadinho rápido. 🛍️`,
-  (nome: string) => `Oi, ${nome}! Que alegria te encontrar por aqui. 🌸`,
-  (nome: string) => `Olá, ${nome}! Espero que esteja bem. 💛`,
-  (nome: string) => `Oi, ${nome}! Tenho um recadinho especial pra você. 🎀`,
-  (nome: string) => `Oi, ${nome}! Passando rapidinho aqui. 😉`,
-  (nome: string) => `Olá, ${nome}! Tudo certo por aí? 🌟`,
-]
-
-const APRESENTACOES_CONSENT = [
-  "O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:",
-  "Gostaríamos da sua autorização para te enviar mensagens pelo WhatsApp com:",
-  "Para continuar te avisando pelo WhatsApp, precisamos da sua autorização para enviar:",
-  "O Brechó Bellasu gostaria da sua permissão para te enviar mensagens no WhatsApp sobre:",
-  "Para te manter informada pelo WhatsApp, precisamos que você autorize o envio de:",
-]
-
-const FECHAMENTOS_CONSENT = [
-  "Você pode cancelar quando quiser, é só nos avisar. 😊",
-  "Pode cancelar a qualquer momento, basta nos dizer. 💕",
-  "Se quiser parar de receber, é só nos avisar. Sem problemas!",
-  "A qualquer momento você pode cancelar, é só falar com a gente.",
-  "Fica tranquila! Você pode cancelar quando quiser. 💖",
-]
+const APRESENTACOES_CONSENT = consentData.introductions
+const FECHAMENTOS_CONSENT = consentData.closings
 
 const TOTAL_CONSENT = SAUDACOES_CONSENT.length * APRESENTACOES_CONSENT.length * FECHAMENTOS_CONSENT.length // 250
 
@@ -90,7 +62,7 @@ export function buildConsentMessage(nome: string, idx?: number): string {
   const chosenIdx = idx ?? selectConsentIndex()
   const { s, a, f } = indexToComponents(chosenIdx)
 
-  const saudacao     = SAUDACOES_CONSENT[s](primeiroNome)
+  const saudacao     = SAUDACOES_CONSENT[s].replace("{nome}", primeiroNome)
   const apresentacao = APRESENTACOES_CONSENT[a]
   const fechamento   = FECHAMENTOS_CONSENT[f]
 
@@ -110,28 +82,6 @@ export function buildConsentMessage(nome: string, idx?: number): string {
 function primeiroNomeSeguro(nome: string): string {
   return nome.trim().split(/\s+/)[0] || "cliente"
 }
-
-const BLOCO_AUTORIZACAO = `O Brechó Bellasu pede sua autorização para enviar mensagens pelo WhatsApp sobre:
-
-* 🛍️ Novidades, promoções e ofertas exclusivas
-* 🎥 Avisos das nossas lives com peças selecionadas
-
-Você pode cancelar quando quiser, é só nos avisar.
-
-Responda:
-✅ SIM — Autorizo
-❌ NÃO — Não autorizo`
-
-const BLOCO_FOLLOWUP = `Ainda precisamos da sua autorização para te enviar mensagens pelo WhatsApp sobre:
-
-* 🛍️ Novidades, promoções e ofertas exclusivas
-* 🎥 Avisos das nossas lives com peças selecionadas
-
-Se preferir não receber, tudo bem também.
-
-Responda:
-✅ SIM — Autorizo
-❌ NÃO — Não autorizo`
 
 function sanitizarParteIA(texto: string): string {
   return texto
@@ -191,7 +141,7 @@ export function buildConsentFollowUpMessage(nome: string, idx?: number): string 
   const nomeCurto = primeiroNomeSeguro(nome)
   const chosenIdx = idx ?? selectConsentIndex()
   const { s, f } = indexToComponents(chosenIdx)
-  const saudacao = SAUDACOES_CONSENT[s](nomeCurto)
+  const saudacao = SAUDACOES_CONSENT[s].replace("{nome}", nomeCurto)
   const fechamento = FECHAMENTOS_CONSENT[f]
 
   return `${saudacao}\n\nPassando rapidinho para saber se podemos te manter na nossa lista de avisos do WhatsApp. ${fechamento}\n\n${BLOCO_FOLLOWUP}`

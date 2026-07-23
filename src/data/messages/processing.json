@@ -1,0 +1,14 @@
+{
+  "customerPhotoImport": [
+    "Lendo os prints enviados...",
+    "Identificando nome, WhatsApp e endereço...",
+    "Separando cada dado no campo certo...",
+    "Conferindo se a cliente já está cadastrada..."
+  ],
+  "livePhotoImport": [
+    "Lendo as informações da imagem...",
+    "Identificando clientes, sacolas e valores...",
+    "Conferindo clientes já cadastradas...",
+    "Organizando as compras encontradas..."
+  ]
+}

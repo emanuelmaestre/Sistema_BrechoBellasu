@@ -1,25 +1,13 @@
+
+import exportConfig from "@/data/config/export.json"
+
+const SLOGAN = exportConfig.slogan
+const COR = exportConfig.colors as unknown as Record<string, [number, number, number]>
 // ══════════════════════════════════════════════════════════════════
 // Export Helpers — PDF e Excel profissionais para Brechó Bellasu
 // ══════════════════════════════════════════════════════════════════
 
 export const EMPRESA = "Brechó Bellasu"
-export const SLOGAN  = "O Desapego é o Esporte da Felicidade!"
-
-// Paleta corporativa — Charcoal + Dourado
-const COR = {
-  primaria:   [15,  23,  42] as [number, number, number],  // navy escuro
-  secundaria: [30,  41,  59] as [number, number, number],  // navy médio
-  accent:     [180, 130,  20] as [number, number, number],  // dourado
-  accentCl:   [212, 170,  60] as [number, number, number],  // dourado claro
-  headerTxt:  [255, 255, 255] as [number, number, number],
-  totalBg:    [241, 245, 249] as [number, number, number],  // slate-100
-  totalTxt:   [15,  23,  42] as [number, number, number],
-  linhaAlt:   [248, 250, 252] as [number, number, number],  // slate-50
-  borda:      [203, 213, 225] as [number, number, number],  // slate-300
-  muted:      [100, 116, 139] as [number, number, number],  // slate-500
-  verde:      [22,  163,  74] as [number, number, number],
-  vermelho:   [220,  38,  38] as [number, number, number],
-}
 
 // Gera timestamp e nome de arquivo padronizado
 export function nomeArquivo(relatorio: string, ext: "xlsx" | "pdf"): string {

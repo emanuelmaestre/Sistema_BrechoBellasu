@@ -1,0 +1,19 @@
+{
+  "themes": [
+    {
+      "value": "light",
+      "label": "Light",
+      "dot": "bg-white border-slate-300"
+    },
+    {
+      "value": "dark",
+      "label": "Dark",
+      "dot": "bg-slate-800 border-slate-600"
+    },
+    {
+      "value": "blue",
+      "label": "Blue",
+      "dot": "bg-indigo-900 border-indigo-500"
+    }
+  ]
+}

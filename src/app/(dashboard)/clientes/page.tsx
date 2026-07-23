@@ -17,6 +17,8 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
+import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
+import { camposFaltantesEnvio } from "@/lib/endereco-parser"
 import { fmtData, cn } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
 import type { Cliente } from "@/types"
@@ -112,56 +114,6 @@ const MOTIVOS_CREDITO: MotivoCredito[] = [
   },
 ]
 
-const ESTADO_SIGLA: Record<string, string> = {
-  "Acre":"AC","Alagoas":"AL","Amapá":"AP","Amazonas":"AM","Bahia":"BA","Ceará":"CE",
-  "Distrito Federal":"DF","Espírito Santo":"ES","Goiás":"GO","Maranhão":"MA",
-  "Mato Grosso":"MT","Mato Grosso do Sul":"MS","Minas Gerais":"MG","Pará":"PA",
-  "Paraíba":"PB","Paraná":"PR","Pernambuco":"PE","Piauí":"PI","Rio de Janeiro":"RJ",
-  "Rio Grande do Norte":"RN","Rio Grande do Sul":"RS","Rondônia":"RO","Roraima":"RR",
-  "Santa Catarina":"SC","São Paulo":"SP","Sergipe":"SE","Tocantins":"TO",
-}
-
-interface EndSugestao {
-  label: string
-  cep: string
-  logradouro: string
-  bairro: string
-  cidade: string
-  estado: string
-  _score?: number
-  _numero?: string
-  _isRP?: boolean
-}
-
-// ── Normalização de texto para busca ─────────────────────────
-function normAddr(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim()
-}
-
-// Expande abreviações comuns de logradouro
-function expandAbrev(s: string): string {
-  return s
-    .replace(/\bR\.\s*/gi, "Rua ")
-    .replace(/\bAv\.\s*/gi, "Avenida ")
-    .replace(/\bTrav\.\s*/gi, "Travessa ")
-    .replace(/\bTv\.\s*/gi, "Travessa ")
-    .replace(/\bAl\.\s*/gi, "Alameda ")
-    .replace(/\bPr?\.\s*/gi, "Praça ")
-    .replace(/\bEstr\.\s*/gi, "Estrada ")
-    .replace(/\bRod\.\s*/gi, "Rodovia ")
-    .replace(/\bCon[dj]\.\s*/gi, "Condomínio ")
-    .replace(/\bDr\.\s*/gi, "Doutor ")
-    .replace(/\bDra\.\s*/gi, "Doutora ")
-    .replace(/\bProf\.\s*/gi, "Professor ")
-    .replace(/\bProfa\.\s*/gi, "Professora ")
-    .replace(/\bEng\.\s*/gi, "Engenheiro ")
-    .replace(/\bDep\.\s*/gi, "Deputado ")
-    .replace(/\bVer\.\s*/gi, "Vereador ")
-    .replace(/\bCel\.\s*/gi, "Coronel ")
-    .replace(/\bCap\.\s*/gi, "Capitão ")
-    .replace(/\s+/g, " ").trim()
-}
-
 // ─── Confete ──────────────────────────────────────────────
 const CONFETE_CORES = ["#a78bfa","#6366f1","#34d399","#f472b6","#fbbf24","#60a5fa","#f0abfc","#4ade80"]
 
@@ -208,7 +160,7 @@ function Confete({ show }: { show: boolean }) {
 
 // ─── Drawer Resumo do Cliente ─────────────────────────────
 // ─── Conteúdo com Tabs do Drawer ─────────────────────────
-type DrawerTab = "dados" | "historico" | "creditos" | "etiquetas" | "notificacoes" | "penalidades"
+type DrawerTab = "dados" | "historico" | "creditos" | "etiquetas" | "penalidades"
 
 type CreditoMov = {
   id: number
@@ -275,7 +227,7 @@ function notificacaoStatusInfo(status?: string | null) {
   }
 }
 
-function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number }[]; onEditarCampo?: (step: number) => void; initialTab?: DrawerTab }) {
+function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number; alerta?: string }[]; onEditarCampo?: (step: number) => void; initialTab?: DrawerTab }) {
   const [tab, setTab] = useState<DrawerTab>(initialTab ?? "dados")
   const qc = useQueryClient()
 
@@ -405,15 +357,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
   const [consentErro, setConsentErro] = useState("")
   const [consentOk, setConsentOk] = useState("")
 
-  // Polling automático enquanto aguardando resposta (status "enviado")
-  useEffect(() => {
-    if (tab !== "notificacoes" || cliente.notificacao_status !== "enviado") return
-    const interval = setInterval(() => {
-      qc.invalidateQueries({ queryKey: ["clientes"] })
-    }, 15_000)
-    return () => clearInterval(interval)
-  }, [tab, cliente.notificacao_status, qc])
-
   async function revogarConsentimento() {
     setToggling(true); setConsentErro(""); setConsentOk("")
     try {
@@ -430,7 +373,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
     { key: "historico",    label: "Histórico",    icon: <ShoppingBag size={13} /> },
     { key: "creditos",     label: "Créditos",     icon: <Wallet size={13} /> },
     { key: "etiquetas",    label: "Etiquetas",    icon: <Tag size={13} /> },
-    { key: "notificacoes", label: "Notificações", icon: <Bell size={13} /> },
     { key: "penalidades",  label: "Penalidades",  icon: <ShieldAlert size={13} /> },
   ]
 
@@ -523,7 +465,7 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
         )}
 
         {/* Aba Dados */}
-        {tab === "dados" && info.map(({ icon, label, value, href, step }, i) => (
+        {tab === "dados" && info.map(({ icon, label, value, href, step, alerta }, i) => (
           <motion.div key={label}
             initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.05 + i * 0.03 }}
@@ -573,6 +515,18 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
                     <Pencil size={13} />
                   </motion.button>
                 )}
+              </div>
+            )}
+
+            {/* Aviso de endereço incompleto — aparece aqui e não só na
+                hora de gerar a etiqueta, quando já é tarde. */}
+            {alerta && (
+              <div className="mt-1.5 flex items-center gap-2 px-4 py-2 rounded-xl"
+                style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.30)" }}>
+                <AlertCircle size={13} className="shrink-0" style={{ color: "#f59e0b" }} />
+                <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#f59e0b" }}>
+                  {alerta}
+                </p>
               </div>
             )}
           </motion.div>
@@ -767,75 +721,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
             </motion.div>
           )
         )}
-
-        {/* Aba Notificações */}
-        {tab === "notificacoes" && (() => {
-          const st = notificacaoStatusInfo(cliente.notificacao_status)
-          const podeRevogar = cliente.notificacao_status === "autorizado"
-          const aguardando = cliente.notificacao_status === "enviado"
-          return (
-            <>
-              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                Consentimento LGPD para disparos de WhatsApp. Use o botão <strong style={{ color: "var(--text-primary)" }}>Notificar</strong> no topo para enviar a mensagem.
-              </p>
-
-              {/* Card de status principal */}
-              <div className="rounded-2xl px-5 py-5 flex flex-col items-center gap-3 text-center"
-                style={{ background: st.bgCard, border: `1px solid ${st.border}` }}>
-
-                {/* Emoji grande */}
-                <div className="text-4xl leading-none">{st.emoji}</div>
-
-                {/* Badge de status */}
-                <span className={cn("text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-widest", st.badge)}>
-                  {st.label}
-                </span>
-
-                {/* Descrição */}
-                <p className="text-xs leading-relaxed max-w-[220px]" style={{ color: "var(--text-muted)" }}>
-                  {st.descricao}
-                </p>
-
-                {/* Indicador de polling quando aguardando */}
-                {aguardando && (
-                  <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    <Loader2 size={11} className="animate-spin" />
-                    Verificando resposta automaticamente...
-                  </div>
-                )}
-              </div>
-
-              {/* Botão revogar — só aparece quando autorizado */}
-              {podeRevogar && (
-                <button
-                  onClick={revogarConsentimento}
-                  disabled={toggling}
-                  className="w-full py-2.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 mt-1"
-                  style={{
-                    background: "rgba(248,113,113,0.08)",
-                    color: "#f87171",
-                    border: "1px solid rgba(248,113,113,0.25)",
-                  }}>
-                  {toggling ? "Revogando..." : "Revogar autorização"}
-                </button>
-              )}
-
-              {/* Feedback */}
-              {consentOk && (
-                <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-emerald-500/10 text-emerald-400">{consentOk}</p>
-              )}
-              {consentErro && (
-                <p className="text-xs text-center py-1.5 px-3 rounded-lg bg-red-500/10 text-red-400">{consentErro}</p>
-              )}
-
-              {!cliente.celular && (
-                <p className="text-xs text-center py-2 px-3 rounded-lg bg-amber-500/10 text-amber-400">
-                  ⚠️ Cadastre o celular do cliente antes de enviar notificação.
-                </p>
-              )}
-            </>
-          )
-        })()}
 
         {/* Aba Créditos */}
         {tab === "creditos" && (
@@ -1638,12 +1523,17 @@ function DrawerCliente({
   const celDigits = (cliente.celular ?? "").replace(/\D/g, "")
   const waHref = celDigits ? `https://wa.me/${celDigits.startsWith("55") ? celDigits : `55${celDigits}`}` : undefined
 
+  // Campos que o Melhor Envio exige — avisamos no cadastro em vez de
+  // deixar a emissão da etiqueta falhar lá na frente.
+  const faltamEnvio = camposFaltantesEnvio(cliente)
+
   const INFO = [
     { icon: <Phone size={14} />,        label: "WhatsApp",   value: cliente.celular   ?? "—", href: waHref,   step: 5 },
     { icon: <AtSign size={14} />,       label: "Instagram",  value: cliente.instagram ? `@${cliente.instagram.replace(/^@/, "")}` : "—", step: 6 },
     { icon: <FileText size={14} />,     label: "CPF / CNPJ", value: cliente.cpf_cnpj  ?? "—",                step: 3 },
     { icon: <CalendarDays size={14} />, label: "Nascimento", value: cliente.data_nasc ? fmtData(cliente.data_nasc) : "—",               step: 4 },
-    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—",    full: true,           step: 7, href: endereco ? `https://maps.google.com/?q=${encodeURIComponent(endereco)}` : undefined },
+    { icon: <Home size={14} />,         label: "Endereço",   value: endereco || "—",    full: true,           step: 7, href: endereco ? `https://maps.google.com/?q=${encodeURIComponent(endereco)}` : undefined,
+      alerta: faltamEnvio.length > 0 ? `Falta ${faltamEnvio.join(", ")} para gerar etiqueta` : undefined },
   ]
 
   // Cores do avatar baseadas na inicial
@@ -1841,19 +1731,13 @@ function WizardCliente({
   const [cepStatus, setCepStatus] = useState<CepStatus>(
     inicial?.logradouro ? "encontrado" : "idle"
   )
-  const [endTexto, setEndTexto]         = useState(
-    inicial?.logradouro
-      ? [inicial.logradouro, inicial.bairro, inicial.cidade, inicial.estado, inicial.cep].filter(Boolean).join(", ")
-      : ""
-  )
-  const [endSugestoes, setEndSugestoes] = useState<EndSugestao[]>([])
-  const [endBuscando, setEndBuscando]   = useState(false)
-  const [endAberto, setEndAberto]       = useState(false)
-  const [endTimerRef, setEndTimerRef]   = useState<ReturnType<typeof setTimeout> | null>(null)
+  // Texto inicial do campo de endereço (ao editar um cliente já salvo).
+  const endTextoInicial = inicial?.logradouro
+    ? [inicial.logradouro, inicial.bairro, inicial.cidade, inicial.estado, inicial.cep].filter(Boolean).join(", ")
+    : ""
   const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const endComplementoRef = useRef("")
   const [mostrarEntrega, setMostrarEntrega] = useState(
     !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
   )
@@ -1885,268 +1769,26 @@ function WizardCliente({
     if (next !== 5) { setWaStatus("idle"); if (waTimerRef.current) clearTimeout(waTimerRef.current) }
   }
 
-  async function buscarCep(cep: string): Promise<boolean> {
-    const limpo = cep.replace(/\D/g, "")
-    if (limpo.length !== 8) return false
-    setCepStatus("buscando")
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
-      const d = await r.json()
-      if (!d.erro) {
-        setForm(f => ({
-          ...f,
-          logradouro: d.logradouro ?? "",
-          bairro:     d.bairro     ?? "",
-          cidade:     d.localidade ?? "",
-          estado:     d.uf         ?? "",
-        }))
-        setCepStatus("encontrado")
-        return true
-      } else {
-        setCepStatus("invalido")
-        return false
-      }
-    } catch {
-      setCepStatus("invalido")
-      return false
-    }
-  }
-
-  function onEndTextoChange(valor: string) {
-    setEndTexto(valor)
-    setEndSugestoes([])
-    setEndAberto(false)
-    if (endTimerRef) clearTimeout(endTimerRef)
-    const limpo = valor.replace(/\D/g, "")
-    if (!valor.trim()) { setEndBuscando(false); return }
-    setEndBuscando(true)
-
-    const timer = setTimeout(async () => {
-      try {
-        // ── CEP completo (8 dígitos, com ou sem hífen) → ViaCEP direto ──
-        if (limpo.length === 8) {
-          const r = await fetch(`https://viacep.com.br/ws/${limpo}/json/`)
-          const d = await r.json()
-          if (!d.erro) {
-            const cepFmt = limpo.replace(/^(\d{5})(\d{3})$/, "$1-$2")
-            const isRP = normAddr(d.localidade ?? "").includes("ribeirao preto")
-            setEndSugestoes([{
-              label: "", cep: cepFmt,
-              logradouro: d.logradouro ?? "", bairro: d.bairro ?? "",
-              cidade: d.localidade ?? "", estado: d.uf ?? "",
-              _isRP: isRP, _score: isRP ? 200 : 100,
-            }])
-            setEndAberto(true)
-          } else { setEndSugestoes([]); setEndAberto(false) }
-          return
-        }
-
-        if (valor.trim().length < 3) { setEndBuscando(false); return }
-
-        // ── Normalização e expansão de abreviações ──────────────
-        const valorExpandido = expandAbrev(valor)
-        const valorNorm      = normAddr(valorExpandido)
-
-        // ── Extrai complemento (APTO, CASA, BL, etc.) ──────────
-        const RE_COMPL = /\b(casa|apto?|ap|bloco|bl|lote|lt|sala|sl|conj|cj|andar|pavimento|pav|kit|kf)\s*\.?\s*[\d\w]*/gi
-        const complementoExtraido = (valorExpandido.match(RE_COMPL) ?? []).join(" ").trim()
-        const valorSemCompl = valorExpandido.replace(RE_COMPL, " ").replace(/\s+/g, " ").trim()
-
-        // ── Extrai número de rua ─────────────────────────────────
-        const numero = valorSemCompl.match(/\b(\d{1,5})\b/)?.[1] ?? ""
-
-        // ── Detecta UF ──────────────────────────────────────────
-        const ufDetect = valor.match(/\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF|SE|TO|RO|AC|AP|AM|RR)\b/i)?.[1]?.toUpperCase() ?? "SP"
-
-        // ── Detecta cidade ──────────────────────────────────────
-        const CIDADES: Record<string, string> = {
-          "ribeirao preto": "Ribeirão Preto", "ribeirão preto": "Ribeirão Preto",
-          "ribeirao": "Ribeirão Preto", "rp": "Ribeirão Preto",
-          "sao paulo": "São Paulo", "são paulo": "São Paulo", "sp": "São Paulo",
-          "campinas": "Campinas", "sorocaba": "Sorocaba",
-          "santos": "Santos", "guarulhos": "Guarulhos", "osasco": "Osasco",
-          "bauru": "Bauru", "sao jose do rio preto": "São José do Rio Preto",
-          "franca": "Franca", "araras": "Araras", "araraquara": "Araraquara",
-          "belo horizonte": "Belo Horizonte", "bh": "Belo Horizonte",
-          "rio de janeiro": "Rio de Janeiro", "rj": "Rio de Janeiro",
-          "curitiba": "Curitiba", "florianopolis": "Florianópolis", "porto alegre": "Porto Alegre",
-          "goiania": "Goiânia", "brasilia": "Brasília", "salvador": "Salvador",
-          "recife": "Recife", "fortaleza": "Fortaleza", "manaus": "Manaus",
-          "jardinopolis": "Jardinópolis", "serrana": "Serrana", "pontal": "Pontal",
-          "brodowski": "Brodowski", "sertaozinho": "Sertãozinho", "barrinha": "Barrinha",
-          "dumont": "Dumont", "cravinhos": "Cravinhos", "luis antonio": "Luís Antônio",
-          "santa rosa de viterbo": "Santa Rosa de Viterbo", "serra azul": "Serra Azul",
-          "pradopolis": "Pradópolis", "guatapara": "Guatapará", "motuca": "Motuca",
-          "pitangueiras": "Pitangueiras", "sertanopolis": "Sertanópolis",
-        }
-        // Verifica se usuário especificou explicitamente uma cidade
-        const cidadeExplicita = Object.entries(CIDADES)
-          .sort((a, b) => b[0].length - a[0].length)
-          .find(([k]) => valorNorm.includes(normAddr(k)))?.[1] ?? null
-
-        // ── Isola logradouro removendo números, cidade, UF, complemento ──
-        const semNumero = valorSemCompl.replace(/\b\d{1,5}\b/g, " ").replace(/\s+/g, " ").trim()
-        const escapeRe  = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-        const todasCidadesRe = Object.keys(CIDADES).map(k => escapeRe(normAddr(k))).join("|")
-        const somenteRua = normAddr(semNumero)
-          .replace(new RegExp(`(${todasCidadesRe})`, "gi"), " ")
-          .replace(new RegExp(`\\b(SP|RJ|MG|BA|PR|RS|SC|GO|PE|CE|MA|PA|ES|PB|RN|AL|PI|MT|MS|DF)\\b`, "gi"), " ")
-          .replace(/[,.\-]/g, " ").replace(/\s+/g, " ").trim()
-
-        // Remove prefixo de tipo de logradouro para ViaCEP (que busca só pelo nome)
-        const nomeRua = somenteRua
-          .replace(/^(rua|avenida|travessa|alameda|praca|estrada|rodovia|largo|beco|viela|vila)\s+/i, "")
-          .trim()
-
-        if (nomeRua.length < 3) { setEndBuscando(false); return }
-
-        if (complementoExtraido) endComplementoRef.current = complementoExtraido
-
-        // ── Pontuação de relevância ─────────────────────────────
-        function scoreSugestao(s: EndSugestao, query: string): number {
-          let sc = 0
-          const cn = normAddr(s.cidade)
-          const ln = normAddr(s.logradouro)
-          const bn = normAddr(s.bairro)
-          const qn = normAddr(query)
-          if (cn.includes("ribeirao preto")) sc += 200
-          if (ln.includes(qn) || qn.includes(ln.replace(/^(rua|avenida|travessa|alameda) /, ""))) sc += 80
-          if (ln.startsWith(qn.split(" ").slice(0, 2).join(" "))) sc += 40
-          if (bn && qn.includes(bn)) sc += 20
-          if (s.cep) sc += 10
-          return sc
-        }
-
-        // ── Dedup + coletor ─────────────────────────────────────
-        const seen = new Set<string>()
-        const resultados: EndSugestao[] = []
-        function addResult(s: EndSugestao) {
-          const k = normAddr(`${s.logradouro}|${s.bairro}|${s.cidade}`)
-          if (seen.has(k) || !s.logradouro) return
-          seen.add(k)
-          s._score = scoreSugestao(s, somenteRua)
-          s._isRP  = normAddr(s.cidade).includes("ribeirao preto")
-          resultados.push(s)
-        }
-
-        // ── FONTE A: ViaCEP – Ribeirão Preto (sempre) ──────────
-        const fetchViaCEP = async (uf: string, cidade: string, rua: string) => {
-          try {
-            const url = `https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(rua)}/json/`
-            const r = await fetch(url)
-            const items = await r.json() as Array<{ logradouro: string; bairro: string; localidade: string; uf: string; cep: string }>
-            if (Array.isArray(items)) {
-              for (const it of items.slice(0, 8))
-                addResult({ label: "", cep: it.cep, logradouro: it.logradouro, bairro: it.bairro, cidade: it.localidade, estado: it.uf })
-            }
-          } catch { /* continua */ }
-        }
-
-        // ── FONTE B: Nominatim nacional (sem restrição de cidade) ──
-        const nomHeaders = { "User-Agent": "Brecho Bellasu App" }
-        const fetchNominatim = async (query: string, limit = 6) => {
-          try {
-            const q = encodeURIComponent(`${query}, Brasil`)
-            const r = await fetch(
-              `https://nominatim.openstreetmap.org/search?q=${q}&format=json&addressdetails=1&countrycodes=br&limit=${limit}&accept-language=pt-BR`,
-              { headers: nomHeaders }
-            )
-            const items = await r.json() as Array<{ address: Record<string, string> }>
-            for (const item of items) {
-              const a = item.address ?? {}
-              if (!a.road && !a.pedestrian && !a.footway) continue
-              const uf = ESTADO_SIGLA[a.state ?? ""] ?? ufDetect
-              const cepRaw = (a.postcode ?? "").replace(/\D/g, "")
-              const s: EndSugestao = {
-                label: "",
-                cep: cepRaw.length === 8 ? cepRaw.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "",
-                logradouro: a.road ?? a.pedestrian ?? a.footway ?? "",
-                bairro: a.suburb ?? a.neighbourhood ?? a.quarter ?? a.district ?? "",
-                cidade: a.city ?? a.town ?? a.village ?? a.municipality ?? "",
-                estado: uf,
-              }
-              // Enriquece CEP quando Nominatim não trouxe
-              if (!s.cep && s.cidade && s.logradouro) {
-                try {
-                  const rn = s.logradouro.replace(/^(rua|avenida|av\.?)\s+/i, "")
-                  const vr = await fetch(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(s.cidade)}/${encodeURIComponent(rn)}/json/`)
-                  const vi = await vr.json() as Array<{ cep: string; bairro: string }>
-                  if (Array.isArray(vi) && vi[0]) { s.cep = vi[0].cep; if (!s.bairro) s.bairro = vi[0].bairro }
-                } catch { /* sem cep */ }
-              }
-              addResult(s)
-            }
-          } catch { /* continua */ }
-        }
-
-        // Executa buscas em paralelo:
-        // 1. ViaCEP Ribeirão Preto (sempre)
-        // 2. ViaCEP cidade explícita (se diferente de RP)
-        // 3. Nominatim nacional
-        const promises: Promise<void>[] = [
-          fetchViaCEP("SP", "Ribeirão Preto", nomeRua),
-          fetchNominatim(numero ? `${somenteRua} ${numero}` : somenteRua, 8),
-        ]
-        if (cidadeExplicita && normAddr(cidadeExplicita) !== "ribeirao preto") {
-          promises.push(fetchViaCEP(ufDetect, cidadeExplicita, nomeRua))
-        }
-
-        await Promise.all(promises)
-
-        // Salva número para injetar no campo ao selecionar
-        if (numero) resultados.forEach(s => { s._numero = numero })
-
-        // ── Ordenação final por score (RP sempre no topo) ───────
-        resultados.sort((a, b) => {
-          if (a._isRP && !b._isRP) return -1
-          if (!a._isRP && b._isRP) return 1
-          return (b._score ?? 0) - (a._score ?? 0)
-        })
-
-        // Remove duplicatas residuais com mesmo logradouro+bairro+cidade
-        const final = resultados.filter((s, i, arr) =>
-          arr.findIndex(x => normAddr(`${x.logradouro}|${x.bairro}|${x.cidade}`) === normAddr(`${s.logradouro}|${s.bairro}|${s.cidade}`)) === i
-        )
-
-        setEndSugestoes(final)
-        setEndAberto(final.length > 0)
-      } catch { /* sem resultado */ } finally { setEndBuscando(false) }
-    }, 350)
-    setEndTimerRef(timer)
-  }
-
-  function selecionarEndereco(s: EndSugestao) {
-    const numero = (s as EndSugestao & { _numero?: string })._numero ?? ""
-    const complementoAuto = endComplementoRef.current
+  function selecionarEndereco(end: EnderecoEscolhido) {
     setForm(f => ({
       ...f,
-      cep: s.cep,
-      logradouro: s.logradouro,
-      bairro: s.bairro,
-      cidade: s.cidade,
-      estado: s.estado,
-      ...(numero ? { numero } : {}),
-      ...(complementoAuto && !f.complemento ? { complemento: complementoAuto.toUpperCase() } : {}),
+      cep:        end.cep,
+      logradouro: end.logradouro,
+      bairro:     end.bairro,
+      cidade:     end.cidade,
+      estado:     end.estado,
+      // Número e complemento vêm da própria frase digitada, quando houver.
+      ...(end.numero ? { numero: end.numero } : {}),
+      ...(end.complemento && !f.complemento ? { complemento: end.complemento } : {}),
     }))
-    setEndTexto([s.logradouro, s.bairro, s.cidade, s.estado, s.cep].filter(Boolean).join(", "))
-    setEndSugestoes([]); setEndAberto(false)
-    endComplementoRef.current = ""
     setCepStatus("encontrado")
     setTimeout(() => go(8), 180)
   }
 
-  async function advanceCep() {
-    // Já selecionou endereço via sugestão → step 8
-    if (cepStatus === "encontrado" || cepStatus === "manual") { go(8); return }
-    // Campo vazio → avança para preenchimento manual
-    if (!endTexto.trim()) { go(8); return }
-    // Aguardando busca → avança mesmo assim
+  function advanceCep() {
+    // O passo 8 já permite conferir e corrigir tudo, então nunca travamos
+    // a pessoa aqui — mesmo sem sugestão escolhida ela segue e preenche.
     go(8)
-  }
-
-  function ativarManual() {
-    setCepStatus("manual")
-    setErro("")
   }
 
   function advance() {
@@ -2420,84 +2062,15 @@ function WizardCliente({
                       CEP, nome da rua, endereço completo com número ou complemento — buscamos automaticamente.
                     </p>
 
-                    <div className="relative">
-                      <input
-                        ref={inputRef}
-                        value={endTexto}
-                        onChange={e => onEndTextoChange(e.target.value)}
-                        onFocus={() => { if (endSugestoes.length > 0) setEndAberto(true) }}
-                        onBlur={() => setTimeout(() => setEndAberto(false), 180)}
-                        placeholder="Ex: 14085-520 · Rua Ceará 1687 Casa 57 · Av. Brasil 200 Apto 3"
-                        className={inputBase}
-                        style={{
-                          ...inputStyle,
-                          borderColor: cepStatus === "encontrado" ? "#10b981" : "var(--border)",
-                        }}
-                        autoComplete="off"
-                      />
-                      {endBuscando && (
-                        <Loader2 size={18} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2"
-                          style={{ color: "var(--accent)" }} />
-                      )}
-                      {cepStatus === "encontrado" && !endBuscando && (
-                        <Check size={18} className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "#10b981" }} />
-                      )}
-
-                      {/* Dropdown de sugestões */}
-                      <AnimatePresence>
-                        {endAberto && endSugestoes.length > 0 && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-2xl shadow-xl overflow-hidden"
-                            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                            {/* Cabeçalho com contador */}
-                            {endSugestoes.length > 1 && (
-                              <div className="px-4 py-2 flex items-center justify-between"
-                                style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-                                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                                  {endSugestoes.length} resultado{endSugestoes.length > 1 ? "s" : ""} encontrado{endSugestoes.length > 1 ? "s" : ""}
-                                </span>
-                                {endSugestoes.some(s => s._isRP) && (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                                    style={{ background: "rgba(var(--accent-rgb,99,102,241),0.12)", color: "var(--accent)" }}>
-                                    RP prioridade
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {/* Lista com scroll após 3 itens */}
-                            <div style={{ maxHeight: "calc(3 * 68px)", overflowY: "auto" }}>
-                              {endSugestoes.map((s, i) => (
-                                <button key={i} onMouseDown={() => selecionarEndereco(s)}
-                                  className="w-full text-left px-4 py-3 flex items-start gap-3 transition-colors"
-                                  style={{ borderBottom: i < endSugestoes.length - 1 ? "1px solid var(--border)" : "none" }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-surface)")}
-                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                                  <MapPin size={14} className="mt-0.5 shrink-0"
-                                    style={{ color: s._isRP ? "var(--accent)" : "var(--text-muted)" }} />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                                        {[s.logradouro, s._numero, s.bairro].filter(Boolean).join(", ") || s.label.split(",")[0]}
-                                      </p>
-                                      {s._isRP && (
-                                        <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                                          style={{ background: "rgba(var(--accent-rgb,99,102,241),0.15)", color: "var(--accent)" }}>
-                                          RP
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
-                                      {[s.cidade, s.estado, s.cep].filter(Boolean).join(" · ")}
-                                    </p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                    <EnderecoAutocomplete
+                      inputRef={inputRef}
+                      textoInicial={endTextoInicial}
+                      inputClassName={inputBase}
+                      inputStyle={inputStyle}
+                      confirmado={cepStatus === "encontrado"}
+                      onSelecionar={selecionarEndereco}
+                      onEditar={() => setCepStatus("idle")}
+                    />
 
                     <AnimatePresence>
                       {cepStatus === "encontrado" && (
@@ -2513,16 +2086,6 @@ function WizardCliente({
                               {[form.cidade, form.estado].filter(Boolean).join(" – ")} · Você poderá editar na próxima etapa
                             </p>
                           </div>
-                        </motion.div>
-                      )}
-                      {endTexto.length > 3 && !endBuscando && endSugestoes.length === 0 && cepStatus !== "encontrado" && !endAberto && (
-                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="mt-4 flex items-center gap-2 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
-                          <AlertCircle size={15} style={{ color: "#f87171" }} />
-                          <p className="text-sm" style={{ color: "#f87171" }}>
-                            Endereço não encontrado — você poderá preencher manualmente na próxima etapa.
-                          </p>
                         </motion.div>
                       )}
                     </AnimatePresence>

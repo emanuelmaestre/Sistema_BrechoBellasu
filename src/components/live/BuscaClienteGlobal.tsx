@@ -9,6 +9,11 @@ import {
 } from "lucide-react"
 import { apiGet } from "@/services/api"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import statusData from "@/data/ui/status.json"
+
+const SC: Record<string, { label: string; cor: string; bg: string }> = statusData.globalSearchPurchase
+const SL: Record<string, string> = statusData.globalSearchLive
+
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -63,21 +68,6 @@ interface BuscaResult {
   cliente?: ClienteInfo | null
   resumo?: Resumo
   lives?: LiveAgrupada[]
-}
-
-// ── Status ────────────────────────────────────────────────────────────────────
-
-const SC: Record<string, { label: string; cor: string; bg: string }> = {
-  aguardando_vinculo: { label: "Ag. Vínculo",  cor: "#8b5cf6", bg: "rgba(139,92,246,0.12)"  },
-  vinculo_parcial:    { label: "Vínc. Parcial", cor: "#f97316", bg: "rgba(249,115,22,0.12)"  },
-  vinculada:          { label: "Vinculada",      cor: "#10b981", bg: "rgba(16,185,129,0.12)"  },
-  finalizada:         { label: "Não Retirado",   cor: "#f97316", bg: "rgba(249,115,22,0.15)"  },
-  retirada:           { label: "Retirado",       cor: "#10b981", bg: "rgba(16,185,129,0.2)"   },
-  cadastrada:         { label: "Cadastrada",     cor: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-}
-
-const SL: Record<string, string> = {
-  aberta: "#10b981", disparada: "#3b82f6", encerrada: "#6b7280",
 }
 
 // ── Subcomponentes ────────────────────────────────────────────────────────────

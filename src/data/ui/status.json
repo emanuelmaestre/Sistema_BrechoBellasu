@@ -1,0 +1,206 @@
+{
+  "defaultBadgeColors": {
+    "pending": {
+      "bg": "bg-amber-500/10",
+      "text": "text-amber-400",
+      "dot": "bg-amber-400"
+    },
+    "pendente": {
+      "bg": "bg-amber-500/10",
+      "text": "text-amber-400",
+      "dot": "bg-amber-400"
+    },
+    "aprovado": {
+      "bg": "bg-emerald-500/10",
+      "text": "text-emerald-400",
+      "dot": "bg-emerald-400"
+    },
+    "ativo": {
+      "bg": "bg-emerald-500/10",
+      "text": "text-emerald-400",
+      "dot": "bg-emerald-400"
+    },
+    "active": {
+      "bg": "bg-emerald-500/10",
+      "text": "text-emerald-400",
+      "dot": "bg-emerald-400"
+    },
+    "recusado": {
+      "bg": "bg-red-500/10",
+      "text": "text-red-400",
+      "dot": "bg-red-400"
+    },
+    "inativo": {
+      "bg": "bg-red-500/10",
+      "text": "text-red-400",
+      "dot": "bg-red-400"
+    },
+    "inactive": {
+      "bg": "bg-red-500/10",
+      "text": "text-red-400",
+      "dot": "bg-red-400"
+    },
+    "canceled": {
+      "bg": "bg-red-500/10",
+      "text": "text-red-400",
+      "dot": "bg-red-400"
+    },
+    "cancelado": {
+      "bg": "bg-red-500/10",
+      "text": "text-red-400",
+      "dot": "bg-red-400"
+    },
+    "concluido": {
+      "bg": "bg-blue-500/10",
+      "text": "text-blue-400",
+      "dot": "bg-blue-400"
+    },
+    "completed": {
+      "bg": "bg-blue-500/10",
+      "text": "text-blue-400",
+      "dot": "bg-blue-400"
+    },
+    "delivered": {
+      "bg": "bg-blue-500/10",
+      "text": "text-blue-400",
+      "dot": "bg-blue-400"
+    },
+    "enviado": {
+      "bg": "bg-sky-500/10",
+      "text": "text-sky-400",
+      "dot": "bg-sky-400"
+    },
+    "posted": {
+      "bg": "bg-sky-500/10",
+      "text": "text-sky-400",
+      "dot": "bg-sky-400"
+    },
+    "in transit": {
+      "bg": "bg-sky-500/10",
+      "text": "text-sky-400",
+      "dot": "bg-sky-400"
+    },
+    "erro": {
+      "bg": "bg-rose-500/10",
+      "text": "text-rose-400",
+      "dot": "bg-rose-400"
+    },
+    "error": {
+      "bg": "bg-rose-500/10",
+      "text": "text-rose-400",
+      "dot": "bg-rose-400"
+    },
+    "generated": {
+      "bg": "bg-violet-500/10",
+      "text": "text-violet-400",
+      "dot": "bg-violet-400"
+    },
+    "released": {
+      "bg": "bg-purple-500/10",
+      "text": "text-purple-400",
+      "dot": "bg-purple-400"
+    },
+    "pago": {
+      "bg": "bg-emerald-500/10",
+      "text": "text-emerald-400",
+      "dot": "bg-emerald-400"
+    },
+    "recebido": {
+      "bg": "bg-emerald-500/10",
+      "text": "text-emerald-400",
+      "dot": "bg-emerald-400"
+    },
+    "vencido": {
+      "bg": "bg-orange-500/10",
+      "text": "text-orange-400",
+      "dot": "bg-orange-400"
+    }
+  },
+  "liveSearchPurchase": {
+    "aguardando_vinculo": {
+      "label": "Ag. Vínculo",
+      "cor": "#8b5cf6",
+      "bg": "rgba(139,92,246,0.12)"
+    },
+    "vinculo_parcial": {
+      "label": "Parcial",
+      "cor": "#f97316",
+      "bg": "rgba(249,115,22,0.12)"
+    },
+    "vinculada": {
+      "label": "Vinculada",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.12)"
+    },
+    "finalizada": {
+      "label": "Finalizada",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.15)"
+    },
+    "retirada": {
+      "label": "Retirada",
+      "cor": "#639922",
+      "bg": "rgba(99,153,34,0.15)"
+    },
+    "cadastrada": {
+      "label": "Cadastrada",
+      "cor": "#6b7280",
+      "bg": "rgba(107,114,128,0.12)"
+    }
+  },
+  "liveSearchLive": {
+    "aberta": {
+      "cor": "#10b981"
+    },
+    "disparada": {
+      "cor": "#3b82f6"
+    },
+    "encerrada": {
+      "cor": "#6b7280"
+    }
+  },
+  "globalSearchPurchase": {
+    "aguardando_vinculo": {
+      "label": "Ag. Vínculo",
+      "cor": "#8b5cf6",
+      "bg": "rgba(139,92,246,0.12)"
+    },
+    "vinculo_parcial": {
+      "label": "Vínc. Parcial",
+      "cor": "#f97316",
+      "bg": "rgba(249,115,22,0.12)"
+    },
+    "vinculada": {
+      "label": "Vinculada",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.12)"
+    },
+    "finalizada": {
+      "label": "Não Retirado",
+      "cor": "#f97316",
+      "bg": "rgba(249,115,22,0.15)"
+    },
+    "retirada": {
+      "label": "Retirado",
+      "cor": "#10b981",
+      "bg": "rgba(16,185,129,0.2)"
+    },
+    "cadastrada": {
+      "label": "Cadastrada",
+      "cor": "#6b7280",
+      "bg": "rgba(107,114,128,0.12)"
+    }
+  },
+  "globalSearchLive": {
+    "aberta": "#10b981",
+    "disparada": "#3b82f6",
+    "encerrada": "#6b7280"
+  },
+  "siteOrderColors": {
+    "pendente": "bg-amber-600/15 text-amber-400",
+    "processando": "bg-blue-600/15 text-blue-400",
+    "enviado": "bg-purple-600/15 text-purple-400",
+    "entregue": "bg-emerald-600/15 text-emerald-400",
+    "cancelado": "bg-red-600/15 text-red-400"
+  }
+}

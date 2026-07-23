@@ -3,13 +3,12 @@ import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
 import { requireCronAuth } from "@/lib/server-guards"
 import { readIntEnv } from "@/lib/server-env"
+import calendarData from "@/data/ui/calendar.json"
+
+const MESES = calendarData.months
+
 
 export const dynamic = "force-dynamic"
-
-const MESES = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
-]
 
 function montarMensagem(nome: string, mes: number): string {
   const nomePrimeiro = nome.trim().split(" ")[0]

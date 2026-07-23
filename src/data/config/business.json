@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "razao_social": "SUELI VAZ MAESTRE DOS SANTOS",
+    "nome_fantasia": "BRECHÓ BELLASU",
+    "cnpj": "30.131.755/0001-96",
+    "ie": "ISENTO",
+    "telefone": "(16) 99134-7476",
+    "email": "bellasu.brecho@gmail.com",
+    "logradouro": "R. BARÃO DO AMAZONAS",
+    "numero": "1035",
+    "bairro": "CENTRO",
+    "cidade": "RIBEIRÃO PRETO",
+    "estado": "SP",
+    "cep": "14080-270",
+    "regime_tributario": "MEI"
+  },
+  "profiles": [
+    "admin",
+    "operador",
+    "caixa",
+    "estoque"
+  ],
+  "taxRegimes": [
+    "MEI",
+    "Simples Nacional",
+    "Lucro Presumido",
+    "Lucro Real"
+  ]
+}
