@@ -167,6 +167,9 @@ export async function sfCalcularFrete(params: {
   const payload = {
     from:    { postal_code: cep_origem.replace(/\D/g, "") },
     to:      { postal_code: cep_destino.replace(/\D/g, "") },
+    // A API do Super Frete exige a lista de serviços a cotar.
+    // 1=PAC, 2=SEDEX, 17=Mini Envios (padrão configurável via SUPERFRETE_SERVICES).
+    services: process.env.SUPERFRETE_SERVICES ?? "1,2,17",
     package: {
       weight: volume.weight,
       width:  volume.width,
