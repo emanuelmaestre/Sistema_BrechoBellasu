@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
+import { requireCronAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
 // POST /api/admin/reenviar-consentimento-erros
 // Protegido por CRON_SECRET — reenvia consentimento para todos com status = 'erro'
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  }
+  const authError = requireCronAuth(req)
+  if (authError) return authError
 
   const sb = createServerClient()
 

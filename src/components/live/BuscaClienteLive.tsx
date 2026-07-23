@@ -500,7 +500,7 @@ export default function BuscaClienteLive({ liveId, liveTitulo }: Props) {
                           )}
                           {result.cliente?.apelido && (
                             <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                              "{result.cliente.apelido}"
+                              &ldquo;{result.cliente.apelido}&rdquo;
                             </span>
                           )}
                         </div>

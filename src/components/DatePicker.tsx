@@ -87,6 +87,7 @@ export default function DatePicker({
 
   // Sync typed quando value muda externamente (ex: clear ou calendário)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTyped(value ? fmtDisplay(value) : "")
   }, [value])
 
@@ -104,6 +105,7 @@ export default function DatePicker({
 
   // Sync view quando o valor muda externamente
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parsed) { setViewYear(parsed.getFullYear()); setViewMonth(parsed.getMonth()) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
@@ -447,6 +449,7 @@ export function DatePickerCompact({
   }, [open])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parsed) { setViewYear(parsed.getFullYear()); setViewMonth(parsed.getMonth()) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])

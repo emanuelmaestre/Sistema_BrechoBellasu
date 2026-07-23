@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 import { enviarTexto } from "@/lib/zapi"
+import { requireCronAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
@@ -14,11 +15,8 @@ type ConfigFollowup = {
 // GET /api/cron/alertas — Vercel Cron: roda todo dia às 8h (UTC-3 = 11:00 UTC)
 // Vercel Cron envia header Authorization com CRON_SECRET
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-  }
+  const authError = requireCronAuth(req)
+  if (authError) return authError
 
   const [financeiro, consentimentoFollowup] = await Promise.all([
     processarAlertasFinanceiros(),

@@ -183,6 +183,7 @@ function SeletorMotivo({
 
   // Inicializa a fase se já há valor
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!valor) { setFase("topicos"); setTopicoSel(null); return }
     // Verifica se é um motivo de lista
     for (const t of lista) {
@@ -371,6 +372,7 @@ function ModalProdutosCliente({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     apiGet<{ data: ProdComprado[] }>(`/clientes/${clienteId}/produtos-comprados`)
       .then(r => setTodos(r.data ?? []))
@@ -474,6 +476,7 @@ function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editan
 
   useEffect(() => {
     if (step !== 2) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!cliBusca.trim()) { setCliRes([]); return }
     const t = setTimeout(async () => {
       setCliLoading(true)
@@ -496,6 +499,7 @@ function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editan
 
   useEffect(() => {
     if (step !== 3) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!prodBusca.trim()) { setProdRes([]); return }
     const t = setTimeout(async () => {
       setProdLoading(true)

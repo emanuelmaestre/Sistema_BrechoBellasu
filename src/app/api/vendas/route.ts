@@ -36,7 +36,7 @@ export const GET = withAuth(async (req: NextRequest) => {
 
   // Buscar qtd_itens por venda (um único join)
   const ids = (data ?? []).map((v: Record<string, unknown>) => v.id as number)
-  let qtdMap: Record<number, number> = {}
+  const qtdMap: Record<number, number> = {}
   if (ids.length > 0) {
     const { data: itensCount } = await sb
       .from("venda_itens")

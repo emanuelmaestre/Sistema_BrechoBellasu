@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { classificarResposta } from "@/lib/consentimento-resposta"
+import { requireCronAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
@@ -27,11 +28,8 @@ function gerarVariantesNumero(telefone: string): string[] {
 // GET /api/cron/corrigir-consentimento — Vercel Cron: roda todo dia às 3h (06:00 UTC)
 // Corrige clientes com status "enviado" que já responderam sim/não mas o webhook não capturou.
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  }
+  const authError = requireCronAuth(req)
+  if (authError) return authError
 
   const sb = createServerClient()
 

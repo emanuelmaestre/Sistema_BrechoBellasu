@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
+import { getClientIp, rateLimit } from "@/lib/rateLimit"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -246,12 +247,21 @@ function matchClientes(
 }
 
 // ─── POST — analisa os prints e devolve clientes para revisão ──
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number }) => {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return NextResponse.json(
       { erro: "Leitura por foto não configurada. Adicione a OPENAI_API_KEY nas variáveis de ambiente." },
       { status: 503 },
+    )
+  }
+
+  const ip = getClientIp(req)
+  const rl = rateLimit(`clientes-importar-foto:${auth.id}:${ip}`, 8, 60 * 60_000)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { erro: `Muitas analises por foto. Tente novamente em ${rl.retryAfter}s.` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     )
   }
 

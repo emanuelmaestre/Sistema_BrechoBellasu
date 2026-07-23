@@ -666,7 +666,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                           </motion.div>
                           <div>
                             <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                              Nenhum resultado para <span style={{ color: "var(--accent)" }}>"{cliBusca}"</span>
+                              Nenhum resultado para <span style={{ color: "var(--accent)" }}>&ldquo;{cliBusca}&rdquo;</span>
                             </p>
                             <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cliente nova? Cadastre agora e volte para continuar.</p>
                           </div>
@@ -716,7 +716,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                           style={{ color: COR }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                          + Adicionar "{prodBusca}" manualmente
+                          + Adicionar &ldquo;{prodBusca}&rdquo; manualmente
                         </button>
                       )}
                     </div>

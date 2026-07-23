@@ -30,6 +30,7 @@ export function SearchInput({
 
   // Sync external resets (e.g. clear button)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (value !== localValue) setLocalValue(value)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])

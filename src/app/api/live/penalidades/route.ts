@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   // Para cada cliente, busca o último motivo ativo
   const clienteIds = (data ?? []).map(c => c.id)
-  let ultimosMotivos: Record<number, string> = {}
+  const ultimosMotivos: Record<number, string> = {}
 
   if (clienteIds.length > 0) {
     const { data: pen } = await sb

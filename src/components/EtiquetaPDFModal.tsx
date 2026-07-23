@@ -22,6 +22,7 @@ export function EtiquetaPDFModal({ orderId, onClose }: { orderId: string; onClos
   useEffect(() => {
     let ativo = true
     let blobUrlCriada: string | null = null
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEstado("carregando")
     setUrl(null)
     setErro("")

@@ -165,19 +165,24 @@ function expandAbrev(s: string): string {
 // ─── Confete ──────────────────────────────────────────────
 const CONFETE_CORES = ["#a78bfa","#6366f1","#34d399","#f472b6","#fbbf24","#60a5fa","#f0abfc","#4ade80"]
 
+function seededRandom(seed: number) {
+  const x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
+}
+
 function Confete({ show }: { show: boolean }) {
   const pieces = useMemo(() => Array.from({ length: 48 }, (_, i) => {
     const angle  = (i / 48) * 360
-    const dist   = 120 + Math.random() * 180
+    const dist   = 120 + seededRandom(i + 1) * 180
     const rad    = (angle * Math.PI) / 180
     const tx     = Math.cos(rad) * dist
     const ty     = Math.sin(rad) * dist - 80
-    const rotate = Math.random() * 720 - 360
+    const rotate = seededRandom(i + 49) * 720 - 360
     const cor    = CONFETE_CORES[i % CONFETE_CORES.length]
-    const size   = 6 + Math.random() * 8
+    const size   = 6 + seededRandom(i + 97) * 8
     const shape  = i % 3 === 0 ? "50%" : i % 3 === 1 ? "2px" : "0%"
-    const duration = 0.9 + Math.random() * 0.4
-    return { tx, ty, rotate, cor, size, shape, delay: Math.random() * 0.15, duration }
+    const duration = 0.9 + seededRandom(i + 145) * 0.4
+    return { tx, ty, rotate, cor, size, shape, delay: seededRandom(i + 193) * 0.15, duration }
   }), [])
 
   if (!show) return null
@@ -1716,6 +1721,7 @@ function WizardCliente({
   const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const endComplementoRef = useRef("")
   const [mostrarEntrega, setMostrarEntrega] = useState(
     !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
   )
@@ -1862,7 +1868,7 @@ function WizardCliente({
 
         if (nomeRua.length < 3) { setEndBuscando(false); return }
 
-        if (complementoExtraido) (window as unknown as Record<string, unknown>).__endComplemento = complementoExtraido
+        if (complementoExtraido) endComplementoRef.current = complementoExtraido
 
         // ── Pontuação de relevância ─────────────────────────────
         function scoreSugestao(s: EndSugestao, query: string): number {
@@ -1979,7 +1985,7 @@ function WizardCliente({
 
   function selecionarEndereco(s: EndSugestao) {
     const numero = (s as EndSugestao & { _numero?: string })._numero ?? ""
-    const complementoAuto = ((window as unknown as Record<string, unknown>).__endComplemento as string | undefined) ?? ""
+    const complementoAuto = endComplementoRef.current
     setForm(f => ({
       ...f,
       cep: s.cep,
@@ -1992,7 +1998,7 @@ function WizardCliente({
     }))
     setEndTexto([s.logradouro, s.bairro, s.cidade, s.estado, s.cep].filter(Boolean).join(", "))
     setEndSugestoes([]); setEndAberto(false)
-    delete (window as unknown as Record<string, unknown>).__endComplemento
+    endComplementoRef.current = ""
     setCepStatus("encontrado")
     setTimeout(() => go(8), 180)
   }
@@ -2691,6 +2697,7 @@ function ClientesPageInner() {
 
     if (novo !== "1") return
     router.replace("/clientes", { scroll: false })
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (from === "vendas") setFromVendas(true)
     setEditForm(nome ? { ...EMPTY, nome } : null)
     setEditId(null)

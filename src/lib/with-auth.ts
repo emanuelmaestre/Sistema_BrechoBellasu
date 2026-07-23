@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 
 type AuthPayload = { id: number; perfil: string }
-type AuthedHandler = (
+type AuthedHandler<Ctx> = (
   req: NextRequest,
-  ctx: any,
+  ctx: Ctx,
   auth: AuthPayload
 ) => Promise<NextResponse>
 
@@ -16,8 +16,8 @@ type AuthedHandler = (
  *     // auth.id and auth.perfil are guaranteed non-null here
  *   })
  */
-export function withAuth(handler: AuthedHandler) {
-  return async (req: NextRequest, ctx: any): Promise<NextResponse> => {
+export function withAuth<Ctx = unknown>(handler: AuthedHandler<Ctx>) {
+  return async (req: NextRequest, ctx: Ctx): Promise<NextResponse> => {
     const auth = verifyAuth(req)
     if (!auth) {
       return NextResponse.json(

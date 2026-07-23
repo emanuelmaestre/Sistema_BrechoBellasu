@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { enviarTexto } from "@/lib/zapi"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
+import { requireCronAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
@@ -31,11 +32,8 @@ function sleep(ms: number) {
 
 // GET /api/cron/aniversario — Vercel Cron: roda todo dia às 8h (11:00 UTC)
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  }
+  const authError = requireCronAuth(req)
+  if (authError) return authError
 
   const sb = createServerClient()
 

@@ -5,9 +5,10 @@ import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
-export const PUT = withAuth(async (req: NextRequest, ctx: { params: { id: string } }) => {
+export const PUT = withAuth(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   try {
-    const id = parseInt(ctx.params.id)
+    const { id: rawId } = await ctx.params
+    const id = parseInt(rawId)
     if (!id) return NextResponse.json({ erro: "ID inválido" }, { status: 400 })
 
     const body = await req.json()

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useDebounce } from "./useDebounce"
 
 interface UseAsyncOptions {
@@ -22,7 +22,7 @@ interface UseAsyncResult<T> {
  */
 export function useAsync<T>(
   fn: () => Promise<T>,
-  deps: any[],
+  deps: unknown[],
   opts: UseAsyncOptions = {}
 ): UseAsyncResult<T> {
   const { debounce: debounceMs = 0 } = opts
@@ -34,16 +34,12 @@ export function useAsync<T>(
   // Use a stable counter as the debounce target so we can track when deps change
   const depsKey = useDebounce(JSON.stringify([...deps, tick]), debounceMs)
 
-  // Keep latest fn ref to avoid stale closures
-  const fnRef = useRef(fn)
-  fnRef.current = fn
-
   useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     setError(null)
-    fnRef
-      .current()
+    fn()
       .then((result) => {
         if (!cancelled) {
           setData(result)
@@ -57,8 +53,7 @@ export function useAsync<T>(
         }
       })
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depsKey])
+  }, [depsKey, fn])
 
   const refetch = useCallback(() => setTick((t) => t + 1), [])
 

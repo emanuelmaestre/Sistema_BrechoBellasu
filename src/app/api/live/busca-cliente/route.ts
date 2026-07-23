@@ -120,7 +120,7 @@ export const GET = withAuth(async (req: NextRequest) => {
 
   // ── 6. Dados do cliente ───────────────────────────────────────────────
   const comClienteId = compras.find(c => c.cliente_id)
-  let clienteInfo: ClienteRow | null =
+  const clienteInfo: ClienteRow | null =
     clientes.find(c => c.id === comClienteId?.cliente_id) ?? clientes[0] ?? null
 
   // ── 7. Resumo ─────────────────────────────────────────────────────────

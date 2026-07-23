@@ -1637,7 +1637,7 @@ export default function EtiquetasPage() {
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
               <Package size={36} style={{ color: "var(--border-hover)" }} />
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma etiqueta ainda</p>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Clique em "Nova Etiqueta" para emitir</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Clique em &ldquo;Nova Etiqueta&rdquo; para emitir</p>
             </div>
           ) : (
             <div style={{ borderBottom: "1px solid var(--border)" }}>

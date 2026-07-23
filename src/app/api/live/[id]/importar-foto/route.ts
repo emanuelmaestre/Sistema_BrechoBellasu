@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
 import { verifyAuth } from "@/lib/auth"
+import { getClientIp, rateLimit } from "@/lib/rateLimit"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -187,6 +188,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json(
       { erro: "Leitura por foto não configurada. Adicione a OPENAI_API_KEY nas variáveis de ambiente." },
       { status: 503 },
+    )
+  }
+
+  const ip = getClientIp(req)
+  const rl = rateLimit(`live-importar-foto:${auth.id}:${ip}`, 12, 60 * 60_000)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { erro: `Muitas analises por foto. Tente novamente em ${rl.retryAfter}s.` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     )
   }
 

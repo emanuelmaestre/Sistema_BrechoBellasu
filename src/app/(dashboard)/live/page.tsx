@@ -31,6 +31,32 @@ import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 import ImportarPorFoto from "@/components/live/ImportarPorFoto"
 
+function seededRandom(seed: number) {
+  const x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
+}
+
+function WhatsAppText({ text }: { text: string }) {
+  const lines = text.split("\n")
+  return (
+    <span>
+      {lines.map((line, i) => {
+        const parts = line.split(/(\*[^*]+\*)/g)
+        return (
+          <span key={i}>
+            {parts.map((p, j) =>
+              p.startsWith("*") && p.endsWith("*") && p.length > 2
+                ? <strong key={j} className="font-semibold">{p.slice(1,-1)}</strong>
+                : <span key={j}>{p}</span>
+            )}
+            {i < lines.length - 1 && <br/>}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 // ─── Tipos ────────────────────────────────────────────────
 export interface Compra {
   id: number
@@ -220,6 +246,7 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
 
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 280); return () => clearTimeout(t) }, [step])
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (step === 2) setPlatIdx(PLATAFORMAS.findIndex(p => p.value === form.plataforma) || 0)
   }, [step]) // eslint-disable-line
 
@@ -956,11 +983,12 @@ function RingProgress({ pct, size = 80 }: { pct: number; size?: number }) {
 // Partículas de confete ao completar
 function Confetti() {
   const pieces = Array.from({ length: 18 }, (_, i) => ({
-    x: (Math.random() - 0.5) * 260,
-    y: -(60 + Math.random() * 100),
-    rot: Math.random() * 720 - 360,
+    x: (seededRandom(i + 1) - 0.5) * 260,
+    y: -(60 + seededRandom(i + 19) * 100),
+    rot: seededRandom(i + 37) * 720 - 360,
     color: ["#10b981","#6366f1","#f59e0b","#ec4899","#3b82f6","#a78bfa"][i % 6],
-    size: 4 + Math.random() * 6,
+    size: 4 + seededRandom(i + 55) * 6,
+    radius: seededRandom(i + 73) > 0.5 ? "50%" : "2px",
   }))
   return (
     <div className="pointer-events-none absolute inset-0 flex items-end justify-center overflow-hidden">
@@ -969,7 +997,7 @@ function Confetti() {
           initial={{ x: 0, y: 0, opacity: 1, rotate: 0, scale: 1 }}
           animate={{ x: p.x, y: p.y, opacity: 0, rotate: p.rot, scale: 0 }}
           transition={{ duration: 1.2, delay: i * 0.04, ease: "easeOut" }}
-          style={{ position: "absolute", bottom: 0, width: p.size, height: p.size, borderRadius: Math.random() > 0.5 ? "50%" : "2px", background: p.color }}/>
+          style={{ position: "absolute", bottom: 0, width: p.size, height: p.size, borderRadius: p.radius, background: p.color }}/>
       ))}
     </div>
   )
@@ -1807,6 +1835,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
   // Gera preview sempre que a compra, chave PIX, small talk ou crédito mudarem
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!ex) { setMsgResult(null); return }
     const compraData: CompraData = {
       data_compra:      liveData,
@@ -1858,26 +1887,6 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const levelLabel: Record<string, string> = {
     COMPLETO: "Intro completa", MEDIO: "Intro média",
     CURTO: "Intro curta", FALLBACK: "Intro mínima",
-  }
-
-  function WhatsAppText({ text }: { text: string }) {
-    return (
-      <span>
-        {text.split("\n").map((line, i) => {
-          const parts = line.split(/(\*[^*]+\*)/g)
-          return (
-            <span key={i}>
-              {parts.map((p, j) =>
-                p.startsWith("*") && p.endsWith("*") && p.length > 2
-                  ? <strong key={j} className="font-semibold">{p.slice(1,-1)}</strong>
-                  : <span key={j}>{p}</span>
-              )}
-              {i < text.split("\n").length - 1 && <br/>}
-            </span>
-          )
-        })}
-      </span>
-    )
   }
 
   const podeEnviar = totalSelecionadas > 0 && !!msgResult?.valida && !jobRodando && (pagoCreditoEx || chavePix.trim().length > 0)

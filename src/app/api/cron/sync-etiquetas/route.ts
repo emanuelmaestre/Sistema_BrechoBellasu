@@ -2,17 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { rastrearEtiqueta } from "@/lib/melhorenvio"
 import { enviarTexto } from "@/lib/zapi"
+import { requireCronAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/cron/sync-etiquetas — Vercel Cron: roda 2x por dia
 // Verifica rastreio das etiquetas ativas e atualiza status no Supabase
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  }
+  const authError = requireCronAuth(req)
+  if (authError) return authError
 
   const sb = createServerClient()
 

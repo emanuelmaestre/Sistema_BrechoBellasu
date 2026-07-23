@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { classificarResposta } from "@/lib/consentimento-resposta"
+import { requireZapiWebhookAuth } from "@/lib/server-guards"
 
 export const dynamic = "force-dynamic"
 
@@ -71,6 +72,9 @@ function gerarVariantesNumero(telefone: string): string[] {
 
 // ─── POST — mensagem recebida do cliente ──────────────────
 export async function POST(req: NextRequest) {
+  const authError = requireZapiWebhookAuth(req)
+  if (authError) return authError
+
   try {
     const body: ZAPIMessageEvent = await req.json()
 
@@ -163,6 +167,9 @@ export async function POST(req: NextRequest) {
 
 // ─── PUT — confirmação de entrega/envio ───────────────────
 export async function PUT(req: NextRequest) {
+  const authError = requireZapiWebhookAuth(req)
+  if (authError) return authError
+
   try {
     const body: ZAPIMessageEvent = await req.json()
 

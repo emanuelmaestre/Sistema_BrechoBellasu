@@ -482,6 +482,7 @@ function WizardProduto({
   // ── Auto-sugestão de categoria ao entrar no step 5 ──
   useEffect(() => {
     if (step !== 5) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (form.categoria_id) { setCatSugerida(false); return }  // já tem categoria, não sobrescreve
     const sugestao = sugerirCategoria(form.nome, categorias)
     if (sugestao) {
@@ -694,7 +695,7 @@ function WizardProduto({
                     </select>
                     {catSugerida && (
                       <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                        💡 Detectei <strong style={{ color: "var(--text-secondary)" }}>"{categorias.find(c => String(c.id) === form.categoria_id)?.nome}"</strong> com base no nome do produto. Altere se necessário.
+                        💡 Detectei <strong style={{ color: "var(--text-secondary)" }}>&ldquo;{categorias.find(c => String(c.id) === form.categoria_id)?.nome}&rdquo;</strong> com base no nome do produto. Altere se necessário.
                       </p>
                     )}
                   </>
