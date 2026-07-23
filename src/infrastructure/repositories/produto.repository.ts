@@ -3,7 +3,7 @@
 // Única camada que conhece o Supabase para produtos.
 // ══════════════════════════════════════════════════════════════════
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { IProdutoRepository } from "@/application/produtos/ports"
+import type { IProdutoRepository, ProdutoListFilters, ProdutoListResult } from "@/application/produtos/ports"
 import type { Produto } from "@/domain/produtos/produto"
 import { CodigoDuplicadoError } from "@/domain/produtos/errors"
 
@@ -21,6 +21,37 @@ export async function calcularProximoCodigo(sb: SupabaseClient): Promise<string>
 
 export class ProdutoRepositorySupabase implements IProdutoRepository {
   constructor(private readonly sb: SupabaseClient) {}
+
+  async listar(filtros: Required<ProdutoListFilters> & { offset: number }): Promise<ProdutoListResult> {
+    const from = filtros.offset
+    const to = from + filtros.limit - 1
+    const ascending = filtros.ordemCodigo !== "desc"
+
+    let query = this.sb.from("produtos").select("*, categorias(nome)", { count: "exact" })
+
+    if (filtros.busca) {
+      query = query.or(`nome.ilike.%${filtros.busca}%,codigo.ilike.%${filtros.busca}%,marca.ilike.%${filtros.busca}%`)
+    }
+    if (filtros.categoriaId) query = query.eq("categoria_id", filtros.categoriaId)
+    if (filtros.marca) query = query.ilike("marca", filtros.marca)
+
+    const { data, count, error } = await query
+      .order("codigo_num", { ascending, nullsFirst: false })
+      .order("codigo", { ascending, nullsFirst: false })
+      .order("nome")
+      .range(from, to)
+
+    if (error) throw new Error(error.message)
+
+    return {
+      data: (data ?? []).map((produto) => ({
+        ...produto,
+        categoria_nome: (produto.categorias as { nome: string } | null)?.nome ?? null,
+        categorias: undefined,
+      })),
+      total: count,
+    }
+  }
 
   async criar(produto: Produto): Promise<{ id: number }> {
     const codigo = produto.codigo || await calcularProximoCodigo(this.sb)

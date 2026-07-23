@@ -4,6 +4,9 @@ import type { IProdutoRepository } from "./ports"
 
 class FakeProdutoRepository implements IProdutoRepository {
   constructor(private estoque: Record<number, number>) {}
+  async listar() {
+    return { data: [], total: 0 }
+  }
   async criar(): Promise<{ id: number }> {
     return { id: 1 }
   }

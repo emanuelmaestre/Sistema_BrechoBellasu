@@ -2,35 +2,32 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { CriarProdutoUseCase } from "@/application/produtos/criar-produto.use-case"
+import { ListarProdutosUseCase } from "@/application/produtos/listar-produtos.use-case"
 import { ProdutoRepositorySupabase } from "@/infrastructure/repositories/produto.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
 export const GET = withAuth(async (req: NextRequest) => {
-  const { searchParams } = req.nextUrl
-  const busca       = searchParams.get("busca")
-  const categoria_id = searchParams.get("categoria_id")
-  const page        = parseInt(searchParams.get("page") ?? "1")
-  const limit       = Math.min(parseInt(searchParams.get("limit") ?? "50"), 9999)
-  const from        = (page - 1) * limit
-  const to          = from + limit - 1
+  try {
+    const { searchParams } = req.nextUrl
+    const sb = createServerClient()
+    const useCase = new ListarProdutosUseCase(new ProdutoRepositorySupabase(sb))
 
-  const ordemCodigo = searchParams.get("ordem_codigo") === "desc" ? false : true
+    const result = await useCase.execute({
+      busca: searchParams.get("busca"),
+      categoriaId: searchParams.get("categoria_id"),
+      marca: searchParams.get("marca"),
+      page: Number(searchParams.get("page") ?? "1"),
+      limit: Number(searchParams.get("limit") ?? "50"),
+      ordemCodigo: searchParams.get("ordem_codigo") === "desc" ? "desc" : "asc",
+    })
 
-  const sb = createServerClient()
-  let q = sb.from("produtos").select("*, categorias(nome)", { count: "exact" })
-  const marca = searchParams.get("marca")
-
-  if (busca)       q = q.or(`nome.ilike.%${busca}%,codigo.ilike.%${busca}%,marca.ilike.%${busca}%`)
-  if (categoria_id) q = q.eq("categoria_id", categoria_id)
-  if (marca)       q = q.ilike("marca", marca)
-
-  const { data, count, error } = await q.order("codigo_num", { ascending: ordemCodigo, nullsFirst: false }).order("codigo", { ascending: ordemCodigo, nullsFirst: false }).order("nome").range(from, to)
-  if (error) return NextResponse.json({ erro: "Não foi possível carregar os produtos. Tente novamente." }, { status: 500 })
-
-  const rows = (data ?? []).map(p => ({ ...p, categoria_nome: (p.categorias as {nome:string}|null)?.nome ?? null, categorias: undefined }))
-  return NextResponse.json({ data: rows, total: count })
+    return NextResponse.json(result)
+  } catch (err) {
+    console.error("[GET /api/produtos]", err)
+    return NextResponse.json({ erro: "Nao foi possivel carregar os produtos. Tente novamente." }, { status: 500 })
+  }
 })
 
 export const POST = withAuth(async (req: NextRequest) => {
