@@ -2987,7 +2987,7 @@ function ClientesPageInner() {
           <table className="w-full min-w-[600px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Nome", "WhatsApp", "Instagram", "Status", "Notificações", "Ações"].map(h => (
+                {["Nome", "WhatsApp", "Instagram", "Notificações", "Ações"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
