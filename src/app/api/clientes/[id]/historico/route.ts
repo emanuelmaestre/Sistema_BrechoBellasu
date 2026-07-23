@@ -73,7 +73,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     itens: itensMap[v.id] ?? [],
   }))
 
-  // Compras de live formatadas
+  // Compras de live formatadas.
+  // O Supabase tipa joins embutidos como array; em relação muitos-para-um o
+  // runtime devolve objeto. Normalizamos os dois casos.
+  type LiveRef = { id: number; titulo: string; data_live: string; plataforma: string }
   type LiveCompraRow = {
     id: number
     created_at: string
@@ -84,11 +87,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     credito_aplicado: number
     status_compra: string
     pagamento_status: string
-    lives: { id: number; titulo: string; data_live: string; plataforma: string } | null
+    lives: LiveRef | LiveRef[] | null
     live_compra_produtos: { nome_produto: string; quantidade: number; preco_live: number }[]
   }
 
-  const liveCompras = (liveComprasRes.data ?? [] as unknown as LiveCompraRow[]).map((c: LiveCompraRow) => ({
+  const liveComprasRows = (liveComprasRes.data ?? []) as unknown as LiveCompraRow[]
+
+  const liveCompras = liveComprasRows.map(c => ({
     id: c.id,
     created_at: c.created_at,
     numero_sacola: c.numero_sacola,
@@ -99,7 +104,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     valor_final: Math.max(0, Number(c.valor_total) - Number(c.desconto ?? 0) - Number(c.credito_aplicado ?? 0)),
     status_compra: c.status_compra,
     pagamento_status: c.pagamento_status,
-    live: c.lives,
+    live: Array.isArray(c.lives) ? (c.lives[0] ?? null) : c.lives,
     produtos: c.live_compra_produtos ?? [],
   }))
 
