@@ -513,6 +513,15 @@ function AbaIntegracoes() {
                         <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{integ.latencia}ms</span>
                       </div>
                     )}
+
+                    {/* Botão reconectar Google */}
+                    {integ.id === "google" && !integ.conectado && (
+                      <a href="/api/google/auth" target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                        style={{ background: "rgba(234,67,53,0.12)", color: "#ea4335", border: "1px solid rgba(234,67,53,0.25)" }}>
+                        <RefreshCw size={10} /> Reconectar Google
+                      </a>
+                    )}
                   </div>
                 </div>
 

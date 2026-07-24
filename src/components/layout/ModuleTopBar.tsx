@@ -44,6 +44,61 @@ const DIAS_SEMANA_FULL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta"
 const MESES_ABREV  = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
 const MESES_FULL   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
 
+// ── Feriados ─────────────────────────────────────────────
+function calcularPascoa(ano: number): Date {
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100
+  const d = Math.floor(b / 4), e = b % 4
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const mes = Math.floor((h + l - 7 * m + 114) / 31)
+  const dia = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(ano, mes - 1, dia)
+}
+
+function addDias(d: Date, n: number): Date {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r
+}
+
+/** Retorna mapa "MM-DD" → nome do feriado para o ano dado */
+function feriadosDoAno(ano: number): Map<string, string> {
+  const f = new Map<string, string>()
+  const add = (mes: number, dia: number, nome: string) =>
+    f.set(`${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`, nome)
+
+  // Nacionais fixos
+  add(1,  1,  "Ano Novo")
+  add(4,  21, "Tiradentes")
+  add(5,  1,  "Dia do Trabalho")
+  add(9,  7,  "Independência do Brasil")
+  add(10, 12, "Nossa Senhora Aparecida")
+  add(11, 2,  "Finados")
+  add(11, 15, "Proclamação da República")
+  add(11, 20, "Consciência Negra")
+  add(12, 25, "Natal")
+
+  // Nacionais variáveis (baseados na Páscoa)
+  const pascoa = calcularPascoa(ano)
+  const carnavalSeg = addDias(pascoa, -48)
+  const carnavalTer = addDias(pascoa, -47)
+  const sextaSanta  = addDias(pascoa, -2)
+  const corpus      = addDias(pascoa, 60)
+
+  const fmt = (d: Date) => `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
+  f.set(fmt(carnavalSeg), "Carnaval (segunda)")
+  f.set(fmt(carnavalTer), "Carnaval (terça)")
+  f.set(fmt(sextaSanta),  "Sexta-feira Santa")
+  f.set(fmt(pascoa),      "Páscoa")
+  f.set(fmt(corpus),      "Corpus Christi")
+
+  // Municipais — Ribeirão Preto / SP
+  add(6,  19, "Emancipação de Ribeirão Preto")
+
+  return f
+}
+
 function useClock() {
   const [now, setNow] = useState(new Date())
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id) }, [])
@@ -78,6 +133,7 @@ export function CalendarioWidget() {
   const [viewYear,  setViewYear]  = useState(now.getFullYear())
   const [viewMonth, setViewMonth] = useState(now.getMonth())
   const [aniversariantes, setAniversariantes] = useState<Aniversariante[]>([])
+  const feriados = feriadosDoAno(viewYear)
 
   useEffect(() => {
     apiGet<{ total: number; aniversariantes: Aniversariante[] }>("/aniversariantes/hoje")
@@ -184,24 +240,57 @@ export function CalendarioWidget() {
               <div className="grid grid-cols-7 gap-0.5">
                 {cells.map((dia, i) => {
                   if (!dia) return <div key={i}/>
-                  const isHoje = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
-                  const isSun  = (primeiroDia + dia - 1) % 7 === 0
-                  const isSat  = (primeiroDia + dia - 1) % 7 === 6
+                  const isHoje    = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
+                  const isSun     = (primeiroDia + dia - 1) % 7 === 0
+                  const isSat     = (primeiroDia + dia - 1) % 7 === 6
+                  const chave     = `${String(viewMonth + 1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`
+                  const feriado   = feriados.get(chave)
                   return (
-                    <motion.div key={dia} whileHover={{ scale: 1.2 }}
-                      className="flex items-center justify-center h-12 rounded-xl text-base font-bold cursor-default"
+                    <motion.div key={dia} whileHover={{ scale: 1.15 }}
+                      title={feriado}
+                      className="relative flex flex-col items-center justify-center h-12 rounded-xl text-base font-bold cursor-default"
                       style={{
-                        background: isHoje ? "var(--accent)" : "transparent",
-                        color: isHoje ? "#fff" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
-                        fontWeight: isHoje ? 900 : undefined,
+                        background: isHoje ? "var(--accent)" : feriado ? "rgba(239,68,68,0.10)" : "transparent",
+                        color: isHoje ? "#fff" : feriado ? "#dc2626" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
+                        fontWeight: isHoje || feriado ? 900 : undefined,
                         boxShadow: isHoje ? "0 2px 8px var(--accent-bg)" : undefined,
+                        border: feriado && !isHoje ? "1px solid rgba(239,68,68,0.25)" : undefined,
                       }}>
                       {dia}
+                      {feriado && !isHoje && (
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-500" />
+                      )}
                     </motion.div>
                   )
                 })}
               </div>
             </div>
+
+            {/* Feriados do mês visível */}
+            {(() => {
+              const feriadosMes = Array.from(feriados.entries())
+                .filter(([chave]) => chave.startsWith(`${String(viewMonth + 1).padStart(2,"0")}-`))
+                .sort(([a],[b]) => a.localeCompare(b))
+              if (!feriadosMes.length) return null
+              return (
+                <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
+                  <p className="text-[9px] font-black uppercase tracking-widest pt-2.5 pb-1.5 flex items-center gap-1"
+                    style={{ color: "#dc2626" }}>
+                    🇧🇷 Feriados de {MESES_ABREV[viewMonth]}
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {feriadosMes.map(([chave, nome]) => (
+                      <div key={chave} className="flex items-center gap-2 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        <span className="font-black tabular-nums" style={{ color: "#dc2626", minWidth: 24 }}>
+                          {chave.split("-")[1]}
+                        </span>
+                        <span>{nome}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Rodapé: voltar para hoje */}
             <div className="px-4 pb-4">
