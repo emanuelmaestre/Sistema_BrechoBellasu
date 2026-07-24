@@ -62,39 +62,51 @@ function addDias(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r
 }
 
-/** Retorna mapa "MM-DD" → nome do feriado para o ano dado */
-function feriadosDoAno(ano: number): Map<string, string> {
-  const f = new Map<string, string>()
-  const add = (mes: number, dia: number, nome: string) =>
-    f.set(`${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`, nome)
+type TipoFeriado = "N" | "E" | "M"   // Nacional | Estadual-SP | Municipal-RP
+interface Feriado { nome: string; tipo: TipoFeriado }
 
-  // Nacionais fixos
-  add(1,  1,  "Ano Novo")
-  add(4,  21, "Tiradentes")
-  add(5,  1,  "Dia do Trabalho")
-  add(9,  7,  "Independência do Brasil")
-  add(10, 12, "Nossa Senhora Aparecida")
-  add(11, 2,  "Finados")
-  add(11, 15, "Proclamação da República")
-  add(11, 20, "Consciência Negra")
-  add(12, 25, "Natal")
+const TIPO_COR: Record<TipoFeriado, string> = {
+  N: "#dc2626",   // vermelho — Nacional
+  E: "#d97706",   // âmbar   — Estadual SP
+  M: "#7c3aed",   // roxo    — Municipal Ribeirão Preto
+}
+const TIPO_LABEL: Record<TipoFeriado, string> = {
+  N: "Nacional",
+  E: "Estadual SP",
+  M: "Municipal RP",
+}
 
-  // Nacionais variáveis (baseados na Páscoa)
-  const pascoa = calcularPascoa(ano)
-  const carnavalSeg = addDias(pascoa, -48)
-  const carnavalTer = addDias(pascoa, -47)
-  const sextaSanta  = addDias(pascoa, -2)
-  const corpus      = addDias(pascoa, 60)
-
+/** Retorna mapa "MM-DD" → { nome, tipo } para o ano dado */
+function feriadosDoAno(ano: number): Map<string, Feriado> {
+  const f = new Map<string, Feriado>()
+  const add = (mes: number, dia: number, nome: string, tipo: TipoFeriado) =>
+    f.set(`${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`, { nome, tipo })
   const fmt = (d: Date) => `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
-  f.set(fmt(carnavalSeg), "Carnaval (segunda)")
-  f.set(fmt(carnavalTer), "Carnaval (terça)")
-  f.set(fmt(sextaSanta),  "Sexta-feira Santa")
-  f.set(fmt(pascoa),      "Páscoa")
-  f.set(fmt(corpus),      "Corpus Christi")
 
-  // Municipais — Ribeirão Preto / SP
-  add(6,  19, "Emancipação de Ribeirão Preto")
+  // ── Nacionais fixos ──────────────────────────────────────
+  add(1,  1,  "Ano Novo",                     "N")
+  add(4,  21, "Tiradentes",                   "N")
+  add(5,  1,  "Dia do Trabalho",              "N")
+  add(9,  7,  "Independência do Brasil",      "N")
+  add(10, 12, "Nossa Senhora Aparecida",      "N")
+  add(11, 2,  "Finados",                      "N")
+  add(11, 15, "Proclamação da República",     "N")
+  add(11, 20, "Consciência Negra",            "N")
+  add(12, 25, "Natal",                        "N")
+
+  // ── Nacionais variáveis (calculados pela Páscoa) ─────────
+  const pascoa = calcularPascoa(ano)
+  f.set(fmt(addDias(pascoa, -48)), { nome: "Carnaval (segunda)", tipo: "N" })
+  f.set(fmt(addDias(pascoa, -47)), { nome: "Carnaval (terça)",   tipo: "N" })
+  f.set(fmt(addDias(pascoa,  -2)), { nome: "Sexta-feira Santa",  tipo: "N" })
+  f.set(fmt(pascoa),               { nome: "Páscoa",             tipo: "N" })
+  f.set(fmt(addDias(pascoa,  60)), { nome: "Corpus Christi",     tipo: "N" })
+
+  // ── Estaduais — São Paulo ────────────────────────────────
+  add(7,  9,  "Revolução Constitucionalista", "E")
+
+  // ── Municipais — Ribeirão Preto / SP ────────────────────
+  add(6,  19, "Emancipação de Ribeirão Preto", "M")
 
   return f
 }
@@ -194,8 +206,8 @@ export function CalendarioWidget() {
           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
-            style={{ width: 540, background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden flex flex-col"
+            style={{ width: 540, maxHeight: "min(88vh, 680px)", background: "var(--bg-card)", border: "1.5px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
 
             {/* Header com relógio */}
             <div className="px-5 pt-5 pb-4" style={{ background: "linear-gradient(135deg,var(--accent-bg),var(--bg-surface))" }}>
@@ -216,6 +228,9 @@ export function CalendarioWidget() {
                 </motion.div>
               </div>
             </div>
+
+            {/* Corpo scrollável */}
+            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
 
             {/* Navegação de mês */}
             <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -270,6 +285,7 @@ export function CalendarioWidget() {
                       const isSat   = (primeiroDia + dia - 1) % 7 === 6
                       const chave   = `${String(viewMonth + 1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`
                       const feriado = feriados.get(chave)
+                      const fCor    = feriado ? TIPO_COR[feriado.tipo] : undefined
                       return (
                         <motion.div key={dia}
                           initial={{ opacity: 0, scale: 0.75 }}
@@ -277,16 +293,15 @@ export function CalendarioWidget() {
                           transition={{ delay: (i % 7) * 0.018 + Math.floor(i / 7) * 0.022, type: "spring", stiffness: 400, damping: 22 }}
                           whileHover={{ scale: 1.2, zIndex: 10 }}
                           whileTap={{ scale: 0.9 }}
-                          title={feriado}
+                          title={feriado ? `${feriado.nome} · ${TIPO_LABEL[feriado.tipo]}` : undefined}
                           className="relative flex flex-col items-center justify-center h-12 rounded-xl text-base font-bold cursor-default select-none"
                           style={{
-                            background: isHoje ? "var(--accent)" : feriado ? "rgba(239,68,68,0.10)" : "transparent",
-                            color: isHoje ? "#fff" : feriado ? "#dc2626" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
+                            background: isHoje ? "var(--accent)" : feriado ? `${fCor}18` : "transparent",
+                            color: isHoje ? "#fff" : feriado ? fCor : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
                             fontWeight: isHoje || feriado ? 900 : undefined,
                             boxShadow: isHoje ? "0 0 0 2px var(--accent), 0 4px 16px rgba(99,102,241,0.35)" : undefined,
-                            border: feriado && !isHoje ? "1px solid rgba(239,68,68,0.28)" : undefined,
+                            border: feriado && !isHoje ? `1px solid ${fCor}44` : undefined,
                           }}>
-                          {/* Anel pulsante no dia atual */}
                           {isHoje && (
                             <motion.span
                               className="absolute inset-0 rounded-xl pointer-events-none"
@@ -298,7 +313,7 @@ export function CalendarioWidget() {
                           {feriado && !isHoje && (
                             <motion.span
                               className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                              style={{ background: "#dc2626" }}
+                              style={{ background: fCor }}
                               animate={{ scale: [1, 1.5, 1] }}
                               transition={{ duration: 2, repeat: Infinity }}
                             />
@@ -319,17 +334,31 @@ export function CalendarioWidget() {
               if (!feriadosMes.length) return null
               return (
                 <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest pt-2.5 pb-1.5 flex items-center gap-1"
-                    style={{ color: "#dc2626" }}>
-                    🇧🇷 Feriados de {MESES_ABREV[viewMonth]}
-                  </p>
+                  <div className="flex items-center justify-between pt-2.5 pb-1.5">
+                    <p className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1"
+                      style={{ color: "var(--text-muted)" }}>
+                      📅 Feriados de {MESES_ABREV[viewMonth]}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {(["N","E","M"] as TipoFeriado[]).map(t => (
+                        <span key={t} className="text-[8px] font-black px-1.5 py-0.5 rounded-full"
+                          style={{ background: `${TIPO_COR[t]}18`, color: TIPO_COR[t] }}>
+                          {TIPO_LABEL[t]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex flex-col gap-1">
-                    {feriadosMes.map(([chave, nome]) => (
-                      <div key={chave} className="flex items-center gap-2 text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        <span className="font-black tabular-nums" style={{ color: "#dc2626", minWidth: 24 }}>
+                    {feriadosMes.map(([chave, fer]) => (
+                      <div key={chave} className="flex items-center gap-2 text-[10px]">
+                        <span className="font-black tabular-nums w-6 shrink-0" style={{ color: TIPO_COR[fer.tipo] }}>
                           {chave.split("-")[1]}
                         </span>
-                        <span>{nome}</span>
+                        <span className="flex-1" style={{ color: "var(--text-secondary)" }}>{fer.nome}</span>
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ background: `${TIPO_COR[fer.tipo]}15`, color: TIPO_COR[fer.tipo] }}>
+                          {fer.tipo}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -374,6 +403,8 @@ export function CalendarioWidget() {
                 </div>
               </div>
             )}
+
+            </div>{/* fim corpo scrollável */}
           </motion.div>
         )}
       </AnimatePresence>

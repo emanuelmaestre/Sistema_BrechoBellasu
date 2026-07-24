@@ -18,11 +18,11 @@ const LEFT = [
   { href: "/clientes",   label: "Clientes",      icon: Users,        desc: "Gestão de clientes",             color: "#3b82f6", glow: "rgba(59,130,246,0.15)"  },
   { href: "/produtos",   label: "Produtos",      icon: Package,      desc: "Catálogo e estoque",             color: "#8b5cf6", glow: "rgba(139,92,246,0.15)"  },
   { href: "/financeiro", label: "Financeiro",    icon: Wallet,       desc: "Contas a pagar e receber",       color: "#f59e0b", glow: "rgba(245,158,11,0.15)"  },
-  { href: "/trocas",     label: "Trocas e Devoluções", icon: RefreshCw, desc: "Trocas e devoluções",           color: "#ef4444", glow: "rgba(239,68,68,0.15)"   },
+  { href: "/relatorios",    label: "Relatórios",    icon: BarChart2, desc: "Análises e indicadores",   color: "#06b6d4", glow: "rgba(6,182,212,0.15)"  },
 ]
 
 const RIGHT = [
-  { href: "/relatorios",    label: "Relatórios",   icon: BarChart2, desc: "Análises e indicadores",   color: "#06b6d4", glow: "rgba(6,182,212,0.15)"   },
+  { href: "/trocas",     label: "Trocas e Devoluções", icon: RefreshCw, desc: "Trocas e devoluções", color: "#ef4444", glow: "rgba(239,68,68,0.15)"  },
   { href: "/live",          label: "Live",          icon: Radio,     desc: "Transmissões ao vivo",     color: "#e11d48", glow: "rgba(225,29,72,0.15)"   },
   { href: "/etiquetas",     label: "Etiquetas",     icon: Tag,       desc: "Impressão de etiquetas",   color: "#f97316", glow: "rgba(249,115,22,0.15)"  },
   { href: "/site",          label: "Site",          icon: Globe,     desc: "Vitrine online",           color: "#14b8a6", glow: "rgba(20,184,166,0.15)"  },
