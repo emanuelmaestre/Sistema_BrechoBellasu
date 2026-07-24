@@ -16,6 +16,8 @@ import { fmtBRL, fmtData, cn } from "@/lib/utils"
 import type { Cliente, Produto } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF, imprimirRecibo } from "@/lib/recibo-pdf"
+import { gerarPixPayload } from "@/lib/pix"
+import QRCode from "react-qr-code"
 import salesData from "@/data/ui/sales.json"
 
 const FORMAS = salesData.paymentMethods
@@ -1165,6 +1167,70 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                     </div>
                   ))}
                 </div>
+
+                {/* QR Code PIX — aparece quando pagamento inclui PIX */}
+                {formas.some(f => f.toUpperCase().includes("PIX")) && (() => {
+                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "16994578922"
+                  const valorPix = formas.length === 1
+                    ? totalFinal
+                    : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
+                  const payload = gerarPixPayload({
+                    chave:    pixChave,
+                    nome:     "Brecho Bellasu",
+                    cidade:   "Ribeirao Preto",
+                    valor:    valorPix > 0 ? valorPix : undefined,
+                    descricao: "Brechó Bellasu",
+                    txid:     "BELLASU",
+                  })
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 rounded-2xl overflow-hidden"
+                      style={{ border: "1.5px solid rgba(99,102,241,0.35)", background: "var(--bg-surface)" }}>
+                      <div className="px-4 py-2.5 flex items-center gap-2"
+                        style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.2)" }}>
+                        <span className="text-sm">💠</span>
+                        <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                          QR Code PIX
+                        </p>
+                        <span className="ml-auto text-xs font-bold" style={{ color: "var(--accent)" }}>
+                          {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-center gap-5 p-5">
+                        {/* QR Code */}
+                        <div className="shrink-0 p-3 rounded-2xl" style={{ background: "#fff" }}>
+                          <QRCode value={payload} size={148} />
+                        </div>
+                        {/* Instruções */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+                            Mostre para a cliente escanear
+                          </p>
+                          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                            Funciona em qualquer banco — Caixa, Nubank, Itaú, Bradesco e todos os apps com PIX.
+                          </p>
+                          <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2"
+                            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                            <span className="text-[11px] font-mono truncate flex-1" style={{ color: "var(--text-secondary)" }}>
+                              {pixChave}
+                            </span>
+                            <button
+                              onClick={() => navigator.clipboard.writeText(pixChave)}
+                              className="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0"
+                              style={{ background: "rgba(99,102,241,0.12)", color: "var(--accent)" }}>
+                              Copiar chave
+                            </button>
+                          </div>
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            Chave: telefone · Conta Caixa · Brechó Bellasu
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })()}
+
               </div>
             </motion.div>
           )}
