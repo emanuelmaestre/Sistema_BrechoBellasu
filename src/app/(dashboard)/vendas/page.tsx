@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, X, ChevronLeft, ArrowRight, Check,
   Loader2, RefreshCw, Pencil, ShoppingCart,
-  CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus,
+  CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus, Maximize2, Copy, CheckCheck,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
@@ -332,6 +332,30 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 // ─── Wizard Nova Venda ────────────────────────────────────
+function PixCopiarChave({ chave }: { chave: string }) {
+  const [copiado, setCopiado] = useState(false)
+  function copiar() {
+    navigator.clipboard.writeText(chave)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+  return (
+    <div className="w-full px-5 pb-4">
+      <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+        <span className="text-xs font-mono flex-1 truncate" style={{ color: "var(--text-secondary)" }}>
+          {chave}
+        </span>
+        <button onClick={copiar}
+          className="flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl shrink-0 transition-all"
+          style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--accent-bg)", color: copiado ? "#10b981" : "var(--accent)", border: `1px solid ${copiado ? "rgba(16,185,129,0.4)" : "var(--accent)"}` }}>
+          {copiado ? <><CheckCheck size={11} /> Copiado!</> : <><Copy size={11} /> Copiar chave</>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => void; onSalvo: () => void; initialCliente?: Cliente | null }) {
   const router = useRouter()
   const [step, setStep]           = useState(1)
@@ -339,6 +363,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
   const [erro, setErro]           = useState("")
   const [saving, setSaving]       = useState(false)
   const [salvoOk, setSalvoOk]     = useState(false)
+  const [pixModal, setPixModal]   = useState(false)
 
   // Step 1 — cliente
   const [clienteId, setClienteId] = useState<number | null>(null)
@@ -1175,59 +1200,119 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                     ? totalFinal
                     : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
                   const payload = gerarPixPayload({
-                    chave:    pixChave,
-                    nome:     "Brecho Bellasu",
-                    cidade:   "Ribeirao Preto",
-                    valor:    valorPix > 0 ? valorPix : undefined,
+                    chave:     pixChave,
+                    nome:      "Brecho Bellasu",
+                    cidade:    "Ribeirao Preto",
+                    valor:     valorPix > 0 ? valorPix : undefined,
                     descricao: "Brechó Bellasu",
-                    txid:     "BELLASU",
+                    txid:      "BELLASU",
                   })
                   return (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 rounded-2xl overflow-hidden"
-                      style={{ border: "1.5px solid rgba(99,102,241,0.35)", background: "var(--bg-surface)" }}>
-                      <div className="px-4 py-2.5 flex items-center gap-2"
-                        style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.2)" }}>
-                        <span className="text-sm">💠</span>
-                        <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                          QR Code PIX
-                        </p>
-                        <span className="ml-auto text-xs font-bold" style={{ color: "var(--accent)" }}>
-                          {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row items-center gap-5 p-5">
-                        {/* QR Code */}
-                        <div className="shrink-0 p-3 rounded-2xl" style={{ background: "#fff" }}>
-                          <QRCode value={payload} size={148} />
+                    <>
+                      {/* Card compacto */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 rounded-2xl overflow-hidden"
+                        style={{ border: "1.5px solid rgba(99,102,241,0.35)", background: "var(--bg-surface)" }}>
+                        <div className="px-4 py-2.5 flex items-center gap-2"
+                          style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.2)" }}>
+                          <span className="text-sm">💠</span>
+                          <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                            QR Code PIX
+                          </p>
+                          <span className="ml-auto text-xs font-bold" style={{ color: "var(--accent)" }}>
+                            {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
+                          </span>
                         </div>
-                        {/* Instruções */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-                            Mostre para a cliente escanear
-                          </p>
-                          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                            Funciona em qualquer banco — Caixa, Nubank, Itaú, Bradesco e todos os apps com PIX.
-                          </p>
-                          <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2"
-                            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                            <span className="text-[11px] font-mono truncate flex-1" style={{ color: "var(--text-secondary)" }}>
-                              {pixChave}
-                            </span>
-                            <button
-                              onClick={() => navigator.clipboard.writeText(pixChave)}
-                              className="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0"
-                              style={{ background: "rgba(99,102,241,0.12)", color: "var(--accent)" }}>
-                              Copiar chave
+                        <div className="flex items-center gap-4 p-4">
+                          {/* QR pequeno clicável */}
+                          <button onClick={() => setPixModal(true)}
+                            className="shrink-0 p-2.5 rounded-xl relative group"
+                            style={{ background: "#fff" }}
+                            title="Expandir QR Code">
+                            <QRCode value={payload} size={80} />
+                            <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ background: "rgba(0,0,0,0.45)" }}>
+                              <Maximize2 size={20} color="#fff" />
+                            </div>
+                          </button>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>
+                              Mostre para a cliente escanear
+                            </p>
+                            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                              Funciona em qualquer banco
+                            </p>
+                            <button onClick={() => setPixModal(true)}
+                              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
+                              style={{ background: "var(--accent-bg)", border: "1px solid var(--accent)", color: "var(--accent)" }}>
+                              <Maximize2 size={12} /> Expandir QR Code
                             </button>
                           </div>
-                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            Chave: telefone · Conta Caixa · Brechó Bellasu
-                          </p>
                         </div>
-                      </div>
-                    </motion.div>
+                      </motion.div>
+
+                      {/* Modal fullscreen */}
+                      <AnimatePresence>
+                        {pixModal && (
+                          <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+                            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
+                            onClick={() => setPixModal(false)}>
+                            <motion.div
+                              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+                              animate={{ scale: 1, opacity: 1, y: 0 }}
+                              exit={{ scale: 0.88, opacity: 0, y: 10 }}
+                              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                              className="w-full max-w-sm rounded-3xl overflow-hidden flex flex-col items-center"
+                              style={{ background: "var(--bg-card)", border: "1.5px solid rgba(99,102,241,0.4)" }}
+                              onClick={e => e.stopPropagation()}>
+
+                              {/* Header */}
+                              <div className="w-full flex items-center justify-between px-5 py-4"
+                                style={{ borderBottom: "1px solid var(--border)" }}>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">💠</span>
+                                  <span className="text-sm font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                                    PIX
+                                  </span>
+                                </div>
+                                <button onClick={() => setPixModal(false)}
+                                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                                  style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}>
+                                  <X size={15} />
+                                </button>
+                              </div>
+
+                              {/* Valor */}
+                              <div className="pt-5 pb-3 text-center">
+                                <p className="text-[11px] font-bold uppercase tracking-widest mb-1"
+                                  style={{ color: "var(--text-muted)" }}>Total a receber</p>
+                                <p className="text-4xl font-black" style={{ color: "var(--accent)", letterSpacing: "-1px" }}>
+                                  {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
+                                </p>
+                              </div>
+
+                              {/* QR Code grande */}
+                              <div className="p-5">
+                                <div className="p-4 rounded-2xl" style={{ background: "#fff" }}>
+                                  <QRCode value={payload} size={Math.min(260, typeof window !== "undefined" ? window.innerWidth - 100 : 260)} />
+                                </div>
+                              </div>
+
+                              {/* Chave + copiar */}
+                              <PixCopiarChave chave={pixChave} />
+
+                              <p className="text-[10px] pb-5 px-6 text-center" style={{ color: "var(--text-muted)" }}>
+                                Aponte a câmera do app do banco para o QR Code acima
+                              </p>
+                            </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )
                 })()}
 
