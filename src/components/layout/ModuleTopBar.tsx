@@ -132,6 +132,7 @@ export function CalendarioWidget() {
   const { open, setOpen, ref } = usePopover()
   const [viewYear,  setViewYear]  = useState(now.getFullYear())
   const [viewMonth, setViewMonth] = useState(now.getMonth())
+  const [dir, setDir] = useState(0)   // direção da navegação: -1 esquerda, 1 direita
   const [aniversariantes, setAniversariantes] = useState<Aniversariante[]>([])
   const feriados = feriadosDoAno(viewYear)
 
@@ -149,9 +150,10 @@ export function CalendarioWidget() {
   const primeiroDia = new Date(viewYear, viewMonth, 1).getDay()
   const diasNoMes   = new Date(viewYear, viewMonth + 1, 0).getDate()
 
-  function navMes(dir: number) {
-    const d = new Date(viewYear, viewMonth + dir, 1)
-    setViewYear(d.getFullYear()); setViewMonth(d.getMonth())
+  function navMes(d: number) {
+    setDir(d)
+    const novo = new Date(viewYear, viewMonth + d, 1)
+    setViewYear(novo.getFullYear()); setViewMonth(novo.getMonth())
   }
 
   const cells: (number | null)[] = [
@@ -160,6 +162,7 @@ export function CalendarioWidget() {
   ]
 
   const totalAniversariantes = aniversariantes.length
+  const mesKey = `${viewYear}-${viewMonth}`
 
   return (
     <div className="relative" ref={ref}>
@@ -177,10 +180,12 @@ export function CalendarioWidget() {
           {DIAS_SEMANA[now.getDay()]}, {now.getDate().toString().padStart(2,"0")} {MESES_ABREV[now.getMonth()]} {now.getFullYear()}
         </span>
         {totalAniversariantes > 0 && (
-          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black"
+          <motion.span
+            initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black"
             style={{ background: "#fef08a", color: "#854d0e" }}>
             🎂 {totalAniversariantes}
-          </span>
+          </motion.span>
         )}
       </motion.button>
 
@@ -206,21 +211,33 @@ export function CalendarioWidget() {
                     {DIAS_SEMANA_FULL[now.getDay()]}, {now.getDate()} de {MESES_FULL[now.getMonth()].toLowerCase()} de {now.getFullYear()}
                   </p>
                 </div>
-                <CalendarDays size={28} style={{ color: "var(--accent)", opacity: 0.35 }}/>
+                <motion.div animate={{ rotate: [0, -8, 8, -4, 0] }} transition={{ duration: 1.2, delay: 0.4 }}>
+                  <CalendarDays size={28} style={{ color: "var(--accent)", opacity: 0.35 }}/>
+                </motion.div>
               </div>
             </div>
 
             {/* Navegação de mês */}
             <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
-              <motion.button onClick={() => navMes(-1)} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+              <motion.button onClick={() => navMes(-1)} whileHover={{ scale: 1.2, x: -2 }} whileTap={{ scale: 0.85 }}
                 className="w-7 h-7 rounded-lg flex items-center justify-center"
                 style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
                 <ChevronLeft size={13}/>
               </motion.button>
-              <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--text-primary)" }}>
-                {MESES_FULL[viewMonth]} {viewYear}
-              </p>
-              <motion.button onClick={() => navMes(1)} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+
+              <AnimatePresence mode="wait">
+                <motion.p key={mesKey}
+                  initial={{ opacity: 0, x: dir * 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: dir * -20 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="text-xs font-black uppercase tracking-widest"
+                  style={{ color: "var(--text-primary)" }}>
+                  {MESES_FULL[viewMonth]} {viewYear}
+                </motion.p>
+              </AnimatePresence>
+
+              <motion.button onClick={() => navMes(1)} whileHover={{ scale: 1.2, x: 2 }} whileTap={{ scale: 0.85 }}
                 className="w-7 h-7 rounded-lg flex items-center justify-center"
                 style={{ color: "var(--text-muted)", background: "var(--bg-surface)" }}>
                 <ChevronRight size={13}/>
@@ -236,33 +253,61 @@ export function CalendarioWidget() {
                     style={{ color: i === 0 || i === 6 ? "var(--accent)" : "var(--text-muted)" }}>{d}</div>
                 ))}
               </div>
-              {/* Dias */}
-              <div className="grid grid-cols-7 gap-0.5">
-                {cells.map((dia, i) => {
-                  if (!dia) return <div key={i}/>
-                  const isHoje    = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
-                  const isSun     = (primeiroDia + dia - 1) % 7 === 0
-                  const isSat     = (primeiroDia + dia - 1) % 7 === 6
-                  const chave     = `${String(viewMonth + 1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`
-                  const feriado   = feriados.get(chave)
-                  return (
-                    <motion.div key={dia} whileHover={{ scale: 1.15 }}
-                      title={feriado}
-                      className="relative flex flex-col items-center justify-center h-12 rounded-xl text-base font-bold cursor-default"
-                      style={{
-                        background: isHoje ? "var(--accent)" : feriado ? "rgba(239,68,68,0.10)" : "transparent",
-                        color: isHoje ? "#fff" : feriado ? "#dc2626" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
-                        fontWeight: isHoje || feriado ? 900 : undefined,
-                        boxShadow: isHoje ? "0 2px 8px var(--accent-bg)" : undefined,
-                        border: feriado && !isHoje ? "1px solid rgba(239,68,68,0.25)" : undefined,
-                      }}>
-                      {dia}
-                      {feriado && !isHoje && (
-                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-500" />
-                      )}
-                    </motion.div>
-                  )
-                })}
+
+              {/* Dias — slide ao trocar mês */}
+              <div className="overflow-hidden">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div key={mesKey}
+                    initial={{ x: dir * 60, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: dir * -60, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="grid grid-cols-7 gap-0.5">
+                    {cells.map((dia, i) => {
+                      if (!dia) return <div key={`e${i}`}/>
+                      const isHoje  = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
+                      const isSun   = (primeiroDia + dia - 1) % 7 === 0
+                      const isSat   = (primeiroDia + dia - 1) % 7 === 6
+                      const chave   = `${String(viewMonth + 1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`
+                      const feriado = feriados.get(chave)
+                      return (
+                        <motion.div key={dia}
+                          initial={{ opacity: 0, scale: 0.75 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: (i % 7) * 0.018 + Math.floor(i / 7) * 0.022, type: "spring", stiffness: 400, damping: 22 }}
+                          whileHover={{ scale: 1.2, zIndex: 10 }}
+                          whileTap={{ scale: 0.9 }}
+                          title={feriado}
+                          className="relative flex flex-col items-center justify-center h-12 rounded-xl text-base font-bold cursor-default select-none"
+                          style={{
+                            background: isHoje ? "var(--accent)" : feriado ? "rgba(239,68,68,0.10)" : "transparent",
+                            color: isHoje ? "#fff" : feriado ? "#dc2626" : isSun || isSat ? "var(--accent)" : "var(--text-secondary)",
+                            fontWeight: isHoje || feriado ? 900 : undefined,
+                            boxShadow: isHoje ? "0 0 0 2px var(--accent), 0 4px 16px rgba(99,102,241,0.35)" : undefined,
+                            border: feriado && !isHoje ? "1px solid rgba(239,68,68,0.28)" : undefined,
+                          }}>
+                          {/* Anel pulsante no dia atual */}
+                          {isHoje && (
+                            <motion.span
+                              className="absolute inset-0 rounded-xl pointer-events-none"
+                              animate={{ boxShadow: ["0 0 0 0px rgba(99,102,241,0.5)", "0 0 0 6px rgba(99,102,241,0)", "0 0 0 0px rgba(99,102,241,0)"] }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                            />
+                          )}
+                          {dia}
+                          {feriado && !isHoje && (
+                            <motion.span
+                              className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                              style={{ background: "#dc2626" }}
+                              animate={{ scale: [1, 1.5, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            />
+                          )}
+                        </motion.div>
+                      )
+                    })}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
 
