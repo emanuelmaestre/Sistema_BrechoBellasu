@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3005",
     "dev:webpack": "cross-env TURBOPACK=0 next dev",
     "build": "next build",
     "start": "next start",

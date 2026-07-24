@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/aniversario",
-      "schedule": "0 11 * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
