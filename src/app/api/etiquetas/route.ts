@@ -1,7 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
 import {
-  listarEtiquetas,
   adicionarCarrinho,
   checkoutEtiquetas,
   gerarEtiquetas,
@@ -31,16 +30,76 @@ import { montarRegistroEtiqueta } from "@/lib/etiqueta-snapshot"
 
 export const dynamic = "force-dynamic"
 
-// GET /api/etiquetas — lista etiquetas do Melhor Envio
+interface EtiquetaPersistida {
+  me_order_id: string
+  me_protocol: string | null
+  me_tracking: string | null
+  status: string
+  label_url: string | null
+  created_at: string
+  cep_destino: string | null
+  nome_cliente_snapshot: string | null
+  endereco_snapshot: Record<string, unknown> | null
+  carrier: "melhorenvio" | "superfrete" | null
+}
+
+// GET /api/etiquetas — lista o histórico unificado das transportadoras
 export const GET = withAuth(async (req: NextRequest) => {
   try {
     const { searchParams } = req.nextUrl
-    const page     = parseInt(searchParams.get("page") ?? "1")
-    const per_page = parseInt(searchParams.get("per_page") ?? "20")
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+    const per_page = Math.min(100, Math.max(1, parseInt(searchParams.get("per_page") ?? "20", 10) || 20))
     const filter   = searchParams.get("filter") ?? undefined
+    const inicio = (page - 1) * per_page
+    const fim = inicio + per_page - 1
 
-    const data = await listarEtiquetas({ page, per_page, filter })
-    return NextResponse.json(data)
+    let query = createServerClient()
+      .from("etiquetas")
+      .select(
+        "me_order_id, me_protocol, me_tracking, status, label_url, created_at, cep_destino, nome_cliente_snapshot, endereco_snapshot, carrier",
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .range(inicio, fim)
+
+    if (filter) query = query.eq("status", filter)
+
+    const { data, error, count } = await query
+    if (error) throw new Error(error.message)
+
+    const etiquetas = ((data ?? []) as EtiquetaPersistida[]).map((etiqueta) => {
+      const endereco = etiqueta.endereco_snapshot ?? {}
+      const carrier = etiqueta.carrier ?? "melhorenvio"
+      return {
+        id: etiqueta.me_order_id,
+        protocol: etiqueta.me_protocol ?? etiqueta.me_order_id,
+        status: etiqueta.status,
+        tracking: etiqueta.me_tracking,
+        label_url: etiqueta.label_url ?? undefined,
+        created_at: etiqueta.created_at,
+        to: {
+          name: etiqueta.nome_cliente_snapshot ?? "Cliente",
+          postal_code: String(endereco.cep ?? etiqueta.cep_destino ?? ""),
+          city: String(endereco.cidade ?? ""),
+          state_abbr: String(endereco.estado ?? ""),
+        },
+        company: {
+          name: carrier === "superfrete" ? "Super Frete" : "Melhor Envio",
+          picture: "",
+        },
+        carrier,
+      }
+    })
+
+    const total = count ?? 0
+    return NextResponse.json({
+      data: etiquetas,
+      meta: {
+        total,
+        current_page: page,
+        last_page: Math.max(1, Math.ceil(total / per_page)),
+      },
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Não foi possível carregar as etiquetas. Tente novamente."
     return NextResponse.json({ erro: msg }, { status: 500 })

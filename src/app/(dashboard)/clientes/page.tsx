@@ -7,9 +7,9 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
   X, ChevronLeft, ChevronRight, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
-  Phone, AtSign, FileText, Home, Power, ShoppingBag, Bell, BellOff,
-  Package, RefreshCw, Truck, ChevronDown, Eye, Send, CheckCircle2, XCircle, Clock,
-  Tag, Printer, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera, ShieldAlert,
+  Phone, AtSign, FileText, Home, Power, ShoppingBag,
+  Package, RefreshCw, Truck, Eye, Send, CheckCircle2, XCircle, Clock,
+  Tag, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera, ShieldAlert,
 } from "lucide-react"
 import ImportarClientePorFoto from "@/components/clientes/ImportarClientePorFoto"
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "@/services/api"
@@ -191,42 +191,6 @@ type HistoricoData = {
   total_compras: number
 }
 
-// Informações visuais para cada estado de notificacao_status
-function notificacaoStatusInfo(status?: string | null) {
-  switch (status) {
-    case "enviado":
-      return {
-        emoji: "📤", bgCard: "rgba(251,191,36,0.06)", border: "rgba(251,191,36,0.2)",
-        badge: "bg-amber-500/15 text-amber-400",
-        label: "ENVIADO", descricao: "Mensagem enviada. Aguardando resposta do cliente.",
-      }
-    case "autorizado":
-      return {
-        emoji: "✅", bgCard: "rgba(16,185,129,0.06)", border: "rgba(16,185,129,0.2)",
-        badge: "bg-emerald-500/15 text-emerald-400",
-        label: "AUTORIZADO", descricao: "Cliente autorizou o recebimento de mensagens pelo WhatsApp.",
-      }
-    case "recusado":
-      return {
-        emoji: "❌", bgCard: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)",
-        badge: "bg-red-500/15 text-red-400",
-        label: "RECUSADO", descricao: "Cliente não autorizou o recebimento de mensagens.",
-      }
-    case "erro":
-      return {
-        emoji: "⚠️", bgCard: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)",
-        badge: "bg-red-500/15 text-red-400",
-        label: "ERRO", descricao: "Falha no envio ou no processamento da mensagem.",
-      }
-    default:
-      return {
-        emoji: "📭", bgCard: "rgba(100,116,139,0.06)", border: "rgba(100,116,139,0.15)",
-        badge: "bg-slate-500/15 text-slate-400",
-        label: "NÃO ENVIADO", descricao: "A mensagem de consentimento ainda não foi enviada.",
-      }
-  }
-}
-
 function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: Cliente; info: { icon: React.ReactNode; label: string; value: string; full?: boolean; href?: string; step?: number; alerta?: string }[]; onEditarCampo?: (step: number) => void; initialTab?: DrawerTab }) {
   const [tab, setTab] = useState<DrawerTab>(initialTab ?? "dados")
   const qc = useQueryClient()
@@ -259,10 +223,10 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
     finally { setExcluindoMovId(null) }
   }
   const [creditoValor, setCreditoValor] = useState("")
-  const [creditoOrigem, setCreditoOrigem] = useState("manual")
+  const [creditoOrigem] = useState("manual")
   const [creditoObs, setCreditoObs] = useState("")
   const [creditoMotivo, setCreditoMotivo] = useState("")
-  const [creditoMotivoFase, setCreditoMotivoFase] = useState<"topicos" | "motivos">("topicos")
+  const [, setCreditoMotivoFase] = useState<"topicos" | "motivos">("topicos")
   const [creditoMotivoTopico, setCreditoMotivoTopico] = useState<typeof MOTIVOS_CREDITO[0] | null>(null)
   const [creditoLoading, setCreditoLoading] = useState(false)
   const [creditoErro, setCreditoErro] = useState("")
@@ -351,21 +315,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
     } catch (e) {
       setGoogleSyncMsg({ tipo: "erro", texto: (e as Error).message || "Erro ao sincronizar." })
     } finally { setGoogleSyncing(false) }
-  }
-
-  const [toggling, setToggling] = useState(false)
-  const [consentErro, setConsentErro] = useState("")
-  const [consentOk, setConsentOk] = useState("")
-
-  async function revogarConsentimento() {
-    setToggling(true); setConsentErro(""); setConsentOk("")
-    try {
-      await apiPatch(`/clientes/${cliente.id}/consentimento`, { acao: "revogar" })
-      qc.invalidateQueries({ queryKey: ["clientes"] })
-      setConsentOk("Consentimento revogado com sucesso.")
-    } catch (e) {
-      setConsentErro((e as Error).message || "Erro ao revogar consentimento.")
-    } finally { setToggling(false) }
   }
 
   const TABS: { key: DrawerTab; label: string; icon: React.ReactNode }[] = [
@@ -1739,9 +1688,6 @@ function WizardCliente({
   const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [mostrarEntrega, setMostrarEntrega] = useState(
-    !!(inicial?.entrega_logradouro || inicial?.entrega_cep)
-  )
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 10 steps: 1-Nome 2-Apelido 3-CPF 4-Nasc 5-Celular 6-Instagram 7-CEP 8-Endereço 9-Número/Compl 10-Revisão
@@ -2331,28 +2277,6 @@ function WizardCliente({
   )
 }
 
-// ─── Badge de status de notificação ──────────────────────
-function BadgeNotificacao({ status }: { status?: string | null }) {
-  const map: Record<string, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
-    pendente:   { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Clock size={10} />,        label: "Pendente"    },
-    enviado:    { bg: "bg-amber-500/10",   text: "text-amber-400",   icon: <Send size={10} />,          label: "Enviado"     },
-    autorizado: { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: <CheckCircle2 size={10} />,  label: "Autorizado"  },
-    recusado:   { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={10} />,       label: "Recusado"    },
-    erro:       { bg: "bg-red-500/10",     text: "text-red-400",     icon: <XCircle size={10} />,       label: "Erro"        },
-  }
-  if (!status || !map[status]) return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full uppercase bg-slate-500/10 text-slate-400">
-      <BellOff size={10} /> Não enviado
-    </span>
-  )
-  const { bg, text, icon, label } = map[status]
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full uppercase ${bg} ${text}`}>
-      {icon} {label}
-    </span>
-  )
-}
-
 // ─── Página ───────────────────────────────────────────────
 function ClientesPageInner() {
   const qc = useQueryClient()
@@ -2371,8 +2295,6 @@ function ClientesPageInner() {
   const [editId, setEditId]       = useState<number | null>(null)
   const [drawer, setDrawer]       = useState<Cliente | null>(null)
   const [drawerTab, setDrawerTab] = useState<DrawerTab | undefined>(undefined)
-  const [reenvioMsg, setReenvioMsg] = useState<{ ok: boolean; texto: string } | null>(null)
-  const [reenvioLoading, setReenvioLoading] = useState(false)
 
   useEffect(() => {
     const novo   = searchParams.get("novo")
@@ -2402,18 +2324,14 @@ function ClientesPageInner() {
   }, [])
 
   async function reenviarNotificacao(cliente: Cliente) {
-    setReenvioLoading(true); setReenvioMsg(null)
     try {
       await apiPatch(`/clientes/${cliente.id}/consentimento`, { acao: "enviar" })
-      setReenvioMsg({ ok: true, texto: "✅ Mensagem enviada! Aguardando resposta do cliente." })
       qc.invalidateQueries({ queryKey: ["clientes"] })
       setDrawer(prev => prev ? { ...prev, notificacao_status: "enviado" } : prev)
-    } catch (e: unknown) {
-      const msg = (e as Error).message || "Erro ao enviar notificação."
-      setReenvioMsg({ ok: false, texto: msg })
+    } catch {
       qc.invalidateQueries({ queryKey: ["clientes"] })
       setDrawer(prev => prev ? { ...prev, notificacao_status: "erro" } : prev)
-    } finally { setReenvioLoading(false) }
+    }
   }
 
   const statusParam = status === "inativos" ? "inativo" : status === "todos" ? "todos" : undefined
@@ -2743,7 +2661,7 @@ function ClientesPageInner() {
           <DrawerCliente
             cliente={drawer}
             initialTab={drawerTab}
-            onClose={() => { setDrawer(null); setDrawerTab(undefined); setReenvioMsg(null) }}
+            onClose={() => { setDrawer(null); setDrawerTab(undefined) }}
             onEditar={() => abrirEdicao(drawer)}
             onToggleStatus={() => {
               toggleStatus.mutate({ id: drawer.id, ativo: !drawer.ativo })

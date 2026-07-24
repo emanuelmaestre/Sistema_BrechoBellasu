@@ -33,6 +33,7 @@
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "googleapis": "^173.0.0",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.3",
@@ -47,7 +48,6 @@
     "react-hook-form": "^7.76.0",
     "recharts": "^2.15.4",
     "tailwind-merge": "^3.6.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },
@@ -60,7 +60,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.11",
     "pg": "^8.21.0",
     "prettier": "^3.8.3",
     "supabase": "^2.101.0",
@@ -68,5 +68,10 @@
     "typescript": "^5",
     "vitest": "^4.1.7"
   },
-  "description": "Sistema de Gestão — Brechó Bellasu (Next.js 15 + React 19 + TypeScript)"
+  "overrides": {
+    "postcss": "8.5.22",
+    "sharp": "0.35.3",
+    "uuid": "11.1.1"
+  },
+  "description": "Sistema de Gestão - Brechó Bellasu (Next.js 16 + React 19 + TypeScript)"
 }

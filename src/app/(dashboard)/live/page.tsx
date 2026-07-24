@@ -5,9 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, Radio, Send,
-  Check, Search, ShoppingBag, User, Package,
+  Check, Search, ShoppingBag, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
-  Zap, Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
+  Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert,
 } from "lucide-react"
 import Link from "next/link"
@@ -26,7 +26,7 @@ import {
   type ProdutoMensagem,
 } from "@/lib/live-message-builder"
 import { useDisparoStore } from "@/stores/disparo.store"
-import { regraParcelamento, corRegraParcelamento, calcularValorFinal, avisoParcelamento } from "@/lib/parcelamento"
+import { regraParcelamento, corRegraParcelamento, calcularValorFinal } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 import ImportarPorFoto from "@/components/live/ImportarPorFoto"
@@ -120,13 +120,6 @@ const EMPTY_COMPRA: CompraForm = {
   link_pagamento: "",
 }
 
-function gerarArroba(nome: string): string {
-  const palavras = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/\s+/).filter(Boolean)
-  if (palavras.length === 0) return ""
-  const first = palavras[0]
-  const last = palavras.length > 1 ? palavras[palavras.length - 1] : ""
-  return "@" + first + last
-}
 const COR_LIVE = "#e11d48"
 
 const STATUS_COLORS: Record<string, string> = liveUiData.statusListColors
@@ -640,8 +633,6 @@ function WizardCompra({ liveId, liveData, onClose, onSalvo }: { liveId: number; 
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
-  const iSm = "w-full px-4 py-3 text-base rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[60] flex flex-col" style={{ background: "var(--bg-base)" }}>
@@ -1679,8 +1670,8 @@ function ModalVinculo({
 // ══════════════════════════════════════════════════════════
 // MODAL — Avisar Clientes (aviso de live p/ opt-in de lives)
 // ══════════════════════════════════════════════════════════
-function ModalAvisoLive({ liveId, tipo, linkAtual, numeroEnvio, onClose, onSuccess }: {
-  liveId: number; tipo: string; linkAtual: string; numeroEnvio: number
+function ModalAvisoLive({ liveId, linkAtual, numeroEnvio, onClose, onSuccess }: {
+  liveId: number; linkAtual: string; numeroEnvio: number
   onClose: () => void; onSuccess: (enviados: number, link: string) => void
 }) {
   const [link, setLink] = useState(linkAtual)
@@ -2364,10 +2355,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const totalArrecadado = compras.reduce((s, c) => s + c.valor_total, 0)
   const msgEnviadas    = compras.filter(c => c.msg_status === "enviada").length
   const msgPendentes   = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro").length
-  const aguardVinculo  = compras.filter(c => c.status_compra === "aguardando_vinculo" || c.status_compra === "vinculo_parcial").length
-  const finalizadas    = compras.filter(c => c.status_compra === "finalizada" || c.status_compra === "retirada").length
-  const retiradas      = compras.filter(c => c.status_compra === "retirada").length
-  const aguardRetirada = compras.filter(c => c.status_compra === "finalizada").length
 
   const plataformaIcon = PLATAFORMAS.find(p => p.value === live.plataforma)?.icon
 
@@ -2389,27 +2376,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
     catch { } finally { setExc(false) }
   }
 
-  // Guia contextual
-  function guia(): { msg: string; acao?: string } {
-    if (!compras.length) return { msg: "Nenhuma compra cadastrada ainda. Clique em \"Adicionar Compra\" para iniciar.", acao: "compra" }
-    if (msgPendentes > 0 && live.status !== "disparada") return { msg: `${compras.length} compra(s) cadastrada(s). Agora você pode disparar as mensagens para as clientes.`, acao: "disparar" }
-    if (aguardVinculo > 0) return { msg: `Mensagens enviadas. Agora vincule os produtos vendidos para dar baixa no estoque.` }
-    if (finalizadas === compras.length && live.status !== "encerrada") return { msg: "Todas as compras foram conferidas. A live já pode ser encerrada! ✅" }
-    if (live.status === "encerrada") return { msg: "Live encerrada com sucesso! Todos os estoques foram atualizados." }
-    return { msg: "Continue vinculando os produtos nas compras pendentes." }
-  }
-  const g = guia()
-
   const podeEncerrar = live.status !== "encerrada" && compras.length > 0 && compras.every(c => c.status_compra === "finalizada" || c.status_compra === "retirada")
-
-  const METRICAS = [
-    { icon: <Users size={14}/>,        label: "CLIENTES",      val: totalClientes,           cor: "#6366f1" },
-    { icon: <TrendingUp size={14}/>,   label: "TOTAL",         val: fmtBRL(totalArrecadado), cor: "#10b981" },
-    { icon: <MessageSquare size={14}/>,label: "MSGS ENVIADAS", val: msgEnviadas,             cor: "#3b82f6" },
-    { icon: <Clock size={14}/>,        label: "MSG PENDENTES", val: msgPendentes,            cor: "#f59e0b" },
-    { icon: <Link2 size={14}/>,        label: "AG. VÍNCULO",   val: aguardVinculo,           cor: "#8b5cf6" },
-    { icon: <CheckCircle2 size={14}/>, label: "FINALIZADAS",   val: finalizadas,             cor: "#10b981" },
-  ]
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: "100%", background: "var(--bg-base)" }}>
@@ -2867,7 +2834,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         {modalFoto     && <ImportarPorFoto liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalFoto(false)} onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
-      {modalAviso && <ModalAvisoLive liveId={liveId} tipo={live.tipo ?? "novidades"} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
+      {modalAviso && <ModalAvisoLive liveId={liveId} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {
         const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         setHistoricoAvisos(prev => [...prev, { hora, enviados, link }])
         setModalAviso(false)

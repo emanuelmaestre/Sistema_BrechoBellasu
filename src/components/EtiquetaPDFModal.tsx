@@ -18,11 +18,18 @@ function useIsMobile() {
 // Busca o PDF da etiqueta via proxy do próprio backend e exibe no modal.
 // Desktop: botão Imprimir → dialog do SO (USB ou qualquer impressora instalada).
 // Mobile:  botão Compartilhar → Web Share API → abre no Label Expert / app Beeprt (Bluetooth).
-export function EtiquetaPDFModal({ orderId, carrier = "melhorenvio", onClose }: {
+interface EtiquetaPDFModalProps {
   orderId: string
   carrier?: string
   onClose: () => void
-}) {
+}
+
+export function EtiquetaPDFModal(props: EtiquetaPDFModalProps) {
+  const carrier = props.carrier ?? "melhorenvio"
+  return <EtiquetaPDFModalContent key={`${carrier}:${props.orderId}`} {...props} carrier={carrier} />
+}
+
+function EtiquetaPDFModalContent({ orderId, carrier = "melhorenvio", onClose }: EtiquetaPDFModalProps) {
   const [estado, setEstado] = useState<"carregando" | "pronto" | "erro">("carregando")
   const [url, setUrl]       = useState<string | null>(null)
   const [blob, setBlob]     = useState<Blob | null>(null)
@@ -42,7 +49,6 @@ export function EtiquetaPDFModal({ orderId, carrier = "melhorenvio", onClose }: 
   useEffect(() => {
     let ativo = true
     let blobUrlCriada: string | null = null
-    setEstado("carregando"); setUrl(null); setBlob(null); setErro("")
 
     fetch(`/api/etiquetas/imprimir?order_id=${encodeURIComponent(orderId)}&carrier=${encodeURIComponent(carrier)}`, { method: "GET" })
       .then(async (res) => {

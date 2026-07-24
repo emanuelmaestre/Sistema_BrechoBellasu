@@ -1,8 +1,12 @@
 ﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
+import { verificarTokenGoogle } from "@/lib/google-contacts"
+import { sfUsuario } from "@/lib/superfrete"
 
 export const dynamic = "force-dynamic"
+
+const limpaHeader = (value: string) => value.replace(/[^\x21-\x7E]/g, "")
 
 export interface IntegracaoStatus {
   id: string
@@ -54,9 +58,9 @@ async function checkMelhorEnvio(): Promise<IntegracaoStatus> {
 }
 
 async function checkZApi(): Promise<IntegracaoStatus> {
-  const instanceId   = process.env.ZAPI_INSTANCE_ID   ?? ""
-  const instanceToken = process.env.ZAPI_TOKEN         ?? ""
-  const clientToken  = process.env.ZAPI_CLIENT_TOKEN   ?? ""
+  const instanceId = limpaHeader(process.env.ZAPI_INSTANCE_ID ?? "")
+  const instanceToken = limpaHeader(process.env.ZAPI_TOKEN ?? "")
+  const clientToken = limpaHeader(process.env.ZAPI_CLIENT_TOKEN ?? "")
   if (!instanceId || !instanceToken) return { id: "zapi", nome: "Z-API (WhatsApp)", descricao: "Envio de mensagens WhatsApp", conectado: false, configurado: false, detalhe: "Instância ou token não configurados" }
   const t0 = Date.now()
   try {
@@ -78,7 +82,7 @@ async function checkZApi(): Promise<IntegracaoStatus> {
 }
 
 async function checkOpenAI(): Promise<IntegracaoStatus> {
-  const token = process.env.OPENAI_API_KEY ?? ""
+  const token = limpaHeader(process.env.OPENAI_API_KEY ?? "")
   if (!token) return { id: "openai", nome: "OpenAI (IA)", descricao: "Agente inteligente e automações", conectado: false, configurado: false, detalhe: "Chave de API não configurada" }
   const t0 = Date.now()
   try {
@@ -98,7 +102,7 @@ async function checkOpenAI(): Promise<IntegracaoStatus> {
 }
 
 async function checkVercel(): Promise<IntegracaoStatus> {
-  const token = process.env.VERCEL_TOKEN ?? process.env.VERCEL_ACCESS_TOKEN ?? ""
+  const token = limpaHeader(process.env.VERCEL_TOKEN ?? process.env.VERCEL_ACCESS_TOKEN ?? "")
   if (!token) return { id: "vercel", nome: "Vercel", descricao: "Deploy e hospedagem do sistema", conectado: true, configurado: true, detalhe: "Aplicação em produção" }
   const t0 = Date.now()
   try {
@@ -144,47 +148,31 @@ async function checkSuperFrete(): Promise<IntegracaoStatus> {
   }
   const t0 = Date.now()
   try {
-    const base = process.env.SUPERFRETE_ENV === "sandbox"
-      ? "https://sandbox.superfrete.com/api/v0"
-      : "https://api.superfrete.com/api/v0"
-    const res = await fetch(`${base}/user/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        // Super Frete exige User-Agent — sem ele retorna 401 "Token inválida!"
-        "User-Agent": process.env.SUPERFRETE_USER_AGENT ?? "Brecho Bellasu (bellasu.brecho@gmail.com)",
-      },
-      signal: AbortSignal.timeout(4000),
-    })
+    await sfUsuario()
     return {
       id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
-      conectado: res.ok, configurado: true,
-      detalhe: res.ok ? "Conta ativa" : `HTTP ${res.status}`,
+      conectado: true, configurado: true,
+      detalhe: "Conta ativa",
       latencia: Date.now() - t0,
     }
-  } catch {
+  } catch (error) {
     return {
       id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
-      conectado: false, configurado: true, detalhe: "Timeout ou erro de rede",
+      conectado: false, configurado: true,
+      detalhe: error instanceof Error ? error.message.slice(0, 160) : "Timeout ou erro de rede",
     }
   }
 }
 
 async function checkGoogle(): Promise<IntegracaoStatus> {
-  const sb = createServerClient()
-  const { data } = await sb
-    .from("configuracoes")
-    .select("valor")
-    .eq("chave", "google_tokens")
-    .maybeSingle()
-  const tokens = data?.valor as Record<string, string> | null
-  if (!tokens?.access_token) {
+  if (!process.env.GOOGLE_REFRESH_TOKEN) {
     return { id: "google", nome: "Google Contatos", descricao: "Sincronização de clientes com Google Contacts", conectado: false, configurado: false, detalhe: "Conta Google não conectada" }
   }
+  const conectado = await verificarTokenGoogle()
   return {
     id: "google", nome: "Google Contatos", descricao: "Sincronização de clientes com Google Contacts",
-    conectado: true, configurado: true,
-    detalhe: tokens.email ? `Conectado como ${tokens.email}` : "Conta conectada",
+    conectado, configurado: true,
+    detalhe: conectado ? "Conta conectada" : "Autorização expirada; reconecte a conta",
   }
 }
 

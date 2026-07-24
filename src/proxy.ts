@@ -8,7 +8,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas públicas — deixa passar
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+  if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next()
   }
 

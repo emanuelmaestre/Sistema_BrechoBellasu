@@ -1,22 +1,40 @@
 import { NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
+import { timingSafeEqual } from "node:crypto"
+import { verifyAuth } from "@/lib/auth"
+
+const GOOGLE_OAUTH_STATE_COOKIE = "google-oauth-state"
+
+function stateValido(recebido: string | null, esperado: string | undefined): boolean {
+  if (!recebido || !esperado) return false
+  const recebidoBuffer = Buffer.from(recebido)
+  const esperadoBuffer = Buffer.from(esperado)
+  return recebidoBuffer.length === esperadoBuffer.length &&
+    timingSafeEqual(recebidoBuffer, esperadoBuffer)
+}
 
 // Deriva a base URL a partir do host real da requisição — deve bater
 // exatamente com o redirect_uri usado em /api/google/auth.
 function baseUrl(req: NextRequest): string {
-  const host  = req.headers.get("host")
-  const proto = req.headers.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https")
-  if (host) return `${proto}://${host}`
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? req.nextUrl.origin
 }
 
 // GET /api/google/callback — captura o refresh_token após autorização OAuth
 export async function GET(req: NextRequest) {
+  if (!verifyAuth(req)) {
+    return new NextResponse("Sessão inválida. Entre novamente no sistema.", { status: 401 })
+  }
+
   const code         = req.nextUrl.searchParams.get("code")
+  const state        = req.nextUrl.searchParams.get("state")
+  const expectedState = req.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value
   const clientId     = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
   const redirectUri  = `${baseUrl(req)}/api/google/callback`
 
+  if (!stateValido(state, expectedState)) {
+    return new NextResponse("Estado OAuth inválido ou expirado. Inicie a conexão novamente.", { status: 400 })
+  }
   if (!code) {
     return new NextResponse("Autorização negada ou código ausente.", { status: 400 })
   }
@@ -43,7 +61,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Exibe o token para o operador copiar — nunca é logado em produção
-  return new NextResponse(
+  const response = new NextResponse(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Google OAuth — Brechó Bellasu</title>
     <style>body{font-family:monospace;background:#111;color:#eee;padding:2rem}
     .box{background:#1e1e1e;border:1px solid #444;border-radius:8px;padding:1.5rem;margin-top:1rem}
@@ -54,6 +72,19 @@ export async function GET(req: NextRequest) {
     <div class="box"><div class="token">${refreshToken}</div></div>
     <p style="margin-top:1.5rem;color:#f87171">⚠️ Não compartilhe este token. Feche esta aba após copiar.</p>
     </body></html>`,
-    { headers: { "Content-Type": "text/html" } }
+    { headers: {
+      "Content-Type": "text/html",
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+    } }
   )
+  response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/google",
+    maxAge: 0,
+  })
+  return response
 }

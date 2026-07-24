@@ -5,10 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Package, Plus, X, Loader2, Search, Truck, CheckCircle2,
-  AlertCircle, ExternalLink, Tag, RefreshCw, MapPin, User,
-  Box, Weight, Ruler, Printer, Clock, BadgeCheck,
-  ShoppingBag, Zap, Star, Info, ArrowRight, ChevronLeft, Check, Download,
-  Wallet2, QrCode, Copy,
+  AlertCircle, ExternalLink, Tag, RefreshCw, MapPin,
+  Weight, Ruler, Printer, Clock, BadgeCheck,
+  Star, Info, ArrowRight, ChevronLeft, Check, Download,
+  Wallet2, Copy,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
@@ -59,6 +59,18 @@ interface MEOrder {
 interface StatusInfo {
   configurado: boolean; env: string; mensagem?: string
   usuario?: { nome: string; email: string }; cep_origem?: string
+  algum_configurado?: boolean
+  melhorenvio?: ProviderStatus
+  superfrete?: ProviderStatus
+}
+
+interface ProviderStatus {
+  configurado: boolean
+  conectado: boolean
+  env: string
+  mensagem?: string
+  usuario?: { nome: string; email: string }
+  cep_origem?: string
 }
 
 interface ShipForm {
@@ -106,7 +118,7 @@ function carrierGradient(name: string) {
 const COR = "#6366f1"
 
 // ── Ilustração 3D da caixa ────────────────────────────────────
-function BoxDiagram({ altura, largura, comprimento }: { altura: string; largura: string; comprimento: string }) {
+function BoxDiagram() {
   const ST = "#6366f1"
   const FT = "rgba(99,102,241,0.40)"
   const FL = "rgba(99,102,241,0.20)"
@@ -184,17 +196,29 @@ const variants = {
 type CepStatus = "idle" | "buscando" | "encontrado" | "invalido" | "manual"
 
 // ── Modal Rastreio ─────────────────────────────────────────
-function ModalRastreio({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+function ModalRastreio({
+  orderId,
+  carrier,
+  onClose,
+}: {
+  orderId: string
+  carrier: "melhorenvio" | "superfrete"
+  onClose: () => void
+}) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["rastreio", orderId],
-    queryFn: () => apiGet<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }>(`/etiquetas/rastrear?order_id=${orderId}`),
+    queryKey: ["rastreio", carrier, orderId],
+    queryFn: () => apiGet<{ tracking: string; events: Array<{ description: string; date: string; location: string }> }>(
+      `/etiquetas/rastrear?order_id=${encodeURIComponent(orderId)}&carrier=${carrier}`
+    ),
     staleTime: 120_000,
   })
   const [copiado, setCopiado] = useState(false)
 
-  // Link público de rastreio do Melhor Envio — pode ser copiado e enviado
-  // direto para a cliente por WhatsApp, sem ela precisar acessar o sistema.
-  const linkRastreio = data?.tracking ? `https://www.melhorrastreio.com.br/rastreio/${data.tracking}` : null
+  const linkRastreio = data?.tracking
+    ? carrier === "superfrete"
+      ? `https://superfrete.com/rastreio/${data.tracking}`
+      : `https://www.melhorrastreio.com.br/rastreio/${data.tracking}`
+    : null
 
   async function copiarLink() {
     if (!linkRastreio) return
@@ -312,7 +336,15 @@ function ModalRastreio({ orderId, onClose }: { orderId: string; onClose: () => v
 }
 
 // ── Wizard Nova Etiqueta ────────────────────────────────────
-function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {
+function WizardEtiqueta({
+  onClose,
+  onSalvo,
+  providers,
+}: {
+  onClose: () => void
+  onSalvo: () => void
+  providers: { melhorenvio: boolean; superfrete: boolean }
+}) {
   const [step, setStep]           = useState(1)
   const [dir, setDir]             = useState(1)
   const [form, setForm]           = useState<ShipForm>(EMPTY_FORM)
@@ -320,7 +352,9 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
   const [cepStatus, setCepStatus] = useState<CepStatus>("idle")
 
   // Step 5 — frete
-  const [carrier, setCarrier]     = useState<"melhorenvio" | "superfrete">("melhorenvio")
+  const [carrier, setCarrier]     = useState<"melhorenvio" | "superfrete">(
+    providers.melhorenvio ? "melhorenvio" : "superfrete"
+  )
   const [servicos, setServicos]   = useState<Servico[]>([])
   const [servicoSel, setServicoSel] = useState<Servico | null>(null)
   const [cotando, setCotando]     = useState(false)
@@ -467,12 +501,6 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
     } finally { setCotando(false) }
   }
 
-  const [pixData, setPixData] = useState<{ order_id: string; copy_paste: string | null; qr_code_base64: string | null; expires_at: string | null } | null>(null)
-  const pixMeta = useRef<{ cliente_id?: number; tipo_etiqueta?: string; service_id: number; destinatario: Record<string, unknown>; venda_id?: number } | null>(null)
-  const [gerindoPix, setGerindoPix] = useState(false)
-  const [confirmandoPix, setConfirmandoPix] = useState(false)
-  const [copiado, setCopiado] = useState(false)
-
   const destinatarioPayload = () => ({
     nome: form.nome, telefone: form.telefone, cpf: form.cpf,
     logradouro: form.logradouro, numero: form.numero,
@@ -507,41 +535,6 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
     } finally { setGerando(false) }
   }
 
-  async function gerarPix() {
-    if (!servicoSel) return
-    setGerindoPix(true); setErroFrete("")
-    try {
-      const res = await apiPost<{ gerado: boolean; order_id: string; copy_paste?: string; qr_code_base64?: string; expires_at?: string }>("/etiquetas/pix", {
-        service_id: servicoSel.id,
-        venda_id: form.venda_id ? parseInt(form.venda_id) : undefined,
-        destinatario: destinatarioPayload(),
-      })
-      setPixData({ order_id: res.order_id, copy_paste: res.copy_paste ?? null, qr_code_base64: res.qr_code_base64 ?? null, expires_at: res.expires_at ?? null })
-      // guarda dados para registrar o histórico na confirmação do pagamento
-      pixMeta.current = { cliente_id: cliSel?.id, tipo_etiqueta: tipoEtiqueta(), service_id: servicoSel.id, destinatario: destinatarioPayload(), venda_id: form.venda_id ? parseInt(form.venda_id) : undefined }
-    } catch (e: unknown) {
-      setErroFrete((e as Error).message || "Não foi possível gerar o PIX da etiqueta.")
-    } finally { setGerindoPix(false) }
-  }
-
-  async function confirmarPagamentoPix() {
-    if (!pixData) return
-    setConfirmandoPix(true); setErroFrete("")
-    try {
-      const res = await apiPost<{ gerado: boolean; id: string; label_url?: string; tracking?: string }>("/etiquetas/pix", { order_id: pixData.order_id, ...(pixMeta.current ?? {}) })
-      setPixData(null)
-      setOrder(res)
-      setSalvoOk(true)
-      setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
-    } catch (e: unknown) {
-      setErroFrete((e as Error).message || "Pagamento ainda não confirmado. Aguarde e tente novamente.")
-    } finally { setConfirmandoPix(false) }
-  }
-
-  function copiarPix(txt: string) {
-    navigator.clipboard.writeText(txt).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2500) })
-  }
-
   function advance() {
     if (step === 1 && !cliSel) { setErro("Selecione um cliente cadastrado"); return }
     if (step === 2) { advanceCep(); return }
@@ -557,8 +550,6 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
 
   const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
-  const iSmBase = "w-full px-4 py-3 text-base rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
@@ -822,7 +813,7 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                         style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa" }}>
                         <span>⚠</span> Apenas um exemplo visual
                       </div>
-                      <BoxDiagram altura={form.altura} largura={form.largura} comprimento={form.comprimento} />
+                      <BoxDiagram />
                       <p className="text-xs mt-4 text-center" style={{ color: "var(--text-muted)" }}>
                         Atualiza conforme você preenche as dimensões →
                       </p>
@@ -926,15 +917,19 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
                       <div className="flex gap-2 p-1 rounded-2xl w-full max-w-xs"
                         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                         {([
-                          { id: "melhorenvio" as const, label: "Melhor Envio", cor: "#00b4d8" },
-                          { id: "superfrete"  as const, label: "Super Frete",  cor: "#ff6b00" },
+                          { id: "melhorenvio" as const, label: "Melhor Envio", cor: "#00b4d8", enabled: providers.melhorenvio },
+                          { id: "superfrete"  as const, label: "Super Frete",  cor: "#ff6b00", enabled: providers.superfrete },
                         ] as const).map(opt => (
                           <button key={opt.id}
+                            type="button"
+                            disabled={!opt.enabled}
                             onClick={() => { setCarrier(opt.id); setServicos([]); setServicoSel(null) }}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all"
+                            title={opt.enabled ? opt.label : `${opt.label} não configurado`}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all disabled:cursor-not-allowed"
                             style={{
                               background: carrier === opt.id ? opt.cor : "transparent",
                               color: carrier === opt.id ? "#fff" : "var(--text-secondary)",
+                              opacity: opt.enabled ? 1 : 0.45,
                             }}>
                             <Truck size={12} /> {opt.label}
                           </button>
@@ -1251,75 +1246,6 @@ function WizardEtiqueta({ onClose, onSalvo }: { onClose: () => void; onSalvo: ()
         )}
       </AnimatePresence>
 
-      {/* Modal PIX da etiqueta */}
-      <AnimatePresence>
-        {pixData && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-sm rounded-2xl overflow-hidden"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-                <span className="font-bold text-sm flex items-center gap-2" style={{ color: "#10b981" }}>
-                  <QrCode size={16}/> Pagar etiqueta via PIX
-                </span>
-                <button onClick={() => setPixData(null)}><X size={18} style={{ color: "var(--text-muted)" }}/></button>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {pixData.qr_code_base64 ? (
-                  <div className="flex justify-center">
-                    <div className="p-3 bg-white rounded-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR Code PIX" className="w-48 h-48" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-4 text-center">
-                    <QrCode size={48} className="mx-auto mb-2 opacity-30" style={{ color: "#10b981" }}/>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Escaneie o QR Code pelo app do banco</p>
-                  </div>
-                )}
-
-                {pixData.copy_paste && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Copia e Cola PIX</p>
-                    <div className="flex gap-2">
-                      <div className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate"
-                        style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                        {pixData.copy_paste}
-                      </div>
-                      <button onClick={() => copiarPix(pixData.copy_paste!)}
-                        className="px-3 py-2 rounded-xl text-xs font-bold"
-                        style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--bg-base)", color: copiado ? "#10b981" : "var(--text-muted)", border: "1px solid var(--border)" }}>
-                        {copiado ? <Check size={14}/> : <Copy size={14}/>}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {pixData.expires_at && (
-                  <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
-                    Válido até {new Date(pixData.expires_at).toLocaleString("pt-BR")}
-                  </p>
-                )}
-
-                <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
-                  Após pagar, clique no botão abaixo para gerar a etiqueta.
-                </p>
-
-                <button onClick={confirmarPagamentoPix} disabled={confirmandoPix}
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60"
-                  style={{ background: "#10b981" }}>
-                  {confirmandoPix ? <><Loader2 size={15} className="animate-spin"/>Verificando...</> : <><Check size={15}/>Já paguei — Gerar etiqueta</>}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   )
 }
@@ -1379,93 +1305,14 @@ function ModalEnderecoEntrega({ cliente, onUsarEntrega, onInformarOutro, onCance
   )
 }
 
-// ── Modal Saldo / Recarga ─────────────────────────────────
-function ModalSaldo({ saldo, onClose, onRecargaFeita }: { saldo: number | null; onClose: () => void; onRecargaFeita: () => void }) {
-  useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    document.addEventListener("keydown", fn)
-    return () => document.removeEventListener("keydown", fn)
-  }, [onClose])
-
-  void onRecargaFeita // mantido na assinatura para compatibilidade
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="absolute inset-0 backdrop-blur-md" style={{ background: "rgba(0,0,0,0.72)" }} onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 40, scale: 0.97 }}
-        transition={{ type: "spring", damping: 24, stiffness: 300 }}
-        className="relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.15)" }}>
-              <Wallet2 size={17} style={{ color: COR }} />
-            </div>
-            <div>
-              <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Carteira Melhor Envio</p>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Saldo disponível para etiquetas</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-            <X size={17} />
-          </button>
-        </div>
-
-        {/* Saldo atual */}
-        <div className="px-6 pt-5">
-          <div className="rounded-2xl px-5 py-4 flex items-center gap-4" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(99,102,241,0.7)" }}>Saldo atual</p>
-              {saldo !== null ? (
-                <p className="text-3xl font-black" style={{ color: COR }}>{fmtBRL(saldo)}</p>
-              ) : (
-                <div className="w-24 h-8 rounded-lg animate-pulse" style={{ background: "rgba(99,102,241,0.15)" }} />
-              )}
-            </div>
-            <div className="ml-auto">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.12)" }}>
-                <Zap size={22} style={{ color: COR }} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pb-6 pt-4 space-y-3">
-          {/* Aviso */}
-          <div className="rounded-2xl p-4" style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)" }}>
-            <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Como adicionar saldo?</p>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              A recarga da carteira é feita diretamente no painel do Melhor Envio. Clique no botão abaixo e o saldo atualiza automaticamente após o pagamento.
-            </p>
-          </div>
-
-          <a href="https://melhorenvio.com.br/painel/carrinho/adicionar-saldo" target="_blank" rel="noopener noreferrer"
-            className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg"
-            style={{ background: COR, textDecoration: "none" }}>
-            <ExternalLink size={16} /> Adicionar saldo no Melhor Envio
-          </a>
-
-          <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-            Após o pagamento, feche e reabra esta janela para atualizar o saldo.
-          </p>
-        </div>
-      </motion.div>
-    </div>
-  )
-}
-
 // ── Página Principal ──────────────────────────────────────
 export default function EtiquetasPage() {
   const qc = useQueryClient()
   const [showWizard, setWizard]       = useState(false)
-  const [rastreioId, setRastreio]     = useState<string | null>(null)
+  const [rastreioMeta, setRastreio] = useState<{
+    orderId: string
+    carrier: "melhorenvio" | "superfrete"
+  } | null>(null)
   const [page, setPage]               = useState(1)
 
   const { data: status } = useQuery<StatusInfo>({
@@ -1474,12 +1321,15 @@ export default function EtiquetasPage() {
     staleTime: 300_000,
     retry: false,
   })
+  const melhorEnvioConectado = status?.melhorenvio?.conectado ?? status?.configurado ?? false
+  const superFreteConectado = status?.superfrete?.conectado ?? false
+  const algumProviderConectado = melhorEnvioConectado || superFreteConectado
 
-  const { data: saldoData, refetch: refetchSaldo } = useQuery<{ saldo: number }>({
+  const { data: saldoData } = useQuery<{ saldo: number }>({
     queryKey: ["etiquetas-saldo"],
     queryFn: () => apiGet("/etiquetas/saldo"),
     staleTime: 120_000,
-    enabled: !!status?.configurado,
+    enabled: melhorEnvioConectado,
     retry: false,
   })
 
@@ -1496,7 +1346,7 @@ export default function EtiquetasPage() {
       return res
     },
     staleTime: 60_000,
-    enabled: !!status?.configurado,
+    enabled: algumProviderConectado,
     retry: false,
   })
 
@@ -1533,7 +1383,7 @@ export default function EtiquetasPage() {
           <h2 className="font-bold text-xl" style={{ color: "var(--text-primary)" }}>Etiquetas de Envio</h2>
         </div>
         <div className="flex items-center gap-2">
-          {status?.configurado && (
+          {algumProviderConectado && (
             <button onClick={() => refetch()} className="p-2 rounded-xl transition-colors"
               style={{ color: "var(--text-muted)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
@@ -1541,7 +1391,7 @@ export default function EtiquetasPage() {
               <RefreshCw size={15} />
             </button>
           )}
-          {status?.configurado && (
+          {melhorEnvioConectado && (
             <a href="https://melhorenvio.com.br/painel/gerenciar/envios" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-all"
               style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}
@@ -1550,7 +1400,7 @@ export default function EtiquetasPage() {
               <ExternalLink size={14} /> Painel ME
             </a>
           )}
-          {status?.configurado && (
+          {algumProviderConectado && (
             <button onClick={() => setWizard(true)}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl text-white shadow-lg transition-opacity"
               style={{ background: COR }}
@@ -1562,33 +1412,34 @@ export default function EtiquetasPage() {
         </div>
       </div>
 
-      {/* Status ME */}
+      {/* Status das transportadoras */}
       {status && (
         <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
           className={cn("rounded-2xl px-5 py-3.5 flex items-center gap-3",
-            status.configurado ? "bg-emerald-600/8 border-emerald-600/20" : "bg-amber-600/8 border-amber-600/20")}
+            algumProviderConectado ? "bg-emerald-600/8 border-emerald-600/20" : "bg-amber-600/8 border-amber-600/20")}
           style={{ border: "1px solid" }}>
-          {status.configurado
+          {algumProviderConectado
             ? <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
             : <AlertCircle size={16} className="text-amber-400 shrink-0" />}
           <div className="flex-1 flex flex-wrap items-center gap-x-5 gap-y-1">
-            {status.configurado ? (
-              <>
-                <p className="text-emerald-300 font-medium text-sm">Melhor Envio conectado</p>
-                {status.usuario && <p className="text-sm" style={{ color: "var(--text-muted)" }}>{status.usuario.nome} · {status.usuario.email}</p>}
-                {status.cep_origem && <p className="text-xs" style={{ color: "var(--text-muted)" }}>CEP origem: <span className="font-mono">{status.cep_origem}</span></p>}
-              </>
-            ) : (
-              <>
-                <p className="text-amber-300 font-medium text-sm">Token não configurado</p>
-                <p className="text-xs text-amber-400/70">
-                  Configure <code className="bg-amber-900/30 px-1 rounded font-mono">MELHOR_ENVIO_TOKEN</code> no .env.local
-                </p>
-              </>
+            <p className={cn("font-medium text-sm", melhorEnvioConectado ? "text-emerald-300" : "text-amber-300")}>
+              Melhor Envio {melhorEnvioConectado ? "conectado" : "indisponível"}
+            </p>
+            <p className={cn("font-medium text-sm", superFreteConectado ? "text-emerald-300" : "text-amber-300")}>
+              Super Frete {superFreteConectado
+                ? "conectado"
+                : status.superfrete?.configurado
+                  ? "indisponível"
+                  : "não configurado"}
+            </p>
+            {status.cep_origem && (
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                CEP origem: <span className="font-mono">{status.cep_origem}</span>
+              </p>
             )}
           </div>
           {/* Saldo chip — apenas exibe, sem modal */}
-          {status.configurado && (
+          {melhorEnvioConectado && (
             <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm"
               style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.25)", color: COR }}>
               <Wallet2 size={14} />
@@ -1657,7 +1508,7 @@ export default function EtiquetasPage() {
         </div>
 
         <div className="min-h-[300px]">
-          {!status?.configurado ? (
+          {!algumProviderConectado ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
               <Truck size={32} style={{ color: "var(--border-hover)" }} />
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>Integração pendente</p>
@@ -1726,7 +1577,12 @@ export default function EtiquetasPage() {
                         </button>
                       )}
                       {(e.tracking || ["released","generated","posted","received","delivered","undelivered"].includes(e.status)) && (
-                        <button onClick={() => setRastreio(e.protocol)} className="p-1.5 rounded-lg transition-all"
+                        <button
+                          onClick={() => setRastreio({
+                            orderId: e.carrier === "superfrete" ? (e.tracking ?? e.id) : e.id,
+                            carrier: e.carrier === "superfrete" ? "superfrete" : "melhorenvio",
+                          })}
+                          className="p-1.5 rounded-lg transition-all"
                           style={{ color: "var(--text-muted)" }}
                           onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#4ade80" }}
                           onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
@@ -1775,9 +1631,19 @@ export default function EtiquetasPage() {
           <WizardEtiqueta
             onClose={() => setWizard(false)}
             onSalvo={() => { qc.invalidateQueries({ queryKey: ["etiquetas"] }); setWizard(false) }}
+            providers={{
+              melhorenvio: melhorEnvioConectado,
+              superfrete: superFreteConectado,
+            }}
           />
         )}
-        {rastreioId && <ModalRastreio orderId={rastreioId} onClose={() => setRastreio(null)} />}
+        {rastreioMeta && (
+          <ModalRastreio
+            orderId={rastreioMeta.orderId}
+            carrier={rastreioMeta.carrier}
+            onClose={() => setRastreio(null)}
+          />
+        )}
         {pdfMeta && <EtiquetaPDFModal orderId={pdfMeta.orderId} carrier={pdfMeta.carrier} onClose={() => setPdfMeta(null)} />}
       </AnimatePresence>
     </div>

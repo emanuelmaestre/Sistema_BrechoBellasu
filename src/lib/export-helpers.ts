@@ -46,14 +46,20 @@ export interface ExcelOpts {
 }
 
 export async function exportExcelProfissional(opts: ExcelOpts): Promise<void> {
-  const XLSX = await import("xlsx")
+  const { Workbook } = await import("exceljs")
   const { relatorio, headers, rows, totais, de, ate } = opts
 
   const periodoStr = opts.periodoStr ?? labelPeriodo(de, ate)
   const geradoEm   = new Date().toLocaleString("pt-BR")
+  const workbook = new Workbook()
+  workbook.creator = EMPRESA
+  workbook.created = new Date()
 
-  // Monta AOA com metadados no topo
-  const aoa: (string | number | null)[][] = [
+  const worksheet = workbook.addWorksheet(relatorio.slice(0, 31), {
+    views: [{ state: "frozen", ySplit: 7 }],
+  })
+
+  worksheet.addRows([
     [EMPRESA],
     [SLOGAN],
     [`Relatório: ${relatorio}`],
@@ -62,65 +68,57 @@ export async function exportExcelProfissional(opts: ExcelOpts): Promise<void> {
     [],
     headers,
     ...rows,
-  ]
+  ])
 
   if (totais) {
-    aoa.push([])
-    aoa.push(["TOTAL", ...totais.slice(1)])
+    worksheet.addRow([])
+    worksheet.addRow(["TOTAL", ...totais.slice(1)])
   }
 
   if (!rows.length) {
-    aoa.push([])
-    aoa.push(["Nenhum registro encontrado para os filtros selecionados."])
+    worksheet.addRow([])
+    worksheet.addRow(["Nenhum registro encontrado para os filtros selecionados."])
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  const lastColumn = Math.max(headers.length, 1)
+  for (let row = 1; row <= 5; row++) {
+    worksheet.mergeCells(row, 1, row, lastColumn)
+  }
 
-  // Largura automática das colunas
-  const colWidths: { wch: number }[] = headers.map((h, ci) => {
-    const maxData = rows.reduce((mx, row) => {
-      const v = row[ci]
-      return Math.max(mx, String(v ?? "").length)
-    }, h.length)
-    return { wch: Math.max(12, Math.min(maxData + 2, 50)) }
+  worksheet.columns = headers.map((header, columnIndex) => {
+    const maxDataLength = rows.reduce((max, row) => {
+      return Math.max(max, String(row[columnIndex] ?? "").length)
+    }, header.length)
+    return { width: Math.max(12, Math.min(maxDataLength + 2, 50)) }
   })
-  ws["!cols"] = colWidths
 
-  // Altura das linhas de metadados
-  ws["!rows"] = [
-    { hpt: 22 },
-    { hpt: 14 },
-    { hpt: 16 },
-    { hpt: 14 },
-    { hpt: 14 },
-    { hpt: 8  },
-    { hpt: 20 },
-  ]
+  const rowHeights = [22, 14, 16, 14, 14, 8, 20]
+  rowHeights.forEach((height, index) => {
+    worksheet.getRow(index + 1).height = height
+  })
 
-  // Freeze na linha do cabeçalho
-  ws["!freeze"] = { xSplit: 0, ySplit: 7 }
+  const headerRow = worksheet.getRow(7)
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } }
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } }
+  headerRow.alignment = { vertical: "middle" }
 
-  // Mescla células do topo
-  const lastCol = Math.max(headers.length - 1, 0)
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } },
-    { s: { r: 3, c: 0 }, e: { r: 3, c: lastCol } },
-    { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
-  ]
+  worksheet.autoFilter = {
+    from: { row: 7, column: 1 },
+    to: { row: Math.max(7, 7 + rows.length), column: lastColumn },
+  }
 
-  // Auto-filter no cabeçalho
-  const endCol = XLSX.utils.encode_col(headers.length - 1)
-  ws["!autofilter"] = { ref: `A7:${endCol}${7 + rows.length}` }
-
-  const wb = XLSX.utils.book_new()
-  const sheetName = relatorio.slice(0, 31)
-  XLSX.utils.book_append_sheet(wb, ws, sheetName)
-
-  // bookType explícito garante extensão e formato .xlsx corretos
-  const filename = nomeArquivo(relatorio, "xlsx")
-  XLSX.writeFile(wb, filename, { bookType: "xlsx", compression: true })
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer as BlobPart], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = nomeArquivo(relatorio, "xlsx")
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 // ─────────────────────────────────────────────────────────────────
