@@ -1402,7 +1402,7 @@ function CampanhaWhatsApp() {
                       placeholder="Escreva a mensagem da campanha… (a saudação é adicionada automaticamente por cliente)"
                       rows={5}
                       maxLength={800}
-                      className={`${iBase} resize-none pb-8 no-uppercase`}
+                      className={`${iBase} resize-none pb-11 no-uppercase`}
                       style={{
                         ...iSt,
                         fontFamily: "inherit",
@@ -1420,16 +1420,17 @@ function CampanhaWhatsApp() {
                           onClick={melhorarTexto}
                           disabled={!texto.trim() || melhorando}
                           title="Melhorar texto com IA"
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           style={{
-                            background: melhorando ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)",
+                            background: melhorando ? "rgba(99,102,241,0.22)" : "rgba(99,102,241,0.14)",
                             color: "var(--accent)",
-                            border: "1px solid rgba(99,102,241,0.2)",
+                            border: "1px solid rgba(99,102,241,0.45)",
+                            boxShadow: "0 1px 3px rgba(99,102,241,0.15)",
                           }}
                         >
                           {melhorando
-                            ? <><Loader2 size={10} className="animate-spin" />Melhorando…</>
-                            : <><Sparkles size={10} />Melhorar com IA</>
+                            ? <><Loader2 size={12} className="animate-spin" />Melhorando…</>
+                            : <><Sparkles size={12} />Melhorar com IA</>
                           }
                         </button>
 
@@ -1442,10 +1443,10 @@ function CampanhaWhatsApp() {
                               initial={{ opacity: 0, x: -6 }}
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: -4 }}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold"
-                              style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                              style={{ background: "rgba(245,158,11,0.14)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.4)", boxShadow: "0 1px 3px rgba(245,158,11,0.15)" }}
                             >
-                              <Undo2 size={10} />Desfazer
+                              <Undo2 size={12} />Desfazer
                             </motion.button>
                           )}
                         </AnimatePresence>
