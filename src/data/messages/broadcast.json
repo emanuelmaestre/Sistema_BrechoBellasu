@@ -1,0 +1,16 @@
+{
+  "greetings": [
+    { "withName": "Oi, {nome}! 😍 Passando aqui com uma novidade especial pra você!", "withoutName": "Oi, amiga! 😍 Passando aqui com uma novidade especial pra você!" },
+    { "withName": "Oiii {nome}! 🌸 Temos algo lindo esperando por você no Brechó Bellasu!", "withoutName": "Oiii, amiga! 🌸 Temos algo lindo esperando por você no Brechó Bellasu!" },
+    { "withName": "Boa notícia, {nome}! 🛍️ Separamos algo especial com o seu estilo em mente.", "withoutName": "Boa notícia! 🛍️ Separamos algo especial com o seu estilo em mente." },
+    { "withName": "Ei, {nome}! 💫 Você precisa ver o que chegou aqui no Bellasu!", "withoutName": "Ei, gente! 💫 Você precisa ver o que chegou aqui no Bellasu!" },
+    { "withName": "Olá, {nome}! 💖 Pensamos em você na hora que vimos essa peça!", "withoutName": "Olá! 💖 Pensamos em vocês na hora que vimos essas peças!" },
+    { "withName": "{nome}, tudo bem? ✨ Uma dica especial do Brechó Bellasu chegou pra você!", "withoutName": "Tudo bem? ✨ Uma dica especial do Brechó Bellasu chegou pra você!" },
+    { "withName": "Oi {nome}! 🌺 A gente não esquece das nossas clientes favoritas 💕", "withoutName": "Oi, amiga! 🌺 A gente não esquece das nossas clientes favoritas 💕" },
+    { "withName": "Novidade no Bellasu, {nome}! 🎀 Você vai amar, a gente tem certeza!", "withoutName": "Novidade no Bellasu! 🎀 Você vai amar, a gente tem certeza!" },
+    { "withName": "Psiu, {nome}! 🤫 Só avisando antes de todo mundo sobre algo muito especial!", "withoutName": "Psiu! 🤫 Só avisando antes de todo mundo sobre algo muito especial!" },
+    { "withName": "Oi {nome}! 💌 O Brechó Bellasu mandou um recadinho especial pra você!", "withoutName": "Oi! 💌 O Brechó Bellasu mandou um recadinho especial pra você!" },
+    { "withName": "Bom dia, {nome}! ☀️ Começar a semana com novidade boa é o melhor!", "withoutName": "Bom dia! ☀️ Começar a semana com novidade boa é o melhor!" },
+    { "withName": "Chegou novidade linda, {nome}! 🌟 Dá uma olhadinha no que a gente separou pra você!", "withoutName": "Chegou novidade linda! 🌟 Dá uma olhadinha no que a gente separou!" }
+  ]
+}

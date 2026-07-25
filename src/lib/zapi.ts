@@ -36,6 +36,7 @@ type LogTipo =
   | "aniversario"
   | "teste_conexao"
   | "alerta_google_desconectado"
+  | "broadcast"
   | "outro"
 
 // ── Funções internas ─────────────────────────────────────────
@@ -245,6 +246,82 @@ export async function enviarLink(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await registrarLog(phone, tipo, mensagem, "erro", msg)
+    return { ok: false, erro: msg }
+  }
+}
+
+/** Envia mensagem com imagem */
+export async function enviarImagem(
+  telefone: string,
+  imagemUrl: string,
+  caption: string,
+  tipo: LogTipo = "outro",
+): Promise<ZAPIResult> {
+  const resolvido = await resolverNumeroWhatsApp(telefone)
+  if (!resolvido.ok) {
+    await registrarLog(resolvido.phone, tipo, caption, "erro", resolvido.erro)
+    return { ok: false, erro: resolvido.erro }
+  }
+  const phone = resolvido.phone
+  try {
+    const res = await fetch(`${BASE()}/send-image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Client-Token": CLIENT_TOKEN() },
+      body: JSON.stringify({ phone, image: imagemUrl, caption }),
+      signal: AbortSignal.timeout(30000),
+    })
+    const text = await res.text().catch(() => "")
+    let json: Record<string, unknown> = {}
+    try { json = JSON.parse(text) } catch {
+      const erro = !res.ok ? `Z-API indisponível (HTTP ${res.status}).` : "Resposta inválida da Z-API."
+      await registrarLog(phone, tipo, caption, "erro", erro)
+      return { ok: false, erro }
+    }
+    const erroMsg = (json.error || json.message) as string | undefined
+    const ok = res.ok && !json.error && json.value !== false
+    await registrarLog(phone, tipo, caption, ok ? "enviado" : "erro", erroMsg, json.messageId as string)
+    return { ok, messageId: json.messageId as string, erro: erroMsg }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await registrarLog(phone, tipo, caption, "erro", msg)
+    return { ok: false, erro: msg }
+  }
+}
+
+/** Envia mensagem com vídeo */
+export async function enviarVideo(
+  telefone: string,
+  videoUrl: string,
+  caption: string,
+  tipo: LogTipo = "outro",
+): Promise<ZAPIResult> {
+  const resolvido = await resolverNumeroWhatsApp(telefone)
+  if (!resolvido.ok) {
+    await registrarLog(resolvido.phone, tipo, caption, "erro", resolvido.erro)
+    return { ok: false, erro: resolvido.erro }
+  }
+  const phone = resolvido.phone
+  try {
+    const res = await fetch(`${BASE()}/send-video`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Client-Token": CLIENT_TOKEN() },
+      body: JSON.stringify({ phone, video: videoUrl, caption }),
+      signal: AbortSignal.timeout(45000),
+    })
+    const text = await res.text().catch(() => "")
+    let json: Record<string, unknown> = {}
+    try { json = JSON.parse(text) } catch {
+      const erro = !res.ok ? `Z-API indisponível (HTTP ${res.status}).` : "Resposta inválida da Z-API."
+      await registrarLog(phone, tipo, caption, "erro", erro)
+      return { ok: false, erro }
+    }
+    const erroMsg = (json.error || json.message) as string | undefined
+    const ok = res.ok && !json.error && json.value !== false
+    await registrarLog(phone, tipo, caption, ok ? "enviado" : "erro", erroMsg, json.messageId as string)
+    return { ok, messageId: json.messageId as string, erro: erroMsg }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await registrarLog(phone, tipo, caption, "erro", msg)
     return { ok: false, erro: msg }
   }
 }

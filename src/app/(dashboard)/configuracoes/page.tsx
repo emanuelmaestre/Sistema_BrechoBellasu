@@ -11,8 +11,10 @@ import {
   MessageCircle, Globe, MapPin, AlertCircle, Bot,
   Play, CheckCircle2, XCircle, Clock, Send,
   Zap, ChevronDown, Cake, Bell, Package, Tag,
+  Megaphone, ImageIcon, Video, Smile, Trash2, History,
+  PenLine, Upload, AlertTriangle, Users2, Timer,
 } from "lucide-react"
-import { apiGet, apiPost, apiPatch } from "@/services/api"
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { cn } from "@/lib/utils"
 import { useDisparoStore } from "@/stores/disparo.store"
 import businessData from "@/data/config/business.json"
@@ -1008,6 +1010,643 @@ export default function ConfiguracoesPage() {
   )
 }
 
+// ══════════════════════════════════════════════════════════
+// Campanha WhatsApp — card completo (Escrever + Histórico)
+// ══════════════════════════════════════════════════════════
+
+const EMOJIS_RAPIDOS = ["😍","🌸","💖","✨","🛍️","💫","🎀","🌺","💌","🎉","👗","💕","🤩","🏷️","👠","💅","🌟","🥰","💎","🛒"]
+
+interface Campanha {
+  id: number
+  texto: string
+  midia_tipo: "imagem" | "video" | null
+  midia_url: string | null
+  midia_nome: string | null
+  status: "rascunho" | "enviada" | "enviando"
+  total_clientes: number
+  enviadas: number
+  erros: number
+  criado_em: string
+  enviado_em: string | null
+}
+
+function BalaoErro({ msg, onClose }: { msg: string; onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -12, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 340, damping: 24 }}
+      className="flex items-start gap-3 rounded-2xl p-4 mb-3"
+      style={{ background: "rgba(239,68,68,0.08)", border: "1.5px solid rgba(239,68,68,0.3)" }}
+    >
+      {/* Ilustração animada */}
+      <motion.div
+        animate={{ rotate: [0, -8, 8, -6, 6, 0] }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="shrink-0 text-2xl select-none"
+      >⚠️</motion.div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-black uppercase tracking-wider mb-0.5" style={{ color: "#ef4444" }}>Atenção</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>{msg}</p>
+      </div>
+      <button onClick={onClose} className="shrink-0 p-0.5 rounded-lg opacity-60 hover:opacity-100 transition-opacity">
+        <X size={13} style={{ color: "var(--text-muted)" }} />
+      </button>
+    </motion.div>
+  )
+}
+
+function PreviewWhatsApp({ texto, midiaTipo, midiaUrl, nomeExemplo = "Maria" }: {
+  texto: string; midiaTipo: "imagem" | "video" | null; midiaUrl: string | null; nomeExemplo?: string
+}) {
+  const saudacoes = [
+    `Oi, ${nomeExemplo}! 😍 Passando aqui com uma novidade especial pra você!`,
+    `Oiii ${nomeExemplo}! 🌸 Temos algo lindo esperando por você no Brechó Bellasu!`,
+  ]
+  const saudacao = saudacoes[Math.floor(Date.now() / 10000) % saudacoes.length]
+  const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: "#0b141a" }}>
+      {/* Header fake WhatsApp */}
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: "#1f2c34" }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: "#25d366" }}>🛍️</div>
+        <div>
+          <p className="text-[11px] font-bold" style={{ color: "#e9edef" }}>Brechó Bellasu</p>
+          <p className="text-[9px]" style={{ color: "#8696a0" }}>online</p>
+        </div>
+      </div>
+      {/* Fundo de chat */}
+      <div className="px-4 py-4 min-h-[120px]" style={{ background: "#0b141a" }}>
+        {texto || midiaUrl ? (
+          <div className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl rounded-tr-sm overflow-hidden"
+              style={{ background: "#005c4b" }}>
+              {/* Mídia preview */}
+              {midiaUrl && midiaTipo === "imagem" && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={midiaUrl} alt="preview" className="w-full max-h-40 object-cover" />
+              )}
+              {midiaUrl && midiaTipo === "video" && (
+                <div className="flex items-center justify-center w-full h-24 gap-2"
+                  style={{ background: "rgba(0,0,0,0.3)" }}>
+                  <Video size={20} style={{ color: "#e9edef" }} />
+                  <span className="text-xs" style={{ color: "#e9edef" }}>Vídeo</span>
+                </div>
+              )}
+              {/* Texto */}
+              {(texto) && (
+                <div className="px-3 py-2">
+                  <p className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: "#e9edef" }}>
+                    <span style={{ color: "#25d366" }}>{saudacao}{"\n\n"}</span>
+                    {texto}
+                  </p>
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className="text-[9px]" style={{ color: "#8696a0" }}>{hora}</span>
+                    <span className="text-[10px]" style={{ color: "#53bdeb" }}>✓✓</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-20 gap-2 opacity-30">
+            <MessageCircle size={22} style={{ color: "#8696a0" }} />
+            <p className="text-[10px]" style={{ color: "#8696a0" }}>Preview aparece aqui</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CampanhaWhatsApp() {
+  type Aba = "escrever" | "historico"
+  const [aba, setAba] = useState<Aba>("escrever")
+
+  // Composer
+  const [texto, setTexto] = useState("")
+  const [midiaTipo, setMidiaTipo] = useState<"imagem" | "video" | null>(null)
+  const [midiaUrl, setMidiaUrl] = useState<string | null>(null)
+  const [midiaNome, setMidiaNome] = useState<string | null>(null)
+  const [midiaLocalUrl, setMidiaLocalUrl] = useState<string | null>(null)
+  const [showEmoji, setShowEmoji] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  const [editandoId, setEditandoId] = useState<number | null>(null)
+
+  // Confirmação de disparo
+  const [modalDisparo, setModalDisparo] = useState(false)
+  const [fila, setFila] = useState<{ total: number; duracaoMinMin: number; duracaoMinMax: number } | null>(null)
+  const [carregandoFila, setCarregandoFila] = useState(false)
+
+  // Histórico
+  const [campanhas, setCampanhas] = useState<Campanha[]>([])
+  const [carregandoHist, setCarregandoHist] = useState(false)
+  const [excluindo, setExcluindo] = useState<number | null>(null)
+
+  const iniciarBroadcast = useDisparoStore(s => s.iniciarBroadcast)
+  const jobRodando = useDisparoStore(s => s.job?.status === "running")
+
+  function limparComposer() {
+    setTexto(""); setMidiaTipo(null); setMidiaUrl(null); setMidiaNome(null)
+    setMidiaLocalUrl(null); setEditandoId(null); setErro(null)
+  }
+
+  // Carrega histórico ao entrar na aba
+  useEffect(() => {
+    if (aba === "historico") carregarHistorico()
+  }, [aba])
+
+  async function carregarHistorico() {
+    setCarregandoHist(true)
+    try {
+      const r = await apiGet<{ campanhas: Campanha[] }>("/admin/campanhas")
+      setCampanhas(r.campanhas ?? [])
+    } catch { /* silencioso */ }
+    finally { setCarregandoHist(false) }
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    setErro(null)
+
+    // Validação client-side imediata
+    const MAX = 16 * 1024 * 1024
+    const isVideo = file.type.startsWith("video/")
+    const isImagem = file.type.startsWith("image/")
+    if (!isVideo && !isImagem) {
+      setErro("Tipo não suportado. Envie JPG, PNG, WebP, GIF, MP4, MOV ou WebM.")
+      return
+    }
+    if (file.size > MAX) {
+      const mb = (file.size / 1024 / 1024).toFixed(1)
+      setErro(`Arquivo muito grande: ${mb} MB. O limite é 16 MB. Comprima o vídeo/imagem e tente novamente.`)
+      return
+    }
+
+    setMidiaLocalUrl(URL.createObjectURL(file))
+    setMidiaTipo(isVideo ? "video" : "imagem")
+    setMidiaNome(file.name)
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/admin/campanhas/upload", { method: "POST", body: fd })
+      const json = await res.json() as { url?: string; erro?: string }
+      if (!res.ok || json.erro) { setErro(json.erro ?? "Falha no upload."); setMidiaLocalUrl(null); setMidiaTipo(null); return }
+      setMidiaUrl(json.url ?? null)
+    } catch {
+      setErro("Falha de rede no upload. Verifique sua conexão e tente novamente.")
+      setMidiaLocalUrl(null); setMidiaTipo(null)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function removerMidia() {
+    setMidiaTipo(null); setMidiaUrl(null); setMidiaNome(null); setMidiaLocalUrl(null)
+  }
+
+  async function salvarRascunho() {
+    if (!texto.trim()) { setErro("Escreva uma mensagem antes de salvar."); return }
+    setSalvando(true); setErro(null)
+    try {
+      await apiPost("/admin/campanhas", { id: editandoId ?? undefined, texto, midia_tipo: midiaTipo, midia_url: midiaUrl, midia_nome: midiaNome })
+      limparComposer()
+      setAba("historico")
+      await carregarHistorico()
+    } catch { setErro("Falha ao salvar rascunho. Tente novamente.") }
+    finally { setSalvando(false) }
+  }
+
+  async function abrirModalDisparo() {
+    if (!texto.trim()) { setErro("Escreva uma mensagem antes de disparar."); return }
+    if (uploading) { setErro("Aguarde o upload da mídia terminar."); return }
+    setCarregandoFila(true); setErro(null)
+    try {
+      const r = await apiGet<{ total: number; duracaoMinMin: number; duracaoMinMax: number }>("/admin/broadcast")
+      setFila(r); setModalDisparo(true)
+    } catch { setErro("Não foi possível carregar a lista de clientes.") }
+    finally { setCarregandoFila(false) }
+  }
+
+  async function confirmarDisparo() {
+    setSalvando(true)
+    try {
+      // Salva/atualiza campanha com status "enviando"
+      const r = await apiPost<{ campanha: Campanha }>("/admin/campanhas", {
+        id: editandoId ?? undefined,
+        texto, midia_tipo: midiaTipo, midia_url: midiaUrl, midia_nome: midiaNome,
+      })
+      const campanhaId = r.campanha.id
+      const titulo = texto.slice(0, 40) + (texto.length > 40 ? "…" : "")
+      const ok = iniciarBroadcast({ campanhaId, campanhaTitulo: titulo })
+      if (!ok) { setErro("Já existe um envio em andamento. Aguarde terminar."); return }
+      setModalDisparo(false)
+      limparComposer()
+      setAba("historico")
+      await carregarHistorico()
+    } catch { setErro("Falha ao iniciar disparo.") }
+    finally { setSalvando(false) }
+  }
+
+  function editarCampanha(c: Campanha) {
+    setTexto(c.texto)
+    setMidiaTipo(c.midia_tipo)
+    setMidiaUrl(c.midia_url)
+    setMidiaNome(c.midia_nome)
+    setMidiaLocalUrl(c.midia_url)
+    setEditandoId(c.id)
+    setAba("escrever")
+  }
+
+  async function excluirCampanha(id: number) {
+    setExcluindo(id)
+    try {
+      await apiDelete(`/admin/campanhas?id=${id}`)
+      setCampanhas(prev => prev.filter(c => c.id !== id))
+    } catch { setErro("Falha ao excluir.") }
+    finally { setExcluindo(null) }
+  }
+
+  const charCount = texto.length
+  const iBase = "w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all border focus:border-[color:var(--accent)]"
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1.5px solid rgba(37,211,102,0.25)" }}>
+      {/* Header do card */}
+      <div className="flex items-center gap-3 px-5 py-4" style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(37,211,102,0.15)" }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(37,211,102,0.12)" }}>
+          <Megaphone size={17} style={{ color: "#25d366" }} />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-black text-sm" style={{ color: "var(--text-primary)" }}>Campanha WhatsApp</h3>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Disparo em massa para clientes que autorizaram</p>
+        </div>
+        {/* Abas */}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--bg-surface)" }}>
+          {([["escrever", PenLine, "Escrever"], ["historico", History, "Histórico"]] as const).map(([k, Icon, label]) => (
+            <button key={k} onClick={() => setAba(k)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+              style={{
+                background: aba === k ? "var(--accent)" : "transparent",
+                color: aba === k ? "#fff" : "var(--text-muted)",
+              }}>
+              <Icon size={11} />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-5">
+        <AnimatePresence mode="wait">
+          {/* ── ABA ESCREVER ── */}
+          {aba === "escrever" && (
+            <motion.div key="escrever" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+              {editandoId && (
+                <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold"
+                  style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", color: "var(--accent)" }}>
+                  <Pencil size={11} />Editando rascunho #{editandoId}
+                  <button onClick={limparComposer} className="ml-auto opacity-60 hover:opacity-100"><X size={11} /></button>
+                </div>
+              )}
+
+              {/* Erros */}
+              <AnimatePresence>
+                {erro && <BalaoErro key="erro" msg={erro} onClose={() => setErro(null)} />}
+              </AnimatePresence>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Coluna esquerda: composer */}
+                <div className="space-y-3">
+                  {/* Textarea */}
+                  <div className="relative">
+                    <textarea
+                      value={texto}
+                      onChange={e => setTexto(e.target.value)}
+                      placeholder="Escreva a mensagem da campanha… (a saudação é adicionada automaticamente por cliente)"
+                      rows={5}
+                      maxLength={800}
+                      className={`${iBase} resize-none`}
+                      style={{ ...iSt, fontFamily: "inherit" }}
+                    />
+                    <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                      <span className="text-[10px]" style={{ color: charCount > 700 ? "#ef4444" : "var(--text-muted)" }}>{charCount}/800</span>
+                    </div>
+                  </div>
+
+                  {/* Emojis rápidos */}
+                  <div>
+                    <button onClick={() => setShowEmoji(v => !v)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all"
+                      style={{ background: showEmoji ? "rgba(99,102,241,0.12)" : "var(--bg-surface)", color: showEmoji ? "var(--accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                      <Smile size={12} /> Emojis rápidos
+                    </button>
+                    <AnimatePresence>
+                      {showEmoji && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                          className="mt-2 overflow-hidden">
+                          <div className="flex flex-wrap gap-1.5 p-3 rounded-xl" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                            {EMOJIS_RAPIDOS.map(e => (
+                              <button key={e} onClick={() => setTexto(t => t + e)}
+                                className="text-lg hover:scale-125 transition-transform select-none">{e}</button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Mídia */}
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
+                      Mídia (opcional — 1 imagem OU 1 vídeo · máx <span className="font-black text-amber-400">16 MB</span>)
+                    </label>
+                    {!midiaTipo ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col items-center gap-1.5 p-4 rounded-xl cursor-pointer transition-all"
+                          style={{ background: "var(--bg-surface)", border: "1.5px dashed var(--border)" }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+                          <ImageIcon size={20} style={{ color: "var(--text-muted)" }} />
+                          <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Imagem</span>
+                          <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>JPG, PNG, WebP, GIF</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                        </label>
+                        <label className="flex flex-col items-center gap-1.5 p-4 rounded-xl cursor-pointer transition-all"
+                          style={{ background: "var(--bg-surface)", border: "1.5px dashed var(--border)" }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+                          <Video size={20} style={{ color: "var(--text-muted)" }} />
+                          <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Vídeo</span>
+                          <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>MP4, MOV, WebM · máx 16 MB</span>
+                          <input type="file" accept="video/*" className="hidden" onChange={handleUpload} />
+                        </label>
+                      </div>
+                    ) : (
+                      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+                        className="relative rounded-xl overflow-hidden"
+                        style={{ border: "1.5px solid rgba(37,211,102,0.35)", background: "var(--bg-surface)" }}>
+                        {uploading && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl"
+                            style={{ background: "rgba(0,0,0,0.6)" }}>
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 size={20} className="animate-spin" style={{ color: "#25d366" }} />
+                              <span className="text-xs font-bold text-white">Enviando…</span>
+                            </div>
+                          </div>
+                        )}
+                        {midiaTipo === "imagem" && midiaLocalUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={midiaLocalUrl} alt="preview" className="w-full max-h-36 object-cover" />
+                        )}
+                        {midiaTipo === "video" && (
+                          <div className="flex items-center gap-3 p-4">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(37,211,102,0.12)" }}>
+                              <Video size={18} style={{ color: "#25d366" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>{midiaNome}</p>
+                              <p className="text-[10px]" style={{ color: "#25d366" }}>
+                                {uploading ? "Enviando…" : midiaUrl ? "✓ Upload concluído" : "Processando…"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        <button onClick={removerMidia}
+                          className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                          style={{ background: "rgba(239,68,68,0.85)" }}>
+                          <X size={12} color="#fff" />
+                        </button>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Botões */}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={salvarRascunho} disabled={salvando || !texto.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                      {salvando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                      Salvar rascunho
+                    </button>
+                    <button onClick={abrirModalDisparo} disabled={jobRodando || !texto.trim() || uploading || carregandoFila}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all disabled:opacity-40"
+                      style={{ background: "linear-gradient(135deg,#25d366,#128c7e)" }}>
+                      {carregandoFila ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      Disparar campanha
+                    </button>
+                  </div>
+                  {jobRodando && (
+                    <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>
+                      Aguarde o envio atual terminar antes de iniciar outro.
+                    </p>
+                  )}
+                </div>
+
+                {/* Coluna direita: preview */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                    Preview — como a cliente vai receber
+                  </p>
+                  <PreviewWhatsApp texto={texto} midiaTipo={midiaTipo} midiaUrl={midiaLocalUrl ?? midiaUrl} />
+                  <p className="text-[9px] text-center" style={{ color: "var(--text-muted)" }}>
+                    A saudação varia por cliente (anti-bloqueio automático)
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── ABA HISTÓRICO ── */}
+          {aba === "historico" && (
+            <motion.div key="historico" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+              <AnimatePresence>
+                {erro && <BalaoErro key="erro" msg={erro} onClose={() => setErro(null)} />}
+              </AnimatePresence>
+
+              {carregandoHist ? (
+                <div className="flex items-center justify-center py-12 gap-3">
+                  <Loader2 size={18} className="animate-spin" style={{ color: "var(--accent)" }} />
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>Carregando histórico…</span>
+                </div>
+              ) : campanhas.length === 0 ? (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col items-center justify-center py-12 gap-3">
+                  <motion.div animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}>
+                    <span className="text-5xl select-none">📭</span>
+                  </motion.div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Nenhuma campanha ainda</p>
+                  <p className="text-xs text-center max-w-xs" style={{ color: "var(--text-muted)" }}>
+                    Escreva sua primeira campanha e os rascunhos e histórico de envios aparecerão aqui.
+                  </p>
+                  <button onClick={() => setAba("escrever")}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white mt-1"
+                    style={{ background: "#25d366" }}>
+                    <PenLine size={13} /> Criar campanha
+                  </button>
+                </motion.div>
+              ) : (
+                <div className="space-y-3">
+                  {campanhas.map((c, i) => (
+                    <motion.div key={c.id}
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                      className="rounded-xl p-4"
+                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                      <div className="flex items-start gap-3">
+                        {/* Badge status */}
+                        <div className="shrink-0 mt-0.5">
+                          {c.status === "rascunho" ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-lg" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}>RASCUNHO</span>
+                          ) : c.status === "enviando" ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1" style={{ background: "rgba(99,102,241,0.12)", color: "var(--accent)" }}>
+                              <Loader2 size={9} className="animate-spin" />ENVIANDO
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-lg" style={{ background: "rgba(37,211,102,0.12)", color: "#25d366" }}>ENVIADA</span>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold line-clamp-2 mb-1" style={{ color: "var(--text-primary)" }}>{c.texto || "(sem texto)"}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            {c.midia_tipo && (
+                              <span className="flex items-center gap-1">
+                                {c.midia_tipo === "imagem" ? <ImageIcon size={10} /> : <Video size={10} />}
+                                {c.midia_tipo}
+                              </span>
+                            )}
+                            {c.status === "enviada" && (
+                              <>
+                                <span className="flex items-center gap-1"><Users2 size={10} />{c.total_clientes} clientes</span>
+                                <span style={{ color: "#25d366" }}>✓ {c.enviadas} enviadas</span>
+                                {c.erros > 0 && <span style={{ color: "#ef4444" }}>✗ {c.erros} erros</span>}
+                              </>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Timer size={10} />
+                              {new Date(c.criado_em).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Ações */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => editarCampanha(c)} title="Editar"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: "var(--text-muted)" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-hover)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => excluirCampanha(c.id)} disabled={excluindo === c.id} title="Excluir"
+                            className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                            style={{ color: "var(--text-muted)" }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; e.currentTarget.style.color = "#ef4444" }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)" }}>
+                            {excluindo === c.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Modal de confirmação de disparo */}
+      <AnimatePresence>
+        {modalDisparo && fila && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            onClick={() => setModalDisparo(false)}>
+            <motion.div
+              initial={{ scale: 0.88, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+              className="w-full max-w-sm rounded-3xl overflow-hidden"
+              style={{ background: "var(--bg-card)", border: "1.5px solid rgba(37,211,102,0.3)" }}
+              onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4"
+                style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(37,211,102,0.15)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📣</span>
+                  <span className="font-black text-sm" style={{ color: "#25d366" }}>Confirmar disparo</span>
+                </div>
+                <button onClick={() => setModalDisparo(false)}>
+                  <X size={15} style={{ color: "var(--text-muted)" }} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Contagem animada */}
+                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
+                  className="text-center py-4 rounded-2xl"
+                  style={{ background: "rgba(37,211,102,0.06)", border: "1px solid rgba(37,211,102,0.2)" }}>
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="text-5xl font-black" style={{ color: "#25d366" }}>{fila.total}</motion.p>
+                  <p className="text-xs mt-1 font-bold" style={{ color: "var(--text-muted)" }}>clientes com WhatsApp autorizado</p>
+                </motion.div>
+
+                {/* Estimativa */}
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <Timer size={15} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <p className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>Tempo estimado</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                      ~{fila.duracaoMinMin}–{fila.duracaoMinMax} min com intervalo seguro entre envios
+                    </p>
+                  </div>
+                </div>
+
+                {/* Aviso LGPD */}
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                  style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                  <ShieldCheck size={14} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+                  <p className="text-[10px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    Disparo apenas para clientes que autorizaram receber mensagens. Intervalo imprevisível de 80–150s entre cada envio para proteção da conta.
+                  </p>
+                </div>
+
+                {/* Botões */}
+                <div className="flex gap-2">
+                  <button onClick={() => setModalDisparo(false)}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                    style={{ background: "var(--bg-surface)", color: "var(--text-secondary)" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={confirmarDisparo} disabled={salvando}
+                    className="flex-1 py-3 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: "linear-gradient(135deg,#25d366,#128c7e)" }}>
+                    {salvando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    Disparar agora
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ─── Aba Alertas ─────────────────────────────────────────
 function AbaAlertas() {
   const [num1, setNum1] = useState("")
@@ -1061,6 +1700,9 @@ function AbaAlertas() {
 
   return (
     <div className="space-y-6">
+      {/* Card de campanha WhatsApp */}
+      <CampanhaWhatsApp />
+
       {/* Z-API Status */}
       <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">

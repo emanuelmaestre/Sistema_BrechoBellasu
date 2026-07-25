@@ -27,7 +27,7 @@ const GOOGLE_SYNC_INTERVAL = { minMs: 3_000, maxMs: 6_000, deltaMinMs: 1_000 }
 const STORAGE_KEY = "disparo_job_pendente"
 const MAX_IDADE_JOB_MS = 24 * 60 * 60 * 1_000 // descarta salvos com mais de 24h
 
-export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync"
+export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync" | "broadcast"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
 
 export interface JobItemResult {
@@ -60,6 +60,7 @@ export type JobSalvo =
   | { tipo: "aviso";        liveId: number; liveTitulo: string; link: string; reenvio: boolean;     savedAt: number }
   | { tipo: "consentimento";                                                                          savedAt: number }
   | { tipo: "google-sync";  clienteIds: number[];                                                    savedAt: number }
+  | { tipo: "broadcast";    campanhaId: number; campanhaTitulo: string;                              savedAt: number }
 
 interface DisparoState {
   job: DisparoJob | null
@@ -70,6 +71,7 @@ interface DisparoState {
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string; reenvio?: boolean }) => boolean
   iniciarConsentimento: () => boolean
   iniciarGoogleSync: (clienteIds: number[]) => boolean
+  iniciarBroadcast: (p: { campanhaId: number; campanhaTitulo: string }) => boolean
   /** Retoma o job salvo no localStorage (continua de onde parou). */
   retomar: () => boolean
   /** Descarta o job salvo sem retomar. */
@@ -361,6 +363,29 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       return true
     },
 
+    iniciarBroadcast: ({ campanhaId, campanhaTitulo }) => {
+      if (get().job?.status === "running") return false
+      salvarJob({ tipo: "broadcast", campanhaId, campanhaTitulo, savedAt: Date.now() })
+      set({ job: novoJob("broadcast", campanhaTitulo), minimized: false, jobSalvo: null })
+      void rodar(
+        async () => {
+          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }> }>("/admin/broadcast")
+          return { itens: r.clientes ?? [], aviso: "Nenhuma cliente com WhatsApp autorizado." }
+        },
+        async (item) => {
+          const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(
+            "/admin/broadcast", { campanha_id: campanhaId, cliente_id: item.id },
+          )
+          return {
+            id: item.id, nome: r.cliente ?? item.nome,
+            status: r.status === "enviada" ? "enviada" : "erro",
+            detalhe: r.detalhe,
+          }
+        },
+      )
+      return true
+    },
+
     retomar: () => {
       const salvo = get().jobSalvo
       if (!salvo) return false
@@ -369,6 +394,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       if (salvo.tipo === "aviso")        return store.iniciarAviso({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, link: salvo.link, reenvio: salvo.reenvio })
       if (salvo.tipo === "consentimento") return store.iniciarConsentimento()
       if (salvo.tipo === "google-sync")  return store.iniciarGoogleSync(salvo.clienteIds)
+      if (salvo.tipo === "broadcast")    return store.iniciarBroadcast({ campanhaId: salvo.campanhaId, campanhaTitulo: salvo.campanhaTitulo })
       return false
     },
 
