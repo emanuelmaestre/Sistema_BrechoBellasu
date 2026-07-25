@@ -1221,7 +1221,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
                 {/* QR Code PIX — aparece quando pagamento inclui PIX */}
                 {formas.some(f => f.toUpperCase().includes("PIX")) && (() => {
-                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "+5516994556296"
+                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "+5516991347476"
                   const valorPix = formas.length === 1
                     ? totalFinal
                     : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
