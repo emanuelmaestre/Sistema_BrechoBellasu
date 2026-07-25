@@ -37,7 +37,7 @@ function ehForaDaBase(cidade: string | null | undefined): boolean {
 /**
  * Monta o nome do contato Google seguindo a regra:
  * NOME COMPLETO - @INSTAGRAM          (Ribeirão Preto)
- * NOME COMPLETO - @INSTAGRAM - 🇧🇷   (outra cidade)
+ * 🇧🇷 - NOME COMPLETO - @INSTAGRAM   (outra cidade — bandeira no começo)
  * Campos ausentes são ignorados; nunca sobram traços.
  */
 export function montarNomeContato(params: {
@@ -47,13 +47,14 @@ export function montarNomeContato(params: {
 }): string {
   const partes: string[] = []
 
+  // Bandeira no começo quando a cliente é de fora de Ribeirão Preto
+  if (ehForaDaBase(params.cidade)) partes.push("🇧🇷")
+
   const nome = params.nome?.trim().replace(/\s+/g, " ").toUpperCase()
   if (nome) partes.push(nome)
 
   const ig = formatarInstagram(params.instagram)
   if (ig) partes.push(ig)
-
-  if (ehForaDaBase(params.cidade)) partes.push("🇧🇷")
 
   return partes.join(" - ")
 }
