@@ -41,7 +41,7 @@ interface Usuario {
   id: number; nome: string; email: string; perfil: string; ativo: boolean
 }
 
-type Tab = "empresa" | "usuarios" | "integracoes" | "alertas" | "google" | "automacoes"
+type Tab = "empresa" | "usuarios" | "integracoes" | "alertas" | "contatos" | "automacoes" | "campanhas"
 
 interface IntegracaoStatus {
   id: string; nome: string; descricao: string
@@ -542,7 +542,51 @@ function AbaIntegracoes() {
         Verificação automática a cada 5 horas · Clique em Atualizar para verificar agora
       </motion.p>
 
+      {/* Teste Z-API — conexão WhatsApp */}
+      <ZApiTestCard />
     </div>
+  )
+}
+
+function ZApiTestCard() {
+  const [zapiStatus, setZapiStatus] = useState<{ conectado: boolean; detalhe: string } | null>(null)
+  const [testando, setTestando] = useState(false)
+
+  async function testarZapi() {
+    setTestando(true); setZapiStatus(null)
+    try {
+      const res = await apiPost("/configuracoes/zapi", {}) as { conectado: boolean; detalhe: string }
+      setZapiStatus(res)
+    } catch { setZapiStatus({ conectado: false, detalhe: "Erro de conexão" }) }
+    finally { setTestando(false) }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+      className="rounded-2xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{ background: "rgba(37,211,102,0.12)" }}>
+          <MessageCircle size={16} style={{ color: "#25d366" }} />
+        </div>
+        <div>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>WhatsApp (Z-API)</p>
+          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>Teste a conexão do canal de envio de mensagens</p>
+        </div>
+      </div>
+      <button onClick={testarZapi} disabled={testando}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+        style={{ background: "rgba(37,211,102,0.1)", color: "#25d366", border: "1px solid rgba(37,211,102,0.25)" }}>
+        {testando ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
+        Testar conexão Z-API
+      </button>
+      {zapiStatus && (
+        <p className={cn("text-xs mt-3 px-3 py-2 rounded-lg",
+          zapiStatus.conectado ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+          {zapiStatus.conectado ? "✅" : "❌"} {zapiStatus.detalhe}
+        </p>
+      )}
+    </motion.div>
   )
 }
 
@@ -786,8 +830,9 @@ export default function ConfiguracoesPage() {
     { key: "empresa",      label: "Empresa",      icon: <Building2 size={14} /> },
     { key: "usuarios",     label: "Usuários",     icon: <Users size={14} /> },
     { key: "integracoes",  label: "Integrações",  icon: <Plug size={14} /> },
+    { key: "campanhas",    label: "Campanhas",    icon: <Megaphone size={14} /> },
     { key: "alertas",      label: "Alertas",      icon: <AlertCircle size={14} /> },
-    { key: "google",       label: "Google",       icon: <GoogleLogo size={14} /> },
+    { key: "contatos",     label: "Contatos",     icon: <GoogleLogo size={14} /> },
     { key: "automacoes",   label: "Automações",   icon: <Zap size={14} /> },
   ]
 
@@ -812,11 +857,11 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-2xl" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+        {/* Tabs — barra responsiva com scroll horizontal em telas menores */}
+        <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", scrollbarWidth: "none" }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all shrink-0"
               style={{
                 background: tab === t.key ? "var(--accent)" : "transparent",
                 color: tab === t.key ? "#fff" : "var(--text-secondary)",
@@ -994,8 +1039,14 @@ export default function ConfiguracoesPage() {
           </motion.div>
         )}
 
-        {tab === "google" && (
-          <motion.div key="google" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+        {tab === "campanhas" && (
+          <motion.div key="campanhas" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <CampanhaWhatsApp />
+          </motion.div>
+        )}
+
+        {tab === "contatos" && (
+          <motion.div key="contatos" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <AbaGoogle />
           </motion.div>
         )}
@@ -1812,8 +1863,6 @@ function AbaAlertas() {
   const [followupMax, setFollowupMax] = useState("1")
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState("")
-  const [zapiStatus, setZapiStatus] = useState<{ conectado: boolean; detalhe: string } | null>(null)
-  const [testando, setTestando] = useState(false)
 
   // Carrega configurações
   useEffect(() => {
@@ -1842,43 +1891,11 @@ function AbaAlertas() {
     finally { setSaving(false) }
   }
 
-  async function testarZapi() {
-    setTestando(true); setZapiStatus(null)
-    try {
-      const res = await apiPost("/configuracoes/zapi", {}) as { conectado: boolean; detalhe: string }
-      setZapiStatus(res)
-    } catch { setZapiStatus({ conectado: false, detalhe: "Erro de conexão" }) }
-    finally { setTestando(false) }
-  }
-
   const iBase = "w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all border focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
 
   return (
     <div className="space-y-6">
-      {/* Card de campanha WhatsApp */}
-      <CampanhaWhatsApp />
-
-      {/* Z-API Status */}
-      <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2 mb-4">
-          <MessageCircle size={16} style={{ color: "var(--accent)" }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>WhatsApp (Z-API)</h3>
-        </div>
-        <button onClick={testarZapi} disabled={testando}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-          style={{ background: "rgba(37,211,102,0.1)", color: "#25d366", border: "1px solid rgba(37,211,102,0.25)" }}>
-          {testando ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
-          Testar conexão
-        </button>
-        {zapiStatus && (
-          <p className={cn("text-xs mt-3 px-3 py-2 rounded-lg",
-            zapiStatus.conectado ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
-            {zapiStatus.conectado ? "✅" : "❌"} {zapiStatus.detalhe}
-          </p>
-        )}
-      </div>
-
       {/* Números de alerta */}
       <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">
