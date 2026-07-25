@@ -12,7 +12,7 @@ import {
   Play, CheckCircle2, XCircle, Clock, Send,
   Zap, ChevronDown, Cake, Bell, Package, Tag,
   Megaphone, ImageIcon, Video, Smile, Trash2, History,
-  PenLine, Upload, AlertTriangle, Users2, Timer,
+  PenLine, Users2, Timer, Sparkles, Undo2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { cn } from "@/lib/utils"
@@ -1137,6 +1137,11 @@ function CampanhaWhatsApp() {
   const [salvando, setSalvando] = useState(false)
   const [editandoId, setEditandoId] = useState<number | null>(null)
 
+  // IA — melhorar texto
+  const [melhorando, setMelhorando] = useState(false)
+  const [textoAnterior, setTextoAnterior] = useState<string | null>(null)
+  const [mostrarDesfazer, setMostrarDesfazer] = useState(false)
+
   // Confirmação de disparo
   const [modalDisparo, setModalDisparo] = useState(false)
   const [fila, setFila] = useState<{ total: number; duracaoMinMin: number; duracaoMinMax: number } | null>(null)
@@ -1167,6 +1172,33 @@ function CampanhaWhatsApp() {
       setCampanhas(r.campanhas ?? [])
     } catch { /* silencioso */ }
     finally { setCarregandoHist(false) }
+  }
+
+  async function melhorarTexto() {
+    if (!texto.trim() || melhorando) return
+    setMelhorando(true)
+    setErro(null)
+    try {
+      const res = await fetch("/api/admin/campanhas/melhorar-texto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto }),
+      })
+      const json = await res.json() as { texto?: string; erro?: string }
+      if (!res.ok || json.erro) { setErro(json.erro ?? "Não foi possível melhorar o texto. Tente novamente."); return }
+      if (json.texto) {
+        setTextoAnterior(texto)
+        setTexto(json.texto)
+        setMostrarDesfazer(true)
+        setTimeout(() => setMostrarDesfazer(false), 6000)
+      }
+    } catch { setErro("Falha de conexão com a IA. Verifique sua internet e tente novamente.") }
+    finally { setMelhorando(false) }
+  }
+
+  function desfazerMelhora() {
+    if (textoAnterior !== null) { setTexto(textoAnterior); setTextoAnterior(null) }
+    setMostrarDesfazer(false)
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1329,15 +1361,62 @@ function CampanhaWhatsApp() {
                   <div className="relative">
                     <textarea
                       value={texto}
-                      onChange={e => setTexto(e.target.value)}
+                      onChange={e => { setTexto(e.target.value); setMostrarDesfazer(false) }}
                       placeholder="Escreva a mensagem da campanha… (a saudação é adicionada automaticamente por cliente)"
                       rows={5}
                       maxLength={800}
-                      className={`${iBase} resize-none`}
-                      style={{ ...iSt, fontFamily: "inherit" }}
+                      className={`${iBase} resize-none pb-8`}
+                      style={{
+                        ...iSt,
+                        fontFamily: "inherit",
+                        borderColor: melhorando ? "var(--accent)" : undefined,
+                        transition: "border-color 0.3s",
+                        boxShadow: melhorando ? "0 0 0 2px rgba(99,102,241,0.15)" : undefined,
+                      }}
                     />
-                    <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                      <span className="text-[10px]" style={{ color: charCount > 700 ? "#ef4444" : "var(--text-muted)" }}>{charCount}/800</span>
+                    {/* Rodapé da textarea: Sparkles (esquerda) + contador (direita) */}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        {/* Botão IA */}
+                        <button
+                          type="button"
+                          onClick={melhorarTexto}
+                          disabled={!texto.trim() || melhorando}
+                          title="Melhorar texto com IA"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          style={{
+                            background: melhorando ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)",
+                            color: "var(--accent)",
+                            border: "1px solid rgba(99,102,241,0.2)",
+                          }}
+                        >
+                          {melhorando
+                            ? <><Loader2 size={10} className="animate-spin" />Melhorando…</>
+                            : <><Sparkles size={10} />Melhorar com IA</>
+                          }
+                        </button>
+
+                        {/* Botão Desfazer — aparece por 6s após melhorar */}
+                        <AnimatePresence>
+                          {mostrarDesfazer && (
+                            <motion.button
+                              type="button"
+                              onClick={desfazerMelhora}
+                              initial={{ opacity: 0, x: -6 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -4 }}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold"
+                              style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                            >
+                              <Undo2 size={10} />Desfazer
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <span className="text-[10px]" style={{ color: charCount > 700 ? "#ef4444" : "var(--text-muted)" }}>
+                        {charCount}/800
+                      </span>
                     </div>
                   </div>
 
