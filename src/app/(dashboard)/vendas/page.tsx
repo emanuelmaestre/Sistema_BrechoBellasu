@@ -1230,8 +1230,6 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                     nome:      "Brecho Bellasu",
                     cidade:    "Ribeirao Preto",
                     valor:     valorPix > 0 ? valorPix : undefined,
-                    descricao: "Brechó Bellasu",
-                    txid:      "BELLASU",
                   })
                   return (
                     <>
