@@ -43,6 +43,23 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ campanha: data })
 }
 
+// PATCH — atualiza status/stats de uma campanha (?id=X)
+export async function PATCH(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id")
+  if (!id) return NextResponse.json({ erro: "id obrigatório" }, { status: 400 })
+
+  const body = await req.json() as {
+    status?: "rascunho" | "enviando" | "enviada"
+    total_clientes?: number
+    enviado_em?: string | null
+  }
+
+  const sb = createServerClient()
+  const { error } = await sb.from("campanhas").update(body).eq("id", id)
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
 // DELETE — exclui campanha por id (?id=X)
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id")
@@ -53,7 +70,7 @@ export async function DELETE(req: NextRequest) {
   // Remove mídia do Storage se houver
   const { data: camp } = await sb.from("campanhas").select("midia_nome").eq("id", id).single()
   if (camp?.midia_nome) {
-    await sb.storage.from("campanhas").remove([camp.midia_nome]).catch(() => {})
+    try { await sb.storage.from("campanhas").remove([camp.midia_nome]) } catch { /* ignora */ }
   }
 
   const { error } = await sb.from("campanhas").delete().eq("id", id)

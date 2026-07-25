@@ -19,7 +19,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { create } from "zustand"
-import { apiGet, apiPost } from "@/services/api"
+import { apiGet, apiPost, apiPatch } from "@/services/api"
 import { gerarIntervaloAleatorio } from "@/lib/intervalo-aleatorio"
 
 const LIVE_SAFE_INTERVAL = { minMs: 80_000, maxMs: 150_000, deltaMinMs: 12_000 }
@@ -367,22 +367,39 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       if (get().job?.status === "running") return false
       salvarJob({ tipo: "broadcast", campanhaId, campanhaTitulo, savedAt: Date.now() })
       set({ job: novoJob("broadcast", campanhaTitulo), minimized: false, jobSalvo: null })
-      void rodar(
-        async () => {
-          const r = await apiGet<{ clientes: Array<{ id: number; nome: string }> }>("/admin/broadcast")
-          return { itens: r.clientes ?? [], aviso: "Nenhuma cliente com WhatsApp autorizado." }
-        },
-        async (item) => {
-          const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(
-            "/admin/broadcast", { campanha_id: campanhaId, cliente_id: item.id },
-          )
-          return {
-            id: item.id, nome: r.cliente ?? item.nome,
-            status: r.status === "enviada" ? "enviada" : "erro",
-            detalhe: r.detalhe,
-          }
-        },
-      )
+      void (async () => {
+        await rodar(
+          async () => {
+            const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>("/admin/broadcast")
+            const itens = r.clientes ?? []
+            // Marca campanha como "enviando" com total de clientes
+            try {
+              await apiPatch(`/admin/campanhas?id=${campanhaId}`, {
+                status: "enviando",
+                total_clientes: itens.length,
+              })
+            } catch { /* não bloqueia */ }
+            return { itens, aviso: "Nenhuma cliente com WhatsApp autorizado." }
+          },
+          async (item) => {
+            const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(
+              "/admin/broadcast", { campanha_id: campanhaId, cliente_id: item.id },
+            )
+            return {
+              id: item.id, nome: r.cliente ?? item.nome,
+              status: r.status === "enviada" ? "enviada" : "erro",
+              detalhe: r.detalhe,
+            }
+          },
+        )
+        // Ao terminar (sucesso ou cancelamento), marca campanha como "enviada"
+        try {
+          await apiPatch(`/admin/campanhas?id=${campanhaId}`, {
+            status: "enviada",
+            enviado_em: new Date().toISOString(),
+          })
+        } catch { /* não bloqueia */ }
+      })()
       return true
     },
 
