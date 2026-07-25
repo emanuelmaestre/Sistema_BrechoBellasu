@@ -1,5 +1,6 @@
 // Gerador de payload PIX BR Code (EMV QR Code)
-// Especificação: https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Regulamento_Pix/II_ManualdePadroesparaIniciacaodoPix.pdf
+// Especificação: Manual de Padrões para Iniciação do Pix — BCB
+// Chave tipo telefone: formato E.164 obrigatório (+5511999990000)
 
 function campo(id: string, valor: string): string {
   const len = valor.length.toString().padStart(2, "0")
@@ -18,28 +19,35 @@ function crc16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, "0")
 }
 
+// Remove acentos e caracteres não-ASCII de forma segura
+function sanitizar(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\x20-\x7E]/g, "")
+}
+
 export interface PixParams {
-  chave:       string   // telefone, CPF, CNPJ, email ou chave aleatória
+  chave:       string   // telefone E.164 (+5511999990000), CPF, CNPJ, email ou chave aleatória
   nome:        string   // nome do recebedor (máx 25 chars)
   cidade:      string   // cidade do recebedor (máx 15 chars)
   valor?:      number   // valor em reais (omitir = cliente digita)
-  descricao?:  string   // mensagem opcional (máx 72 chars)
-  txid?:       string   // referência opcional (máx 25 chars, sem espaços)
+  descricao?:  string   // mensagem opcional (máx 72 chars, sem acentos)
+  txid?:       string   // referência opcional (máx 25 chars, alfanumérico sem espaços)
 }
 
 /** Gera o payload EMV PIX compatível com todos os bancos brasileiros */
 export function gerarPixPayload(p: PixParams): string {
   const gui      = campo("00", "br.gov.bcb.pix")
   const chave    = campo("01", p.chave)
-  const desc     = p.descricao ? campo("02", p.descricao.slice(0, 72)) : ""
+  const descRaw  = p.descricao ? sanitizar(p.descricao).slice(0, 72) : ""
+  const desc     = descRaw ? campo("02", descRaw) : ""
   const merchant = campo("26", gui + chave + desc)
 
-  const nome     = p.nome.slice(0, 25).normalize("NFD").replace(/[̀-ͯ]/g, "")
-  const cidade   = p.cidade.slice(0, 15).normalize("NFD").replace(/[̀-ͯ]/g, "")
-  const txid     = campo("05", (p.txid ?? "***").replace(/\s/g, "").slice(0, 25))
+  const nome     = sanitizar(p.nome).slice(0, 25)
+  const cidade   = sanitizar(p.cidade).slice(0, 15)
+  const txidVal  = (p.txid ?? "***").replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "***"
+  const txid     = campo("05", txidVal)
   const adicional = campo("62", txid)
 
-  let payload =
+  const payload =
     campo("00", "01")          +   // Payload Format Indicator
     campo("01", "12")          +   // Point of Initiation = estático reutilizável
     merchant                   +
@@ -52,7 +60,7 @@ export function gerarPixPayload(p: PixParams): string {
     campo("59", nome)          +
     campo("60", cidade)        +
     adicional                  +
-    "6304"                         // ID + len do CRC (valor calculado a seguir)
+    "6304"                         // ID + len do CRC (calculado a seguir)
 
   return payload + crc16(payload)
 }

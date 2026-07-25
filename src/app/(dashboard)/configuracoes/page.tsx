@@ -1014,7 +1014,36 @@ export default function ConfiguracoesPage() {
 // Campanha WhatsApp — card completo (Escrever + Histórico)
 // ══════════════════════════════════════════════════════════
 
-const EMOJIS_RAPIDOS = ["😍","🌸","💖","✨","🛍️","💫","🎀","🌺","💌","🎉","👗","💕","🤩","🏷️","👠","💅","🌟","🥰","💎","🛒"]
+const EMOJI_PICKER = [
+  {
+    icon: "⚡", label: "Rápidos",
+    emojis: ["😍","🌸","💖","✨","🛍️","💫","🎀","🌺","💌","🎉","👗","💕","🤩","🏷️","👠","💅","🌟","🥰","💎","🛒","🎊","🥳","💃","👑","🫶"],
+  },
+  {
+    icon: "😊", label: "Expressões",
+    emojis: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","😉","😊","😇","🥰","😍","🤩","😘","☺️","😋","😛","😜","🤪","🤗","🤭","🤫","🤔","😐","😏","😒","🙄","😬","😔","😪","😴","😷","😎","🤓","🥺","😢","😭","😤","😡","🥹","🫠","🤭","🥸","🤯","😵","😈","👿","🙊","🙉","🙈"],
+  },
+  {
+    icon: "❤️", label: "Amor",
+    emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","❤️‍🔥","💕","💞","💓","💗","💖","💘","💝","💟","😻","🫶","💑","👫","💏","🌹","🌷","💐","🫦","💋","😘","🥰"],
+  },
+  {
+    icon: "🎉", label: "Celebração",
+    emojis: ["🎉","🎊","🎈","🎁","🎀","🏆","🥇","🌟","⭐","✨","💫","🎆","🎇","🪄","🎂","🥂","🍾","🎶","🎵","🎤","🥳","🎸","🪅","🎭","🎪","🥁","🎺","🎻","🎹","🎠","🎡"],
+  },
+  {
+    icon: "👗", label: "Moda",
+    emojis: ["👗","👘","🥻","🩱","🩲","🩳","👙","👚","👛","👜","👝","🎒","🧣","🧤","🧥","👞","👟","🥿","👠","👡","👢","🩴","👒","🎩","💄","💅","💍","💎","🪮","✂️","🛍️","🏷️","👑","🪭","🕶️","🪬","🧴","🪞"],
+  },
+  {
+    icon: "🌸", label: "Natureza",
+    emojis: ["🌸","🌺","🌻","🌹","🌷","🪷","💐","🌿","🍃","🍀","🌱","🌲","🌳","🌴","🌵","🌾","🍁","🍂","🦋","🐝","🌙","⭐","☀️","🌈","❄️","🌊","🌼","🪻","🌬️","🌤️","🌞","🌝","🪐","🌏","🌺","🌻"],
+  },
+  {
+    icon: "💬", label: "Extras",
+    emojis: ["✅","❌","⚠️","ℹ️","🔔","📢","📣","💬","💭","📱","📸","📌","📍","💡","🔥","⚡","🎯","🔑","✍️","📝","🔗","📊","🗓️","🕐","💯","🔴","🟢","🟡","🆕","🆓","🔝","⬆️","📲","🤳","🛎️","📬","🗣️"],
+  },
+]
 
 interface Campanha {
   id: number
@@ -1111,9 +1140,16 @@ function PreviewWhatsApp({ texto, midiaTipo, midiaUrl, nomeExemplo = "Maria" }: 
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-20 gap-2 opacity-30">
-            <MessageCircle size={22} style={{ color: "#8696a0" }} />
-            <p className="text-[10px]" style={{ color: "#8696a0" }}>Preview aparece aqui</p>
+          <div className="flex flex-col items-center justify-center py-8 gap-3 select-none">
+            <motion.div
+              animate={{ scale: [1, 1.08, 1], rotate: [0, -4, 4, 0] }}
+              transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}>
+              <span className="text-3xl">💬</span>
+            </motion.div>
+            <div className="text-center">
+              <p className="text-[11px] font-bold mb-0.5" style={{ color: "#8696a0" }}>Escreva sua mensagem</p>
+              <p className="text-[9px]" style={{ color: "#4a5568" }}>O preview aparece aqui</p>
+            </div>
           </div>
         )}
       </div>
@@ -1132,6 +1168,7 @@ function CampanhaWhatsApp() {
   const [midiaNome, setMidiaNome] = useState<string | null>(null)
   const [midiaLocalUrl, setMidiaLocalUrl] = useState<string | null>(null)
   const [showEmoji, setShowEmoji] = useState(false)
+  const [catEmojiIdx, setCatEmojiIdx] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -1365,7 +1402,7 @@ function CampanhaWhatsApp() {
                       placeholder="Escreva a mensagem da campanha… (a saudação é adicionada automaticamente por cliente)"
                       rows={5}
                       maxLength={800}
-                      className={`${iBase} resize-none pb-8`}
+                      className={`${iBase} resize-none pb-8 no-uppercase`}
                       style={{
                         ...iSt,
                         fontFamily: "inherit",
@@ -1420,22 +1457,61 @@ function CampanhaWhatsApp() {
                     </div>
                   </div>
 
-                  {/* Emojis rápidos */}
+                  {/* Emoji Picker Completo */}
                   <div>
                     <button onClick={() => setShowEmoji(v => !v)}
                       className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all"
-                      style={{ background: showEmoji ? "rgba(99,102,241,0.12)" : "var(--bg-surface)", color: showEmoji ? "var(--accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>
-                      <Smile size={12} /> Emojis rápidos
+                      style={{
+                        background: showEmoji ? "rgba(99,102,241,0.12)" : "var(--bg-surface)",
+                        color: showEmoji ? "var(--accent)" : "var(--text-muted)",
+                        border: `1px solid ${showEmoji ? "var(--accent)" : "var(--border)"}`,
+                      }}>
+                      <Smile size={12} />
+                      {showEmoji ? "Fechar emojis" : "😊 Emojis"}
                     </button>
                     <AnimatePresence>
                       {showEmoji && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                          className="mt-2 overflow-hidden">
-                          <div className="flex flex-wrap gap-1.5 p-3 rounded-xl" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                            {EMOJIS_RAPIDOS.map(e => (
-                              <button key={e} onClick={() => setTexto(t => t + e)}
-                                className="text-lg hover:scale-125 transition-transform select-none">{e}</button>
+                          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                          className="mt-2 rounded-2xl overflow-hidden"
+                          style={{ border: "1.5px solid var(--border)", background: "var(--bg-card)" }}>
+                          {/* Tabs de categoria */}
+                          <div className="flex gap-1 p-2 overflow-x-auto"
+                            style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+                            {EMOJI_PICKER.map((cat, i) => (
+                              <button key={cat.icon}
+                                onClick={() => setCatEmojiIdx(i)}
+                                title={cat.label}
+                                className="shrink-0 w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all"
+                                style={{
+                                  background: catEmojiIdx === i ? "rgba(99,102,241,0.18)" : "transparent",
+                                  outline: catEmojiIdx === i ? "1.5px solid rgba(99,102,241,0.4)" : "none",
+                                  transform: catEmojiIdx === i ? "scale(1.15)" : "scale(1)",
+                                }}>
+                                {cat.icon}
+                              </button>
+                            ))}
+                          </div>
+                          {/* Label da categoria */}
+                          <div className="px-3 pt-2 pb-1">
+                            <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                              {EMOJI_PICKER[catEmojiIdx].label}
+                            </p>
+                          </div>
+                          {/* Grid de emojis */}
+                          <div className="px-2 pb-2 grid grid-cols-9 gap-0.5 max-h-40 overflow-y-auto"
+                            style={{ scrollbarWidth: "thin" }}>
+                            {EMOJI_PICKER[catEmojiIdx].emojis.map(e => (
+                              <button key={e}
+                                onClick={() => setTexto(t => t + e)}
+                                className="w-8 h-8 text-lg flex items-center justify-center rounded-lg select-none transition-all"
+                                onMouseEnter={ev => { ev.currentTarget.style.background = "var(--bg-hover)"; ev.currentTarget.style.transform = "scale(1.25)" }}
+                                onMouseLeave={ev => { ev.currentTarget.style.background = "transparent"; ev.currentTarget.style.transform = "scale(1)" }}>
+                                {e}
+                              </button>
                             ))}
                           </div>
                         </motion.div>

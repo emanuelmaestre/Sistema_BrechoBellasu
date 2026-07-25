@@ -208,6 +208,11 @@ input:not([type="date"]):not([type="time"]):not([type="email"]):not([type="passw
 textarea::placeholder {
   text-transform: uppercase;
 }
+/* Campos que devem preservar capitalização original */
+textarea.no-uppercase,
+textarea.no-uppercase::placeholder {
+  text-transform: none;
+}
 
 /* ════════════════════════════════════════════════════════════
    INPUTS & SELECT — base visual consistente

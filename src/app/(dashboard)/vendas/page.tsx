@@ -332,26 +332,52 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 // ─── Wizard Nova Venda ────────────────────────────────────
-function PixCopiarChave({ chave }: { chave: string }) {
-  const [copiado, setCopiado] = useState(false)
-  function copiar() {
+function PixCopiarChave({ chave, payload }: { chave: string; payload?: string }) {
+  const [copiadoChave, setCopiadoChave] = useState(false)
+  const [copiadoCod,   setCopiadoCod]   = useState(false)
+  function copiarChave() {
     navigator.clipboard.writeText(chave)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
+    setCopiadoChave(true)
+    setTimeout(() => setCopiadoChave(false), 2000)
+  }
+  function copiarCodigo() {
+    if (!payload) return
+    navigator.clipboard.writeText(payload)
+    setCopiadoCod(true)
+    setTimeout(() => setCopiadoCod(false), 2500)
   }
   return (
-    <div className="w-full px-5 pb-4">
+    <div className="w-full px-5 pb-4 space-y-2">
+      {/* Chave PIX */}
       <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5"
         style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-        <span className="text-xs font-mono flex-1 truncate" style={{ color: "var(--text-secondary)" }}>
-          {chave}
-        </span>
-        <button onClick={copiar}
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Chave PIX</p>
+          <span className="text-xs font-mono truncate block" style={{ color: "var(--text-secondary)" }}>
+            {chave}
+          </span>
+        </div>
+        <button onClick={copiarChave}
           className="flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl shrink-0 transition-all"
-          style={{ background: copiado ? "rgba(16,185,129,0.15)" : "var(--accent-bg)", color: copiado ? "#10b981" : "var(--accent)", border: `1px solid ${copiado ? "rgba(16,185,129,0.4)" : "var(--accent)"}` }}>
-          {copiado ? <><CheckCheck size={11} /> Copiado!</> : <><Copy size={11} /> Copiar chave</>}
+          style={{ background: copiadoChave ? "rgba(16,185,129,0.15)" : "var(--accent-bg)", color: copiadoChave ? "#10b981" : "var(--accent)", border: `1px solid ${copiadoChave ? "rgba(16,185,129,0.4)" : "var(--accent)"}` }}>
+          {copiadoChave ? <><CheckCheck size={11} /> Copiado!</> : <><Copy size={11} /> Copiar</>}
         </button>
       </div>
+      {/* Copia e Cola PIX — código EMV completo */}
+      {payload && (
+        <button onClick={copiarCodigo}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-2xl text-[11px] font-bold transition-all"
+          style={{
+            background: copiadoCod ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.06)",
+            color: copiadoCod ? "#10b981" : "var(--text-muted)",
+            border: `1px dashed ${copiadoCod ? "rgba(16,185,129,0.5)" : "var(--border)"}`,
+          }}>
+          {copiadoCod
+            ? <><CheckCheck size={11} /> Código copiado! Cole no app do banco</>
+            : <><Copy size={11} /> Copiar código PIX (copia e cola)</>
+          }
+        </button>
+      )}
     </div>
   )
 }
@@ -1195,7 +1221,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
                 {/* QR Code PIX — aparece quando pagamento inclui PIX */}
                 {formas.some(f => f.toUpperCase().includes("PIX")) && (() => {
-                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "16994578922"
+                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "+5516994556296"
                   const valorPix = formas.length === 1
                     ? totalFinal
                     : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
@@ -1302,8 +1328,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                                 </div>
                               </div>
 
-                              {/* Chave + copiar */}
-                              <PixCopiarChave chave={pixChave} />
+                              {/* Chave + copia e cola */}
+                              <PixCopiarChave chave={pixChave} payload={payload} />
 
                               <p className="text-[10px] pb-5 px-6 text-center" style={{ color: "var(--text-muted)" }}>
                                 Aponte a câmera do app do banco para o QR Code acima
