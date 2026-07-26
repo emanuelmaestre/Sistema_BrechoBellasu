@@ -18,6 +18,7 @@ import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
 import { camposFaltantesEnvio } from "@/lib/endereco-parser"
+import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
 import { fmtData, cn } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
 import type { Cliente } from "@/types"
@@ -1676,6 +1677,7 @@ function WizardCliente({
   const [salvoOk, setSalvoOk] = useState(false)
   const [confete, setConfete] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
+  const [enderecoConfirmado, setEnderecoConfirmado] = useState(false)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nomeRef = useRef<HTMLInputElement>(null)
@@ -1872,7 +1874,9 @@ function WizardCliente({
           {/* Endereço */}
           <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
             <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Endereço</p>
-            <div className="grid grid-cols-[100px_1fr_90px_130px] gap-2">
+
+            {/* Linha 1: CEP + Logradouro (autocomplete) */}
+            <div className="grid grid-cols-[160px_1fr] gap-2">
               <div>
                 <label className={lSt} style={lCol}>CEP</label>
                 <div className="relative">
@@ -1880,18 +1884,43 @@ function WizardCliente({
                     onChange={e => {
                       const v = e.target.value.replace(/\D/g, "")
                       set("cep", v)
+                      setEnderecoConfirmado(false)
                       if (v.length === 8) buscarCep(v)
                     }}
-                    placeholder="00000000"
+                    placeholder="00000-000"
                     className={iBase} style={iSt} />
                   {cepLoading && <Loader2 size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin" style={{ color: "var(--text-muted)" }} />}
                 </div>
               </div>
               <div>
                 <label className={lSt} style={lCol}>Logradouro</label>
-                <input value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
-                  placeholder="Rua, Av, Travessa..." className={iBase} style={iSt} autoComplete="off" />
+                <EnderecoAutocomplete
+                  textoInicial={form.logradouro}
+                  placeholder="Rua, Av, Travessa... (busca automática)"
+                  inputClassName={iBase}
+                  inputStyle={iSt}
+                  confirmado={enderecoConfirmado}
+                  onSelecionar={(end: EnderecoEscolhido) => {
+                    setForm(f => ({
+                      ...f,
+                      cep:        end.cep        || f.cep,
+                      logradouro: end.logradouro || f.logradouro,
+                      numero:     end.numero     || f.numero,
+                      complemento: end.complemento || f.complemento,
+                      bairro:     end.bairro     || f.bairro,
+                      cidade:     end.cidade     || f.cidade,
+                      estado:     end.estado     || f.estado,
+                    }))
+                    setEnderecoConfirmado(true)
+                    setErro("")
+                  }}
+                  onEditar={() => setEnderecoConfirmado(false)}
+                />
               </div>
+            </div>
+
+            {/* Linha 2: Número + Complemento */}
+            <div className="grid grid-cols-[120px_1fr] gap-2">
               <div>
                 <label className={lSt} style={lCol}>Número</label>
                 <input value={form.numero} onChange={e => set("numero", e.target.value)}
@@ -1900,10 +1929,12 @@ function WizardCliente({
               <div>
                 <label className={lSt} style={lCol}>Complemento</label>
                 <input value={form.complemento} onChange={e => set("complemento", e.target.value)}
-                  placeholder="Apto, Casa..." className={iBase} style={iSt} autoComplete="off" />
+                  placeholder="Apto, Casa, Bloco..." className={iBase} style={iSt} autoComplete="off" />
               </div>
             </div>
-            <div className="grid grid-cols-[1fr_160px_72px] gap-2">
+
+            {/* Linha 3: Bairro + Cidade + UF */}
+            <div className="grid grid-cols-[1fr_180px_72px] gap-2">
               <div>
                 <label className={lSt} style={lCol}>Bairro</label>
                 <input value={form.bairro} onChange={e => set("bairro", e.target.value)}
