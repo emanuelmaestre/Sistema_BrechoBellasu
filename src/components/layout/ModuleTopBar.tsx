@@ -106,7 +106,8 @@ function feriadosDoAno(ano: number): Map<string, Feriado> {
   add(7,  9,  "Revolução Constitucionalista", "E")
 
   // ── Municipais — Ribeirão Preto / SP ────────────────────
-  add(6,  19, "Emancipação de Ribeirão Preto", "M")
+  add(1,  20, "São Sebastião (padroeiro)",      "M")
+  add(6,  19, "Aniversário de Ribeirão Preto",  "M")
 
   return f
 }
