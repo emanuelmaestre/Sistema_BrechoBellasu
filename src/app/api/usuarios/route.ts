@@ -1,11 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import bcrypt from "bcryptjs"
 
 export const dynamic = "force-dynamic"
 
-export const GET = withAuth(async () => {
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
   const { data, error } = await sb
     .from("usuarios")
@@ -16,9 +16,7 @@ export const GET = withAuth(async () => {
   return NextResponse.json({ data: data ?? [] })
 })
 
-export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
-  if (auth.perfil !== "admin") return NextResponse.json({ erro: "Você precisa estar logado para realizar esta ação." }, { status: 401 })
-
+export const POST = withAdminAuth(async (req: NextRequest) => {
   const body = await req.json()
   const { nome, email, senha, perfil = "operador" } = body
 

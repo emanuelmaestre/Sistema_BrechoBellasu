@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 // GET — lista clientes com consentimento não enviado (status null ou erro)
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
   const { data, error } = await sb
     .from("clientes")
@@ -26,13 +23,10 @@ export async function GET(req: NextRequest) {
     total: data?.length ?? 0,
     clientes: (data ?? []).map(c => ({ id: c.id, nome: c.nome })),
   })
-}
+})
 
 // POST — envia consentimento para um cliente específico
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const POST = withAdminAuth(async (req: NextRequest) => {
   const { cliente_id } = await req.json().catch(() => ({})) as { cliente_id?: number }
   if (!cliente_id) return NextResponse.json({ erro: "cliente_id obrigatório." }, { status: 400 })
 
@@ -63,4 +57,4 @@ export async function POST(req: NextRequest) {
     status: resultado.ok ? "enviado" : "erro",
     detalhe: resultado.erro ?? ((resultado as { skipped?: boolean; motivo?: string }).skipped ? (resultado as { skipped?: boolean; motivo?: string }).motivo : undefined),
   })
-}
+})

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 import { randomBytes } from "node:crypto"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 
 const GOOGLE_OAUTH_STATE_COOKIE = "google-oauth-state"
 
@@ -12,11 +12,7 @@ function baseUrl(req: NextRequest): string {
 }
 
 // GET /api/google/auth — gera a URL de autorização OAuth (uso único, para obter refresh_token)
-export async function GET(req: NextRequest) {
-  if (!verifyAuth(req)) {
-    return NextResponse.json({ erro: "Você precisa estar logado para conectar o Google." }, { status: 401 })
-  }
-
+export const GET = withAdminAuth(async (req: NextRequest) => {
   const clientId     = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
   const redirectUri  = `${baseUrl(req)}/api/google/callback`
@@ -45,4 +41,4 @@ export async function GET(req: NextRequest) {
     maxAge: 10 * 60,
   })
   return response
-}
+})

@@ -1144,8 +1144,8 @@ function PreviewWhatsApp({ texto, midiaTipo, midiaUrl, nomeExemplo = "Maria" }: 
     `Oi, ${nomeExemplo}! 😍 Passando aqui com uma novidade especial pra você!`,
     `Oiii ${nomeExemplo}! 🌸 Temos algo lindo esperando por você no Brechó Bellasu!`,
   ]
-  const saudacao = saudacoes[Math.floor(Date.now() / 10000) % saudacoes.length]
-  const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+  const saudacao = saudacoes[nomeExemplo.length % saudacoes.length]
+  const hora = "agora"
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: "#0b141a" }}>

@@ -5,8 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
-  Plus, Search, X, ChevronLeft, ArrowRight, Check,
-  Loader2, RefreshCw, Pencil, ShoppingCart,
+  Plus, Search, X, Check,
+  Loader2, RefreshCw,
   CheckCircle2, XCircle, Clock, Send, FileText, Printer, UserPlus, Maximize2, Copy, CheckCheck,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
@@ -52,13 +52,6 @@ function getPeriodoParams(periodo: string, de: string, ate: string) {
   if (periodo === "mes")    { const d = new Date(hoje); d.setDate(d.getDate() - 29); return { de: fmt(d), ate: fmt(hoje) } }
   if (periodo === "custom") return { de: de || undefined, ate: ate || undefined }
   return {}
-}
-
-// ─── Animação ─────────────────────────────────────────────
-const variants = {
-  enter:  (d: number) => ({ x: d > 0 ?  60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
 }
 
 // ─── Badge notificação ────────────────────────────────────

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 import { timingSafeEqual } from "node:crypto"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 
 const GOOGLE_OAUTH_STATE_COOKIE = "google-oauth-state"
 
@@ -20,11 +20,7 @@ function baseUrl(req: NextRequest): string {
 }
 
 // GET /api/google/callback — captura o refresh_token após autorização OAuth
-export async function GET(req: NextRequest) {
-  if (!verifyAuth(req)) {
-    return new NextResponse("Sessão inválida. Entre novamente no sistema.", { status: 401 })
-  }
-
+export const GET = withAdminAuth(async (req: NextRequest) => {
   const code         = req.nextUrl.searchParams.get("code")
   const state        = req.nextUrl.searchParams.get("state")
   const expectedState = req.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value
@@ -87,4 +83,4 @@ export async function GET(req: NextRequest) {
     maxAge: 0,
   })
   return response
-}
+})

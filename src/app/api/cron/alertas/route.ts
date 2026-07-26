@@ -4,6 +4,7 @@ import { orquestrarEnvioConsentimentoCliente } from "@/lib/consentimento-agent"
 import { enviarTexto } from "@/lib/zapi"
 import { requireCronAuth } from "@/lib/server-guards"
 import { verificarTokenGoogle } from "@/lib/google-contacts"
+import { readIntEnv } from "@/lib/server-env"
 
 export const dynamic = "force-dynamic"
 
@@ -90,6 +91,9 @@ async function processarFollowupConsentimento() {
 
   const sb = createServerClient()
   const limite = new Date(Date.now() - cfg.horas * 60 * 60 * 1000).toISOString()
+  // O orquestrador espera de 80 a 150 segundos entre mensagens. Acima de dois
+  // clientes esta funcao ultrapassa o limite de execucao da Vercel.
+  const maxPorExecucao = readIntEnv("ALERTAS_CRON_MAX_FOLLOWUPS", 2, 1, 2)
 
   const { data: clientes, error } = await sb
     .from("clientes")
@@ -102,7 +106,7 @@ async function processarFollowupConsentimento() {
     // Não envia follow-up se o cliente já respondeu (mesmo que o webhook tenha falhado em atualizar o status)
     .is("consentimento_respondido_em", null)
     .not("celular", "is", null)
-    .limit(30)
+    .limit(maxPorExecucao)
 
   if (error || !clientes?.length) return { enviados: 0, erros: 0, total: 0 }
 

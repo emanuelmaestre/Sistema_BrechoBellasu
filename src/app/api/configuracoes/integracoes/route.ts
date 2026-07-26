@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { verificarTokenGoogle } from "@/lib/google-contacts"
 import { sfUsuario } from "@/lib/superfrete"
 
@@ -176,7 +176,7 @@ async function checkGoogle(): Promise<IntegracaoStatus> {
   }
 }
 
-export const GET = withAuth(async () => {
+export const GET = withAdminAuth(async () => {
   const results = await Promise.allSettled([
     checkSupabase(),
     checkMelhorEnvio(),

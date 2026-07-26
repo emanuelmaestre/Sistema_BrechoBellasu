@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import bcrypt from "bcryptjs"
 
 export const dynamic = "force-dynamic"
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = verifyAuth(req)
-  if (!auth || auth.perfil !== "admin") return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const PATCH = withAdminAuth(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params
   const body = await req.json()
   const updates: Record<string, unknown> = {}
@@ -29,12 +26,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (error) return NextResponse.json({ erro: "Erro ao atualizar usuário." }, { status: 500 })
   return NextResponse.json(data)
-}
+})
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = verifyAuth(req)
-  if (!auth || auth.perfil !== "admin") return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const DELETE = withAdminAuth(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params
   const sb = createServerClient()
 
@@ -42,4 +36,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { error } = await sb.from("usuarios").update({ ativo: false }).eq("id", Number(id))
   if (error) return NextResponse.json({ erro: "Erro ao desativar usuário." }, { status: 500 })
   return NextResponse.json({ ok: true })
-}
+})

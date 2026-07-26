@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { classificarResposta } from "@/lib/consentimento-resposta"
 
 export const dynamic = "force-dynamic"
@@ -32,10 +32,7 @@ function gerarVariantesNumero(telefone: string): string[] {
  */
 
 // GET /api/admin/corrigir-consentimento-respondido
-export async function GET(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
 
   // 1. Clientes ainda com status "enviado" (deveriam ter sido atualizados)
@@ -115,14 +112,11 @@ export async function GET(req: NextRequest) {
     total_com_resposta_no_log: casos.length,
     casos,
   })
-}
+})
 
 // POST /api/admin/corrigir-consentimento-respondido
 // Aplica as correções: atualiza status dos clientes que já responderam
-export async function POST(req: NextRequest) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const POST = withAdminAuth(async (req: NextRequest) => {
   const body = await req.json().catch(() => ({})) as { confirmar?: boolean }
   const sb = createServerClient()
 
@@ -205,4 +199,4 @@ export async function POST(req: NextRequest) {
     recusados: corrigidos.filter(c => c.acao.startsWith("recusado")).length,
     corrigidos,
   })
-}
+})

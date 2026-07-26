@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
-  Plus, Loader2, X, ChevronLeft, ArrowRight, RefreshCw, Check, Search, ChevronRight,
+  Plus, Loader2, X, ChevronLeft, RefreshCw, Check, Search, ChevronRight,
   CheckCircle2, XCircle, Clock, Send, Eye, Pencil,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut } from "@/services/api"
@@ -245,13 +245,6 @@ function SeletorMotivo({
   )
 }
 
-// ─── Animação wizard ──────────────────────────────────────
-const variants = {
-  enter:  (d: number) => ({ x: d > 0 ?  60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
-}
-
 // ─── Modal de produtos comprados ──────────────────────────
 function ModalProdutosCliente({
   clienteId, clienteNome, onSelect, onClose, cor,
@@ -378,7 +371,7 @@ function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
   // Busca cliente
   useEffect(() => {
     const busca = cliBusca.trim()
-    if (!busca) { setCLiRes([]); return }
+    if (!busca) return
     const t = setTimeout(async () => {
       setCliLoading(true)
       try {
@@ -394,7 +387,7 @@ function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
   // Busca produto
   useEffect(() => {
     const busca = prodBusca.trim()
-    if (!busca) { setProdRes([]); return }
+    if (!busca) return
     const t = setTimeout(async () => {
       setProdLoading(true)
       try {
@@ -530,7 +523,13 @@ function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
                 <label className={lSt} style={lCol}>Cliente (opcional)</label>
                 <div className="relative">
                   <input value={cliBusca !== "" ? cliBusca : form.cliente_nome}
-                    onChange={e => { setCliBusca(e.target.value); set("cliente_nome", e.target.value); if (form.cliente_id) set("cliente_id", null) }}
+                    onChange={e => {
+                      const value = e.target.value
+                      setCliBusca(value)
+                      if (!value.trim()) { setCLiRes([]); setCliOpen(false) }
+                      set("cliente_nome", value)
+                      if (form.cliente_id) set("cliente_id", null)
+                    }}
                     onFocus={() => { if (cliRes.length) setCliOpen(true) }}
                     onBlur={() => setTimeout(() => setCliOpen(false), 150)}
                     placeholder="Buscar cliente..."
@@ -559,7 +558,13 @@ function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input value={prodBusca !== "" ? prodBusca : form.nome_produto}
-                      onChange={e => { setProdBusca(e.target.value); set("nome_produto", e.target.value); set("produto_id", null) }}
+                      onChange={e => {
+                        const value = e.target.value
+                        setProdBusca(value)
+                        if (!value.trim()) { setProdRes([]); setProdOpen(false) }
+                        set("nome_produto", value)
+                        set("produto_id", null)
+                      }}
                       onFocus={() => { if (prodRes.length) setProdOpen(true) }}
                       onBlur={() => setTimeout(() => setProdOpen(false), 150)}
                       placeholder="Buscar produto..."

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { sincronizarContato, verificarTokenGoogle } from "@/lib/google-contacts"
 import { normalizarTelefone, montarNomeContato } from "@/lib/google-contact-nome"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/admin/google-sync-mass — prévia (sem executar)
-export const GET = withAuth(async () => {
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
   const { data: clientes } = await sb
     .from("clientes")
@@ -50,7 +50,7 @@ export const GET = withAuth(async () => {
 })
 
 // POST /api/admin/google-sync-mass — sincroniza UM cliente (body: { cliente_id })
-export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number }) => {
+export const POST = withAdminAuth(async (req: NextRequest, _ctx: unknown, auth: { id: number; perfil: string }) => {
   const { cliente_id } = await req.json()
   if (!cliente_id) {
     return NextResponse.json({ erro: "cliente_id obrigatório." }, { status: 400 })

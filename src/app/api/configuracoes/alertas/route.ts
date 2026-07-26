@@ -1,11 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/configuracoes/alertas — Retorna configurações de alertas
-export const GET = withAuth(async () => {
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
   const { data } = await sb.from("config_alertas").select("chave, valor")
 
@@ -16,7 +16,7 @@ export const GET = withAuth(async () => {
 })
 
 // PUT /api/configuracoes/alertas — Atualiza configurações de alertas
-export const PUT = withAuth(async (req: NextRequest) => {
+export const PUT = withAdminAuth(async (req: NextRequest) => {
   const body = await req.json() as Record<string, string>
   const sb = createServerClient()
 

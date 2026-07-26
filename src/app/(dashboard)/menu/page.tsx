@@ -44,7 +44,7 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 
 // ─── Card ──────────────────────────────────────────────────
 function ModuleCard({
-  href, label, desc, icon: Icon, color, glow, delay, onNavigate,
+  href, label, icon: Icon, color, glow, delay, onNavigate,
 }: {
   href: string; label: string; desc: string; icon: React.ElementType
   color: string; glow: string; delay: number

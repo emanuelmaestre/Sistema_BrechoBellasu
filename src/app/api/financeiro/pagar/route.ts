@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { CriarContaPagarUseCase } from "@/application/financeiro/contas-pagar.use-cases"
 import { ContaPagarRepositorySupabase } from "@/infrastructure/repositories/conta-pagar.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
-export const GET = withAuth(async (req: NextRequest) => {
+export const GET = withAdminAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const status = searchParams.get("status")
   const de     = searchParams.get("de")
@@ -32,7 +32,7 @@ export const GET = withAuth(async (req: NextRequest) => {
   return NextResponse.json({ data, total: count, soma })
 })
 
-export const POST = withAuth(async (req: NextRequest) => {
+export const POST = withAdminAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const sb = createServerClient()

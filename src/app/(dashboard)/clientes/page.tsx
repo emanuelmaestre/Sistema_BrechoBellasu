@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react"
+import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
@@ -56,15 +56,6 @@ const EMPTY: ClienteForm = {
   entrega_cep: "", entrega_logradouro: "", entrega_numero: "",
   entrega_complemento: "", entrega_bairro: "", entrega_cidade: "", entrega_estado: "",
 }
-
-// ─── Animação de slide ────────────────────────────────────
-const variants = {
-  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:  (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
-}
-
-type CepStatus = "idle" | "buscando" | "encontrado" | "invalido" | "manual"
 
 // ─── Motivos para crédito manual ─────────────────────────────────────────────
 type MotivoCredito = { topico: string; emoji: string; cor: string; origem: string; motivos: string[] }

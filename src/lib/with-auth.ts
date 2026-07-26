@@ -28,3 +28,20 @@ export function withAuth<Ctx = unknown>(handler: AuthedHandler<Ctx>) {
     return handler(req, ctx, auth)
   }
 }
+
+/**
+ * Protege operacoes administrativas tanto contra acesso anonimo quanto contra
+ * usuarios autenticados sem o perfil necessario.
+ */
+export function withAdminAuth<Ctx = unknown>(handler: AuthedHandler<Ctx>) {
+  return withAuth<Ctx>(async (req, ctx, auth) => {
+    if (auth.perfil !== "admin") {
+      return NextResponse.json(
+        { erro: "Acesso restrito a administradores." },
+        { status: 403 }
+      )
+    }
+
+    return handler(req, ctx, auth)
+  })
+}

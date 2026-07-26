@@ -1,12 +1,12 @@
 ﻿import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { enviarTexto } from "@/lib/zapi"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/financeiro/alertas — Retorna contas a vencer nos próximos 3 dias
-export const GET = withAuth(async () => {
+export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)
@@ -46,7 +46,7 @@ export const GET = withAuth(async () => {
 })
 
 // POST /api/financeiro/alertas — Dispara alertas via WhatsApp manualmente
-export const POST = withAuth(async () => {
+export const POST = withAdminAuth(async () => {
   const sb = createServerClient()
   const hoje = new Date()
   const em3dias = new Date(hoje)

@@ -46,7 +46,9 @@ export interface ExcelOpts {
 }
 
 export async function exportExcelProfissional(opts: ExcelOpts): Promise<void> {
-  const { Workbook } = await import("exceljs")
+  // Esta funcao roda no navegador. O bundle dedicado evita que o SSR tente
+  // empacotar leitores ZIP/S3 exclusivos da versao Node do ExcelJS.
+  const { Workbook } = (await import("exceljs/dist/exceljs.min.js")).default
   const { relatorio, headers, rows, totais, de, ate } = opts
 
   const periodoStr = opts.periodoStr ?? labelPeriodo(de, ate)

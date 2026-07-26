@@ -1,18 +1,18 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, Pencil, Loader2, Package,
-  X, ChevronLeft, ArrowRight, Check, Trash2,
+  X, Check, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiDelete } from "@/services/api"
 import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
 import type { Produto, Categoria } from "@/types"
-import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
+import { useTableKeyNav } from "@/hooks/useKeyNav"
 import productData from "@/data/catalog/products.json"
 
 const TAMANHOS = productData.sizes
@@ -65,243 +65,6 @@ function sugerirCategoria(nomeProduto: string, categorias: { id: number; nome: s
   return ""
 }
 
-// ─── Animação ─────────────────────────────────────────────
-const variants = {
-  enter:  (d: number) => ({ x: d > 0 ?  60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
-}
-
-// ─── Autocomplete Marca ───────────────────────────────────
-function MarcaStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
-  inputRef: React.RefObject<HTMLInputElement | null>
-  value: string
-  onChange: (v: string) => void
-  onAdvance: () => void
-  inputBase: string
-  inputSt: React.CSSProperties
-}) {
-  const qc = useQueryClient()
-  const [busca, setBusca] = useState(value)
-  const buscaDebounced = useDebounce(busca, 350)
-  const [open, setOpen] = useState(false)
-  const [cadastrando, setCadastrando] = useState(false)
-  const [novaCadastrada, setNovaCadastrada] = useState(false)
-
-  const { data: sugestoes = [] } = useQuery<{ id: number; nome: string }[]>({
-    queryKey: ["marcas-busca", buscaDebounced],
-    queryFn: () => apiGet(`/produtos/meta/marcas?busca=${encodeURIComponent(buscaDebounced)}`),
-    enabled: buscaDebounced.length >= 1,
-    staleTime: 60_000,
-  })
-
-  function selecionar(item: { id: number; nome: string }) {
-    setBusca(item.nome)
-    onChange(item.nome)
-    setOpen(false)
-    setNovaCadastrada(false)
-  }
-
-  const { hi, onKeyDown: dropKeyDown, reset: resetHi } = useDropdownKeyNav(sugestoes, selecionar, () => setOpen(false))
-
-  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      const texto = busca.trim()
-      if (!texto) { onAdvance(); return }
-
-      // Se há sugestão selecionada pelo teclado, usa ela
-      if (hi >= 0 && sugestoes[hi]) {
-        selecionar(sugestoes[hi])
-        onAdvance()
-        return
-      }
-
-      // Verifica se já existe nos resultados (match exato)
-      const match = sugestoes.find(m => m.nome.toLowerCase() === texto.toLowerCase())
-      if (match) {
-        selecionar(match)
-        onAdvance()
-        return
-      }
-
-      // Não encontrou — cadastra automaticamente
-      setCadastrando(true)
-      try {
-        const nova = await apiPost<{ id: number; nome: string }>("/produtos/meta/marcas", { nome: texto })
-        qc.invalidateQueries({ queryKey: ["marcas-busca"] })
-        setBusca(nova.nome)
-        onChange(nova.nome)
-        setNovaCadastrada(true)
-        setTimeout(() => { setNovaCadastrada(false); onAdvance() }, 900)
-      } catch {
-        onChange(texto)
-        onAdvance()
-      } finally {
-        setCadastrando(false)
-        setOpen(false)
-      }
-      return
-    }
-    dropKeyDown(e)
-  }
-
-  return (
-    <>
-      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Marca?</h1>
-      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-        Digite para buscar. Se não existir, será cadastrada automaticamente ao pressionar Enter.
-      </p>
-      <div className="relative">
-        <input ref={inputRef} value={busca}
-          onChange={e => { setBusca(e.target.value); onChange(e.target.value); setOpen(true); resetHi(); setNovaCadastrada(false) }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite para buscar a marca..."
-          className={inputBase} style={inputSt} autoComplete="off"
-          disabled={cadastrando} />
-        {/* Feedback de cadastro */}
-        {novaCadastrada && (
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold px-2 py-1 rounded-full"
-            style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
-            ✓ Cadastrada!
-          </span>
-        )}
-        {cadastrando && (
-          <Loader2 size={16} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--accent)" }} />
-        )}
-        {open && sugestoes.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden shadow-lg z-50"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="overflow-y-auto" style={{
-              maxHeight: "calc(4 * 49px)",
-              scrollbarWidth: "thin",
-              scrollbarColor: "var(--accent) var(--bg-surface)",
-            }}>
-              {sugestoes.map((m, idx) => (
-                <button key={m.id} onMouseDown={() => { selecionar(m); onAdvance() }}
-                  className="w-full px-5 py-3 text-left text-sm font-medium uppercase tracking-wide transition-colors"
-                  style={{
-                    color: hi === idx ? "var(--accent)" : "var(--text-primary)",
-                    background: hi === idx ? "var(--accent-bg)" : "transparent",
-                    borderBottom: "1px solid var(--border)",
-                  }}>
-                  {m.nome}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
-
-// ─── Seletor de Cor com chips visuais ────────────────────
-function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
-  inputRef: React.RefObject<HTMLInputElement | null>
-  value: string
-  onChange: (v: string) => void
-  onAdvance: () => void
-  inputBase: string
-  inputSt: React.CSSProperties
-}) {
-  const [busca, setBusca] = useState("")
-
-  const filtradas = busca.trim().length === 0
-    ? CORES_PRODUTO
-    : CORES_PRODUTO.filter(c => c.nome.includes(busca.toUpperCase()))
-
-  function selecionar(cor: string) {
-    onChange(cor)
-    setTimeout(() => onAdvance(), 150)
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      const texto = busca.trim().toUpperCase()
-      if (!texto && value) { onAdvance(); return }
-      const exata = CORES_PRODUTO.find(c => c.nome === texto)
-      if (exata) selecionar(exata.nome)
-      else if (filtradas.length === 1) selecionar(filtradas[0].nome)
-      else if (texto) selecionar(texto)
-    }
-  }
-
-  const isGradient = (hex: string) => hex.startsWith("linear-gradient") || hex.startsWith("repeating")
-
-  return (
-    <>
-      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Cor?</h1>
-      <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
-        Selecione ou digite para filtrar.
-      </p>
-
-      {/* Campo de busca */}
-      <input
-        ref={inputRef}
-        value={busca}
-        onChange={e => setBusca(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="BUSCAR COR..."
-        className={inputBase}
-        style={{ ...inputSt, marginBottom: "1.25rem" }}
-        autoComplete="off"
-      />
-
-      {/* Grade de chips */}
-      <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
-        {filtradas.map(c => {
-          const selecionado = value === c.nome
-          const claro = ["BRANCO","OFF WHITE","NUDE","BEGE","PRATA","PÊSSEGO","FLORAL","AMARELO","LAVANDA"].includes(c.nome)
-          return (
-            <motion.button
-              key={c.nome}
-              onClick={() => selecionar(c.nome)}
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all"
-              style={{
-                background: selecionado ? "var(--accent)" : "var(--bg-surface)",
-                color: selecionado ? "#fff" : "var(--text-primary)",
-                border: selecionado ? "2px solid var(--accent)" : "1px solid var(--border)",
-                boxShadow: selecionado ? "0 0 12px var(--accent)" : "none",
-              }}
-            >
-              {/* Bolinha da cor */}
-              <span
-                className="w-4 h-4 rounded-full shrink-0 border"
-                style={{
-                  background: isGradient(c.hex) ? c.hex : c.hex,
-                  borderColor: claro ? "#94a3b8" : "transparent",
-                  boxShadow: selecionado ? "none" : "inset 0 1px 2px rgba(0,0,0,0.3)",
-                }}
-              />
-              {c.nome}
-              {selecionado && <Check size={11} strokeWidth={3} />}
-            </motion.button>
-          )
-        })}
-
-        {/* Cor personalizada se busca não bate em nada */}
-        {busca.trim().length > 0 && filtradas.length === 0 && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            onClick={() => selecionar(busca.trim().toUpperCase())}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide"
-            style={{ background: "var(--accent)", color: "#fff", border: "none" }}
-          >
-            <Check size={11} strokeWidth={3} />
-            Usar &quot;{busca.toUpperCase()}&quot;
-          </motion.button>
-        )}
-      </div>
-    </>
-  )
-}
-
 // ─── Wizard Produto (tela única) ──────────────────────────
 function WizardProduto({
   inicial, editandoId, categorias, onClose, onSalvo,
@@ -331,14 +94,6 @@ function WizardProduto({
     staleTime: 60_000,
   })
 
-  // Auto-sugestão de categoria ao digitar nome
-  useEffect(() => {
-    if (form.categoria_id || !form.nome.trim()) return
-    const sugestao = sugerirCategoria(form.nome, categorias)
-    if (sugestao) setForm(f => ({ ...f, categoria_id: sugestao }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.nome])
-
   useEffect(() => { nomeRef.current?.focus() }, [])
 
   useEffect(() => {
@@ -349,6 +104,16 @@ function WizardProduto({
 
   function set<K extends keyof ProdutoForm>(k: K, v: ProdutoForm[K]) {
     setForm(f => ({ ...f, [k]: v })); setErro("")
+  }
+
+  function setNome(value: string) {
+    setForm(current => {
+      const categoriaSugerida = current.categoria_id
+        ? current.categoria_id
+        : sugerirCategoria(value, categorias)
+      return { ...current, nome: value, categoria_id: categoriaSugerida }
+    })
+    setErro("")
   }
 
   function selecionarMarca(nome: string) {
@@ -402,8 +167,6 @@ function WizardProduto({
     ? CORES_PRODUTO.filter(c => c.nome.includes(corBusca.toUpperCase()))
     : CORES_PRODUTO
 
-  const isGradient = (hex: string) => hex.startsWith("linear-gradient") || hex.startsWith("repeating")
-
   const precoVendaNum = parseFloat(form.preco_venda.replace(",", ".")) || 0
   const precoCustoNum = parseFloat(form.preco_custo.replace(",", ".")) || 0
   const lucro         = precoVendaNum - precoCustoNum
@@ -442,7 +205,7 @@ function WizardProduto({
           <div>
             <label className={lSt} style={lCol}>Nome do produto *</label>
             <input ref={nomeRef} value={form.nome}
-              onChange={e => set("nome", e.target.value)}
+              onChange={e => setNome(e.target.value)}
               placeholder="EX: VESTIDO FLORAL VERÃO"
               className={iBase} style={iSt} autoComplete="off" />
           </div>

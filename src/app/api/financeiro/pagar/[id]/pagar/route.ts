@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
+import { withAdminAuth } from "@/lib/with-auth"
 import { PagarContaUseCase } from "@/application/financeiro/contas-pagar.use-cases"
 import { ContaPagarRepositorySupabase } from "@/infrastructure/repositories/conta-pagar.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-
+export const PATCH = withAdminAuth(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params
     const hoje = new Date().toISOString().split("T")[0]
@@ -28,4 +25,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (status === 500) console.error("[PATCH /api/financeiro/pagar/[id]/pagar]", err)
     return NextResponse.json(erro, { status })
   }
-}
+})

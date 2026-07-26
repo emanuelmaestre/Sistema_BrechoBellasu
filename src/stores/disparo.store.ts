@@ -370,7 +370,9 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       void (async () => {
         await rodar(
           async () => {
-            const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>("/admin/broadcast")
+            const r = await apiGet<{ clientes: Array<{ id: number; nome: string }>; total: number }>(
+              `/admin/broadcast?campanha_id=${campanhaId}`,
+            )
             const itens = r.clientes ?? []
             // Marca campanha como "enviando" com total de clientes
             try {

@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, Check, Trash2,
-  X, ChevronLeft, ArrowRight, Wallet, TrendingDown, TrendingUp,
+  X, TrendingDown, TrendingUp,
   AlertTriangle, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
@@ -31,14 +31,6 @@ interface ContaForm {
 }
 
 const EMPTY: ContaForm = { descricao: "", valor: "", vencimento: "", categoria: "", parte: "" }
-
-// ─── Animação ─────────────────────────────────────────────
-const variants = {
-  enter:  (d: number) => ({ x: d > 0 ?  60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
-}
-
 
 // ─── Wizard Financeiro (tela única após seleção de tipo) ──
 function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {

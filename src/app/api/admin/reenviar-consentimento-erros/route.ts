@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { enviarConsentimentoCliente } from "@/lib/consentimento-agent"
 import { requireCronAuth } from "@/lib/server-guards"
+import { readIntEnv } from "@/lib/server-env"
 
 export const dynamic = "force-dynamic"
 
@@ -12,31 +13,31 @@ export async function POST(req: NextRequest) {
   if (authError) return authError
 
   const sb = createServerClient()
+  const maxPorExecucao = readIntEnv("REENVIO_CONSENTIMENTO_MAX_ITENS", 2, 1, 2)
 
   const { data: clientes, error } = await sb
     .from("clientes")
     .select("id, nome, celular, notificacao_status")
     .eq("notificacao_status", "erro")
     .not("celular", "is", null)
+    .limit(maxPorExecucao)
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
   if (!clientes?.length) return NextResponse.json({ ok: true, mensagem: "Nenhum cliente com erro encontrado.", total: 0 })
 
-  const promises = clientes.map(async (c) => {
+  const resultados = []
+  for (const c of clientes) {
     try {
       const res = await enviarConsentimentoCliente({
         clienteId: c.id,
         nome: c.nome ?? "Cliente",
         celular: c.celular,
       })
-      return { id: c.id, nome: c.nome, celular: c.celular, ok: res.ok, detalhe: res.erro ?? ((res as { skipped?: boolean; motivo?: string }).skipped ? (res as { skipped?: boolean; motivo?: string }).motivo : undefined) }
+      resultados.push({ id: c.id, nome: c.nome, celular: c.celular, ok: res.ok, detalhe: res.erro ?? ((res as { skipped?: boolean; motivo?: string }).skipped ? (res as { skipped?: boolean; motivo?: string }).motivo : undefined) })
     } catch (e) {
-      return { id: c.id, nome: c.nome, celular: c.celular, ok: false, detalhe: e instanceof Error ? e.message : String(e) }
+      resultados.push({ id: c.id, nome: c.nome, celular: c.celular, ok: false, detalhe: e instanceof Error ? e.message : String(e) })
     }
-  })
-  const resultados = await Promise.allSettled(promises).then(rs =>
-    rs.map(r => r.status === "fulfilled" ? r.value : { id: 0, nome: "", celular: "", ok: false, detalhe: "Erro inesperado" })
-  )
+  }
 
   const enviadas = resultados.filter(r => r.ok).length
   const erros = resultados.filter(r => !r.ok).length

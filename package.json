@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3005",
     "dev:webpack": "cross-env TURBOPACK=0 next dev",
-    "build": "next build",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
@@ -60,6 +60,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.2",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "pg": "^8.21.0",
@@ -70,6 +71,13 @@
     "vitest": "^4.1.7"
   },
   "overrides": {
+    "exceljs": {
+      "archiver": "8.0.0",
+      "unzipper": "0.12.5"
+    },
+    "googleapis-common": {
+      "gaxios": "7.3.0"
+    },
     "postcss": "8.5.22",
     "sharp": "0.35.3",
     "uuid": "11.1.1"

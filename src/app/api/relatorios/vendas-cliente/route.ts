@@ -1,10 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { withAuth } from "@/lib/with-auth"
+import { withAdminAuth } from "@/lib/with-auth"
 
 export const dynamic = "force-dynamic"
 
-export const GET = withAuth(async (req: NextRequest) => {
+export const GET = withAdminAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const de  = searchParams.get("de")
   const ate = searchParams.get("ate")

@@ -1,42 +1,79 @@
+import { randomUUID } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { detectAllowedMedia } from "@/lib/campanha-seguranca"
+import { withAdminAuth } from "@/lib/with-auth"
+import { getClientIp, rateLimit } from "@/lib/rateLimit"
 
-const MAX_BYTES = 16 * 1024 * 1024 // 16 MB
-const ALLOWED_MIME = [
-  "image/jpeg", "image/png", "image/webp", "image/gif",
-  "video/mp4", "video/quicktime", "video/webm",
-]
+const MAX_BYTES = 16 * 1024 * 1024
 
-export async function POST(req: NextRequest) {
+export const POST = withAdminAuth(async (req: NextRequest, _ctx, auth) => {
+  const limit = rateLimit(
+    `campaign-upload:${auth.id}:${getClientIp(req)}`,
+    10,
+    60 * 60_000
+  )
+  if (!limit.ok) {
+    return NextResponse.json(
+      { erro: "Limite de uploads atingido. Aguarde antes de tentar novamente." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    )
+  }
+
+  const contentLength = Number(req.headers.get("content-length") ?? 0)
+  if (contentLength > MAX_BYTES + 1024 * 1024) {
+    return NextResponse.json(
+      { erro: "Arquivo maior que o limite de 16 MB." },
+      { status: 413 }
+    )
+  }
+
   try {
     const formData = await req.formData()
     const file = formData.get("file") as File | null
-    if (!file) return NextResponse.json({ erro: "Nenhum arquivo enviado." }, { status: 400 })
-
-    if (!ALLOWED_MIME.includes(file.type)) {
-      return NextResponse.json({ erro: `Tipo não suportado: ${file.type}. Envie JPG, PNG, WebP, GIF, MP4, MOV ou WebM.` }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ erro: "Nenhum arquivo enviado." }, { status: 400 })
     }
     if (file.size > MAX_BYTES) {
-      const mb = (file.size / 1024 / 1024).toFixed(1)
-      return NextResponse.json({ erro: `Arquivo muito grande: ${mb} MB. O limite é 16 MB.` }, { status: 400 })
+      return NextResponse.json(
+        { erro: "Arquivo maior que o limite de 16 MB." },
+        { status: 413 }
+      )
     }
 
-    const tipo = file.type.startsWith("video/") ? "video" : "imagem"
-    const ext  = file.name.split(".").pop() ?? (tipo === "video" ? "mp4" : "jpg")
-    const nome = `campanha_${Date.now()}.${ext}`
-
-    const sb = createServerClient()
     const buffer = Buffer.from(await file.arrayBuffer())
+    const detected = detectAllowedMedia(buffer)
+    if (!detected) {
+      return NextResponse.json(
+        {
+          erro: "Conteudo invalido. Envie JPG, PNG, WebP, GIF, MP4, MOV ou WebM.",
+        },
+        { status: 400 }
+      )
+    }
 
+    const nome = `campanha_${randomUUID()}.${detected.extension}`
+    const sb = createServerClient()
     const { error } = await sb.storage.from("campanhas").upload(nome, buffer, {
-      contentType: file.type,
+      contentType: detected.mime,
       upsert: false,
     })
-    if (error) return NextResponse.json({ erro: `Falha no upload: ${error.message}` }, { status: 500 })
+    if (error) {
+      console.error("[campaign-upload] Falha no Storage:", error.message)
+      return NextResponse.json({ erro: "Falha ao armazenar a midia." }, { status: 500 })
+    }
 
     const { data: urlData } = sb.storage.from("campanhas").getPublicUrl(nome)
-    return NextResponse.json({ url: urlData.publicUrl, tipo, nome })
-  } catch (e) {
-    return NextResponse.json({ erro: e instanceof Error ? e.message : "Erro interno." }, { status: 500 })
+    return NextResponse.json({
+      url: urlData.publicUrl,
+      tipo: detected.type,
+      nome,
+    })
+  } catch (error) {
+    console.error("[campaign-upload] Falha ao processar arquivo:", error)
+    return NextResponse.json(
+      { erro: "Erro interno ao processar o arquivo." },
+      { status: 500 }
+    )
   }
-}
+})
