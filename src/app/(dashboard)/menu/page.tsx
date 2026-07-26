@@ -110,11 +110,6 @@ function ModuleCard({
           style={{ color: hovered ? color : "var(--text-primary)", transition: "color 0.2s" }}>
           {label}
         </p>
-        <p className="truncate leading-tight mt-0.5 hidden sm:block
-                      text-[10px] lg:text-[11px]"
-          style={{ color: "var(--text-muted)" }}>
-          {desc}
-        </p>
       </div>
 
       {/* Seta — só em lg+ */}
