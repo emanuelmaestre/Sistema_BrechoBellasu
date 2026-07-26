@@ -517,13 +517,13 @@ function WizardProduto({
             </div>
             <input value={corBusca} onChange={e => setCorBusca(e.target.value)}
               placeholder="Filtrar cor..." className={iBase} style={iSt} autoComplete="off" />
-            <div className="flex flex-wrap gap-1.5 mt-2 max-h-16 overflow-y-auto pr-1">
+            <div className="flex flex-wrap gap-2.5 mt-2 max-h-28 overflow-y-auto pr-1">
               {coresFiltradas.map(c => {
                 const sel = form.cor === c.nome
                 const claro = ["BRANCO","OFF WHITE","NUDE","BEGE","PRATA","PÊSSEGO","AMARELO","LAVANDA"].includes(c.nome)
                 return (
                   <button key={c.nome} onClick={() => set("cor", sel ? "" : c.nome)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all"
                     style={{
                       background: sel ? "var(--accent)" : "var(--bg-surface)",
                       color: sel ? "#fff" : "var(--text-primary)",

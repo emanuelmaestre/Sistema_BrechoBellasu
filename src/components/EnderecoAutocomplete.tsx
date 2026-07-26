@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, type CSSProperties, type RefObject } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Loader2, Check, MapPin, Users } from "lucide-react"
 import { useEnderecoBusca } from "@/hooks/useEnderecoBusca"
@@ -53,6 +53,19 @@ export function EnderecoAutocomplete({
     sugestoes, buscando, aberto, fechar, reabrir, extrasRef,
   } = useEnderecoBusca()
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  // Calcula posição fixed quando o dropdown abre, para não ser clipado por overflow-y-auto pai.
+  useEffect(() => {
+    if (aberto && wrapperRef.current) {
+      const r = wrapperRef.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    } else {
+      setDropPos(null)
+    }
+  }, [aberto])
+
   // Preenche o campo uma única vez com o valor que veio de fora.
   const semeado = useRef(false)
   useEffect(() => {
@@ -83,7 +96,7 @@ export function EnderecoAutocomplete({
     texto.trim().length > 3 && !buscando && sugestoes.length === 0 && !confirmado
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapperRef}>
       <input
         ref={inputRef}
         value={texto}
@@ -108,11 +121,14 @@ export function EnderecoAutocomplete({
       )}
 
       <AnimatePresence>
-        {aberto && sugestoes.length > 0 && (
+        {aberto && sugestoes.length > 0 && dropPos && (
           <motion.div
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-2xl shadow-xl overflow-hidden"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            className="fixed z-[200] rounded-2xl shadow-xl overflow-hidden"
+            style={{
+              top: dropPos.top, left: dropPos.left, width: dropPos.width,
+              background: "var(--bg-card)", border: "1px solid var(--border)",
+            }}>
 
             {sugestoes.length > 1 && (
               <div className="px-4 py-2 flex items-center justify-between"
@@ -169,7 +185,7 @@ export function EnderecoAutocomplete({
 
       {semResultado && (
         <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-          Nenhum endereço encontrado — você poderá preencher manualmente na próxima etapa.
+          Nenhum endereço encontrado — preencha os campos manualmente abaixo.
         </p>
       )}
     </div>

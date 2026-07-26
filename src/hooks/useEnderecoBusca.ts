@@ -1,5 +1,3 @@
-"use client"
-
 import { useCallback, useEffect, useRef, useState } from "react"
 import { apiClient } from "@/services/api"
 import type { EnderecoSugestao } from "@/lib/endereco-parser"
