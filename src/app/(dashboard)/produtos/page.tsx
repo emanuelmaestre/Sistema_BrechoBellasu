@@ -302,9 +302,9 @@ function CorStep({ inputRef, value, onChange, onAdvance, inputBase, inputSt }: {
   )
 }
 
-// ─── Wizard ───────────────────────────────────────────────
+// ─── Wizard Produto (tela única) ──────────────────────────
 function WizardProduto({
-  inicial, editandoId, initialStep, categorias, onClose, onSalvo,
+  inicial, editandoId, categorias, onClose, onSalvo,
 }: {
   inicial: ProdutoForm | null
   editandoId: number | null
@@ -314,47 +314,32 @@ function WizardProduto({
   onSalvo: () => void
 }) {
   const qc = useQueryClient()
-  const [step, setStep]   = useState(initialStep ?? 1)
-  const [dir, setDir]     = useState(1)
-  const [form, setForm]   = useState<ProdutoForm>(inicial ?? EMPTY)
-  const [erro, setErro]   = useState("")
-  const [saving, setSaving] = useState(false)
-  const [salvoOk, setSalvoOk] = useState(false)
-  const [catSugerida, setCatSugerida] = useState(false)  // indica se categoria foi auto-sugerida
-  const [returnToRevisao, setReturnToRevisao] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [form, setForm]           = useState<ProdutoForm>(inicial ?? EMPTY)
+  const [erro, setErro]           = useState("")
+  const [saving, setSaving]       = useState(false)
+  const [salvoOk, setSalvoOk]     = useState(false)
+  const [corBusca, setCorBusca]   = useState("")
+  const [marcaBusca, setMarcaBusca] = useState(inicial?.marca ?? "")
+  const [marcaOpen, setMarcaOpen]   = useState(false)
+  const nomeRef = useRef<HTMLInputElement>(null)
+  const marcaBuscaDebounced = useDebounce(marcaBusca, 350)
 
-  // Prévia do código sequencial que o produto novo vai receber ao salvar.
-  // Só busca quando não está editando (produto editado já tem código real).
-  const { data: proximoCodigoData } = useQuery<{ codigo: string }>({
-    queryKey: ["produtos-proximo-codigo"],
-    queryFn: () => apiGet("/produtos/meta/proximo-codigo"),
-    enabled: !editandoId,
-    staleTime: 15_000,
+  const { data: marcaSugestoes = [] } = useQuery<{ id: number; nome: string }[]>({
+    queryKey: ["marcas-busca", marcaBuscaDebounced],
+    queryFn: () => apiGet(`/produtos/meta/marcas?busca=${encodeURIComponent(marcaBuscaDebounced)}`),
+    enabled: marcaBuscaDebounced.length >= 1,
+    staleTime: 60_000,
   })
-  const proximoCodigo = proximoCodigoData?.codigo ?? null
 
-  // Teclado numérico horizontal para tablet (evita teclado do sistema alto)
-  const [isTablet, setIsTablet] = useState(false)
-  const [focusedPrice, setFocusedPrice] = useState<"preco_venda" | "preco_custo">("preco_venda")
+  // Auto-sugestão de categoria ao digitar nome
   useEffect(() => {
-    const check = () => setIsTablet(window.innerWidth >= 768)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
+    if (form.categoria_id || !form.nome.trim()) return
+    const sugestao = sugerirCategoria(form.nome, categorias)
+    if (sugestao) setForm(f => ({ ...f, categoria_id: sugestao }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.nome])
 
-  function numpadInput(key: string) {
-    const field = focusedPrice
-    const cur = (form[field] === "0,00" || form[field] === "") ? "" : form[field]
-    let next: string
-    if (key === "⌫") next = cur.slice(0, -1) || "0,00"
-    else if (key === ",") next = cur.includes(",") ? cur : cur + ","
-    else next = cur + key
-    set(field, next)
-  }
-
-  const TOTAL = 7
+  useEffect(() => { nomeRef.current?.focus() }, [])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -362,80 +347,41 @@ function WizardProduto({
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  useEffect(() => {
-    // Só foca em steps com campo de texto — evita teclado virtual nos steps de chips (3, 4, 5)
-    if (![1, 2, 6].includes(step)) return
-    const t = setTimeout(() => inputRef.current?.focus(), 280)
-    return () => clearTimeout(t)
-  }, [step])
-
-  // ── Auto-sugestão de categoria ao entrar no step 5 ──
-  useEffect(() => {
-    if (step !== 5) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (form.categoria_id) { setCatSugerida(false); return }  // já tem categoria, não sobrescreve
-    const sugestao = sugerirCategoria(form.nome, categorias)
-    if (sugestao) {
-      setForm(f => ({ ...f, categoria_id: sugestao }))
-      setCatSugerida(true)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step])
-
   function set<K extends keyof ProdutoForm>(k: K, v: ProdutoForm[K]) {
-    setForm(f => ({ ...f, [k]: v }))
-    setErro("")
+    setForm(f => ({ ...f, [k]: v })); setErro("")
   }
 
-  function go(next: number) {
-    setDir(next > step ? 1 : -1)
-    setStep(next)
-    setErro("")
-  }
-
-  async function advance() {
-    if (step === 1 && form.nome.trim().length < 1) {
-      setErro("Nome do produto é obrigatório")
-      return
-    }
-    // Garante que a marca digitada fique cadastrada na tabela `marcas`
-    // mesmo quando o operador avança clicando no botão (não só via Enter,
-    // que já tinha essa lógica dentro do MarcaStep).
-    if (step === 2 && form.marca.trim()) {
-      try {
-        const marca = await apiPost<{ id: number; nome: string }>("/produtos/meta/marcas", { nome: form.marca.trim() })
-        qc.invalidateQueries({ queryKey: ["marcas-busca"] })
-        set("marca", marca.nome)
-      } catch { /* segue mesmo se o cadastro da marca falhar */ }
-    }
-    if (step === 4 && !form.tamanho) {
-      setErro("Selecione o tamanho do produto")
-      return
-    }
-    if (step === 6 && Number(form.preco_venda.replace(",", ".")) < 0) {
-      setErro("Preço inválido")
-      return
-    }
-    if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL); return }
-    if (step < TOTAL) go(step + 1)
+  function selecionarMarca(nome: string) {
+    setMarcaBusca(nome)
+    set("marca", nome)
+    setMarcaOpen(false)
   }
 
   async function handleSalvar() {
-    setSaving(true)
-    setErro("")
+    if (!form.nome.trim()) { setErro("Nome do produto é obrigatório"); return }
+    setSaving(true); setErro("")
     try {
+      // Garante que a marca digitada fique cadastrada
+      let nomeMarca = form.marca
+      if (marcaBusca.trim()) {
+        try {
+          const nova = await apiPost<{ id: number; nome: string }>("/produtos/meta/marcas", { nome: marcaBusca.trim() })
+          qc.invalidateQueries({ queryKey: ["marcas-busca"] })
+          nomeMarca = nova.nome
+        } catch { nomeMarca = marcaBusca.trim() }
+      }
       const payload = {
         nome:              form.nome.trim(),
         codigo:            form.codigo    || null,
         categoria_id:      form.categoria_id ? Number(form.categoria_id) : null,
-        marca:             form.marca     || null,
-        preco_venda:       parseFloat(form.preco_venda.replace(",","."))  || 0,
-        preco_custo:       parseFloat(form.preco_custo.replace(",","."))  || 0,
+        marca:             nomeMarca     || null,
+        preco_venda:       parseFloat(form.preco_venda.replace(",", ".")) || 0,
+        preco_custo:       parseFloat(form.preco_custo.replace(",", ".")) || 0,
         estoque_atual:     1,
         unidade_medida:    "pc",
         controlar_estoque: true,
-        cor:               form.cor || null,
-        tamanho:           form.tamanho || null,
+        cor:               form.cor       || null,
+        tamanho:           form.tamanho   || null,
       }
       if (editandoId) await apiPut(`/produtos/${editandoId}`, payload)
       else            await apiPost("/produtos", payload)
@@ -444,33 +390,33 @@ function WizardProduto({
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (e) {
       setErro((e as Error).message || "Erro ao salvar. Tente novamente.")
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (step === 2) return // MarcaStep gerencia seu próprio Enter
-    if (step === 3) return // CorStep gerencia seu próprio Enter
-    if (step === 4) return // TamanhoStep gerencia com chips
-    if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); handleSalvar(); return }
-    if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form])
+  const iBase = "w-full px-3 py-2 text-sm rounded-xl outline-none transition-all border focus:border-[color:var(--accent)]"
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const lSt  = "block text-[10px] font-bold uppercase tracking-wider mb-1"
+  const lCol: React.CSSProperties = { color: "var(--text-muted)" }
 
-  const inputBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-  const inputSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const coresFiltradas = corBusca.trim()
+    ? CORES_PRODUTO.filter(c => c.nome.includes(corBusca.toUpperCase()))
+    : CORES_PRODUTO
 
-  const catNome = categorias.find(c => String(c.id) === form.categoria_id)?.nome ?? "—"
+  const isGradient = (hex: string) => hex.startsWith("linear-gradient") || hex.startsWith("repeating")
+
+  const precoVendaNum = parseFloat(form.preco_venda.replace(",", ".")) || 0
+  const precoCustoNum = parseFloat(form.preco_custo.replace(",", ".")) || 0
+  const lucro         = precoVendaNum - precoCustoNum
+  const margem        = precoVendaNum > 0 ? (lucro / precoVendaNum) * 100 : 0
+  const margemCor     = margem >= 50 ? "#10b981" : margem >= 30 ? "#f59e0b" : "#f87171"
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
-
       <SuccessOverlay show={salvoOk} titulo={editandoId ? "Produto atualizado!" : "Produto cadastrado!"} subtitulo="" />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0"
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
@@ -479,392 +425,184 @@ function WizardProduto({
             {editandoId ? "Editar Produto" : "Novo Produto"}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium tabular-nums" style={{ color: "var(--text-muted)" }}>{step} / {TOTAL}</span>
-          <button onClick={onClose}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-            <X size={15} /> Cancelar
-          </button>
-        </div>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          <X size={15} /> Cancelar
+        </button>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
-        <AnimatePresence custom={dir} mode="wait">
+      {/* Form */}
+      <div className="flex-1 overflow-hidden flex items-center justify-center px-6 py-4">
+        <div className="w-full max-w-2xl space-y-3">
 
-          {step < TOTAL ? (
-            <motion.div key={step} custom={dir}
-              variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6">
-              <div className="w-full max-w-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base font-bold" style={{ color: "var(--accent)" }}>{step}</span>
-                  <ArrowRight size={14} style={{ color: "var(--accent)" }} />
-                </div>
+          {/* Nome */}
+          <div>
+            <label className={lSt} style={lCol}>Nome do produto *</label>
+            <input ref={nomeRef} value={form.nome}
+              onChange={e => set("nome", e.target.value)}
+              placeholder="EX: VESTIDO FLORAL VERÃO"
+              className={iBase} style={iSt} autoComplete="off" />
+          </div>
 
-                {step === 1 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Qual é o nome do produto?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Campo obrigatório.</p>
-                    <input ref={inputRef} value={form.nome} onChange={e => set("nome", e.target.value)}
-                      placeholder="Ex: Vestido Floral Verão"
-                      className={inputBase} style={inputSt} autoComplete="off" />
-                  </>
-                )}
-
-                {step === 2 && (
-                  <MarcaStep inputRef={inputRef} value={form.marca} onChange={v => set("marca", v)} onAdvance={advance} inputBase={inputBase} inputSt={inputSt} />
-                )}
-
-                {step === 3 && (
-                  <CorStep inputRef={inputRef} value={form.cor} onChange={v => set("cor", v)} onAdvance={advance} inputBase={inputBase} inputSt={inputSt} />
-                )}
-
-                {step === 4 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Qual é o tamanho do produto?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Campo obrigatório. Selecione um tamanho.</p>
-                    <div className="flex flex-wrap gap-3">
-                      {TAMANHOS.map(t => {
-                        const sel = form.tamanho === t
-                        return (
-                          <motion.button
-                            key={t}
-                            onClick={() => { set("tamanho", t); setTimeout(() => go(step + 1), 150) }}
-                            whileHover={{ scale: 1.06 }}
-                            whileTap={{ scale: 0.94 }}
-                            className="px-6 py-4 rounded-2xl text-lg font-black uppercase tracking-wide transition-all"
-                            style={{
-                              background: sel ? "var(--accent)" : "var(--bg-surface)",
-                              color: sel ? "#fff" : "var(--text-primary)",
-                              border: sel ? "2px solid var(--accent)" : "2px solid var(--border)",
-                              boxShadow: sel ? "0 0 16px var(--accent)" : "none",
-                              minWidth: "80px",
-                            }}
-                          >
-                            {t}
-                            {sel && <span className="ml-2 text-base">✓</span>}
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {step === 5 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Categoria?
-                    </h1>
-                    <div className="flex items-center gap-3 mb-6">
-                      <p className="text-sm" style={{ color: "var(--text-muted)" }}>Organiza o produto no estoque e relatórios.</p>
-                      {catSugerida && (
-                        <motion.span
-                          initial={{ opacity: 0, scale: 0.85, x: 6 }}
-                          animate={{ opacity: 1, scale: 1, x: 0 }}
-                          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0"
-                          style={{ background: "rgba(99,102,241,0.15)", color: "var(--accent)", border: "1px solid rgba(99,102,241,0.3)" }}>
-                          ✦ Sugestão automática
-                        </motion.span>
-                      )}
-                    </div>
-                    <select value={form.categoria_id}
-                      onChange={e => { set("categoria_id", e.target.value); setCatSugerida(false) }}
-                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); advance() } }}
-                      className={inputBase} style={inputSt}>
-                      <option value="">Sem categoria</option>
-                      {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                    {catSugerida && (
-                      <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                        💡 Detectei <strong style={{ color: "var(--text-secondary)" }}>&ldquo;{categorias.find(c => String(c.id) === form.categoria_id)?.nome}&rdquo;</strong> com base no nome do produto. Altere se necessário.
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {step === 6 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Preço de venda?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Valor que será cobrado do cliente.</p>
-                    <div className="relative">
-                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-semibold"
-                        style={{ color: "var(--text-muted)" }}>R$</span>
-                      <input ref={inputRef} type="text"
-                        inputMode={isTablet ? "none" : "decimal"}
-                        readOnly={isTablet}
-                        value={form.preco_venda}
-                        onFocus={() => setFocusedPrice("preco_venda")}
-                        onChange={e => {
-                          const v = e.target.value.replace(/[^0-9.,]/g, "")
-                          set("preco_venda", v)
-                        }}
-                        onBlur={e => {
-                          if (isTablet) return
-                          const v = parseFloat(e.target.value.replace(",", "."))
-                          set("preco_venda", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
-                        }}
-                        className={cn(inputBase, "pl-14")}
-                        style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_venda" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>Preço de custo:</p>
-                      <div className="relative">
-                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base"
-                          style={{ color: "var(--text-muted)" }}>R$</span>
-                        <input type="text"
-                          inputMode={isTablet ? "none" : "decimal"}
-                          readOnly={isTablet}
-                          value={form.preco_custo}
-                          onFocus={() => setFocusedPrice("preco_custo")}
-                          onChange={e => {
-                            const v = e.target.value.replace(/[^0-9.,]/g, "")
-                            set("preco_custo", v)
-                          }}
-                          onBlur={e => {
-                            if (isTablet) return
-                            const v = parseFloat(e.target.value.replace(",", "."))
-                            set("preco_custo", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ","))
-                          }}
-                          className={cn(inputBase, "pl-12 !text-base !py-3")}
-                          style={{ ...inputSt, ...(isTablet && focusedPrice === "preco_custo" ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px rgba(99,102,241,0.18)" } : {}) }} />
-                      </div>
-                    </div>
-
-                    {/* ── Painel de inteligência de precificação ── */}
-                    {(() => {
-                      const venda = parseFloat(String(form.preco_venda).replace(",",".")) || 0
-                      const custo = parseFloat(String(form.preco_custo).replace(",",".")) || 0
-                      if (venda <= 0 || custo <= 0) return null
-
-                      const lucro  = venda - custo
-                      const margem = (lucro / venda) * 100
-                      const cor    = margem >= 50 ? "#10b981" : margem >= 30 ? "#f59e0b" : "#f87171"
-                      const emoji  = margem >= 50 ? "🟢" : margem >= 30 ? "🟡" : "🔴"
-                      const sugestao = margem < 30
-                        ? `Ideal: R$ ${(custo / 0.7).toFixed(2).replace(".",",")} (margem 30%)`
-                        : margem < 50
-                        ? `Ideal: R$ ${(custo / 0.5).toFixed(2).replace(".",",")} (margem 50%)`
-                        : null
-
-                      return (
-                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.25 }}
-                          className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-4"
-                          style={{ background: "var(--bg-surface)", border: `1.5px solid ${cor}33` }}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-sm leading-none">{emoji}</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-black" style={{ color: cor }}>
-                                Lucro R$ {lucro.toFixed(2).replace(".",",")} · margem {margem.toFixed(0)}%
-                              </p>
-                              {sugestao && (
-                                <p className="text-[10px] mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{sugestao}</p>
-                              )}
-                            </div>
-                          </div>
-                          {/* Mini barra */}
-                          <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "var(--border)" }}>
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(margem, 100)}%` }}
-                              transition={{ duration: 0.5, ease: "easeOut" }}
-                              className="h-full rounded-full" style={{ background: cor }}/>
-                          </div>
-                        </motion.div>
-                      )
-                    })()}
-                  </>
-                )}
-
-                <AnimatePresence>
-                  {erro && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="mt-2 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>
-                  )}
-                </AnimatePresence>
-
-                <div className="flex items-center gap-4 mt-8">
-                  <button onClick={advance}
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg transition-opacity"
-                    style={{ background: "var(--accent)" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                    {step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} />
-                  </button>
-                  {step > 1 && (
-                    <button onClick={() => { if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL) } else go(step + 1) }}
-                      className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                      {returnToRevisao ? "← Voltar ao resumo" : "Pular →"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
-          ) : (
-            /* Revisão */
-            <motion.div key="revisao" custom={dir}
-              variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-
-              {/* Sidebar */}
-              <div className="w-full md:w-64 shrink-0 flex flex-row md:flex-col items-center justify-between py-4 md:py-10 px-5 md:px-6 gap-4 md:gap-0"
-                style={{ background: "var(--accent)" }}>
-                <div className="flex flex-row md:flex-col items-center gap-4 md:text-center">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-2xl flex items-center justify-center"
-                      style={{ background: "rgba(255,255,255,0.2)" }}>
-                      <Package size={22} color="#fff" className="md:hidden" />
-                      <Package size={32} color="#fff" className="hidden md:block" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center bg-emerald-500">
-                      <Check size={10} color="#fff" className="md:hidden" />
-                      <Check size={14} color="#fff" className="hidden md:block" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{form.nome || "—"}</p>
-                    <p className="text-xs mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.6)" }}>Revise antes de salvar</p>
-                  </div>
-                </div>
-                <div className="flex flex-row md:flex-col gap-2 md:w-full shrink-0">
-                  <button onClick={handleSalvar} disabled={saving}
-                    className="py-2.5 md:py-3 px-4 md:px-0 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 md:w-full"
-                    style={{ background: "#fff", color: "var(--accent)" }}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : "Salvar"}
-                  </button>
-                  <button onClick={onClose}
-                    className="py-2.5 px-4 md:px-0 rounded-2xl text-sm font-medium md:w-full"
-                    style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-
-              {/* Painel */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-10" style={{ background: "var(--bg-base)" }}>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest mb-6"
-                  style={{ color: "var(--text-muted)" }}>◎ Dados do Produto</h2>
-                {erro && <p className="mb-4 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Código do produto — real se editando, prévia se novo */}
-                  <div className="rounded-2xl p-4 col-span-2"
-                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid #f59e0b" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>
-                      Código {!form.codigo && "(prévia)"}
-                    </p>
-                    <p className="text-sm font-mono font-bold" style={{ color: "#f59e0b" }}>
-                      {form.codigo || proximoCodigo || "—"}
-                    </p>
-                  </div>
-                  {[
-                    { label: "Nome",           value: form.nome || "—",                 s: 1, full: true },
-                    { label: "Marca",          value: form.marca || "—",                s: 2 },
-                    { label: "Cor",            value: form.cor || "—",                  s: 3 },
-                    { label: "Tamanho",        value: form.tamanho || "—",              s: 4 },
-                    { label: "Categoria",      value: catNome,                          s: 5 },
-                    { label: "Preço de venda", value: fmtBRL(Number(form.preco_venda.replace(",","."))), s: 6 },
-                    { label: "Preço de custo", value: fmtBRL(Number(form.preco_custo.replace(",","."))), s: 6 },
-                  ].map(({ label, value, s, full }) => (
-                    <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid var(--accent)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
-                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
-                      <button onClick={() => { setReturnToRevisao(true); go(s) }}
-                        className="flex items-center gap-1 text-xs mt-1.5 font-semibold uppercase tracking-wide transition-opacity"
-                        style={{ color: "var(--accent)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                        <Pencil size={9} /> EDITAR
+          {/* Marca | Categoria */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lSt} style={lCol}>Marca</label>
+              <div className="relative">
+                <input value={marcaBusca}
+                  onChange={e => { setMarcaBusca(e.target.value); set("marca", e.target.value); setMarcaOpen(true) }}
+                  onFocus={() => setMarcaOpen(true)}
+                  onBlur={() => setTimeout(() => setMarcaOpen(false), 150)}
+                  placeholder="Buscar marca..."
+                  className={iBase} style={iSt} autoComplete="off" />
+                {marcaOpen && marcaSugestoes.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-lg z-50"
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                    {marcaSugestoes.slice(0, 5).map(m => (
+                      <button key={m.id} onMouseDown={() => selecionarMarca(m.nome)}
+                        className="w-full px-3 py-2 text-left text-sm font-medium uppercase transition-colors"
+                        style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-bg)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                        {m.nome}
                       </button>
-                    </div>
-                  ))}
-                  {/* Estoque fixo — peça única */}
-                  <div className="rounded-2xl p-4"
-                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: "3px solid #10b981" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Estoque</p>
-                    <p className="text-sm font-medium uppercase" style={{ color: "#10b981" }}>1 unidade</p>
-                    <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>Peça única — definido automaticamente</p>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>Categoria</label>
+              <select value={form.categoria_id} onChange={e => set("categoria_id", e.target.value)}
+                className={iBase} style={iSt}>
+                <option value="">Sem categoria</option>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+          </div>
 
-      {/* Numpad horizontal para tablet no step de preço */}
-      {isTablet && step === 6 && (
-        <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-card)" }}>
-          {/* Seletor de campo */}
-          <div className="flex gap-2 mb-2">
-            {(["preco_venda", "preco_custo"] as const).map(f => (
-              <button key={f} onClick={() => setFocusedPrice(f)}
-                className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
-                style={{
-                  background: focusedPrice === f ? "var(--accent)" : "var(--bg-surface)",
-                  color: focusedPrice === f ? "#fff" : "var(--text-secondary)",
-                  border: `1.5px solid ${focusedPrice === f ? "var(--accent)" : "var(--border)"}`,
-                }}>
-                {f === "preco_venda" ? "Preço de Venda" : "Preço de Custo"}
-              </button>
-            ))}
+          {/* Tamanho chips */}
+          <div>
+            <label className={lSt} style={lCol}>Tamanho</label>
+            <div className="flex flex-wrap gap-2">
+              {TAMANHOS.map(t => {
+                const sel = form.tamanho === t
+                return (
+                  <button key={t}
+                    onClick={() => set("tamanho", sel ? "" : t)}
+                    className="px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all"
+                    style={{
+                      background: sel ? "var(--accent)" : "var(--bg-surface)",
+                      color: sel ? "#fff" : "var(--text-primary)",
+                      border: sel ? "2px solid var(--accent)" : "2px solid var(--border)",
+                    }}>
+                    {t}{sel && " ✓"}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          {/* Teclas em linha única */}
-          <div className="flex gap-1.5 items-center">
-            {["1","2","3","4","5","6","7","8","9","0",",","⌫"].map(k => (
-              <motion.button key={k} onPointerDown={e => { e.preventDefault(); numpadInput(k) }}
-                whileTap={{ scale: 0.88 }}
-                className="flex-1 py-3 rounded-xl text-base font-bold"
-                style={{
-                  background: k === "⌫" ? "rgba(248,113,113,0.12)" : "var(--bg-surface)",
-                  color: k === "⌫" ? "#f87171" : "var(--text-primary)",
-                  border: "1.5px solid var(--border)",
-                  minWidth: 0,
-                }}>
-                {k}
-              </motion.button>
-            ))}
-            <motion.button onPointerDown={e => { e.preventDefault(); advance() }}
-              whileTap={{ scale: 0.93 }}
-              className="py-3 px-4 rounded-xl text-sm font-bold text-white"
-              style={{ background: "var(--accent)", border: "none", whiteSpace: "nowrap" }}>
-              Próximo →
-            </motion.button>
+
+          {/* Cor */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <label className={lSt} style={{ ...lCol, marginBottom: 0 }}>Cor</label>
+              {form.cor && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--accent)", color: "#fff" }}>{form.cor}</span>
+              )}
+            </div>
+            <input value={corBusca} onChange={e => setCorBusca(e.target.value)}
+              placeholder="Filtrar cor..." className={iBase} style={iSt} autoComplete="off" />
+            <div className="flex flex-wrap gap-1.5 mt-2 max-h-16 overflow-y-auto pr-1">
+              {coresFiltradas.map(c => {
+                const sel = form.cor === c.nome
+                const claro = ["BRANCO","OFF WHITE","NUDE","BEGE","PRATA","PÊSSEGO","AMARELO","LAVANDA"].includes(c.nome)
+                return (
+                  <button key={c.nome} onClick={() => set("cor", sel ? "" : c.nome)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all"
+                    style={{
+                      background: sel ? "var(--accent)" : "var(--bg-surface)",
+                      color: sel ? "#fff" : "var(--text-primary)",
+                      border: sel ? "2px solid var(--accent)" : "1px solid var(--border)",
+                    }}>
+                    <span className="w-3 h-3 rounded-full shrink-0 border"
+                      style={{ background: c.hex, borderColor: claro ? "#94a3b8" : "transparent" }} />
+                    {c.nome}
+                    {sel && <Check size={10} strokeWidth={3} />}
+                  </button>
+                )
+              })}
+              {corBusca.trim() && coresFiltradas.length === 0 && (
+                <button onClick={() => { set("cor", corBusca.trim().toUpperCase()); setCorBusca("") }}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white"
+                  style={{ background: "var(--accent)" }}>
+                  Usar &quot;{corBusca.toUpperCase()}&quot;
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Preço venda | Preço custo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lSt} style={lCol}>Preço de venda</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold"
+                  style={{ color: "var(--text-muted)" }}>R$</span>
+                <input type="text" value={form.preco_venda}
+                  onChange={e => set("preco_venda", e.target.value.replace(/[^0-9.,]/g, ""))}
+                  onBlur={e => { const v = parseFloat(e.target.value.replace(",", ".")); set("preco_venda", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ",")) }}
+                  placeholder="0,00" className={cn(iBase, "pl-9")} style={iSt} />
+              </div>
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>Preço de custo</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold"
+                  style={{ color: "var(--text-muted)" }}>R$</span>
+                <input type="text" value={form.preco_custo}
+                  onChange={e => set("preco_custo", e.target.value.replace(/[^0-9.,]/g, ""))}
+                  onBlur={e => { const v = parseFloat(e.target.value.replace(",", ".")); set("preco_custo", isNaN(v) ? "0,00" : v.toFixed(2).replace(".", ",")) }}
+                  placeholder="0,00" className={cn(iBase, "pl-9")} style={iSt} />
+              </div>
+            </div>
+          </div>
+
+          {/* Margem */}
+          {precoVendaNum > 0 && precoCustoNum > 0 && (
+            <div className="flex items-center gap-3 px-3 py-2 rounded-xl"
+              style={{ background: "var(--bg-surface)", border: `1px solid ${margemCor}44` }}>
+              <span className="text-xs font-black" style={{ color: margemCor }}>
+                {margem >= 50 ? "🟢" : margem >= 30 ? "🟡" : "🔴"} Lucro R$ {lucro.toFixed(2).replace(".", ",")} · {margem.toFixed(0)}% margem
+              </span>
+            </div>
+          )}
+
+          {/* Error */}
+          {erro && <p className="text-sm" style={{ color: "#f87171" }}>{erro}</p>}
         </div>
-      )}
+      </div>
 
       {/* Footer */}
-      {step < TOTAL && !(isTablet && step === 6) && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0"
-          style={{ borderTop: "1px solid var(--border)" }}>
-          {step > 1 ? (
-            <button onClick={() => go(step - 1)}
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
-              <ChevronLeft size={15} /> Voltar
-            </button>
-          ) : <span />}
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Pressione <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>Enter</kbd> para avançar
-          </p>
-        </div>
-      )}
+      <div className="flex items-center justify-end gap-3 px-6 py-3 shrink-0"
+        style={{ borderTop: "1px solid var(--border)" }}>
+        <button onClick={onClose}
+          className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          Cancelar
+        </button>
+        <button onClick={handleSalvar} disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
+          style={{ background: "var(--accent)" }}>
+          {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> : <><Check size={14} /> Salvar produto</>}
+        </button>
+      </div>
     </motion.div>
   )
 }

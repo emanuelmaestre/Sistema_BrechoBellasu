@@ -39,28 +39,24 @@ const variants = {
   exit:   (d: number) => ({ x: d > 0 ? -60 :  60, opacity: 0 }),
 }
 
-// ─── Wizard ───────────────────────────────────────────────
+
+// ─── Wizard Financeiro (tela única após seleção de tipo) ──
 function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {
   const qc = useQueryClient()
-  const [tipo, setTipo]   = useState<Tab | null>(null)
-  const [step, setStep]   = useState(1)
-  const [dir, setDir]     = useState(1)
-  const [form, setForm]   = useState<ContaForm>(EMPTY)
-  const [erro, setErro]   = useState("")
-  const [saving, setSaving] = useState(false)
-  const [salvoOk, setSalvoOk] = useState(false)
+  const [tipo, setTipo]         = useState<Tab | null>(null)
+  const [form, setForm]         = useState<ContaForm>(EMPTY)
+  const [erro, setErro]         = useState("")
+  const [saving, setSaving]     = useState(false)
+  const [salvoOk, setSalvoOk]   = useState(false)
   const [valorFormatado, setValorFormatado] = useState("")
-  const [returnToRevisao, setReturnToRevisao] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const TOTAL = 5
+  const descRef = useRef<HTMLInputElement>(null)
 
   const isPagar = tipo === "pagar"
-  const cor = tipo === "pagar" ? "#f59e0b" : tipo === "receber" ? "#10b981" : "var(--accent)"
+  const cor     = tipo === "pagar" ? "#f59e0b" : tipo === "receber" ? "#10b981" : "var(--accent)"
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 280)
-    return () => clearTimeout(t)
-  }, [step])
+    if (tipo) setTimeout(() => descRef.current?.focus(), 120)
+  }, [tipo])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -70,17 +66,10 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
 
   function set(k: keyof ContaForm, v: string) { setForm(f => ({ ...f, [k]: v })); setErro("") }
 
-  function go(next: number) { setDir(next > step ? 1 : -1); setStep(next); setErro("") }
-
-  function advance() {
-    if (step === 1 && !form.descricao.trim()) { setErro("Descrição é obrigatória"); return }
-    if (step === 2 && (!form.valor || Number(form.valor) <= 0)) { setErro("Informe um valor válido"); return }
-    if (step === 3 && !form.vencimento) { setErro("Vencimento é obrigatório"); return }
-    if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL); return }
-    if (step < TOTAL) go(step + 1)
-  }
-
   async function handleSalvar() {
+    if (!form.descricao.trim()) { setErro("Descrição é obrigatória"); return }
+    if (!form.valor || Number(form.valor) <= 0) { setErro("Informe um valor válido"); return }
+    if (!form.vencimento) { setErro("Vencimento é obrigatório"); return }
     setSaving(true); setErro("")
     try {
       await apiPost(`/financeiro/${tipo}`, {
@@ -95,96 +84,50 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err: unknown) {
       setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
-    }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && step === TOTAL) { e.preventDefault(); handleSalvar(); return }
-    if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, returnToRevisao])
-
-  const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
+  const iBase = "w-full px-3 py-2 text-sm rounded-xl outline-none transition-all border focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const lSt  = "block text-[10px] font-bold uppercase tracking-wider mb-1"
+  const lCol: React.CSSProperties = { color: "var(--text-muted)" }
 
-  // Tela de seleção de tipo — mesmo padrão do wizard de trocas
+  // Tela 1: seleção de tipo
   if (!tipo) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
-
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0"
+        <div className="flex items-center justify-between px-6 py-3 shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex items-center gap-3">
             <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
             <span style={{ color: "var(--border-hover)" }}>|</span>
             <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Nova Conta</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>1 / {TOTAL}</span>
-            <button onClick={onClose}
-              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-              <X size={15} /> Cancelar
-            </button>
-          </div>
+          <button onClick={onClose}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+            <X size={15} /> Cancelar
+          </button>
         </div>
-
-        {/* Conteúdo — layout idêntico ao step 1 do trocas */}
         <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-xl">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-base font-bold" style={{ color: "var(--accent)" }}>1</span>
-              <ArrowRight size={14} style={{ color: "var(--accent)" }} />
-            </div>
-
-            <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-              O que você quer lançar?
-            </h1>
-            <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>
-              Selecione o tipo de lançamento financeiro.
-            </p>
-
+          <div className="w-full max-w-md">
+            <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>O que você quer lançar?</h1>
+            <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>Selecione o tipo de lançamento financeiro.</p>
             <div className="flex gap-4">
               {[
-                {
-                  value: "pagar"   as Tab,
-                  label: "A Pagar",
-                  icon:  <TrendingDown size={32} />,
-                  desc:  "Registrar uma saída ou despesa",
-                  cor:   "#f59e0b",
-                  bg:    "rgba(245,158,11,0.1)",
-                  bgSel: "rgba(245,158,11,0.18)",
-                },
-                {
-                  value: "receber" as Tab,
-                  label: "A Receber",
-                  icon:  <TrendingUp size={32} />,
-                  desc:  "Registrar uma entrada ou crédito",
-                  cor:   "#10b981",
-                  bg:    "rgba(16,185,129,0.08)",
-                  bgSel: "rgba(16,185,129,0.18)",
-                },
+                { value: "pagar" as Tab, label: "A Pagar", icon: <TrendingDown size={28} />, desc: "Saída ou despesa", cor: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+                { value: "receber" as Tab, label: "A Receber", icon: <TrendingUp size={28} />, desc: "Entrada ou crédito", cor: "#10b981", bg: "rgba(16,185,129,0.08)" },
               ].map(op => (
-                <motion.button key={op.value}
-                  onClick={() => { setTipo(op.value); go(1) }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="flex-1 p-5 rounded-2xl text-left transition-all border-2"
-                  style={{
-                    background: op.bg,
-                    borderColor: op.cor,
-                    color: op.cor,
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = op.bgSel }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = op.bg }}>
+                <motion.button key={op.value} onClick={() => setTipo(op.value)}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  className="flex-1 p-5 rounded-2xl text-left border-2 transition-all"
+                  style={{ background: op.bg, borderColor: op.cor, color: op.cor }}>
                   <div className="mb-3">{op.icon}</div>
                   <p className="font-bold text-base uppercase">{op.label}</p>
-                  <p className="text-sm mt-1 uppercase" style={{ color: `${op.cor}99` }}>{op.desc}</p>
+                  <p className="text-sm mt-1" style={{ color: `${op.cor}99` }}>{op.desc}</p>
                 </motion.button>
               ))}
             </div>
@@ -194,217 +137,110 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
     )
   }
 
+  // Tela 2: formulário único
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
-
       <SuccessOverlay show={salvoOk} titulo={isPagar ? "Conta a pagar criada!" : "Conta a receber criada!"} subtitulo={form.descricao || ""} />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 shrink-0"
+        style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
-          <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
+          <button onClick={() => setTipo(null)} className="text-sm font-medium transition-colors"
+            style={{ color: cor }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
+            ← Trocar tipo
+          </button>
           <span style={{ color: "var(--border-hover)" }}>|</span>
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
             Nova Conta a {isPagar ? "Pagar" : "Receber"}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>{step} / {TOTAL}</span>
-          <button onClick={onClose}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-            <X size={15} /> Cancelar
-          </button>
-        </div>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          <X size={15} /> Cancelar
+        </button>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
-        <AnimatePresence custom={dir} mode="wait">
-          {step < TOTAL ? (
-            <motion.div key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6">
-              <div className="w-full max-w-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base font-bold" style={{ color: cor }}>{step}</span>
-                  <ArrowRight size={14} style={{ color: cor }} />
-                </div>
+      {/* Form */}
+      <div className="flex-1 overflow-hidden flex items-center justify-center px-6 py-4">
+        <div className="w-full max-w-lg space-y-4">
 
-                {step === 1 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                    {isPagar ? "Qual é o fornecedor?" : "Qual é a descrição?"}
-                  </h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                    {isPagar ? "Nome do fornecedor ou identificação desta conta." : "Uma identificação clara desta conta."}
-                  </p>
-                  <input ref={inputRef} value={form.descricao} onChange={e => set("descricao", e.target.value.toUpperCase())}
-                    placeholder={isPagar ? "Ex: CPFL, ALUGUEL, FORNECEDOR..." : "Ex: VENDA À PRAZO, SINAL..."}
-                    className={iBase} style={{ ...iSt, textTransform: "uppercase" }} autoComplete="off" />
-                </>}
+          {/* Descrição */}
+          <div>
+            <label className={lSt} style={lCol}>{isPagar ? "Fornecedor / Descrição *" : "Descrição *"}</label>
+            <input ref={descRef} value={form.descricao}
+              onChange={e => set("descricao", e.target.value.toUpperCase())}
+              placeholder={isPagar ? "EX: CPFL, ALUGUEL, FORNECEDOR..." : "EX: VENDA À PRAZO, SINAL..."}
+              className={iBase} style={{ ...iSt, textTransform: "uppercase" }} autoComplete="off" />
+          </div>
 
-                {step === 2 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Qual o valor?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                    {isPagar ? "Quanto você precisa pagar." : "Quanto você vai receber."}
-                  </p>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                    <input ref={inputRef}
-                      type="text" inputMode="decimal"
-                      value={valorFormatado !== "" ? valorFormatado : form.valor}
-                      onFocus={() => setValorFormatado("")}
-                      onChange={e => {
-                        setValorFormatado("")
-                        set("valor", e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))
-                      }}
-                      onBlur={() => {
-                        const n = parseFloat(form.valor.replace(",", "."))
-                        if (!isNaN(n) && n > 0) setValorFormatado(fmtBRL(n))
-                        else setValorFormatado("")
-                      }}
-                      placeholder="0,00"
-                      className={cn(iBase, "pl-14")} style={iSt} />
-                  </div>
-                </>}
-
-                {step === 3 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                    {isPagar ? "Quando vence?" : "Data de recebimento?"}
-                  </h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Data limite para este lançamento.</p>
-                  <DatePicker value={form.vencimento} onChange={v => set("vencimento", v)}
-                    textFirst textInputRef={inputRef}
-                    inputClassName={iBase} />
-                </>}
-
-                {step === 4 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Categoria?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Ajuda a organizar os relatórios.</p>
-                  <input ref={inputRef} value={form.categoria} onChange={e => set("categoria", e.target.value)}
-                    placeholder={isPagar ? "Ex: Aluguel, Energia, Estoque..." : "Ex: Vendas, Serviços..."}
-                    className={iBase} style={iSt} autoComplete="off" />
-                </>}
-
-                <AnimatePresence>
-                  {erro && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="mt-2 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
-                </AnimatePresence>
-
-                <div className="flex items-center gap-4 mt-8">
-                  <button onClick={advance}
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg transition-opacity"
-                    style={{ background: cor }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                    {returnToRevisao ? <>← Voltar ao resumo</> : step === 1 ? <>OK, continuar <ArrowRight size={15} /></> : <>Continuar <ArrowRight size={15} /></>}
-                  </button>
-                  {step > 1 && !returnToRevisao && (
-                    <button onClick={() => go(step + 1)}
-                      className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                      Pular →
-                    </button>
-                  )}
-                </div>
+          {/* Valor | Vencimento */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lSt} style={lCol}>Valor *</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold"
+                  style={{ color: "var(--text-muted)" }}>R$</span>
+                <input type="text" inputMode="decimal"
+                  value={valorFormatado !== "" ? valorFormatado : form.valor}
+                  onFocus={() => setValorFormatado("")}
+                  onChange={e => { setValorFormatado(""); set("valor", e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".")) }}
+                  onBlur={() => {
+                    const n = parseFloat(form.valor.replace(",", "."))
+                    if (!isNaN(n) && n > 0) setValorFormatado(fmtBRL(n))
+                    else setValorFormatado("")
+                  }}
+                  placeholder="0,00"
+                  className={cn(iBase, "pl-9")} style={iSt} />
               </div>
-            </motion.div>
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>{isPagar ? "Vencimento *" : "Data de recebimento *"}</label>
+              <DatePicker value={form.vencimento} onChange={v => set("vencimento", v)}
+                textFirst inputClassName={iBase} />
+            </div>
+          </div>
 
-          ) : (
-            <motion.div key="revisao" custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-              {/* Sidebar */}
-              <div className="w-full md:w-64 shrink-0 flex flex-row md:flex-col items-center justify-between py-4 md:py-10 px-5 md:px-6 gap-4 md:gap-0"
-                style={{ background: cor }}>
-                <div className="flex flex-row md:flex-col items-center gap-4 md:text-center">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
-                      <Wallet size={22} color="#fff" className="md:hidden" />
-                      <Wallet size={32} color="#fff" className="hidden md:block" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center bg-white/90">
-                      <Check size={10} style={{ color: cor }} className="md:hidden" />
-                      <Check size={14} style={{ color: cor }} className="hidden md:block" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{form.descricao || "—"}</p>
-                    <p className="text-lg md:text-2xl font-bold text-white mt-0.5 md:mt-1">{fmtBRL(Number(form.valor))}</p>
-                    <p className="text-xs mt-0.5 md:mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.65)" }}>Revise antes de salvar</p>
-                  </div>
-                </div>
-                <div className="flex flex-row md:flex-col gap-2 md:w-full shrink-0">
-                  <button onClick={handleSalvar} disabled={saving}
-                    className="py-2.5 md:py-3 px-4 md:px-0 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 md:w-full"
-                    style={{ background: "#fff", color: cor }}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : `Salvar`}
-                  </button>
-                  <button onClick={onClose} className="py-2.5 px-4 md:px-0 rounded-2xl text-sm font-medium md:w-full"
-                    style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
+          {/* Categoria */}
+          <div>
+            <label className={lSt} style={lCol}>Categoria (opcional)</label>
+            <input value={form.categoria}
+              onChange={e => set("categoria", e.target.value)}
+              placeholder={isPagar ? "Ex: Aluguel, Energia, Estoque..." : "Ex: Vendas, Serviços..."}
+              className={iBase} style={iSt} autoComplete="off" />
+          </div>
 
-              {/* Painel */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-10" style={{ background: "var(--bg-base)" }}>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest mb-6" style={{ color: "var(--text-muted)" }}>
-                  ◎ Conta a {isPagar ? "Pagar" : "Receber"}
-                </h2>
-                {erro && <p className="mb-4 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>}
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Descrição",  value: form.descricao  || "—", s: 1, full: true },
-                    { label: "Valor",      value: fmtBRL(Number(form.valor)), s: 2 },
-                    { label: "Vencimento", value: form.vencimento ? fmtData(form.vencimento) : "—", s: 3 },
-                    { label: "Categoria",  value: form.categoria  || "—", s: 4 },
-                  ].map(({ label, value, s, full }) => (
-                    <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}` }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
-                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
-                      <button onClick={() => { setReturnToRevisao(true); go(s) }}
-                        className="flex items-center gap-1 text-xs mt-1.5 font-semibold uppercase tracking-wide transition-opacity"
-                        style={{ color: cor }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                        ✎ EDITAR
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* Error */}
+          {erro && <p className="text-sm" style={{ color: "#f87171" }}>{erro}</p>}
+        </div>
       </div>
 
       {/* Footer */}
-      {step < TOTAL && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          {step > 1 ? (
-            <button onClick={() => go(step - 1)}
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
-              <ChevronLeft size={15} /> Voltar
-            </button>
-          ) : <span />}
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Pressione <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>Enter</kbd> para avançar
-          </p>
-        </div>
-      )}
+      <div className="flex items-center justify-end gap-3 px-6 py-3 shrink-0"
+        style={{ borderTop: "1px solid var(--border)" }}>
+        <button onClick={onClose}
+          className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          Cancelar
+        </button>
+        <button onClick={handleSalvar} disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
+          style={{ background: cor }}>
+          {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> : <><Check size={14} /> Salvar conta</>}
+        </button>
+      </div>
     </motion.div>
   )
 }
 
-// ─── Página ───────────────────────────────────────────────
 export default function FinanceiroPage() {
   const qc = useQueryClient()
   const [tab, setTab]     = useState<Tab>("pagar")

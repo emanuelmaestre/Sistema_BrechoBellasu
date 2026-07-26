@@ -340,8 +340,8 @@ function ModalProdutosCliente({
   )
 }
 
-// ─── Wizard ───────────────────────────────────────────────
-function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editandoId }: {
+// ─── Wizard Trocas (tela única) ───────────────────────────
+function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
   onClose: () => void
   onSalvo: () => void
   quickEdit?: boolean
@@ -350,74 +350,24 @@ function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editan
   editandoId?: number
 }) {
   const qc = useQueryClient()
-  const [step, setStep]   = useState(initialStep ?? 1)
-  const [dir, setDir]     = useState(1)
-  const [form, setForm]   = useState<TrocaForm>(inicial ?? EMPTY)
-  const [erro, setErro]   = useState("")
-  const [saving, setSaving] = useState(false)
-  const [salvoOk, setSalvoOk] = useState(false)
+  const [form, setForm]           = useState<TrocaForm>(inicial ?? EMPTY)
+  const [erro, setErro]           = useState("")
+  const [saving, setSaving]       = useState(false)
+  const [salvoOk, setSalvoOk]     = useState(false)
   const [modalProd, setModalProd] = useState(false)
   const [valorProduto, setValorProduto] = useState("")
-  const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
-  const TOTAL = 6
 
-  // ── Autocomplete Cliente (step 2) ──────────────────────
-  const [cliBusca, setCliBusca]   = useState("")
-  const [cliRes, setCliRes]       = useState<{ id: number; nome: string }[]>([])
-  const [cliOpen, setCliOpen]     = useState(false)
+  // Autocomplete Cliente
+  const [cliBusca, setCliBusca]     = useState(inicial?.cliente_nome ?? "")
+  const [cliRes, setCLiRes]         = useState<{ id: number; nome: string }[]>([])
+  const [cliOpen, setCliOpen]       = useState(false)
   const [cliLoading, setCliLoading] = useState(false)
-  const [cliIdx, setCliIdx]       = useState(-1)
 
-  useEffect(() => {
-    if (step !== 2) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!cliBusca.trim()) { setCliRes([]); return }
-    const t = setTimeout(async () => {
-      setCliLoading(true)
-      try {
-        const r = await apiGet<{ data: { id: number; nome: string }[] }>(`/clientes?busca=${encodeURIComponent(cliBusca)}&limit=8`)
-        setCliRes(r.data ?? [])
-        setCliIdx(-1)
-        setCliOpen(true)
-      } catch { setCliRes([]) }
-      finally { setCliLoading(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [cliBusca, step])
-
-  // ── Autocomplete Produto (step 3) ──────────────────────
-  const [prodBusca, setProdBusca]   = useState("")
-  const [prodRes, setProdRes]       = useState<ProdComprado[]>([])
-  const [prodOpen, setProdOpen]     = useState(false)
+  // Autocomplete Produto
+  const [prodBusca, setProdBusca]     = useState(inicial?.nome_produto ?? "")
+  const [prodRes, setProdRes]         = useState<ProdComprado[]>([])
+  const [prodOpen, setProdOpen]       = useState(false)
   const [prodLoading, setProdLoading] = useState(false)
-
-  useEffect(() => {
-    if (step !== 3) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!prodBusca.trim()) { setProdRes([]); return }
-    const t = setTimeout(async () => {
-      setProdLoading(true)
-      try {
-        if (form.cliente_id) {
-          const r = await apiGet<{ data: ProdComprado[] }>(`/clientes/${form.cliente_id}/produtos-comprados?busca=${encodeURIComponent(prodBusca)}`)
-          setProdRes(r.data ?? [])
-        } else {
-          const r = await apiGet<{ data: { id: number; nome: string; codigo?: string }[] }>(`/produtos?busca=${encodeURIComponent(prodBusca)}&limit=8`)
-          setProdRes((r.data ?? []).map(p => ({ produto_id: p.id, nome: p.nome, preco_unit: 0, qtd_compras: 0 })))
-        }
-        setProdOpen(true)
-      } catch { setProdRes([]) }
-      finally { setProdLoading(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [prodBusca, step, form.cliente_id])
-
-  useEffect(() => {
-    if (step !== 4 && step !== 5) {
-      const t = setTimeout(() => inputRef.current?.focus(), 280)
-      return () => clearTimeout(t)
-    }
-  }, [step])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -425,120 +375,95 @@ function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editan
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  function set<K extends keyof TrocaForm>(k: K, v: TrocaForm[K]) { setForm(f => ({ ...f, [k]: v })); setErro("") }
-  function go(next: number) { setDir(next > step ? 1 : -1); setStep(next); setErro("") }
+  // Busca cliente
+  useEffect(() => {
+    const busca = cliBusca.trim()
+    if (!busca) { setCLiRes([]); return }
+    const t = setTimeout(async () => {
+      setCliLoading(true)
+      try {
+        const r = await apiGet<{ data: { id: number; nome: string }[] }>(`/clientes?busca=${encodeURIComponent(busca)}&limit=8`)
+        setCLiRes(r.data ?? [])
+        setCliOpen(true)
+      } catch { setCLiRes([]) }
+      finally { setCliLoading(false) }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [cliBusca])
 
-  function advance() {
-    if (step === 4 && !form.motivo.trim()) { setErro("Selecione um motivo para continuar"); return }
-    if (quickEdit) { handleSalvar(); return }
-    if (step < TOTAL) go(step + 1)
-  }
+  // Busca produto
+  useEffect(() => {
+    const busca = prodBusca.trim()
+    if (!busca) { setProdRes([]); return }
+    const t = setTimeout(async () => {
+      setProdLoading(true)
+      try {
+        if (form.cliente_id) {
+          const r = await apiGet<{ data: ProdComprado[] }>(`/clientes/${form.cliente_id}/produtos-comprados?busca=${encodeURIComponent(busca)}`)
+          setProdRes(r.data ?? [])
+        } else {
+          const r = await apiGet<{ data: { id: number; nome: string }[] }>(`/produtos?busca=${encodeURIComponent(busca)}&limit=8`)
+          setProdRes((r.data ?? []).map(p => ({ produto_id: p.id, nome: p.nome, preco_unit: 0, qtd_compras: 0 })))
+        }
+        setProdOpen(true)
+      } catch { setProdRes([]) }
+      finally { setProdLoading(false) }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [prodBusca, form.cliente_id])
+
+  function set<K extends keyof TrocaForm>(k: K, v: TrocaForm[K]) { setForm(f => ({ ...f, [k]: v })); setErro("") }
 
   async function handleSalvar() {
+    if (!form.motivo.trim()) { setErro("Selecione um motivo para continuar"); return }
     setSaving(true); setErro("")
     try {
       if (quickEdit && editandoId) {
-        // Modo edição rápida: só atualiza os campos editados
         await apiPut(`/trocas/${editandoId}`, {
-          tipo: form.tipo,
-          nome_produto: form.nome_produto || null,
-          produto_id: form.produto_id || null,
-          cliente_id: form.cliente_id || null,
-          cliente_nome: form.cliente_nome || null,
-          motivo: form.motivo || null,
+          tipo: form.tipo, nome_produto: form.nome_produto || null,
+          produto_id: form.produto_id || null, cliente_id: form.cliente_id || null,
+          cliente_nome: form.cliente_nome || null, motivo: form.motivo || null,
         })
         qc.invalidateQueries({ queryKey: ["trocas"] })
-        onSalvo()
-        return
+        onSalvo(); return
       }
       const res = await apiPost<{ id: number; credito_gerado?: number }>("/trocas", {
-        tipo: form.tipo,
-        nome_produto: form.nome_produto || null,
-        produto_id: form.produto_id || null,
-        cliente_nome: form.cliente_nome || null,
-        cliente_id: form.cliente_id || null,
-        motivo: form.motivo.trim(),
+        tipo: form.tipo, nome_produto: form.nome_produto || null,
+        produto_id: form.produto_id || null, cliente_nome: form.cliente_nome || null,
+        cliente_id: form.cliente_id || null, motivo: form.motivo.trim(),
         valor_produto: valorProduto ? parseFloat(valorProduto.replace(",", ".")) : null,
-        // Já salva como concluído — sem necessidade de aprovação (regra 1 e 2)
         status: "concluido",
       })
       qc.invalidateQueries({ queryKey: ["trocas"] })
-
-      // ── Envio automático do recibo (regra 5) ──────────────
       if (res.id && form.cliente_id) {
         try {
           const tipoRecibo = form.tipo === "devolucao" ? "Devolução" : "Troca"
           const pdfBlob = await gerarReciboPDF({
-            numero: res.id,
-            tipo: tipoRecibo as "Troca" | "Devolução",
+            numero: res.id, tipo: tipoRecibo as "Troca" | "Devolução",
             data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-            cliente_nome: form.cliente_nome || "Cliente",
-            cliente_celular: "",
-            itens: form.nome_produto ? [{
-              nome: form.nome_produto,
-              qtd: 1,
-              preco_unit: 0,
-              subtotal: 0,
-            }] : [],
-            forma_pagamento: "—",
-            total: 0,
+            cliente_nome: form.cliente_nome || "Cliente", cliente_celular: "",
+            itens: form.nome_produto ? [{ nome: form.nome_produto, qtd: 1, preco_unit: 0, subtotal: 0 }] : [],
+            forma_pagamento: "—", total: 0,
           })
           const arrayBuffer = await pdfBlob.arrayBuffer()
           const uint8 = new Uint8Array(arrayBuffer)
           let binary = ""
           for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
-          const base64 = btoa(binary)
-          apiPost("/trocas/recibo", { trocaId: res.id, pdfBase64: base64, reenviar: false }).catch(() => {})
-        } catch { /* Falha no PDF não cancela o registro */ }
+          apiPost("/trocas/recibo", { trocaId: res.id, pdfBase64: btoa(binary), reenviar: false }).catch(() => {})
+        } catch { /* Falha no PDF não cancela */ }
       }
-
       setSalvoOk(true)
       setTimeout(() => { setSalvoOk(false); onSalvo() }, 2200)
     } catch (err) {
       setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
-    }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
-  const TIPOS = ["troca", "devolucao"]
-
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (step === 1) {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault()
-        const cur = TIPOS.indexOf(form.tipo)
-        set("tipo", TIPOS[(cur + 1) % TIPOS.length])
-      } else if (e.key === "Enter") {
-        e.preventDefault(); go(2)
-      }
-      return
-    }
-    if (step === 2 && cliOpen && cliRes.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setCliIdx(i => Math.min(i + 1, cliRes.length - 1))
-        return
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setCliIdx(i => Math.max(i - 1, -1))
-        return
-      }
-      if (e.key === "Enter" && cliIdx >= 0) {
-        e.preventDefault()
-        const c = cliRes[cliIdx]
-        set("cliente_nome", c.nome); set("cliente_id", c.id)
-        setCliBusca(""); setCliOpen(false); setCliIdx(-1)
-        return
-      }
-    }
-    if (e.key === "Enter" && step < TOTAL && step !== 4 && step !== 5) { e.preventDefault(); advance() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, cliOpen, cliRes, cliIdx])
-
-  const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
-  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
   const cor = form.tipo === "troca" ? "#6366f1" : "#a855f7"
+  const iBase = "w-full px-3 py-2 text-sm rounded-xl outline-none transition-all border focus:border-[color:var(--accent)]"
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const lSt  = "block text-[10px] font-bold uppercase tracking-wider mb-1"
+  const lCol: React.CSSProperties = { color: "var(--text-muted)" }
 
   return (
     <>
@@ -555,353 +480,180 @@ function WizardTroca({ onClose, onSalvo, quickEdit, initialStep, inicial, editan
         className="relative w-full max-w-2xl flex flex-col rounded-3xl overflow-hidden shadow-2xl"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border)", maxHeight: "92vh" }}>
 
-      <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} />
+        <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-3">
-          <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
-          <span style={{ color: "var(--border-hover)" }}>|</span>
-          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-            {quickEdit ? "Editar" : "Registrar"} Troca / Devolução
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>{quickEdit ? "Edição rápida" : `${step} / ${TOTAL}`}</span>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-3 shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
+            <span style={{ color: "var(--border-hover)" }}>|</span>
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              {quickEdit ? "Editar" : "Registrar"} Troca / Devolução
+            </span>
+          </div>
           <button onClick={onClose}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--text-secondary)" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
             <X size={15} /> Cancelar
           </button>
         </div>
-      </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-hidden relative" style={{ minHeight: 0 }} onKeyDown={handleKey}>
-        <AnimatePresence custom={dir} mode="wait">
-          {step < TOTAL ? (
-            <motion.div key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className={cn(
-                "absolute inset-0 flex flex-col items-center px-6",
-                step === 4 ? "justify-start pt-5 overflow-hidden" : "justify-center overflow-y-auto py-8"
-              )}
-              style={step === 5 ? { maxHeight: "100%" } : undefined}>
-              <div className="w-full max-w-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base font-bold" style={{ color: cor }}>{step}</span>
-                  <ArrowRight size={14} style={{ color: cor }} />
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
+
+            {/* Tipo */}
+            <div>
+              <label className={lSt} style={lCol}>Tipo</label>
+              <div className="flex gap-3">
+                {[
+                  { value: "troca", label: "Troca 🔄", desc: "Trocar por outro produto" },
+                  { value: "devolucao", label: "Devolução ↩️", desc: "Devolver e reembolsar" },
+                ].map(op => (
+                  <button key={op.value} onClick={() => set("tipo", op.value)}
+                    className="flex-1 p-3 rounded-xl text-left transition-all border-2"
+                    style={{
+                      background: form.tipo === op.value ? "var(--accent-bg)" : "var(--bg-surface)",
+                      borderColor: form.tipo === op.value ? "var(--accent)" : "var(--border)",
+                    }}>
+                    <p className="text-sm font-bold uppercase" style={{ color: form.tipo === op.value ? "var(--accent)" : "var(--text-primary)" }}>{op.label}</p>
+                    <p className="text-[10px] uppercase mt-0.5" style={{ color: "var(--text-muted)" }}>{op.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Cliente | Produto */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lSt} style={lCol}>Cliente (opcional)</label>
+                <div className="relative">
+                  <input value={cliBusca !== "" ? cliBusca : form.cliente_nome}
+                    onChange={e => { setCliBusca(e.target.value); set("cliente_nome", e.target.value); if (form.cliente_id) set("cliente_id", null) }}
+                    onFocus={() => { if (cliRes.length) setCliOpen(true) }}
+                    onBlur={() => setTimeout(() => setCliOpen(false), 150)}
+                    placeholder="Buscar cliente..."
+                    className={iBase} style={iSt} autoComplete="off" />
+                  {cliLoading && <Loader2 size={13} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />}
+                  {form.cliente_id && !cliLoading && <Check size={13} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "#10b981" }} />}
+                  {cliOpen && cliRes.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-20 shadow-xl"
+                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                      {cliRes.map(c => (
+                        <button key={c.id} type="button"
+                          onMouseDown={() => { set("cliente_nome", c.nome); set("cliente_id", c.id); setCliBusca(""); setCliOpen(false) }}
+                          className="w-full text-left px-3 py-2 text-sm font-medium uppercase transition-colors"
+                          style={{ color: "var(--text-primary)" }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                          {c.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {/* Step 1 — Tipo */}
-                {step === 1 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Troca ou devolução?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Selecione o tipo de solicitação.</p>
-                  <div className="flex gap-3">
-                    {[
-                      { value: "troca", label: "Troca", emoji: "🔄", desc: "Trocar por outro produto" },
-                      { value: "devolucao", label: "Devolução", emoji: "↩️", desc: "Devolver e reembolsar" },
-                    ].map(op => (
-                      <motion.button key={op.value} onClick={() => { set("tipo", op.value); go(2) }}
-                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                        className="flex-1 p-5 rounded-2xl text-left transition-all border-2"
-                        style={{
-                          background: form.tipo === op.value ? "var(--accent-bg)" : "var(--bg-surface)",
-                          borderColor: form.tipo === op.value ? "var(--accent)" : "var(--border)",
-                          color: "var(--text-primary)",
-                        }}>
-                        <div className="text-3xl mb-2">{op.emoji}</div>
-                        <p className="font-bold uppercase">{op.label}</p>
-                        <p className="text-sm mt-1 uppercase" style={{ color: "var(--text-muted)" }}>{op.desc}</p>
-                      </motion.button>
-                    ))}
-                  </div>
-                </>}
-
-                {/* Step 2 — Cliente */}
-                {step === 2 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Nome do cliente?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Busque pelo nome cadastrado. O produto será filtrado pelas compras dele.</p>
-                  <div className="relative">
-                    <input ref={inputRef as React.RefObject<HTMLInputElement>}
-                      value={cliBusca !== "" ? cliBusca : form.cliente_nome}
-                      onChange={e => {
-                        setCliBusca(e.target.value); set("cliente_nome", e.target.value)
-                        if (form.cliente_id) set("cliente_id", null)
-                      }}
-                      onFocus={() => { if (cliRes.length) setCliOpen(true) }}
-                      onBlur={() => setTimeout(() => setCliOpen(false), 150)}
-                      placeholder="Nome, WhatsApp ou @Instagram..."
+              </div>
+              <div>
+                <label className={lSt} style={lCol}>Produto</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input value={prodBusca !== "" ? prodBusca : form.nome_produto}
+                      onChange={e => { setProdBusca(e.target.value); set("nome_produto", e.target.value); set("produto_id", null) }}
+                      onFocus={() => { if (prodRes.length) setProdOpen(true) }}
+                      onBlur={() => setTimeout(() => setProdOpen(false), 150)}
+                      placeholder="Buscar produto..."
                       className={iBase} style={iSt} autoComplete="off" />
-                    {cliLoading && <Loader2 size={16} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />}
-                    {form.cliente_id && !cliLoading && <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400" />}
-                    {cliOpen && cliRes.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden z-20 shadow-xl"
+                    {prodLoading && <Loader2 size={13} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />}
+                    {prodOpen && prodRes.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-20 shadow-xl"
                         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                        {cliRes.map((c, idx) => (
-                          <button key={c.id} type="button"
-                            onMouseDown={() => { set("cliente_nome", c.nome); set("cliente_id", c.id); setCliBusca(""); setCliOpen(false); setCliIdx(-1) }}
-                            onMouseEnter={() => setCliIdx(idx)}
-                            onMouseLeave={() => setCliIdx(-1)}
-                            className="w-full text-left px-4 py-3 text-sm font-medium uppercase transition-colors"
-                            style={{ color: "var(--text-primary)", background: cliIdx === idx ? "var(--bg-hover)" : "transparent" }}>
-                            {c.nome}
+                        {prodRes.map((p, idx) => (
+                          <button key={idx} type="button"
+                            onMouseDown={() => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setProdBusca(""); setProdOpen(false) }}
+                            className="w-full text-left px-3 py-2 text-sm font-medium uppercase transition-colors flex justify-between"
+                            style={{ color: "var(--text-primary)" }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                            <span>{p.nome}</span>
+                            {p.qtd_compras > 0 && <span className="text-xs ml-2 shrink-0" style={{ color: "var(--text-muted)" }}>{p.qtd_compras}×</span>}
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
                   {form.cliente_id && (
-                    <div className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
-                      style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)" }}>
-                      <Check size={15} style={{ color: "#10b981" }} />
-                      <p className="text-sm font-bold uppercase" style={{ color: "#10b981" }}>{form.cliente_nome}</p>
-                    </div>
+                    <button onClick={() => setModalProd(true)}
+                      className="flex items-center justify-center w-10 rounded-xl border transition-all shrink-0"
+                      style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: cor }}
+                      title="Ver todos os produtos comprados">
+                      <Search size={14} />
+                    </button>
                   )}
-                </>}
-
-                {/* Step 3 — Produto */}
-                {step === 3 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Qual produto?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                    {form.cliente_id
-                      ? <>Produtos comprados por <strong style={{ color: "var(--text-secondary)" }}>{form.cliente_nome}</strong>.</>
-                      : "Busque pelo nome do produto cadastrado."}
-                  </p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input ref={inputRef as React.RefObject<HTMLInputElement>}
-                        value={prodBusca !== "" ? prodBusca : form.nome_produto}
-                        onChange={e => { setProdBusca(e.target.value); set("nome_produto", e.target.value) }}
-                        onFocus={() => { if (prodRes.length) setProdOpen(true) }}
-                        onBlur={() => setTimeout(() => setProdOpen(false), 150)}
-                        placeholder="Digite para buscar..."
-                        className={iBase} style={iSt} autoComplete="off" />
-                      {prodLoading && <Loader2 size={16} className="animate-spin absolute right-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />}
-                      {prodOpen && prodRes.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 rounded-2xl overflow-hidden z-20 shadow-xl"
-                          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                          {prodRes.map((p, idx) => (
-                            <button key={idx} type="button"
-                              onMouseDown={() => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setProdBusca(""); setProdOpen(false) }}
-                              className="w-full text-left px-4 py-3 text-sm font-medium uppercase transition-colors flex items-center justify-between"
-                              style={{ color: "var(--text-primary)" }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                              <span>{p.nome}</span>
-                              {p.qtd_compras > 0 && <span className="text-xs font-mono ml-2 shrink-0" style={{ color: "var(--text-muted)" }}>{p.qtd_compras}× comprado</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {form.cliente_id && (
-                      <button onClick={() => setModalProd(true)}
-                        className="flex items-center justify-center w-14 h-[58px] rounded-2xl border-2 transition-all shrink-0"
-                        style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: cor }}
-                        title="Ver todos os produtos comprados pelo cliente"
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = cor }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)" }}>
-                        <Search size={20} />
-                      </button>
-                    )}
-                  </div>
-                  {form.cliente_id && (
-                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      🔍 Toque na lupa para ver todos os produtos comprados por este cliente.
-                    </p>
-                  )}
-                </>}
-
-                {/* Step 4 — Motivo (seletor inteligente) */}
-                {step === 4 && <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Qual o motivo?</h1>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Escolha o tópico e depois o motivo específico.</p>
-                    </div>
-                    {form.motivo && (
-                      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold max-w-[200px]"
-                        style={{ background: `${cor}18`, border: `1px solid ${cor}40`, color: cor }}>
-                        <Check size={11} />
-                        <span className="truncate">{form.motivo}</span>
-                      </motion.div>
-                    )}
-                  </div>
-                  <SeletorMotivo tipo={form.tipo} valor={form.motivo} onChange={v => set("motivo", v)} />
-                </>}
-
-                {/* Step 5 — Valor & Crédito */}
-                {step === 5 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Valor do produto</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                    Informe o valor pago pela cliente. Esse valor será gerado como crédito para uso em próximas compras.
-                  </p>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold select-none" style={{ color: "var(--text-muted)" }}>R$</span>
-                    <input
-                      value={valorProduto}
-                      onChange={e => { setValorProduto(e.target.value); setErro("") }}
-                      placeholder="0,00"
-                      inputMode="decimal"
-                      disabled={!form.cliente_id}
-                      className={`${iBase} pl-12 disabled:opacity-50 disabled:cursor-not-allowed`}
-                      style={iSt} />
-                  </div>
-                  {!form.cliente_id && (
-                    <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                      ℹ️ Selecione uma cliente (step 2) para gerar crédito.
-                    </p>
-                  )}
-                  {form.cliente_id && valorProduto && parseFloat(valorProduto.replace(",", ".")) > 0 && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 px-5 py-4 rounded-2xl flex items-center justify-between"
-                      style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.35)" }}>
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#10b981" }}>Crédito a gerar</p>
-                        <p className="text-2xl font-bold mt-0.5" style={{ color: "#10b981" }}>
-                          R$ {parseFloat(valorProduto.replace(",", ".")).toFixed(2).replace(".", ",")}
-                        </p>
-                      </div>
-                      <span className="text-2xl">✦</span>
-                    </motion.div>
-                  )}
-                  <p className="text-xs mt-4 opacity-60" style={{ color: "var(--text-muted)" }}>
-                    Deixe em branco para não gerar crédito agora.
-                  </p>
-                </>}
-
-                <AnimatePresence>
-                  {erro && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="mt-3 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
-                </AnimatePresence>
-
-                {step > 1 && (
-                  <div className="flex items-center gap-4 mt-8">
-                    <motion.button onClick={advance} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg disabled:opacity-50"
-                      style={{ background: "var(--accent)" }}>
-                      {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> :
-                       quickEdit ? <><Check size={14} /> Salvar alteração</> :
-                       <>Continuar <ArrowRight size={15} /></>}
-                    </motion.button>
-                    {!quickEdit && (
-                      <button onClick={() => go(step + 1)}
-                        className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                        Pular →
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-          ) : (
-            /* Revisão */
-            <motion.div key="revisao" custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-              {/* Sidebar */}
-              <div className="w-full md:w-64 shrink-0 flex flex-row md:flex-col items-center justify-between py-4 md:py-10 px-5 md:px-6 gap-4 md:gap-0"
-                style={{ background: cor }}>
-                <div className="flex flex-row md:flex-col items-center gap-4 md:text-center">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
-                      <RefreshCw size={22} color="#fff" className="md:hidden" />
-                      <RefreshCw size={32} color="#fff" className="hidden md:block" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center bg-white/90">
-                      <Check size={10} style={{ color: cor }} className="md:hidden" />
-                      <Check size={14} style={{ color: cor }} className="hidden md:block" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{form.tipo === "devolucao" ? "Devolução" : "Troca"}</p>
-                    <p className="text-xs md:text-sm text-white/80 mt-0.5 uppercase">{form.nome_produto || "—"}</p>
-                    <p className="text-xs mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.6)" }}>Revise antes de salvar</p>
-                  </div>
-                </div>
-                <div className="flex flex-row md:flex-col gap-2 md:w-full shrink-0">
-                  <button onClick={handleSalvar} disabled={saving}
-                    className="py-2.5 md:py-3 px-4 md:px-0 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 md:w-full"
-                    style={{ background: "#fff", color: cor }}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : "Registrar"}
-                  </button>
-                  <button onClick={onClose} className="py-2.5 px-4 md:px-0 rounded-2xl text-sm font-medium md:w-full"
-                    style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}>
-                    Cancelar
-                  </button>
                 </div>
               </div>
+            </div>
 
-              {/* Painel */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-10" style={{ background: "var(--bg-base)" }}>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest mb-6" style={{ color: "var(--text-muted)" }}>◎ Dados da Solicitação</h2>
-                {erro && <p className="mb-4 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>}
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Tipo",    value: form.tipo === "troca" ? "Troca 🔄" : "Devolução ↩️", s: 1 },
-                    { label: "Cliente", value: form.cliente_nome || "—", s: 2 },
-                    { label: "Produto", value: form.nome_produto || "—", s: 3 },
-                    { label: "Motivo",  value: form.motivo || "—", s: 4, full: true },
-                    {
-                      label: "Crédito a gerar",
-                      value: (valorProduto && parseFloat(valorProduto.replace(",", ".")) > 0)
-                        ? `✦ R$ ${parseFloat(valorProduto.replace(",", ".")).toFixed(2).replace(".", ",")}`
-                        : "Sem crédito",
-                      s: 5, full: false,
-                    },
-                  ].map(({ label, value, s, full }) => (
-                    <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}` }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
-                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
-                      <button onClick={() => go(s)} className="flex items-center gap-1 text-xs mt-1.5 transition-opacity"
-                        style={{ color: cor }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                        ✎ EDITAR
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            {/* Motivo */}
+            <div>
+              <label className={lSt} style={lCol}>Motivo *</label>
+              <SeletorMotivo tipo={form.tipo} valor={form.motivo} onChange={v => set("motivo", v)} />
+            </div>
+
+            {/* Valor do produto */}
+            <div>
+              <label className={lSt} style={lCol}>Valor do produto (opcional — gera crédito para a cliente)</label>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold"
+                  style={{ color: "var(--text-muted)" }}>R$</span>
+                <input value={valorProduto}
+                  onChange={e => setValorProduto(e.target.value)}
+                  placeholder="0,00" inputMode="decimal"
+                  disabled={!form.cliente_id}
+                  className={cn(iBase, "pl-9 disabled:opacity-50 disabled:cursor-not-allowed max-w-xs")} style={iSt} />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              {!form.cliente_id && (
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>Selecione uma cliente para gerar crédito.</p>
+              )}
+            </div>
 
-      {/* Footer */}
-      {step < TOTAL && step > 1 && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <button onClick={() => go(step - 1)}
-            className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
-            <ChevronLeft size={15} /> Voltar
-          </button>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Pressione <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>Enter</kbd> para avançar
-          </p>
+            {/* Error */}
+            {erro && <p className="text-sm" style={{ color: "#f87171" }}>{erro}</p>}
+          </div>
         </div>
-      )}
-      </motion.div>{/* inner card */}
-    </motion.div>{/* overlay */}
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-3 shrink-0"
+          style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={onClose}
+            className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+            Cancelar
+          </button>
+          <button onClick={handleSalvar} disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
+            style={{ background: cor }}>
+            {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> :
+             quickEdit ? <><Check size={14} /> Salvar alteração</> :
+             <><Check size={14} /> Registrar</>}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
 
     {/* Modal produtos comprados */}
     <AnimatePresence>
       {modalProd && form.cliente_id && (
         <ModalProdutosCliente
-          clienteId={form.cliente_id} clienteNome={form.cliente_nome} cor={cor}
-          onSelect={p => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setModalProd(false) }}
-          onClose={() => setModalProd(false)}
-        />
+          clienteId={form.cliente_id as number}
+          clienteNome={form.cliente_nome}
+          cor={cor}
+          onSelect={(p) => { set("nome_produto", p.nome); set("produto_id", p.produto_id); if (p.preco_unit > 0) setValorProduto(p.preco_unit.toFixed(2).replace(".", ",")); setModalProd(false) }}
+          onClose={() => setModalProd(false)} />
       )}
     </AnimatePresence>
     </>
@@ -1083,7 +835,6 @@ function DrawerVerTroca({
   )
 }
 
-// ─── Página ───────────────────────────────────────────────
 export default function TrocasPage() {
   const qc = useQueryClient()
   const [wizard, setWizard] = useState(false)

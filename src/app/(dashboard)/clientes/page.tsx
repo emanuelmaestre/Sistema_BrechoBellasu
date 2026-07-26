@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Plus, Search, UserX, UserCheck, Pencil, Loader2,
-  X, ChevronLeft, ChevronRight, ArrowRight, Check, MapPin, AlertCircle, CalendarDays,
+  X, ChevronRight, Check, MapPin, AlertCircle, CalendarDays,
   Phone, AtSign, FileText, Home, Power, ShoppingBag,
   Package, RefreshCw, Truck, Eye, Send, CheckCircle2, XCircle, Clock,
   Tag, Copy, Wallet, TrendingUp, TrendingDown, MessageCircle, Trash2, Camera, ShieldAlert,
@@ -17,7 +17,6 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
-import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
 import { camposFaltantesEnvio } from "@/lib/endereco-parser"
 import { fmtData, cn } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
@@ -1659,9 +1658,9 @@ function DrawerCliente({
   )
 }
 
-// ─── Wizard ───────────────────────────────────────────────
+// ─── Wizard (tela única, sem etapas) ─────────────────────
 function WizardCliente({
-  inicial, editandoId, onClose, onSalvo, quickEdit, initialStep,
+  inicial, editandoId, onClose, onSalvo, quickEdit,
 }: {
   inicial: ClienteForm | null
   editandoId: number | null
@@ -1671,32 +1670,17 @@ function WizardCliente({
   initialStep?: number
 }) {
   const qc = useQueryClient()
-  const [step, setStep]         = useState(initialStep ?? 1)
-  const [dir, setDir]           = useState(1)
   const [form, setForm]         = useState<ClienteForm>(inicial ?? EMPTY)
-  const [erro, setErro]         = useState("")
-  const [saving, setSaving]     = useState(false)
-  const [salvoOk, setSalvoOk]   = useState(false)
-  const [confete, setConfete]   = useState(false)
-  const [cepStatus, setCepStatus] = useState<CepStatus>(
-    inicial?.logradouro ? "encontrado" : "idle"
-  )
-  // Texto inicial do campo de endereço (ao editar um cliente já salvo).
-  const endTextoInicial = inicial?.logradouro
-    ? [inicial.logradouro, inicial.bairro, inicial.cidade, inicial.estado, inicial.cep].filter(Boolean).join(", ")
-    : ""
-  const [returnToRevisao, setReturnToRevisao] = useState(!!quickEdit)
+  const [erro, setErro]       = useState("")
+  const [saving, setSaving]   = useState(false)
+  const [salvoOk, setSalvoOk] = useState(false)
+  const [confete, setConfete] = useState(false)
+  const [cepLoading, setCepLoading] = useState(false)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const nomeRef = useRef<HTMLInputElement>(null)
 
-  // 10 steps: 1-Nome 2-Apelido 3-CPF 4-Nasc 5-Celular 6-Instagram 7-CEP 8-Endereço 9-Número/Compl 10-Revisão
-  const TOTAL = 10
-
-  useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 280)
-    return () => clearTimeout(t)
-  }, [step])
+  useEffect(() => { nomeRef.current?.focus() }, [])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -1704,65 +1688,36 @@ function WizardCliente({
     return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  function set(k: keyof ClienteForm, v: string) {
-    setForm(f => ({ ...f, [k]: v }))
-    setErro("")
-  }
+  function set(k: keyof ClienteForm, v: string) { setForm(f => ({ ...f, [k]: v })); setErro("") }
 
-  function go(next: number) {
-    setDir(next > step ? 1 : -1)
-    setStep(next)
-    setErro("")
-    if (next !== 5) { setWaStatus("idle"); if (waTimerRef.current) clearTimeout(waTimerRef.current) }
-  }
-
-  function selecionarEndereco(end: EnderecoEscolhido) {
-    setForm(f => ({
-      ...f,
-      cep:        end.cep,
-      logradouro: end.logradouro,
-      bairro:     end.bairro,
-      cidade:     end.cidade,
-      estado:     end.estado,
-      // Número e complemento vêm da própria frase digitada, quando houver.
-      ...(end.numero ? { numero: end.numero } : {}),
-      ...(end.complemento && !f.complemento ? { complemento: end.complemento } : {}),
-    }))
-    setCepStatus("encontrado")
-    setTimeout(() => go(8), 180)
-  }
-
-  function advanceCep() {
-    // O passo 8 já permite conferir e corrigir tudo, então nunca travamos
-    // a pessoa aqui — mesmo sem sugestão escolhida ela segue e preenche.
-    go(8)
-  }
-
-  function advance() {
-    if (step === 1 && form.nome.trim().length < 2) {
-      setErro("Nome deve ter pelo menos 2 caracteres")
-      return
-    }
-    // Step 3 = CPF/CNPJ: valida com o MESMO Value Object do servidor
-    // (fonte única de verdade). Vazio é permitido; inválido bloqueia.
-    if (step === 3 && form.cpf_cnpj.trim()) {
-      const r = CpfCnpj.criar(form.cpf_cnpj)
-      if (!r.ok) { setErro(r.error.message); return }
-    }
-    if (step === 7) { advanceCep(); return }
-    if (step === 9 && !form.numero.trim()) { setErro("Número é obrigatório."); return }
-    if (returnToRevisao) {
-      // Edição de endereço: steps 7→8→9 devem fluir em sequência antes de salvar
-      if (quickEdit && initialStep === 7 && step < 9) { go(step + 1); return }
-      if (quickEdit) { handleSalvar(); return }
-      setReturnToRevisao(false); go(TOTAL); return
-    }
-    if (step < TOTAL) go(step + 1)
+  async function buscarCep(cep: string) {
+    const digits = cep.replace(/\D/g, "")
+    if (digits.length !== 8) return
+    setCepLoading(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (!data.erro) {
+        setForm(f => ({
+          ...f,
+          cep:        digits,
+          logradouro: data.logradouro || f.logradouro,
+          bairro:     data.bairro     || f.bairro,
+          cidade:     data.localidade || f.cidade,
+          estado:     data.uf         || f.estado,
+        }))
+      }
+    } catch { /* silent */ }
+    finally { setCepLoading(false) }
   }
 
   async function handleSalvar() {
-    setSaving(true)
-    setErro("")
+    if (form.nome.trim().length < 2) { setErro("Nome deve ter pelo menos 2 caracteres"); return }
+    if (form.cpf_cnpj.trim()) {
+      const r = CpfCnpj.criar(form.cpf_cnpj)
+      if (!r.ok) { setErro(r.error.message); return }
+    }
+    setSaving(true); setErro("")
     try {
       const payload = {
         nome:        form.nome.trim().toUpperCase(),
@@ -1780,7 +1735,7 @@ function WizardCliente({
         estado:      form.estado      || null,
         entrega_cep:         form.entrega_cep         || null,
         entrega_logradouro:  form.entrega_logradouro  || null,
-        entrega_numero:      form.entrega_numero      || null,
+        entrega_numero:      form.entrega_numero       || null,
         entrega_complemento: form.entrega_complemento || null,
         entrega_bairro:      form.entrega_bairro      || null,
         entrega_cidade:      form.entrega_cidade      || null,
@@ -1793,57 +1748,30 @@ function WizardCliente({
         savedId = res.id
       }
       qc.invalidateQueries({ queryKey: ["clientes"] })
-      if (quickEdit) {
-        onSalvo(savedId)
-        return
-      }
-      // Celebração ✨
-      setSalvoOk(true)
-      setConfete(true)
+      if (quickEdit) { onSalvo(savedId); return }
+      setSalvoOk(true); setConfete(true)
       setTimeout(() => setConfete(false), 1200)
       setTimeout(() => { setSalvoOk(false); onSalvo(savedId) }, 2200)
     } catch (err) {
       setErro((err as Error).message || "Erro ao salvar. Tente novamente.")
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && step < TOTAL) { e.preventDefault(); advance() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, form, cepStatus, returnToRevisao])
-
-  const inputBase = `
-    w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2
-    focus:border-[color:var(--accent)]
-  `
-  const inputStyle: React.CSSProperties = {
-    background: "var(--bg-surface)",
-    borderColor: "var(--border)",
-    color: "var(--text-primary)",
-  }
-
-  const enderecoFormatado = [
-    form.logradouro,
-    form.numero      && `nº ${form.numero}`,
-    form.complemento,
-    form.bairro,
-    form.cidade && form.estado ? `${form.cidade} – ${form.estado}` : form.cidade || form.estado,
-    form.cep         && `CEP ${form.cep}`,
-  ].filter(Boolean).join(", ")
+  const iBase = "w-full px-3 py-2 text-sm rounded-xl outline-none transition-all border focus:border-[color:var(--accent)]"
+  const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const lSt  = "block text-[10px] font-bold uppercase tracking-wider mb-1"
+  const lCol: React.CSSProperties = { color: "var(--text-muted)" }
 
   return (
     <>
     <Confete show={confete} />
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[90] flex flex-col"
-      style={{ background: "var(--bg-base)" }}
-    >
+      style={{ background: "var(--bg-base)" }}>
       <SuccessOverlay show={salvoOk} titulo={editandoId ? "Cliente atualizado!" : "Cliente cadastrado!"} subtitulo={form.nome || ""} />
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0"
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: "var(--accent)" }}>Brechó Bellasu</span>
@@ -1852,426 +1780,171 @@ function WizardCliente({
             {editandoId ? "Editar Cliente" : "Novo Cliente"}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium tabular-nums" style={{ color: "var(--text-muted)" }}>
-            {step} / {TOTAL}
-          </span>
-          <button onClick={onClose}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-            <X size={15} /> Cancelar
-          </button>
-        </div>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          <X size={15} /> Cancelar
+        </button>
       </div>
 
-      {/* ── Conteúdo ── */}
-      <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
-        <AnimatePresence custom={dir} mode="wait">
+      {/* Form */}
+      <div className="flex-1 overflow-hidden flex items-center justify-center px-6 py-4">
+        <div className="w-full max-w-2xl space-y-3">
 
-          {/* Steps 1–6 */}
-          {step < TOTAL ? (
-            <motion.div key={step} custom={dir}
-              variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6"
-            >
-              <div className="w-full max-w-xl">
-                {/* Número */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base font-bold" style={{ color: "var(--accent)" }}>{step}</span>
-                  <ArrowRight size={14} style={{ color: "var(--accent)" }} />
-                </div>
+          {/* Nome */}
+          <div>
+            <label className={lSt} style={lCol}>Nome completo *</label>
+            <input ref={nomeRef} value={form.nome}
+              onChange={e => set("nome", e.target.value.toUpperCase())}
+              placeholder="MARIA APARECIDA SILVA"
+              className={iBase} style={{ ...iSt, textTransform: "uppercase" }} autoComplete="off" />
+          </div>
 
-                {/* ── Step 1: Nome ── */}
-                {step === 1 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Qual é o nome completo do cliente?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Este é o único campo obrigatório.</p>
-                    <input ref={inputRef} value={form.nome} onChange={e => set("nome", e.target.value.toUpperCase())}
-                      placeholder="EX: MARIA APARECIDA SILVA"
-                      className={inputBase} style={{ ...inputStyle, textTransform: "uppercase" }} autoComplete="off" />
-                  </>
+          {/* Apelido | CPF/CNPJ | Nascimento */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={lSt} style={lCol}>Apelido</label>
+              <input value={form.apelido} onChange={e => set("apelido", e.target.value.toUpperCase())}
+                placeholder="MARI, CIDA..." className={iBase} style={{ ...iSt, textTransform: "uppercase" }} autoComplete="off" />
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>CPF / CNPJ</label>
+              <input value={form.cpf_cnpj} onChange={e => set("cpf_cnpj", e.target.value)}
+                placeholder="000.000.000-00" className={iBase} style={iSt} autoComplete="off" />
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>Nascimento</label>
+              <DatePicker value={form.data_nasc} onChange={v => set("data_nasc", v)}
+                inputClassName={iBase}
+                max={new Date().toISOString().split("T")[0]}
+                textFirst />
+            </div>
+          </div>
+
+          {/* Celular | Instagram */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lSt} style={lCol}>Celular (WhatsApp)</label>
+              <div className="relative">
+                <input type="tel" value={form.celular}
+                  onChange={e => {
+                    set("celular", e.target.value)
+                    setWaStatus("idle")
+                    if (waTimerRef.current) clearTimeout(waTimerRef.current)
+                    const digits = e.target.value.replace(/\D/g, "")
+                    if (digits.length >= 10) {
+                      waTimerRef.current = setTimeout(async () => {
+                        setWaStatus("checking")
+                        try {
+                          const res = await apiPost<{ valido: boolean | null }>("/clientes/validar-whatsapp", { celular: e.target.value })
+                          setWaStatus(res.valido === true ? "ok" : res.valido === false ? "nok" : "erro")
+                        } catch { setWaStatus("erro") }
+                      }, 900)
+                    }
+                  }}
+                  placeholder="(16) 9 9999-9999"
+                  className={iBase} style={iSt} />
+                {waStatus !== "idle" && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {waStatus === "checking" && <Loader2 size={13} className="animate-spin" style={{ color: "var(--text-muted)" }} />}
+                    {waStatus === "ok"       && <CheckCircle2 size={13} style={{ color: "#25d366" }} />}
+                    {waStatus === "nok"      && <XCircle size={13} style={{ color: "#f87171" }} />}
+                    {waStatus === "erro"     && <AlertCircle size={13} style={{ color: "#fbbf24" }} />}
+                  </span>
                 )}
+              </div>
+            </div>
+            <div>
+              <label className={lSt} style={lCol}>Instagram</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold select-none"
+                  style={{ color: "var(--text-muted)" }}>@</span>
+                <input value={form.instagram}
+                  onChange={e => set("instagram", e.target.value.toUpperCase().replace(/^@/, ""))}
+                  placeholder="USUARIODACLIENTE"
+                  className={cn(iBase, "pl-7")} style={{ ...iSt, textTransform: "uppercase" }} autoComplete="off" />
+              </div>
+            </div>
+          </div>
 
-                {/* ── Step 2: Apelido ── */}
-                {step === 2 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Tem apelido?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      Como a cliente é conhecida na loja. Opcional.
-                    </p>
-                    <input ref={inputRef} value={form.apelido}
-                      onChange={e => set("apelido", e.target.value.toUpperCase())}
-                      placeholder="EX: MARI, CIDA, BETH..."
-                      className={inputBase} style={{ ...inputStyle, textTransform: "uppercase" }} autoComplete="off" />
-                  </>
-                )}
-
-                {/* ── Step 3: CPF/CNPJ ── */}
-                {step === 3 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      CPF ou CNPJ do cliente?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional. Usado para identificação fiscal.</p>
-                    <input ref={inputRef} value={form.cpf_cnpj} onChange={e => set("cpf_cnpj", e.target.value)}
-                      placeholder="00000000000"
-                      className={inputBase} style={inputStyle} autoComplete="off" />
-                  </>
-                )}
-
-                {/* ── Step 4: Nascimento ── */}
-                {step === 4 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Data de nascimento?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      Digite diretamente ou clique no{" "}
-                      <CalendarDays size={13} className="inline-block" style={{ color: "var(--accent)", verticalAlign: "middle" }} />{" "}
-                      para abrir o calendário.
-                    </p>
-                    <DatePicker value={form.data_nasc} onChange={v => set("data_nasc", v)}
-                      inputClassName={inputBase}
-                      max={new Date().toISOString().split("T")[0]}
-                      textFirst
-                      textInputRef={inputRef} />
-                  </>
-                )}
-
-                {/* ── Step 5: Celular ── */}
-                {step === 5 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Celular (WhatsApp)?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Com DDD. Usado para comunicados e confirmações.</p>
-                    <input ref={inputRef} type="tel" value={form.celular}
-                      onChange={e => {
-                        set("celular", e.target.value)
-                        setWaStatus("idle")
-                        if (waTimerRef.current) clearTimeout(waTimerRef.current)
-                        const digits = e.target.value.replace(/\D/g, "")
-                        if (digits.length >= 10) {
-                          waTimerRef.current = setTimeout(async () => {
-                            setWaStatus("checking")
-                            try {
-                              const res = await apiPost<{ valido: boolean | null }>("/clientes/validar-whatsapp", { celular: e.target.value })
-                              setWaStatus(res.valido === true ? "ok" : res.valido === false ? "nok" : "erro")
-                            } catch { setWaStatus("erro") }
-                          }, 900)
-                        }
-                      }}
-                      placeholder="(16) 9 9999-9999"
-                      className={inputBase} style={inputStyle} />
-                    {waStatus !== "idle" && (
-                      <div className="mt-3 flex items-center gap-2 text-sm">
-                        {waStatus === "checking" && <><Loader2 size={14} className="animate-spin" style={{ color: "var(--text-muted)" }} /><span style={{ color: "var(--text-muted)" }}>Verificando no WhatsApp…</span></>}
-                        {waStatus === "ok"       && <><CheckCircle2 size={14} style={{ color: "#25d366" }} /><span style={{ color: "#25d366" }}>Número encontrado no WhatsApp ✓</span></>}
-                        {waStatus === "nok"      && <><XCircle size={14} style={{ color: "#f87171" }} /><span style={{ color: "#f87171" }}>Número não encontrado no WhatsApp</span></>}
-                        {waStatus === "erro"     && <><AlertCircle size={14} style={{ color: "#fbbf24" }} /><span style={{ color: "#fbbf24" }}>Não foi possível verificar agora</span></>}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* ── Step 6: Instagram ── */}
-                {step === 6 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Instagram da cliente?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional. Usado para identificação nas lives e comunicação.</p>
-                    <div className="relative">
-                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold select-none"
-                        style={{ color: "var(--text-muted)" }}>@</span>
-                      <input ref={inputRef} value={form.instagram}
-                        onChange={e => set("instagram", e.target.value.toUpperCase().replace(/^@/, ""))}
-                        placeholder="USUARIODACLIENTE"
-                        className={cn(inputBase, "pl-12")} style={inputStyle} autoComplete="off" />
-                    </div>
-                  </>
-                )}
-
-                {/* ── Step 7: CEP ── */}
-                {step === 7 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Qual o endereço?
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      CEP, nome da rua, endereço completo com número ou complemento — buscamos automaticamente.
-                    </p>
-
-                    <EnderecoAutocomplete
-                      inputRef={inputRef}
-                      textoInicial={endTextoInicial}
-                      inputClassName={inputBase}
-                      inputStyle={inputStyle}
-                      confirmado={cepStatus === "encontrado"}
-                      onSelecionar={selecionarEndereco}
-                      onEditar={() => setCepStatus("idle")}
-                    />
-
-                    <AnimatePresence>
-                      {cepStatus === "encontrado" && (
-                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="mt-4 flex items-start gap-3 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
-                          <MapPin size={16} className="mt-0.5 shrink-0" style={{ color: "#10b981" }} />
-                          <div>
-                            <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                              {[form.logradouro, form.bairro].filter(Boolean).join(", ")}
-                            </p>
-                            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                              {[form.cidade, form.estado].filter(Boolean).join(" – ")} · Você poderá editar na próxima etapa
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </>
-                )}
-
-                {/* ── Step 8: Endereço (conferência + edição) ── */}
-                {step === 8 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Confirme o endereço
-                    </h1>
-                    <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-                      {cepStatus === "encontrado"
-                        ? "Confira o endereço encontrado e edite se necessário."
-                        : "Preencha o endereço manualmente."}
-                    </p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>
-                          Logradouro *
-                        </p>
-                        <input ref={inputRef} value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
-                          placeholder="Rua, Avenida, Travessa..."
-                          className={inputBase} style={inputStyle} autoComplete="off" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Bairro</p>
-                          <input value={form.bairro} onChange={e => set("bairro", e.target.value)}
-                            placeholder="Bairro"
-                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} autoComplete="off" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Cidade</p>
-                          <input value={form.cidade} onChange={e => set("cidade", e.target.value)}
-                            placeholder="Cidade"
-                            className={cn(inputBase, "!text-base !py-3")} style={inputStyle} autoComplete="off" />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Estado (UF)</p>
-                        <input value={form.estado} onChange={e => set("estado", e.target.value.toUpperCase())}
-                          placeholder="SP" maxLength={2}
-                          className={cn(inputBase, "!text-base !py-3 !w-24")} style={inputStyle} autoComplete="off" />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* ── Step 9: Número e Complemento ── */}
-                {step === 9 && (
-                  <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                      Número e complemento?
-                    </h1>
-                    <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
-                      {form.logradouro
-                        ? <span style={{ color: "var(--text-secondary)" }}>{form.logradouro}{form.bairro ? `, ${form.bairro}` : ""}</span>
-                        : "Apto, casa, bloco, etc."}
-                    </p>
-                    <p className="text-xs mb-6" style={{ color: "var(--text-muted)" }}>Número obrigatório · Complemento opcional</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
-                          Número *
-                        </p>
-                        <input ref={inputRef} value={form.numero} onChange={e => set("numero", e.target.value)}
-                          placeholder="EX: 123"
-                          className={inputBase}
-                          style={{ ...inputStyle, borderColor: erro && !form.numero.trim() ? "#f87171" : "var(--border)" }}
-                          autoComplete="off" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
-                          Complemento <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(opcional)</span>
-                        </p>
-                        <input value={form.complemento} onChange={e => set("complemento", e.target.value)}
-                          placeholder="APTO, CASA, BLOCO..."
-                          className={inputBase} style={inputStyle} autoComplete="off" />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Erro */}
-                <AnimatePresence>
-                  {erro && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="mt-3 text-sm" style={{ color: "#f87171" }}>
-                      {erro}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-
-                {/* Botões de ação */}
-                <div className="flex items-center gap-4 mt-8">
-                  <button onClick={advance} disabled={cepStatus === "buscando"}
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
-                    style={{ background: "var(--accent)" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85" }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                    {cepStatus === "buscando" ? <><Loader2 size={14} className="animate-spin" /> Buscando...</> :
-                     saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> :
-                     quickEdit && returnToRevisao ? <><Check size={14} /> Salvar alteração</> :
-                     step === 1 ? <>OK, continuar <ArrowRight size={15} /></> :
-                     <>Continuar <ArrowRight size={15} /></>}
-                  </button>
-                  {step > 1 && cepStatus !== "buscando" && (
-                    <button onClick={() => { if (returnToRevisao) { setReturnToRevisao(false); go(TOTAL) } else go(step + 1) }}
-                      className="text-sm font-medium transition-colors"
-                      style={{ color: "var(--text-muted)" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                      {returnToRevisao ? "← Voltar ao resumo" : "Pular →"}
-                    </button>
-                  )}
+          {/* Endereço */}
+          <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Endereço</p>
+            <div className="grid grid-cols-[100px_1fr_90px_130px] gap-2">
+              <div>
+                <label className={lSt} style={lCol}>CEP</label>
+                <div className="relative">
+                  <input value={form.cep} maxLength={9}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, "")
+                      set("cep", v)
+                      if (v.length === 8) buscarCep(v)
+                    }}
+                    placeholder="00000000"
+                    className={iBase} style={iSt} />
+                  {cepLoading && <Loader2 size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin" style={{ color: "var(--text-muted)" }} />}
                 </div>
               </div>
-            </motion.div>
-
-          ) : (
-            /* ── Step 10: Revisão ── */
-            <motion.div key="revisao" custom={dir}
-              variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden"
-            >
-              {/* Sidebar */}
-              <div className="w-full md:w-64 shrink-0 flex flex-row md:flex-col items-center justify-between py-4 md:py-10 px-5 md:px-6 gap-4 md:gap-0"
-                style={{ background: "var(--accent)" }}>
-                <div className="flex flex-row md:flex-col items-center gap-4 md:text-center">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-xl md:text-2xl font-bold"
-                      style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>
-                      {form.nome?.[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center bg-emerald-500">
-                      <Check size={10} color="#fff" className="md:hidden" />
-                      <Check size={14} color="#fff" className="hidden md:block" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{form.nome || "—"}</p>
-                    <p className="text-xs mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.6)" }}>
-                      Revise os dados antes de salvar
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-row md:flex-col gap-2 md:w-full shrink-0">
-                  <button onClick={handleSalvar} disabled={saving}
-                    className="py-2.5 md:py-3 px-4 md:px-0 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60 md:w-full"
-                    style={{ background: "#fff", color: "var(--accent)" }}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : "Salvar"}
-                  </button>
-                  <button onClick={onClose}
-                    className="py-2.5 px-4 md:px-0 rounded-2xl text-sm font-medium md:w-full"
-                    style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}>
-                    Cancelar
-                  </button>
-                </div>
+              <div>
+                <label className={lSt} style={lCol}>Logradouro</label>
+                <input value={form.logradouro} onChange={e => set("logradouro", e.target.value)}
+                  placeholder="Rua, Av, Travessa..." className={iBase} style={iSt} autoComplete="off" />
               </div>
-
-              {/* Painel revisão */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-10" style={{ background: "var(--bg-base)" }}>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest mb-6"
-                  style={{ color: "var(--text-muted)" }}>
-                  ◎ Dados do Cliente
-                </h2>
-
-                {erro && (
-                  <p className="mb-4 text-sm px-4 py-2 rounded-xl"
-                    style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>
-                    {erro}
-                  </p>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Nome",       value: form.nome || "—",                                 s: 1, full: true },
-                    { label: "Apelido",    value: form.apelido || "—",                              s: 2             },
-                    { label: "CPF / CNPJ", value: form.cpf_cnpj || "—",                            s: 3             },
-                    { label: "Nascimento", value: form.data_nasc ? fmtData(form.data_nasc) : "—",   s: 4             },
-                    { label: "Celular",    value: form.celular || "—",                               s: 5             },
-                    { label: "Instagram",  value: form.instagram ? `@${form.instagram.replace(/^@/, "")}` : "—",      s: 6             },
-                    { label: "Endereço",   value: enderecoFormatado || "—",                          s: 7, full: true },
-                  ].map(({ label, value, s, full }) => (
-                    <div key={label}
-                      className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        borderLeft: "3px solid var(--accent)",
-                      }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>
-                        {label}
-                      </p>
-                      <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{value}</p>
-                      <button onClick={() => { setReturnToRevisao(true); go(s) }}
-                        className="flex items-center gap-1 text-xs mt-1.5 font-semibold uppercase tracking-wide transition-opacity"
-                        style={{ color: "var(--accent)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                        <Pencil size={9} /> EDITAR
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
+              <div>
+                <label className={lSt} style={lCol}>Número</label>
+                <input value={form.numero} onChange={e => set("numero", e.target.value)}
+                  placeholder="123" className={iBase} style={iSt} autoComplete="off" />
               </div>
-            </motion.div>
+              <div>
+                <label className={lSt} style={lCol}>Complemento</label>
+                <input value={form.complemento} onChange={e => set("complemento", e.target.value)}
+                  placeholder="Apto, Casa..." className={iBase} style={iSt} autoComplete="off" />
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_160px_72px] gap-2">
+              <div>
+                <label className={lSt} style={lCol}>Bairro</label>
+                <input value={form.bairro} onChange={e => set("bairro", e.target.value)}
+                  placeholder="Bairro" className={iBase} style={iSt} autoComplete="off" />
+              </div>
+              <div>
+                <label className={lSt} style={lCol}>Cidade</label>
+                <input value={form.cidade} onChange={e => set("cidade", e.target.value)}
+                  placeholder="Ribeirão Preto" className={iBase} style={iSt} autoComplete="off" />
+              </div>
+              <div>
+                <label className={lSt} style={lCol}>UF</label>
+                <input value={form.estado} onChange={e => set("estado", e.target.value.toUpperCase())}
+                  placeholder="SP" maxLength={2} className={iBase} style={iSt} autoComplete="off" />
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {erro && (
+            <p className="text-sm" style={{ color: "#f87171" }}>{erro}</p>
           )}
-        </AnimatePresence>
+        </div>
       </div>
 
-      {/* ── Footer ── */}
-      {step < TOTAL && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0"
-          style={{ borderTop: "1px solid var(--border)" }}>
-          {step > 1 ? (
-            <button onClick={() => go(step - 1)}
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
-              <ChevronLeft size={15} /> Voltar
-            </button>
-          ) : <span />}
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Pressione{" "}
-            <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-              Enter
-            </kbd>{" "}
-            para avançar
-          </p>
-        </div>
-      )}
+      {/* Footer */}
+      <div className="flex items-center justify-end gap-3 px-6 py-3 shrink-0"
+        style={{ borderTop: "1px solid var(--border)" }}>
+        <button onClick={onClose}
+          className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          Cancelar
+        </button>
+        <button onClick={handleSalvar} disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
+          style={{ background: "var(--accent)" }}>
+          {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> : <><Check size={14} /> Salvar cliente</>}
+        </button>
+      </div>
     </motion.div>
     </>
   )

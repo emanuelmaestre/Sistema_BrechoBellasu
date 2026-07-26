@@ -44,9 +44,9 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 
 // ─── Card ──────────────────────────────────────────────────
 function ModuleCard({
-  href, label, icon: Icon, color, glow, delay, onNavigate,
+  href, label, desc, icon: Icon, color, glow, delay, onNavigate,
 }: {
-  href: string; label: string; icon: React.ElementType
+  href: string; label: string; desc: string; icon: React.ElementType
   color: string; glow: string; delay: number
   onNavigate: (href: string, color: string) => void
 }) {
@@ -57,14 +57,14 @@ function ModuleCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ scale: 1.018, y: -2 }}
+      whileHover={{ scale: 1.016, y: -1 }}
       whileTap={{ scale: 0.97 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       onClick={() => onNavigate(href, color)}
       className="relative flex items-center w-full h-full
                  gap-2 px-2.5 py-0 rounded-xl
-                 sm:gap-3 sm:px-4
+                 sm:gap-3 sm:px-3
                  lg:gap-4 lg:px-5 lg:rounded-2xl
                  text-left overflow-hidden"
       style={{
@@ -91,35 +91,40 @@ function ModuleCard({
 
       {/* Ícone */}
       <motion.div
-        animate={{ scale: hovered ? 1.12 : 1 }}
+        animate={{ scale: hovered ? 1.1 : 1 }}
         transition={{ duration: 0.22 }}
-        className="shrink-0 relative z-10 flex items-center justify-center rounded-xl sm:rounded-2xl
-                   w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14"
+        className="shrink-0 relative z-10 flex items-center justify-center rounded-lg sm:rounded-xl lg:rounded-2xl
+                   w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12"
         style={{ background: `${color}18`, border: `1.5px solid ${color}40` }}
       >
         <Icon
-          className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7"
+          className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6"
           style={{ color }}
         />
       </motion.div>
 
       {/* Texto */}
       <div className="flex-1 min-w-0 relative z-10">
-        <p className="font-black tracking-wide truncate uppercase
-                      text-sm sm:text-base lg:text-lg leading-tight"
+        <p className="font-black tracking-wide truncate uppercase leading-tight
+                      text-xs sm:text-sm lg:text-base"
           style={{ color: hovered ? color : "var(--text-primary)", transition: "color 0.2s" }}>
           {label}
         </p>
+        <p className="truncate leading-tight mt-0.5 hidden sm:block
+                      text-[10px] lg:text-[11px]"
+          style={{ color: "var(--text-muted)" }}>
+          {desc}
+        </p>
       </div>
 
-      {/* Seta — só em desktop */}
+      {/* Seta — só em lg+ */}
       <motion.div
         animate={{ x: hovered ? 0 : 5, opacity: hovered ? 1 : 0 }}
         transition={{ duration: 0.18 }}
         className="hidden lg:block shrink-0 relative z-10"
         style={{ color }}
       >
-        <ArrowRight size={15} />
+        <ArrowRight size={14} />
       </motion.div>
 
       {/* Linha inferior */}

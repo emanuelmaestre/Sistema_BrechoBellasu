@@ -382,55 +382,42 @@ function PixCopiarChave({ chave, payload }: { chave: string; payload?: string })
   )
 }
 
+// ─── Wizard Nova Venda (tela única) ───────────────────────
 function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => void; onSalvo: () => void; initialCliente?: Cliente | null }) {
   const router = useRouter()
-  const [step, setStep]           = useState(1)
-  const [dir, setDir]             = useState(1)
   const [erro, setErro]           = useState("")
   const [saving, setSaving]       = useState(false)
   const [salvoOk, setSalvoOk]     = useState(false)
   const [pixModal, setPixModal]   = useState(false)
 
-  // Step 1 — cliente
-  const [clienteId, setClienteId] = useState<number | null>(null)
+  // Cliente
+  const [clienteId, setClienteId]         = useState<number | null>(null)
   const [clienteNome, setClienteNome]     = useState("")
   const [clienteCelular, setClienteCelular] = useState<string | null>(null)
-  const [cliBusca, setCliBusca]   = useState("")
-  const [cliRes, setCliRes]       = useState<Cliente[]>([])
+  const [cliBusca, setCliBusca]           = useState("")
+  const [cliRes, setCliRes]               = useState<Cliente[]>([])
+  const [saldoCredito, setSaldoCredito]   = useState(0)
 
-  // Step 2 — produtos
-  const [itens, setItens]         = useState<WizItem[]>([])
+  // Produtos
+  const [itens, setItens]     = useState<WizItem[]>([])
   const [prodBusca, setProdBusca] = useState("")
   const [prodRes, setProdRes]     = useState<Produto[]>([])
 
-  // Step 3 — pagamento (multi-select)
-  const [formas, setFormas]       = useState<string[]>(["Dinheiro"])
-  const [saldoCredito, setSaldoCredito] = useState(0)
+  // Pagamento
+  const [formas, setFormas]   = useState<string[]>(["Dinheiro"])
+  const [divisao, setDivisao] = useState<Record<string, number>>({})
+  const [desconto, setDesconto] = useState("")
+  const [obs, setObs]           = useState("")
 
-  // Step 4 — divisão do pagamento (só quando formas.length > 1)
-  const [divisao, setDivisao]     = useState<Record<string, number>>({})
+  const cliRef  = useRef<HTMLInputElement>(null)
+  const prodRef = useRef<HTMLInputElement>(null)
 
-  // Step 5 — desconto
-  const [desconto, setDesconto]   = useState("")
-
-  // Step 6 — observações
-  const [obs, setObs]             = useState("")
-
-  const inputRef   = useRef<HTMLInputElement>(null)
-  const obsRef     = useRef<HTMLTextAreaElement>(null)
-  const TOTAL = 7
+  useEffect(() => { cliRef.current?.focus() }, [])
 
   useEffect(() => {
-    if (initialCliente) {
-      selecionarCliente(initialCliente)
-    }
+    if (initialCliente) selecionarCliente(initialCliente)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 280)
-    return () => clearTimeout(t)
-  }, [step])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -466,48 +453,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
   function adicionarProduto(p: Produto) {
     setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, codigo_produto: (p as { codigo?: string | null }).codigo ?? null, quantidade: 1, preco_unitario: p.preco_venda ?? 0, marca: (p as { marca?: string }).marca ?? null }])
     setProdBusca(""); setProdRes([])
+    setTimeout(() => prodRef.current?.focus(), 50)
   }
-
-  const { hi: cliHi, onKeyDown: cliDropKeyDown, reset: resetCliHi } = useDropdownKeyNav(cliRes, selecionarCliente)
-  const { hi: prodHi, onKeyDown: prodDropKeyDown, reset: resetProdHi } = useDropdownKeyNav(prodRes, adicionarProduto)
-
-  // Step 3 — keyboard nav para grade 2 colunas de formas de pagamento
-  const COLS = 2
-  const [formaIdx, setFormaIdx] = useState(0)
-
-  function toggleForma(f: string) {
-    setFormas(prev => prev.includes(f) ? (prev.length > 1 ? prev.filter(x => x !== f) : prev) : [...prev, f])
-  }
-
-  useEffect(() => {
-    if (step !== 3) return
-    function handlePayKey(e: KeyboardEvent) {
-      const len  = FORMAS.length
-      const cols = COLS
-      if (e.key === "ArrowRight") {
-        e.preventDefault()
-        setFormaIdx(i => (i + 1) % len)
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        setFormaIdx(i => (i - 1 + len) % len)
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setFormaIdx(i => Math.min(i + cols, len - 1))
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setFormaIdx(i => Math.max(i - cols, 0))
-      } else if (e.key === " ") {
-        e.preventDefault()
-        toggleForma(FORMAS[formaIdx])
-      } else if (e.key === "Enter") {
-        e.preventDefault()
-        advance()
-      }
-    }
-    document.addEventListener("keydown", handlePayKey)
-    return () => document.removeEventListener("keydown", handlePayKey)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, formaIdx])
 
   function adicionarManual() {
     if (!prodBusca.trim()) return
@@ -517,38 +464,32 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   function removerItem(i: number) { setItens(prev => prev.filter((_, idx) => idx !== i)) }
 
-  function go(next: number) { setDir(next > step ? 1 : -1); setStep(next); setErro("") }
-
-  function advance() {
-    if (step === 2 && itens.length === 0) { setErro("Adicione pelo menos um produto"); return }
-    if (step === 3) { go(4); return }
-    if (step === 4) {
-      // Desconto vem antes da divisão de pagamento — assim quem paga só em
-      // crédito (ou distribui entre formas depois) já vê o total correto.
-      if (formas.length === 1 && formas[0] === "Crédito" && totalFinal > saldoCredito) {
-        setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
-      }
-      go(formas.length > 1 ? 5 : 6); return
-    }
-    if (step === 5) {
-      const soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
-      const diff = soma - totalFinal
-      if (Math.abs(diff) > 0.01) {
-        setErro(diff < 0 ? `Falta distribuir ${fmtBRL(totalFinal - soma)}` : `Soma ultrapassa o total em ${fmtBRL(diff)}`); return
-      }
-      if (formas.includes("Crédito") && (divisao["Crédito"] ?? 0) > saldoCredito) {
-        setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
-      }
-      go(6); return
-    }
-    if (step < TOTAL) go(step + 1)
+  function toggleForma(f: string) {
+    setFormas(prev => prev.includes(f) ? (prev.length > 1 ? prev.filter(x => x !== f) : prev) : [...prev, f])
   }
+
+  const { hi: cliHi, onKeyDown: cliDropKeyDown, reset: resetCliHi } = useDropdownKeyNav(cliRes, selecionarCliente)
+  const { hi: prodHi, onKeyDown: prodDropKeyDown, reset: resetProdHi } = useDropdownKeyNav(prodRes, adicionarProduto)
 
   const descontoVal = parseFloat(desconto.replace(",", ".")) || 0
   const totalBruto  = itens.reduce((s, it) => s + it.preco_unitario * it.quantidade, 0)
   const totalFinal  = Math.max(0, totalBruto - descontoVal)
 
+  // Divisão
+  const divisaoSoma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
+  const divisaoDiff = parseFloat((divisaoSoma - totalFinal).toFixed(2))
+  const divisaoOk   = formas.length <= 1 || (
+    Math.abs(divisaoDiff) <= 0.01 &&
+    formas.every(f => (divisao[f] ?? 0) > 0) &&
+    (!formas.includes("Crédito") || (divisao["Crédito"] ?? 0) <= saldoCredito)
+  )
+
   async function handleSalvar() {
+    if (itens.length === 0) { setErro("Adicione pelo menos um produto"); return }
+    if (formas.length > 1 && !divisaoOk) { setErro("Distribua o pagamento antes de salvar"); return }
+    if (formas.length === 1 && formas[0] === "Crédito" && totalFinal > saldoCredito) {
+      setErro(`Crédito insuficiente. Disponível: ${fmtBRL(saldoCredito)}`); return
+    }
     setSaving(true); setErro("")
     try {
       let creditoUsarVal = 0
@@ -564,23 +505,14 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
         credito_usar: creditoUsarVal > 0 ? creditoUsarVal : undefined,
       })
 
-      // ── Envio automático do recibo (regra 2) ──────────────
-      // Só tenta se tem cliente selecionado (para ter celular)
       if (res.id && clienteId) {
         try {
           const pdfBlob = await gerarReciboPDF({
-            numero: res.id,
-            tipo: "Venda",
+            numero: res.id, tipo: "Venda",
             data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
             cliente_nome: clienteNome || "Cliente",
             cliente_celular: clienteCelular ?? "",
-            itens: itens.map(it => ({
-              nome: it.nome_produto,
-              qtd: it.quantidade,
-              preco_unit: it.preco_unitario,
-              subtotal: it.preco_unitario * it.quantidade,
-              marca: it.marca ?? null,
-            })),
+            itens: itens.map(it => ({ nome: it.nome_produto, qtd: it.quantidade, preco_unit: it.preco_unitario, subtotal: it.preco_unitario * it.quantidade, marca: it.marca ?? null })),
             forma_pagamento: formas.join(" + "),
             desconto: descontoVal,
             total: totalFinal,
@@ -590,9 +522,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
           let binary = ""
           for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i])
           const base64 = btoa(binary)
-          // Não bloqueia — dispara em background, não espera
           apiPost(`/vendas/${res.id}/recibo`, { pdfBase64: base64, reenviar: false }).catch(() => {})
-        } catch { /* Falha no PDF não cancela a venda */ }
+        } catch { /* PDF failure doesn't cancel the sale */ }
       }
 
       setSalvoOk(true)
@@ -602,772 +533,383 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
     } finally { setSaving(false) }
   }
 
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && step < TOTAL && step !== 2) {
-      if (step === 6 && document.activeElement === obsRef.current && obs.trim() !== "") return
-      e.preventDefault(); advance()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, itens, formas, obs, divisao, saldoCredito, totalFinal])
-
-  const iBase = "w-full px-5 py-4 text-lg rounded-2xl outline-none transition-all border-2 focus:border-[color:var(--accent)]"
+  const iBase = "w-full px-3 py-2 text-sm rounded-xl outline-none transition-all border focus:border-[color:var(--accent)]"
   const iSt: React.CSSProperties = { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+  const lSt  = "block text-[10px] font-bold uppercase tracking-wider mb-1"
+  const lCol: React.CSSProperties = { color: "var(--text-muted)" }
+
+  // PIX
+  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "+5516991347476"
+  const temPix   = formas.some(f => f.toUpperCase().includes("PIX"))
+  const valorPix = formas.length === 1 ? totalFinal : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
+  const pixPayload = temPix ? gerarPixPayload({ chave: pixChave, nome: "Brecho Bellasu", cidade: "Ribeirao Preto", valor: valorPix > 0 ? valorPix : undefined }) : ""
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-base)" }}>
+      <SuccessOverlay show={salvoOk} titulo="Venda registrada!" subtitulo={clienteNome || "Consumidor Final"} />
 
-      <SuccessOverlay show={salvoOk} titulo="Venda registrada!" subtitulo={clienteNome || "Sem cliente"} />
-
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0"
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-sm" style={{ color: COR }}>Brechó Bellasu</span>
           <span style={{ color: "var(--border-hover)" }}>|</span>
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Nova Venda</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>
-            {step > 4 && formas.length === 1 ? step - 1 : step} / {formas.length > 1 ? TOTAL : TOTAL - 1}
-          </span>
-          <button onClick={onClose}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-            <X size={15} /> Cancelar
-          </button>
-        </div>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+          <X size={15} /> Cancelar
+        </button>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 overflow-hidden relative" onKeyDown={handleKey}>
-        <AnimatePresence custom={dir} mode="wait">
+      {/* Body — 2 columns */}
+      <div className="flex-1 overflow-hidden flex gap-0">
 
-          {step < TOTAL ? (
-            <motion.div key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-6 overflow-y-auto py-10">
-              <div className="w-full max-w-xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-base font-bold" style={{ color: COR }}>{step}</span>
-                  <ArrowRight size={14} style={{ color: COR }} />
-                </div>
+        {/* ── Col esquerda: Cliente + Produtos ── */}
+        <div className="flex-1 flex flex-col gap-3 p-5 overflow-y-auto border-r" style={{ borderColor: "var(--border)" }}>
 
-                {/* ── Step 1: Cliente ── */}
-                {step === 1 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Buscar cliente?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco para Consumidor Final.</p>
-                  <div className="relative">
-                    <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-                    <input
-                      ref={inputRef}
-                      value={cliBusca}
-                      onChange={e => { buscarClientes(e.target.value); resetCliHi() }}
-                      onKeyDown={cliDropKeyDown}
-                      placeholder="Nome, CPF, WhatsApp ou @Instagram"
-                      className={cn(iBase, "pl-12")} style={iSt} autoComplete="off" />
-                  </div>
-                  {cliRes.length > 0 && (
-                    <div className="mt-2 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                      {cliRes.map((c, idx) => (
-                        <button key={c.id} onClick={() => selecionarCliente(c)}
-                          className="w-full px-4 py-3 text-left transition-colors"
-                          style={{ borderBottom: "1px solid var(--border)", background: cliHi === idx ? "var(--accent-bg)" : "transparent", color: cliHi === idx ? "var(--accent)" : "inherit" }}
-                          onMouseEnter={e => { if (cliHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                          onMouseLeave={e => { if (cliHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                          <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{c.nome}</p>
-                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular ?? "Sem WhatsApp"}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {clienteId && (
-                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-3 px-4 py-3 rounded-2xl flex items-center gap-3"
-                      style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)" }}>
-                      <Check size={15} style={{ color: COR }} />
-                      <p className="text-sm font-bold uppercase" style={{ color: COR }}>{clienteNome}</p>
-                    </motion.div>
-                  )}
-
-                  {/* Atalho para cadastrar novo cliente quando sem resultado */}
-                  <AnimatePresence>
-                    {cliBusca.length >= 2 && cliRes.length === 0 && !clienteId && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                        transition={{ duration: 0.2 }}
-                        className="mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl"
-                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                        <div className="flex items-center gap-3">
-                          <motion.div
-                            initial={{ scale: 0 }} animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ background: "var(--accent-bg)" }}>
-                            <UserPlus size={16} style={{ color: "var(--accent)" }}/>
-                          </motion.div>
-                          <div>
-                            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                              Nenhum resultado para <span style={{ color: "var(--accent)" }}>&ldquo;{cliBusca}&rdquo;</span>
-                            </p>
-                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cliente nova? Cadastre agora e volte para continuar.</p>
-                          </div>
-                        </div>
-                        <motion.button
-                          onClick={() => router.push(`/clientes?novo=1&from=vendas&nome=${encodeURIComponent(cliBusca)}`)}
-                          whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide text-white shrink-0 shadow-md"
-                          style={{ background: COR }}>
-                          <UserPlus size={12}/> Cadastrar
-                        </motion.button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </>}
-
-                {/* ── Step 2: Produtos ── */}
-                {step === 2 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Quais produtos?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Busque ou adicione manualmente.</p>
-                  <div className="relative mb-3">
-                    <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-                    <input
-                      ref={inputRef}
-                      value={prodBusca}
-                      onChange={e => { buscarProdutos(e.target.value); resetProdHi() }}
-                      onKeyDown={prodDropKeyDown}
-                      placeholder="Buscar produto por nome"
-                      className={cn(iBase, "pl-12 !text-base !py-3")} style={iSt} autoComplete="off" />
-                  </div>
-                  {(prodRes.length > 0 || prodBusca.length >= 2) && (
-                    <div className="mb-3 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                      {prodRes.map((p, idx) => (
-                        <button key={p.id} onClick={() => adicionarProduto(p)}
-                          className="w-full px-4 py-3 text-left transition-colors"
-                          style={{ borderBottom: "1px solid var(--border)", background: prodHi === idx ? "var(--accent-bg)" : "transparent" }}
-                          onMouseEnter={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                          onMouseLeave={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                          <p className="text-sm font-medium uppercase" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
-                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda)} · Estoque: {p.estoque_atual ?? "—"}</p>
-                        </button>
-                      ))}
-                      {prodBusca.length >= 2 && (
-                        <button onClick={adicionarManual}
-                          className="w-full px-4 py-3 text-left text-sm font-semibold transition-colors"
-                          style={{ color: COR }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                          + Adicionar &ldquo;{prodBusca}&rdquo; manualmente
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    {itens.map((it, i) => (
-                      <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                            {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
-                            {it.preco_unitario > 0 && fmtBRL(it.preco_unitario)}
-                          </p>
-                        </div>
-                        <button onClick={() => removerItem(i)} className="ml-3 p-1 rounded-lg transition-colors"
-                          style={{ color: "var(--text-muted)" }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                          <X size={15} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>}
-
-                {/* ── Step 3: Pagamento ── */}
-                {step === 3 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Forma de pagamento?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Selecione como o cliente vai pagar.</p>
-                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>Selecione uma ou mais formas de pagamento.</p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {FORMAS.map((f, i) => {
-                      const isSelected = formas.includes(f)
-                      const isFocused  = formaIdx === i
-                      return (
-                        <motion.button key={f}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05, duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          whileHover={{ scale: 1.03, y: -2 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => { toggleForma(f); setFormaIdx(i) }}
-                          className="relative py-4 px-4 rounded-2xl text-sm font-bold text-left uppercase overflow-hidden border-2"
-                          style={{
-                            background:  isSelected ? `${COR}18` : "var(--bg-surface)",
-                            borderColor: isSelected ? COR : isFocused ? `${COR}80` : "var(--border)",
-                            color:       isSelected ? COR : "var(--text-primary)",
-                            boxShadow:   isFocused && !isSelected ? `0 0 0 3px ${COR}30` : undefined,
-                            transition:  "background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s",
-                          }}>
-                          <AnimatePresence>
-                            {isSelected && (
-                              <motion.span
-                                key="ripple"
-                                initial={{ scale: 0, opacity: 0.4 }}
-                                animate={{ scale: 4, opacity: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.5, ease: "easeOut" }}
-                                className="absolute inset-0 m-auto w-12 h-12 rounded-full pointer-events-none"
-                                style={{ background: COR }}
-                              />
-                            )}
-                          </AnimatePresence>
-                          <span className="relative z-10 flex items-center justify-between">
-                            {f}
-                            {isSelected && (
-                              <motion.span
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 15 }}>
-                                <Check size={16} style={{ color: COR }} />
-                              </motion.span>
-                            )}
-                          </span>
-                        </motion.button>
-                      )
-                    })}
-                  </div>
-                  {/* Badge crédito disponível */}
+          {/* Cliente */}
+          <div>
+            <label className={lSt} style={lCol}>Cliente (opcional)</label>
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+              <input ref={cliRef} value={cliBusca}
+                onChange={e => { buscarClientes(e.target.value); resetCliHi() }}
+                onKeyDown={cliDropKeyDown}
+                placeholder="Nome, CPF, WhatsApp ou @Instagram"
+                className={cn(iBase, "pl-8")} style={iSt} autoComplete="off" />
+            </div>
+            {cliRes.length > 0 && (
+              <div className="mt-1 rounded-xl overflow-hidden shadow-lg" style={{ border: "1px solid var(--border)" }}>
+                {cliRes.map((c, idx) => (
+                  <button key={c.id} onClick={() => selecionarCliente(c)}
+                    className="w-full px-3 py-2 text-left transition-colors"
+                    style={{ borderBottom: "1px solid var(--border)", background: cliHi === idx ? "var(--accent-bg)" : "transparent" }}
+                    onMouseEnter={e => { if (cliHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                    onMouseLeave={e => { if (cliHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                    <p className="text-sm font-medium uppercase" style={{ color: cliHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{c.nome}</p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.celular ?? "Sem WhatsApp"}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {clienteId && (
+              <div className="mt-1.5 px-3 py-2 rounded-xl flex items-center justify-between"
+                style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.35)" }}>
+                <div className="flex items-center gap-2">
+                  <Check size={13} style={{ color: COR }} />
+                  <span className="text-sm font-bold uppercase" style={{ color: COR }}>{clienteNome}</span>
                   {saldoCredito > 0 && (
-                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between"
-                      style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.35)" }}>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>Crédito disponível</p>
-                        <p className="text-lg font-bold mt-0.5" style={{ color: "#fbbf24" }}>
-                          ✦ R$ {saldoCredito.toFixed(2).replace(".", ",")}
-                        </p>
-                      </div>
-                      {!formas.includes("Crédito") && (
-                        <button onClick={() => { toggleForma("Crédito"); setFormaIdx(FORMAS.indexOf("Crédito")) }}
-                          className="text-xs font-bold px-3 py-1.5 rounded-xl"
-                          style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>
-                          Usar crédito
-                        </button>
-                      )}
-                    </motion.div>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>
+                      ✦ {fmtBRL(saldoCredito)} crédito
+                    </span>
                   )}
-
-                  {/* Aviso: crédito único — validação feita no advance */}
-                  {formas.includes("Crédito") && formas.length === 1 && (
-                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 px-4 py-3 rounded-2xl"
-                      style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
-                      <p className="text-xs font-semibold" style={{ color: "#fbbf24" }}>
-                        O valor total ({fmtBRL(totalFinal)}) será cobrado em crédito.
-                      </p>
-                    </motion.div>
-                  )}
-                  {/* Aviso: crédito + outras formas */}
-                  {formas.includes("Crédito") && formas.length > 1 && (
-                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 px-4 py-3 rounded-2xl"
-                      style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)" }}>
-                      <p className="text-xs font-semibold" style={{ color: "#fbbf24" }}>
-                        Na próxima etapa você define quanto será pago em crédito.
-                      </p>
-                    </motion.div>
-                  )}
-
-                  {/* Hint teclado */}
-                  <p className="mt-4 text-xs hidden sm:block" style={{ color: "var(--text-muted)" }}>
-                    Use{" "}
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>←</kbd>
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>→</kbd>
-                    para navegar na linha ·
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>↑</kbd>
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>↓</kbd>
-                    para coluna ·
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono mx-0.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>↵ Enter</kbd>
-                    para confirmar
-                  </p>
-                </>}
-
-                {/* ── Step 5: Divisão do pagamento (só quando há 2+ formas) ── */}
-                {step === 5 && (() => {
-                  const soma       = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
-                  const diff       = parseFloat((soma - totalFinal).toFixed(2))
-                  const excedente  = diff > 0.01
-                  const incompleto = diff < -0.01
-                  const correto    = !excedente && !incompleto
-                  const creditoInvalido = formas.includes("Crédito") && saldoCredito > 0 && (divisao["Crédito"] ?? 0) > saldoCredito
-                  const temZero    = formas.some(f => (divisao[f] ?? 0) <= 0)
-                  return <>
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Divisão do pagamento</h1>
-                    <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>Informe quanto será pago em cada forma selecionada.</p>
-
-                    {/* Painel resumo */}
-                    <div className="mb-4 grid grid-cols-3 gap-3 px-4 py-3 rounded-2xl"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
-                        <p className="text-base font-bold" style={{ color: COR }}>{fmtBRL(totalFinal)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>Distribuído</p>
-                        <p className="text-base font-bold" style={{ color: excedente ? "#f87171" : correto && soma > 0 ? "#10b981" : "var(--text-primary)" }}>{fmtBRL(soma)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: excedente ? "#f87171" : incompleto ? "#fbbf24" : "var(--text-muted)" }}>
-                          {excedente ? "Excedente" : incompleto ? "Falta" : "Falta"}
-                        </p>
-                        <p className="text-base font-bold" style={{ color: excedente ? "#f87171" : correto && soma > 0 ? "#10b981" : "#fbbf24" }}>
-                          {correto && soma > 0 ? "✓ R$ 0,00" : excedente ? fmtBRL(diff) : fmtBRL(Math.abs(diff))}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Banner de status em tempo real */}
-                    <AnimatePresence mode="wait">
-                      {creditoInvalido && (
-                        <motion.div key="credito-inv"
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.4)" }}>
-                          <span style={{ color: "#f87171", fontSize: 15 }}>⚠</span>
-                          <p className="text-sm font-semibold" style={{ color: "#f87171" }}>
-                            O valor em crédito ultrapassa o saldo disponível do cliente ({fmtBRL(saldoCredito)}).
-                          </p>
-                        </motion.div>
-                      )}
-                      {!creditoInvalido && excedente && (
-                        <motion.div key="excedente"
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.4)" }}>
-                          <span style={{ color: "#f87171", fontSize: 15 }}>⚠</span>
-                          <p className="text-sm font-semibold" style={{ color: "#f87171" }}>
-                            A soma ultrapassa o total da venda em {fmtBRL(diff)}. Ajuste os valores.
-                          </p>
-                        </motion.div>
-                      )}
-                      {!creditoInvalido && incompleto && soma > 0 && (
-                        <motion.div key="incompleto"
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.4)" }}>
-                          <span style={{ color: "#fbbf24", fontSize: 15 }}>◎</span>
-                          <p className="text-sm font-semibold" style={{ color: "#fbbf24" }}>
-                            Ainda falta distribuir {fmtBRL(Math.abs(diff))} para completar o total.
-                          </p>
-                        </motion.div>
-                      )}
-                      {!creditoInvalido && correto && soma > 0 && !temZero && (
-                        <motion.div key="correto"
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          className="mb-4 flex items-start gap-2 px-4 py-3 rounded-2xl"
-                          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.4)" }}>
-                          <span style={{ color: "#10b981", fontSize: 15 }}>✓</span>
-                          <p className="text-sm font-semibold" style={{ color: "#10b981" }}>
-                            Pagamento distribuído corretamente. Você pode continuar.
-                          </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Inputs por forma */}
-                    <div className="space-y-3">
-                      {formas.map((f, i) => {
-                        const isCredito  = f === "Crédito"
-                        const maxCredito = isCredito ? Math.min(saldoCredito, totalFinal) : undefined
-                        const val        = divisao[f] ?? 0
-                        const strVal     = val > 0 ? String(val).replace(".", ",") : ""
-                        const isErr      = isCredito && creditoInvalido
-                        return (
-                          <div key={f}>
-                            <label className="text-xs font-bold uppercase tracking-wide block mb-1.5"
-                              style={{ color: isErr ? "#f87171" : "var(--text-muted)" }}>
-                              {f}{isCredito && saldoCredito > 0 ? ` (saldo: ${fmtBRL(saldoCredito)})` : ""}
-                            </label>
-                            <div className="relative">
-                              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-bold select-none"
-                                style={{ color: "var(--text-muted)" }}>R$</span>
-                              <input
-                                value={strVal}
-                                autoFocus={i === 0}
-                                onChange={e => {
-                                  const raw = e.target.value.replace(",", ".")
-                                  const parsed = parseFloat(raw)
-                                  const newVal = isNaN(parsed) || parsed < 0 ? 0
-                                    : maxCredito !== undefined ? Math.min(parsed, maxCredito)
-                                    : parsed
-                                  const updated = { ...divisao, [f]: parseFloat(newVal.toFixed(2)) }
-                                  if (formas.length === 2 && i === 0) {
-                                    const other = formas[1]
-                                    const rem = Math.max(0, totalFinal - newVal)
-                                    const otherMax = other === "Crédito" ? Math.min(saldoCredito, rem) : rem
-                                    updated[other] = parseFloat(otherMax.toFixed(2))
-                                  }
-                                  setDivisao(updated)
-                                }}
-                                placeholder="0,00"
-                                inputMode="decimal"
-                                className={cn(iBase, "pl-12 text-base py-3")}
-                                style={{ ...iSt, borderColor: isErr ? "#f87171" : val > 0 && correto ? "#10b98166" : "var(--border)" }} />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </>
-                })()}
-
-                {/* ── Step 4: Desconto ── */}
-                {step === 4 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Desconto geral?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — deixe em branco se não houver.</p>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
-                    <input ref={inputRef} value={desconto} onChange={e => setDesconto(e.target.value)}
-                      type="number" step="0.01" min="0"
-                      placeholder="0,00"
-                      className={cn(iBase, "pl-14")} style={iSt} />
-                  </div>
-                  {descontoVal > 0 && (
-                    <div className="mt-4 px-4 py-3 rounded-2xl space-y-1.5"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                      <div className="flex justify-between text-sm">
-                        <span style={{ color: "var(--text-muted)" }}>Total bruto</span>
-                        <span style={{ color: "var(--text-primary)" }}>{fmtBRL(totalBruto)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span style={{ color: "#f87171" }}>Desconto</span>
-                        <span style={{ color: "#f87171" }}>- {fmtBRL(descontoVal)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-bold pt-1" style={{ borderTop: "1px solid var(--border)" }}>
-                        <span style={{ color: "var(--text-primary)" }}>Total</span>
-                        <span style={{ color: COR }}>{fmtBRL(totalFinal)}</span>
-                      </div>
-                    </div>
-                  )}
-                </>}
-
-                {/* ── Step 6: Observações ── */}
-                {step === 6 && <>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Observações?</h1>
-                  <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Opcional — anotações internas sobre esta venda.</p>
-                  <textarea ref={obsRef} value={obs} onChange={e => setObs(e.target.value)} rows={4}
-                    placeholder="Ex: CLIENTE RETIROU NA LOJA, PRODUTO ERA PRESENTE..."
-                    className={cn(iBase, "resize-none !text-base leading-relaxed")} style={iSt} />
-                </>}
-
-                {/* Erro */}
-                <AnimatePresence>
-                  {erro && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="mt-2 text-sm" style={{ color: "#f87171" }}>{erro}</motion.p>}
-                </AnimatePresence>
-
-                {(() => {
-                  const div4Soma = formas.reduce((s, f) => s + (divisao[f] ?? 0), 0)
-                  // Gate só se aplica no step da Divisão (5) — agora sempre calculado
-                  // contra o total JÁ com desconto, pois o desconto (step 4) vem antes.
-                  const div4Ok = step !== 5 || (
-                    Math.abs(div4Soma - totalFinal) <= 0.01 &&
-                    formas.every(f => (divisao[f] ?? 0) > 0) &&
-                    (!formas.includes("Crédito") || (divisao["Crédito"] ?? 0) <= saldoCredito)
-                  )
-                  return (
-                  <div className="flex items-center gap-4 mt-8">
-                    <motion.button
-                      whileHover={div4Ok ? { scale: 1.05, boxShadow: `0 8px 24px ${COR}55` } : {}}
-                      whileTap={div4Ok ? { scale: 0.94 } : {}}
-                      transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                      onClick={advance}
-                      disabled={!div4Ok}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white shadow-lg transition-opacity"
-                      style={{ background: COR, opacity: div4Ok ? 1 : 0.4, cursor: div4Ok ? "pointer" : "not-allowed" }}>
-                      {step === 1 ? "OK, continuar" : "Continuar"} <ArrowRight size={15} />
-                    </motion.button>
-                    {step > 1 && step !== 5 && (
-                      <motion.button
-                        whileHover={{ x: 3 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => step === 4 ? go(formas.length > 1 ? 5 : 6) : go(step + 1)}
-                        className="text-sm font-medium transition-colors" style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                        Pular →
-                      </motion.button>
-                    )}
-                  </div>
-                  )
-                })()}
-              </div>
-            </motion.div>
-
-          ) : (
-            /* ── Step 7: Revisão ── */
-            <motion.div key="revisao" custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="absolute inset-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-
-              {/* Sidebar verde */}
-              <div className="w-full md:w-64 shrink-0 flex flex-row md:flex-col items-center justify-between py-4 md:py-10 px-5 md:px-6 gap-4 md:gap-0"
-                style={{ background: COR }}>
-                {/* Info — row on mobile, column on desktop */}
-                <div className="flex flex-row md:flex-col items-center gap-4 md:text-center">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-2xl flex items-center justify-center"
-                      style={{ background: "rgba(255,255,255,0.2)" }}>
-                      <ShoppingCart size={22} color="#fff" className="md:hidden" />
-                      <ShoppingCart size={32} color="#fff" className="hidden md:block" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-7 md:h-7 rounded-full flex items-center justify-center bg-white/90">
-                      <Check size={10} style={{ color: COR }} className="md:hidden" />
-                      <Check size={14} style={{ color: COR }} className="hidden md:block" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm md:text-lg leading-tight text-white uppercase">{clienteNome || "CONSUMIDOR FINAL"}</p>
-                    <p className="text-lg md:text-2xl font-bold text-white mt-0.5 md:mt-1">{fmtBRL(totalFinal)}</p>
-                    <p className="text-xs mt-0.5 md:mt-1 hidden md:block" style={{ color: "rgba(255,255,255,0.65)" }}>Revise antes de finalizar</p>
-                  </div>
                 </div>
-                {/* Buttons */}
-                <div className="flex flex-row md:flex-col gap-2 md:w-full shrink-0">
-                  <button onClick={handleSalvar} disabled={saving}
-                    className="py-2.5 md:py-3 px-4 md:px-0 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 md:w-full"
-                    style={{ background: "#fff", color: COR }}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : "Finalizar"}
-                  </button>
-                  <button onClick={onClose} className="py-2.5 px-4 md:px-0 rounded-2xl text-sm font-medium md:w-full"
-                    style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}>
-                    Cancelar
-                  </button>
-                </div>
+                <button onClick={() => { setClienteId(null); setClienteNome(""); setCliBusca(""); setSaldoCredito(0); setTimeout(() => cliRef.current?.focus(), 50) }}
+                  className="text-xs transition-colors" style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                  <X size={13} />
+                </button>
               </div>
-
-              {/* Painel revisão */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-10" style={{ background: "var(--bg-base)" }}>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest mb-6" style={{ color: "var(--text-muted)" }}>
-                  ◎ Resumo da Venda
-                </h2>
-                {erro && (
-                  <p className="mb-4 text-sm px-4 py-2 rounded-xl"
-                    style={{ background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{erro}</p>
-                )}
-
-                {/* Itens */}
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
-                  Produtos
+            )}
+            {cliBusca.length >= 2 && cliRes.length === 0 && !clienteId && (
+              <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-xl"
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Sem resultado para &ldquo;{cliBusca}&rdquo;
                 </p>
-                <div className="space-y-2 mb-6">
-                  {itens.map((it, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${COR}` }}>
-                      <div>
-                        <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                          {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
-                          {it.quantidade}x · {fmtBRL(it.preco_unitario)}
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {fmtBRL(it.preco_unitario * it.quantidade)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Demais campos */}
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Cliente",    value: clienteNome || "Consumidor Final", s: 1 },
-                    {
-                      label: "Pagamento",
-                      value: formas.length === 1
-                        ? formas[0]
-                        : formas.map(f => `${f}: ${fmtBRL(divisao[f] ?? 0)}`).join(" · "),
-                      s: 3,
-                      full: formas.length > 1,
-                    },
-                    { label: "Desconto",   value: descontoVal > 0 ? fmtBRL(descontoVal) : "R$ 0,00", s: 4 },
-                    { label: "Total",      value: fmtBRL(totalFinal),            s: null },
-                    ...(obs ? [{ label: "Obs.", value: obs, s: 6, full: true }] : []),
-                  ].map(({ label, value, s, full }) => (
-                    <div key={label} className={cn("rounded-2xl p-4", full ? "col-span-2" : "")}
-                      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${COR}` }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{label}</p>
-                      <p className="text-sm font-medium uppercase" style={{ color: label === "Total" ? COR : "var(--text-primary)" }}>{value}</p>
-                      {s && (
-                        <button onClick={() => go(s as number)} className="flex items-center gap-1 text-xs mt-1.5 transition-opacity"
-                          style={{ color: COR }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.65" }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}>
-                          <Pencil size={9} /> EDITAR
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* QR Code PIX — aparece quando pagamento inclui PIX */}
-                {formas.some(f => f.toUpperCase().includes("PIX")) && (() => {
-                  const pixChave = process.env.NEXT_PUBLIC_PIX_KEY ?? "+5516991347476"
-                  const valorPix = formas.length === 1
-                    ? totalFinal
-                    : (divisao["PIX"] ?? divisao[formas.find(f => f.toUpperCase().includes("PIX")) ?? ""] ?? 0)
-                  const payload = gerarPixPayload({
-                    chave:     pixChave,
-                    nome:      "Brecho Bellasu",
-                    cidade:    "Ribeirao Preto",
-                    valor:     valorPix > 0 ? valorPix : undefined,
-                  })
-                  return (
-                    <>
-                      {/* Card compacto */}
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                        className="mt-4 rounded-2xl overflow-hidden"
-                        style={{ border: "1.5px solid rgba(99,102,241,0.35)", background: "var(--bg-surface)" }}>
-                        <div className="px-4 py-2.5 flex items-center gap-2"
-                          style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.2)" }}>
-                          <span className="text-sm">💠</span>
-                          <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                            QR Code PIX
-                          </p>
-                          <span className="ml-auto text-xs font-bold" style={{ color: "var(--accent)" }}>
-                            {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 p-4">
-                          {/* QR pequeno clicável */}
-                          <button onClick={() => setPixModal(true)}
-                            className="shrink-0 p-2.5 rounded-xl relative group"
-                            style={{ background: "#fff" }}
-                            title="Expandir QR Code">
-                            <QRCode value={payload} size={80} />
-                            <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              style={{ background: "rgba(0,0,0,0.45)" }}>
-                              <Maximize2 size={20} color="#fff" />
-                            </div>
-                          </button>
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>
-                              Mostre para a cliente escanear
-                            </p>
-                            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                              Funciona em qualquer banco
-                            </p>
-                            <button onClick={() => setPixModal(true)}
-                              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
-                              style={{ background: "var(--accent-bg)", border: "1px solid var(--accent)", color: "var(--accent)" }}>
-                              <Maximize2 size={12} /> Expandir QR Code
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-
-                      {/* Modal fullscreen */}
-                      <AnimatePresence>
-                        {pixModal && (
-                          <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-                            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
-                            onClick={() => setPixModal(false)}>
-                            <motion.div
-                              initial={{ scale: 0.85, opacity: 0, y: 20 }}
-                              animate={{ scale: 1, opacity: 1, y: 0 }}
-                              exit={{ scale: 0.88, opacity: 0, y: 10 }}
-                              transition={{ type: "spring", stiffness: 320, damping: 26 }}
-                              className="w-full max-w-sm rounded-3xl overflow-hidden flex flex-col items-center"
-                              style={{ background: "var(--bg-card)", border: "1.5px solid rgba(99,102,241,0.4)" }}
-                              onClick={e => e.stopPropagation()}>
-
-                              {/* Header */}
-                              <div className="w-full flex items-center justify-between px-5 py-4"
-                                style={{ borderBottom: "1px solid var(--border)" }}>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-base">💠</span>
-                                  <span className="text-sm font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                                    PIX
-                                  </span>
-                                </div>
-                                <button onClick={() => setPixModal(false)}
-                                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                                  style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}>
-                                  <X size={15} />
-                                </button>
-                              </div>
-
-                              {/* Valor */}
-                              <div className="pt-5 pb-3 text-center">
-                                <p className="text-[11px] font-bold uppercase tracking-widest mb-1"
-                                  style={{ color: "var(--text-muted)" }}>Total a receber</p>
-                                <p className="text-4xl font-black" style={{ color: "var(--accent)", letterSpacing: "-1px" }}>
-                                  {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
-                                </p>
-                              </div>
-
-                              {/* QR Code grande */}
-                              <div className="p-5">
-                                <div className="p-4 rounded-2xl" style={{ background: "#fff" }}>
-                                  <QRCode value={payload} size={Math.min(260, typeof window !== "undefined" ? window.innerWidth - 100 : 260)} />
-                                </div>
-                              </div>
-
-                              {/* Chave + copia e cola */}
-                              <PixCopiarChave chave={pixChave} payload={payload} />
-
-                              <p className="text-[10px] pb-5 px-6 text-center" style={{ color: "var(--text-muted)" }}>
-                                Aponte a câmera do app do banco para o QR Code acima
-                              </p>
-                            </motion.div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </>
-                  )
-                })()}
-
+                <button onClick={() => router.push(`/clientes?novo=1&from=vendas&nome=${encodeURIComponent(cliBusca)}`)}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-white"
+                  style={{ background: COR }}>
+                  <UserPlus size={11} /> Cadastrar
+                </button>
               </div>
-            </motion.div>
+            )}
+          </div>
+
+          {/* Produtos */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <label className={lSt} style={lCol}>Produtos *</label>
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+              <input ref={prodRef} value={prodBusca}
+                onChange={e => { buscarProdutos(e.target.value); resetProdHi() }}
+                onKeyDown={prodDropKeyDown}
+                placeholder="Buscar produto por nome"
+                className={cn(iBase, "pl-8")} style={iSt} autoComplete="off" />
+            </div>
+            {(prodRes.length > 0 || prodBusca.length >= 2) && (
+              <div className="mt-1 rounded-xl overflow-hidden shadow-lg" style={{ border: "1px solid var(--border)" }}>
+                {prodRes.map((p, idx) => (
+                  <button key={p.id} onClick={() => adicionarProduto(p)}
+                    className="w-full px-3 py-2 text-left transition-colors"
+                    style={{ borderBottom: "1px solid var(--border)", background: prodHi === idx ? "var(--accent-bg)" : "transparent" }}
+                    onMouseEnter={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                    onMouseLeave={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                    <p className="text-sm font-medium uppercase" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda)} · Estoque: {p.estoque_atual ?? "—"}</p>
+                  </button>
+                ))}
+                {prodBusca.length >= 2 && (
+                  <button onClick={adicionarManual}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold transition-colors"
+                    style={{ color: COR }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                    + Adicionar &ldquo;{prodBusca}&rdquo; manualmente
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Items list */}
+            <div className="mt-2 flex-1 overflow-y-auto space-y-1.5 min-h-0">
+              {itens.length === 0 && (
+                <p className="text-xs py-3 text-center" style={{ color: "var(--text-muted)" }}>Nenhum produto adicionado</p>
+              )}
+              {itens.map((it, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {it.codigo_produto && <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{it.codigo_produto}</span>}
+                      <input type="number" min={1} value={it.quantidade}
+                        onChange={e => setItens(prev => prev.map((x, j) => j === i ? { ...x, quantidade: Math.max(1, parseInt(e.target.value) || 1) } : x))}
+                        className="w-12 text-center text-xs rounded-lg border outline-none px-1 py-0.5"
+                        style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>×</span>
+                      <input type="text" value={it.preco_unitario > 0 ? String(it.preco_unitario).replace(".", ",") : ""}
+                        onChange={e => setItens(prev => prev.map((x, j) => j === i ? { ...x, preco_unitario: parseFloat(e.target.value.replace(",", ".")) || 0 } : x))}
+                        placeholder="R$ 0,00"
+                        className="w-20 text-xs rounded-lg border outline-none px-1.5 py-0.5"
+                        style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold shrink-0" style={{ color: COR }}>
+                    {fmtBRL(it.preco_unitario * it.quantidade)}
+                  </span>
+                  <button onClick={() => removerItem(i)} className="p-1 rounded-lg transition-colors shrink-0"
+                    style={{ color: "var(--text-muted)" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Col direita: Pagamento + Desconto + Obs ── */}
+        <div className="w-80 flex flex-col gap-3 p-5 overflow-y-auto" style={{ minWidth: 280 }}>
+
+          {/* Forma de pagamento */}
+          <div>
+            <label className={lSt} style={lCol}>Pagamento</label>
+            {saldoCredito > 0 && (
+              <div className="mb-2 px-3 py-1.5 rounded-xl flex items-center justify-between"
+                style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                <span className="text-xs font-bold" style={{ color: "#fbbf24" }}>✦ Crédito disponível: {fmtBRL(saldoCredito)}</span>
+                {!formas.includes("Crédito") && (
+                  <button onClick={() => toggleForma("Crédito")}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                    style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>Usar</button>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-1.5">
+              {FORMAS.map(f => {
+                const sel = formas.includes(f)
+                return (
+                  <button key={f} onClick={() => toggleForma(f)}
+                    className="py-2 px-3 rounded-xl text-xs font-bold text-left uppercase transition-all border"
+                    style={{
+                      background: sel ? `${COR}18` : "var(--bg-surface)",
+                      borderColor: sel ? COR : "var(--border)",
+                      color: sel ? COR : "var(--text-primary)",
+                    }}>
+                    <span className="flex items-center justify-between">
+                      {f}
+                      {sel && <Check size={11} style={{ color: COR }} />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Divisão — só quando 2+ formas */}
+          {formas.length > 1 && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className={lSt} style={lCol}>Divisão</label>
+                <span className="text-[10px] font-bold" style={{ color: Math.abs(divisaoDiff) <= 0.01 ? "#10b981" : "#fbbf24" }}>
+                  {Math.abs(divisaoDiff) <= 0.01 ? "✓ ok" : divisaoDiff < 0 ? `falta ${fmtBRL(Math.abs(divisaoDiff))}` : `excede ${fmtBRL(divisaoDiff)}`}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {formas.map((f, i) => {
+                  const isCredito = f === "Crédito"
+                  const maxCredito = isCredito ? Math.min(saldoCredito, totalFinal) : undefined
+                  const val = divisao[f] ?? 0
+                  return (
+                    <div key={f} className="flex items-center gap-2">
+                      <span className="text-xs font-semibold w-20 shrink-0 truncate" style={{ color: "var(--text-secondary)" }}>{f}</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>R$</span>
+                        <input type="text" inputMode="decimal"
+                          value={val > 0 ? String(val).replace(".", ",") : ""}
+                          onChange={e => {
+                            const raw = e.target.value.replace(",", ".")
+                            const parsed = parseFloat(raw)
+                            const newVal = isNaN(parsed) || parsed < 0 ? 0 : maxCredito !== undefined ? Math.min(parsed, maxCredito) : parsed
+                            const updated = { ...divisao, [f]: parseFloat(newVal.toFixed(2)) }
+                            if (formas.length === 2 && i === 0) {
+                              const other = formas[1]; const rem = Math.max(0, totalFinal - newVal)
+                              const otherMax = other === "Crédito" ? Math.min(saldoCredito, rem) : rem
+                              updated[other] = parseFloat(otherMax.toFixed(2))
+                            }
+                            setDivisao(updated)
+                          }}
+                          placeholder="0,00"
+                          className={cn(iBase, "pl-8")}
+                          style={{ ...iSt, borderColor: isCredito && (divisao["Crédito"] ?? 0) > saldoCredito ? "#f87171" : "var(--border)" }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
-        </AnimatePresence>
+
+          {/* Desconto */}
+          <div>
+            <label className={lSt} style={lCol}>Desconto (opcional)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>R$</span>
+              <input type="text" inputMode="decimal" value={desconto}
+                onChange={e => setDesconto(e.target.value.replace(/[^0-9.,]/g, ""))}
+                placeholder="0,00" className={cn(iBase, "pl-9")} style={iSt} />
+            </div>
+          </div>
+
+          {/* Observações */}
+          <div>
+            <label className={lSt} style={lCol}>Observações (opcional)</label>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+              placeholder="Ex: CLIENTE RETIROU NA LOJA..."
+              className={cn(iBase, "resize-none leading-relaxed")} style={iSt} />
+          </div>
+
+          {/* PIX QR inline */}
+          {temPix && (
+            <div className="rounded-xl overflow-hidden" style={{ border: "1.5px solid rgba(99,102,241,0.35)", background: "var(--bg-surface)" }}>
+              <div className="px-3 py-2 flex items-center gap-2"
+                style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.2)" }}>
+                <span className="text-sm">💠</span>
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>QR Code PIX</span>
+                <span className="ml-auto text-xs font-bold" style={{ color: "var(--accent)" }}>
+                  {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 p-3">
+                <button onClick={() => setPixModal(true)} className="shrink-0 p-2 rounded-xl relative group" style={{ background: "#fff" }} title="Expandir QR Code">
+                  <QRCode value={pixPayload} size={64} />
+                  <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.4)" }}>
+                    <Maximize2 size={16} color="#fff" />
+                  </div>
+                </button>
+                <div>
+                  <p className="text-xs font-bold mb-0.5" style={{ color: "var(--text-primary)" }}>Mostre para a cliente escanear</p>
+                  <button onClick={() => setPixModal(true)} className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                    <Maximize2 size={10} className="inline mr-1" /> Expandir
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Erro */}
+          {erro && <p className="text-xs" style={{ color: "#f87171" }}>{erro}</p>}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Total + Salvar */}
+          <div className="space-y-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="space-y-0.5 text-xs">
+              {descontoVal > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span style={{ color: "var(--text-muted)" }}>Subtotal</span>
+                    <span style={{ color: "var(--text-primary)" }}>{fmtBRL(totalBruto)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: "#f87171" }}>Desconto</span>
+                    <span style={{ color: "#f87171" }}>- {fmtBRL(descontoVal)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between font-bold text-sm">
+                <span style={{ color: "var(--text-primary)" }}>Total</span>
+                <span style={{ color: COR }}>{fmtBRL(totalFinal)}</span>
+              </div>
+            </div>
+            <button onClick={handleSalvar} disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg transition-opacity disabled:opacity-50"
+              style={{ background: COR }}>
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Salvando...</> : <><Check size={14} /> Registrar venda</>}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Footer */}
-      {step < TOTAL && (
-        <div className="flex items-center justify-between px-6 py-3 shrink-0"
-          style={{ borderTop: "1px solid var(--border)" }}>
-          {step > 1 ? (
-            <button onClick={() => go(step === 6 && formas.length === 1 ? 4 : step - 1)}
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors" style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)" }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)" }}>
-              <ChevronLeft size={15} /> Voltar
-            </button>
-          ) : <span />}
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Pressione{" "}
-            <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-              Enter
-            </kbd>{" "}
-            para avançar
-          </p>
-        </div>
-      )}
+      {/* PIX Modal fullscreen */}
+      <AnimatePresence>
+        {pixModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
+            onClick={() => setPixModal(false)}>
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-3xl overflow-hidden flex flex-col items-center"
+              style={{ background: "var(--bg-card)", border: "1.5px solid rgba(99,102,241,0.4)" }}
+              onClick={e => e.stopPropagation()}>
+              <div className="w-full flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💠</span>
+                  <span className="text-sm font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>PIX</span>
+                </div>
+                <button onClick={() => setPixModal(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}>
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="pt-5 pb-3 text-center">
+                <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Total a receber</p>
+                <p className="text-4xl font-black" style={{ color: "var(--accent)", letterSpacing: "-1px" }}>
+                  {valorPix > 0 ? fmtBRL(valorPix) : "Valor livre"}
+                </p>
+              </div>
+              <div className="p-5">
+                <div className="p-4 rounded-2xl" style={{ background: "#fff" }}>
+                  <QRCode value={pixPayload} size={Math.min(260, typeof window !== "undefined" ? window.innerWidth - 100 : 260)} />
+                </div>
+              </div>
+              <PixCopiarChave chave={pixChave} payload={pixPayload} />
+              <p className="text-[10px] pb-5 px-6 text-center" style={{ color: "var(--text-muted)" }}>
+                Aponte a câmera do app do banco para o QR Code acima
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
