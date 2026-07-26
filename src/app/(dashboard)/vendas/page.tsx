@@ -706,7 +706,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
         </div>
 
         {/* ── Col direita: Pagamento + Desconto + Obs ── */}
-        <div className="w-80 flex flex-col gap-3 p-5 overflow-y-auto" style={{ minWidth: 280 }}>
+        <div className="flex-1 flex flex-col gap-3 p-5 overflow-y-auto" style={{ minWidth: 320 }}>
 
           {/* Forma de pagamento */}
           <div>

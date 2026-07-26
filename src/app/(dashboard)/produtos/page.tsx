@@ -435,8 +435,8 @@ function WizardProduto({
       </div>
 
       {/* Form */}
-      <div className="flex-1 overflow-hidden flex items-center justify-center px-6 py-4">
-        <div className="w-full max-w-2xl space-y-3">
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="w-full space-y-3">
 
           {/* Nome */}
           <div>

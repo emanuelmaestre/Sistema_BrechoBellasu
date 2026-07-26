@@ -112,8 +112,8 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
             <X size={15} /> Cancelar
           </button>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-md">
+        <div className="flex-1 flex flex-col px-6 py-6">
+          <div className="w-full">
             <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>O que você quer lançar?</h1>
             <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>Selecione o tipo de lançamento financeiro.</p>
             <div className="flex gap-4">
@@ -168,8 +168,8 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
       </div>
 
       {/* Form */}
-      <div className="flex-1 overflow-hidden flex items-center justify-center px-6 py-4">
-        <div className="w-full max-w-lg space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="w-full space-y-4">
 
           {/* Descrição */}
           <div>

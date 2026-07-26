@@ -468,17 +468,15 @@ function WizardTroca({ onClose, onSalvo, quickEdit, inicial, editandoId }: {
   return (
     <>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--bg-base)" }}>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        transition={{ type: "spring", stiffness: 340, damping: 30 }}
-        className="relative w-full max-w-2xl flex flex-col rounded-3xl overflow-hidden shadow-2xl"
-        style={{ background: "var(--bg-base)", border: "1px solid var(--border)", maxHeight: "92vh" }}>
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="flex-1 flex flex-col overflow-hidden"
+        style={{ background: "var(--bg-base)" }}>
 
         <SuccessOverlay show={salvoOk} titulo={form.tipo === "troca" ? "Troca registrada!" : "Devolução registrada!"} />
 
