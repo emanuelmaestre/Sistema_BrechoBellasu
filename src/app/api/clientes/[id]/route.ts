@@ -24,7 +24,7 @@ export const PUT = withAuth(async (req: NextRequest, { params }: { params: Promi
     const useCase = new AtualizarClienteUseCase(new ClienteRepositorySupabase(sb))
 
     const resultado = await useCase.execute(parseInt(id), {
-      nome: body.nome,
+      nome: body.nome ? String(body.nome).trim().toUpperCase() : body.nome,
       apelido: body.apelido,
       cpfCnpj: body.cpf_cnpj,
       email: body.email,

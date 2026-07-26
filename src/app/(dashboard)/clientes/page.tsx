@@ -1765,7 +1765,7 @@ function WizardCliente({
     setErro("")
     try {
       const payload = {
-        nome:        form.nome.trim(),
+        nome:        form.nome.trim().toUpperCase(),
         apelido:     form.apelido     || null,
         cpf_cnpj:    form.cpf_cnpj    || null,
         data_nasc:   form.data_nasc   || null,
@@ -1891,9 +1891,9 @@ function WizardCliente({
                       Qual é o nome completo do cliente?
                     </h1>
                     <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Este é o único campo obrigatório.</p>
-                    <input ref={inputRef} value={form.nome} onChange={e => set("nome", e.target.value)}
+                    <input ref={inputRef} value={form.nome} onChange={e => set("nome", e.target.value.toUpperCase())}
                       placeholder="EX: MARIA APARECIDA SILVA"
-                      className={inputBase} style={inputStyle} autoComplete="off" />
+                      className={inputBase} style={{ ...inputStyle, textTransform: "uppercase" }} autoComplete="off" />
                   </>
                 )}
 

@@ -55,7 +55,7 @@ export const POST = withAuth(async (req: NextRequest) => {
     const useCase = new CriarClienteUseCase(new ClienteRepositorySupabase(sb))
 
     const resultado = await useCase.execute({
-      nome: body.nome,
+      nome: body.nome ? String(body.nome).trim().toUpperCase() : body.nome,
       apelido: body.apelido,
       cpfCnpj: body.cpf_cnpj,
       email: body.email,
