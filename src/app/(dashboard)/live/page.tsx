@@ -2706,6 +2706,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
         {/* Ações no topo — quebram para nova linha em vez de serem cortadas */}
         <div className="lg:ml-auto flex flex-wrap items-center gap-2">
+          {/* Legenda das penalidades — sempre visível, mesmo em lives encerradas */}
+          <LegendaPenalidades />
+
           {/* Status badge — só exibe Aberta / Encerrada */}
           {live.status !== "disparada" && (
             <motion.span
@@ -2850,14 +2853,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
       {/* ══ TABELA COMPRAS ══ */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
-
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <p className="text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
-            COMPRAS DESTA LIVE
-          </p>
-          {/* Legenda das penalidades — chip discreto que expande/encolhe */}
-          <LegendaPenalidades />
-        </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-auto rounded-2xl" style={{ border: "1px solid var(--border)" }}>
           {compras.length === 0 ? (
