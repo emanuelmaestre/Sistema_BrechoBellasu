@@ -2665,8 +2665,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           </div>
         </div>
 
-        {/* Etapas compactas — em telas menores vai para a própria linha (order-last w-full) */}
-        <div className="order-last w-full lg:order-none lg:w-auto lg:flex-1 flex items-center justify-center gap-0 overflow-x-auto">
+        {/* Etapas — sempre em linha própria (w-full), centralizadas. Assim as 6
+            etapas nunca são cortadas nem disputam espaço com os botões. */}
+        <div className="order-last w-full flex items-center justify-center gap-0 overflow-x-auto py-0.5">
           {ETAPAS_LIVE.map((e, i) => {
             const done    = e.id < etapa
             const current = e.id === etapa
