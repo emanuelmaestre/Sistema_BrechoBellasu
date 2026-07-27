@@ -649,8 +649,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-medium uppercase truncate" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
                       {codigo && (
-                        <span className="shrink-0 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "var(--bg-surface)", color: prodHi === idx ? "var(--accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                        <span className="shrink-0 text-[11px] font-mono font-black px-1.5 py-0.5 rounded-md"
+                          style={{ background: "var(--bg-card)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
                           {codigo}
                         </span>
                       )}
@@ -676,32 +676,43 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                 <p className="text-xs py-3 text-center" style={{ color: "var(--text-muted)" }}>Nenhum produto adicionado</p>
               )}
               {itens.map((it, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                   style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {it.codigo_produto && <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{it.codigo_produto}</span>}
+                    <div className="flex items-center gap-2">
+                      {it.codigo_produto && (
+                        <span className="shrink-0 text-[11px] font-mono font-black px-1.5 py-0.5 rounded-md"
+                          style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+                          {it.codigo_produto}
+                        </span>
+                      )}
+                      <p className="text-sm font-semibold truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Qtd</span>
                       <input type="number" min={1} value={it.quantidade}
                         onChange={e => setItens(prev => prev.map((x, j) => j === i ? { ...x, quantidade: Math.max(1, parseInt(e.target.value) || 1) } : x))}
-                        className="w-12 text-center text-xs rounded-lg border outline-none px-1 py-0.5"
+                        className="w-12 text-center text-xs rounded-lg border outline-none px-1 py-1"
                         style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
-                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>×</span>
-                      <input type="text" value={it.preco_unitario > 0 ? String(it.preco_unitario).replace(".", ",") : ""}
-                        onChange={e => setItens(prev => prev.map((x, j) => j === i ? { ...x, preco_unitario: parseFloat(e.target.value.replace(",", ".")) || 0 } : x))}
-                        placeholder="R$ 0,00"
-                        className="w-20 text-xs rounded-lg border outline-none px-1.5 py-0.5"
-                        style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>×</span>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none" style={{ color: "var(--text-muted)" }}>R$</span>
+                        <input type="text" value={it.preco_unitario > 0 ? String(it.preco_unitario).replace(".", ",") : ""}
+                          onChange={e => setItens(prev => prev.map((x, j) => j === i ? { ...x, preco_unitario: parseFloat(e.target.value.replace(",", ".")) || 0 } : x))}
+                          placeholder="0,00"
+                          className="w-24 text-xs rounded-lg border outline-none pl-7 pr-2 py-1"
+                          style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+                      </div>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold shrink-0" style={{ color: COR }}>
+                  <span className="text-sm font-bold shrink-0" style={{ color: COR }}>
                     {fmtBRL(it.preco_unitario * it.quantidade)}
                   </span>
-                  <button onClick={() => removerItem(i)} className="p-1 rounded-lg transition-colors shrink-0"
+                  <button onClick={() => removerItem(i)} className="p-1.5 rounded-lg transition-colors shrink-0"
                     style={{ color: "var(--text-muted)" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>
-                    <X size={13} />
+                    <X size={14} />
                   </button>
                 </div>
               ))}

@@ -23,20 +23,29 @@ export const GET = withAuth(async (req: NextRequest) => {
 
   if (busca) {
     const b = busca.trim()
-    const eCpf       = /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(b)
-    const eTelefone  = /^[\d\s\(\)\-\+]{7,}$/.test(b)
-    const eInstagram = b.startsWith("@")
+    // Remove caracteres que quebram/injetam no filtro .or() do PostgREST.
+    const limpar = (s: string) => s.replace(/[,()\\%]/g, " ").trim()
+    const tokens = b.split(/\s+/).filter(Boolean)
 
-    if (eCpf || eTelefone || eInstagram) {
-      // Busca exata por campo específico
-      const val = b.replace(/^@/, "")
-      q = q.or(`cpf_cnpj.ilike.%${val}%,celular.ilike.%${val}%,instagram.ilike.%${val}%`)
+    if (tokens.length > 1) {
+      // Duas ou mais palavras: quase sempre nome. Exige TODOS os tokens no
+      // nome, em qualquer ordem ("costa adriana" acha "ADRIANA COSTA").
+      for (const token of tokens) q = q.ilike("nome", `%${limpar(token)}%`)
     } else {
-      // Busca por nome: quebra em tokens e exige que TODOS estejam no nome (qualquer ordem)
-      const tokens = b.split(/\s+/).filter(Boolean)
-      for (const token of tokens) {
-        q = q.ilike("nome", `%${token}%`)
+      // Um termo só: procura em TODOS os campos ao mesmo tempo, sem depender
+      // do formato. Número casa por dígitos (telefone/CPF, mesmo parcial ou
+      // com máscara); instagram com ou sem @.
+      const texto     = limpar(b)
+      const semArroba = limpar(b.replace(/^@/, ""))
+      const digitos   = b.replace(/\D/g, "")
+      const ors = [`nome.ilike.%${texto}%`]
+      if (semArroba) ors.push(`instagram.ilike.%${semArroba}%`)
+      if (digitos.length >= 2) {
+        ors.push(`celular.ilike.%${digitos}%`, `cpf_cnpj.ilike.%${digitos}%`)
+        // Alguns CPFs estão salvos com máscara (123.456.789-00): casa o texto cru também.
+        if (texto && texto !== digitos) ors.push(`cpf_cnpj.ilike.%${texto}%`)
       }
+      q = q.or(ors.join(","))
     }
   }
   if (status === "inativo") q = q.eq("ativo", false)
