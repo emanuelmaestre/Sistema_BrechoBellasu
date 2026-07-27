@@ -8,7 +8,7 @@ import {
   Check, Search, ShoppingBag, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2,
+  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2, ChevronDown,
 } from "lucide-react"
 import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
@@ -94,6 +94,80 @@ const MOTIVOS_PENALIDADE: { value: MotivoPenalidade; label: string; desc: string
   { value: "nao_pagou_prazo",          label: "Não pagou no prazo",       desc: "Comprou mas não pagou até o prazo combinado" },
   { value: "desistiu_apos_contemplar", label: "Desistiu após contemplar", desc: "Foi contemplada na live e desistiu da compra" },
 ]
+
+// Legenda discreta e expansível das cores de penalidade.
+// Fechada: só o ícone + 3 bolinhas pulsando (ocupa quase nada).
+// Aberta: painelzinho com o significado de cada grau.
+function LegendaPenalidades() {
+  const [aberta, setAberta] = useState(false)
+  const graus: { grau: GrauPenalidade; qtd: string }[] = [
+    { grau: "advertida", qtd: "1 penalidade"  },
+    { grau: "restrita",  qtd: "2 penalidades" },
+    { grau: "bloqueada", qtd: "3 ou mais"     },
+  ]
+  return (
+    <div className="relative shrink-0">
+      <motion.button onClick={() => setAberta(o => !o)}
+        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+        title="O que significam as cores das penalidades"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors"
+        style={{
+          background: aberta ? "var(--bg-surface)" : "transparent",
+          border: `1px solid ${aberta ? "var(--border)" : "transparent"}`,
+          color: "var(--text-muted)",
+        }}>
+        <ShieldAlert size={12} />
+        <span className="hidden sm:inline">Penalidades</span>
+        <span className="flex items-center gap-1">
+          {(["advertida", "restrita", "bloqueada"] as GrauPenalidade[]).map((g, i) => (
+            <motion.span key={g}
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.25, ease: "easeInOut" }}
+              className="w-2 h-2 rounded-full" style={{ background: PENALIDADE_UI[g].cor }} />
+          ))}
+        </span>
+        <motion.span animate={{ rotate: aberta ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={11} />
+        </motion.span>
+      </motion.button>
+
+      <AnimatePresence>
+        {aberta && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setAberta(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="absolute right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden p-3 w-60"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                <ShieldAlert size={12} /> Graus de penalidade
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {graus.map((it, i) => {
+                  const ui = PENALIDADE_UI[it.grau]
+                  return (
+                    <motion.div key={it.grau}
+                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.04 + i * 0.05 }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl"
+                      style={{ background: `${ui.cor}12`, border: `1px solid ${ui.cor}2e` }}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ui.cor }} />
+                      <span className="text-xs font-black" style={{ color: ui.cor }}>{ui.label}</span>
+                      <span className="text-[11px] ml-auto" style={{ color: "var(--text-muted)" }}>{it.qtd}</span>
+                    </motion.div>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] leading-snug mt-2 pt-2" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
+                🔴 <b style={{ color: "#dc2626" }}>Bloqueada</b> impede a contemplação na live.
+              </p>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 type LiveDetalhe = Live & { compras: Compra[] }
 
@@ -2569,7 +2643,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
       {/* ══ TOP BAR ══ */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="shrink-0 flex items-center gap-4 px-5 py-2.5"
+        className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-2.5"
         style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-base)" }}>
 
         {/* Voltar */}
@@ -2591,8 +2665,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           </div>
         </div>
 
-        {/* Etapas compactas */}
-        <div className="flex-1 flex items-center justify-center gap-0">
+        {/* Etapas compactas — em telas menores vai para a própria linha (order-last w-full) */}
+        <div className="order-last w-full lg:order-none lg:w-auto lg:flex-1 flex items-center justify-center gap-0 overflow-x-auto">
           {ETAPAS_LIVE.map((e, i) => {
             const done    = e.id < etapa
             const current = e.id === etapa
@@ -2617,7 +2691,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                     }}>
                     {done ? <Check size={9}/> : e.id}
                   </motion.div>
-                  <p className="text-[7px] font-bold uppercase tracking-wide"
+                  <p className="text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
                     style={{ color: done || current ? "var(--text-secondary)" : "var(--text-muted)" }}>
                     {e.label}
                   </p>
@@ -2627,8 +2701,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           })}
         </div>
 
-        {/* Ações no topo */}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
+        {/* Ações no topo — quebram para nova linha em vez de serem cortadas */}
+        <div className="lg:ml-auto flex flex-wrap items-center gap-2">
           {/* Status badge — só exibe Aberta / Encerrada */}
           {live.status !== "disparada" && (
             <motion.span
@@ -2644,17 +2718,18 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             <>
               <motion.button onClick={() => setModalCompra(true)}
                 whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
+                title="Adicionar compra"
+                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
                 style={{ background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-                <Plus size={14}/> Adicionar Compra
+                <Plus size={14}/> <span className="hidden xl:inline">Adicionar Compra</span>
               </motion.button>
 
               <motion.button onClick={() => setModalFoto(true)}
                 whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
+                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
                 style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid transparent" }}
                 title="Tire uma foto do caderno e o sistema identifica as compras automaticamente">
-                <CameraIcon size={14}/> Importar Foto
+                <CameraIcon size={14}/> <span className="hidden xl:inline">Importar Foto</span>
               </motion.button>
 
               {msgPendentes > 0 && (
@@ -2662,9 +2737,10 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
                   animate={{ boxShadow: ["0 0 0px #25d36600","0 0 18px #25d36655","0 0 0px #25d36600"] }}
                   transition={{ boxShadow: { repeat: Infinity, duration: 2.2 }, scale: {}, y: {} }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white whitespace-nowrap shrink-0"
+                  title="Disparar mensagens"
+                  className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white whitespace-nowrap shrink-0"
                   style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
-                  <Send size={14}/> Disparar Mensagens
+                  <Send size={14}/> <span className="hidden xl:inline">Disparar Mensagens</span>
                 </motion.button>
               )}
 
@@ -2674,7 +2750,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 whileHover={podeEncerrar ? { scale: 1.03, y: -1 } : {}}
                 whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3,3,-3,0] }}
                 transition={podeEncerrar ? {} : { duration: 0.25 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-all whitespace-nowrap shrink-0"
+                title={podeEncerrar ? "Encerrar live" : "Finalize todas as compras para encerrar"}
+                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-all whitespace-nowrap shrink-0"
                 style={{
                   background: podeEncerrar ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "transparent",
                   color: podeEncerrar ? "white" : "var(--text-muted)",
@@ -2682,14 +2759,15 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                   opacity: encerrando ? 0.6 : 1,
                 }}>
                 {podeEncerrar ? <CheckCircle2 size={14}/> : <Lock size={14} className="opacity-50"/>}
-                {encerrando ? "Encerrando..." : "Encerrar"}
+                <span className="hidden xl:inline">{encerrando ? "Encerrando..." : "Encerrar"}</span>
               </motion.button>
 
               <motion.button onClick={excluir} disabled={excluindo}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                title="Excluir live"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-opacity whitespace-nowrap shrink-0"
                 style={{ color: COR_LIVE, opacity: excluindo ? 0.5 : 1 }}>
-                <Trash2 size={13}/> {excluindo ? "Excluindo..." : "Excluir"}
+                <Trash2 size={13}/> <span className="hidden xl:inline">{excluindo ? "Excluindo..." : "Excluir"}</span>
               </motion.button>
             </>
           )}
@@ -2775,13 +2853,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           <p className="text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
             COMPRAS DESTA LIVE
           </p>
-          {/* Legenda das penalidades — explica cada bolinha de cor */}
-          <div className="hidden md:flex items-center gap-2.5 text-[10px] font-bold" style={{ color: "var(--text-muted)" }}>
-            <span className="uppercase tracking-wider opacity-70 flex items-center gap-1"><ShieldAlert size={11}/> Penalidades:</span>
-            <span title="1 penalidade ativa">🟡 Advertida</span>
-            <span title="2 penalidades ativas">🟠 Restrita</span>
-            <span title="3+ penalidades — impede contemplação">🔴 Bloqueada</span>
-          </div>
+          {/* Legenda das penalidades — chip discreto que expande/encolhe */}
+          <LegendaPenalidades />
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-auto rounded-2xl" style={{ border: "1px solid var(--border)" }}>
