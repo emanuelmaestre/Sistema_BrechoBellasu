@@ -559,11 +559,11 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
         </button>
       </div>
 
-      {/* Body — 2 columns */}
-      <div className="flex-1 overflow-hidden flex gap-0">
+      {/* Body — 2 colunas em lg+, empilhadas no mobile/tablet-retrato */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-y-auto lg:overflow-hidden">
 
         {/* ── Col esquerda: Cliente + Produtos ── */}
-        <div className="flex-1 flex flex-col gap-3 p-5 overflow-y-auto border-r" style={{ borderColor: "var(--border)" }}>
+        <div className="w-full lg:flex-1 flex flex-col gap-3 p-5 lg:overflow-y-auto border-b lg:border-b-0 lg:border-r" style={{ borderColor: "var(--border)" }}>
 
           {/* Cliente */}
           <div>
@@ -626,7 +626,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
           </div>
 
           {/* Produtos */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex flex-col lg:flex-1 lg:min-h-0">
             <label className={lSt} style={lCol}>Produtos *</label>
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
@@ -671,7 +671,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
               </div>
             )}
             {/* Items list */}
-            <div className="mt-2 flex-1 overflow-y-auto space-y-1.5 min-h-0">
+            <div className="mt-2 space-y-1.5 overflow-y-auto max-h-[45vh] lg:max-h-none lg:flex-1 lg:min-h-0">
               {itens.length === 0 && (
                 <p className="text-xs py-3 text-center" style={{ color: "var(--text-muted)" }}>Nenhum produto adicionado</p>
               )}
@@ -721,7 +721,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
         </div>
 
         {/* ── Col direita: Pagamento + Desconto + Obs ── */}
-        <div className="flex-1 flex flex-col gap-3 p-5 overflow-y-auto" style={{ minWidth: 320 }}>
+        <div className="w-full lg:w-[380px] lg:shrink-0 flex flex-col gap-3 p-5 lg:overflow-y-auto">
 
           {/* Forma de pagamento */}
           <div>
