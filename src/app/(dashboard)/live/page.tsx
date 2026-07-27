@@ -8,7 +8,7 @@ import {
   Check, Search, ShoppingBag, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
-  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert,
+  MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2,
 } from "lucide-react"
 import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
@@ -26,6 +26,7 @@ import {
   type ProdutoMensagem,
 } from "@/lib/live-message-builder"
 import { useDisparoStore } from "@/stores/disparo.store"
+import { grauPenalidade, type MotivoPenalidade, type GrauPenalidade } from "@/domain/live/penalidade"
 import { regraParcelamento, corRegraParcelamento, calcularValorFinal } from "@/lib/parcelamento"
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
@@ -77,7 +78,22 @@ export interface Compra {
   observacao?: string
   total_produtos_vinculados?: number
   total_estoque_baixado?: number
+  cliente_id?: number | null
+  cliente_penalidades?: number
 }
+
+// ─── Penalidades: cor/rótulo por grau (usado no selo, legenda e modal) ───
+const PENALIDADE_UI: Record<GrauPenalidade, { label: string; cor: string; emoji: string }> = {
+  normal:    { label: "Normal",    cor: "#10b981", emoji: "🟢" },
+  advertida: { label: "Advertida", cor: "#d97706", emoji: "🟡" },
+  restrita:  { label: "Restrita",  cor: "#ea580c", emoji: "🟠" },
+  bloqueada: { label: "Bloqueada", cor: "#dc2626", emoji: "🔴" },
+}
+
+const MOTIVOS_PENALIDADE: { value: MotivoPenalidade; label: string; desc: string }[] = [
+  { value: "nao_pagou_prazo",          label: "Não pagou no prazo",       desc: "Comprou mas não pagou até o prazo combinado" },
+  { value: "desistiu_apos_contemplar", label: "Desistiu após contemplar", desc: "Foi contemplada na live e desistiu da compra" },
+]
 
 type LiveDetalhe = Live & { compras: Compra[] }
 
@@ -2264,6 +2280,146 @@ function ModalEditarCompra({ liveId, compra, onClose, onSalvo }: { liveId: numbe
 }
 
 // ══════════════════════════════════════════════════════════
+// MODAL PENALIZAR CLIENTE
+// ══════════════════════════════════════════════════════════
+function ModalPenalizar({
+  liveId, compra, jaAplicadaNestaSessao, onClose, onAplicado,
+}: {
+  liveId: number
+  compra: Compra
+  jaAplicadaNestaSessao: boolean
+  onClose: () => void
+  onAplicado: (penalidadeId: number, clienteId: number, nome: string) => void
+}) {
+  // Pré-seleção: compra em aberto → "não pagou"; já paga → "desistiu".
+  const sugerido: MotivoPenalidade = compra.pagamento_status === "PAGO" ? "desistiu_apos_contemplar" : "nao_pagou_prazo"
+  const [motivo, setMotivo]     = useState<MotivoPenalidade>(sugerido)
+  const [obs, setObs]           = useState("")
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro]         = useState("")
+
+  const grauApos = grauPenalidade((compra.cliente_penalidades ?? 0) + 1)
+  const uiApos   = PENALIDADE_UI[grauApos]
+
+  async function aplicar() {
+    if (compra.cliente_id == null) return
+    setSalvando(true); setErro("")
+    try {
+      const r = await apiPost<{ id: number }>(`/clientes/${compra.cliente_id}/penalidades`, {
+        motivo, live_id: liveId, observacao: obs.trim() || undefined,
+      })
+      onAplicado(r.id, compra.cliente_id, compra.nome_cliente)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro ao aplicar penalidade.")
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        className="w-full max-w-md rounded-3xl overflow-hidden"
+        style={{ background: "var(--bg-card)", border: "1.5px solid rgba(239,68,68,0.3)" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ background: "rgba(239,68,68,0.06)", borderBottom: "1px solid rgba(239,68,68,0.15)" }}>
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldAlert size={17} style={{ color: "#ef4444" }} />
+            <div className="min-w-0">
+              <p className="font-black text-sm" style={{ color: "var(--text-primary)" }}>Aplicar penalidade</p>
+              <p className="text-[11px] font-bold uppercase truncate" style={{ color: "var(--text-muted)" }}>{compra.nome_cliente}</p>
+            </div>
+          </div>
+          <button onClick={onClose}><X size={16} style={{ color: "var(--text-muted)" }} /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {jaAplicadaNestaSessao && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+              <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                Você já aplicou uma penalidade a esta cliente nesta sessão. Só confirme de novo se for um caso diferente.
+              </p>
+            </div>
+          )}
+
+          {/* Motivo */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Motivo</p>
+            {MOTIVOS_PENALIDADE.map(m => {
+              const ativo = motivo === m.value
+              return (
+                <button key={m.value} onClick={() => setMotivo(m.value)}
+                  className="w-full text-left px-4 py-3 rounded-2xl transition-all flex items-start gap-3"
+                  style={{
+                    background: ativo ? "rgba(239,68,68,0.08)" : "var(--bg-surface)",
+                    border: `1.5px solid ${ativo ? "rgba(239,68,68,0.4)" : "var(--border)"}`,
+                  }}>
+                  <div className="w-4 h-4 rounded-full mt-0.5 shrink-0 flex items-center justify-center"
+                    style={{ border: `2px solid ${ativo ? "#ef4444" : "var(--border)"}` }}>
+                    {ativo && <div className="w-2 h-2 rounded-full" style={{ background: "#ef4444" }} />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{m.label}</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{m.desc}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Observação */}
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Observação (opcional)</p>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+              placeholder="Detalhe o ocorrido, se quiser…"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none transition-all border focus:border-[color:var(--accent)]"
+              style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }} />
+          </div>
+
+          {/* Consequência */}
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+            style={{ background: `${uiApos.cor}12`, border: `1px solid ${uiApos.cor}33` }}>
+            <span className="text-base">{uiApos.emoji}</span>
+            <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+              Após aplicar, a cliente ficará <b style={{ color: uiApos.cor }}>{uiApos.label}</b>
+              {grauApos === "bloqueada" && " — não poderá ser contemplada"}.
+            </p>
+          </div>
+
+          {erro && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(239,68,68,0.08)" }}>
+              <AlertTriangle size={13} style={{ color: "#f87171" }} />
+              <p className="text-xs font-semibold" style={{ color: "#f87171" }}>{erro}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold"
+              style={{ background: "var(--bg-surface)", color: "var(--text-secondary)" }}>Cancelar</button>
+            <button onClick={aplicar} disabled={salvando}
+              className="flex-1 py-3 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#ef4444,#b91c1c)" }}>
+              {salvando ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />}
+              Aplicar penalidade
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════
 // TELA DETALHE DA LIVE
 // ══════════════════════════════════════════════════════════
 function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }) {
@@ -2285,6 +2441,36 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [desfazendoId, setDesfazendoId] = useState<number | null>(null)
   // Histórico de avisos enviados durante esta sessão
   const [historicoAvisos, setHistoricoAvisos] = useState<{ hora: string; enviados: number; link: string }[]>([])
+
+  // ── Penalidades ──
+  const [penalizar, setPenalizar] = useState<Compra | null>(null)
+  const [penalizadasNestaLive, setPenalizadasNestaLive] = useState<Set<number>>(new Set())
+  const [toastPenal, setToastPenal] = useState<{ nome: string; clienteId: number; penalidadeId: number } | null>(null)
+  const [desfazendoPenal, setDesfazendoPenal] = useState(false)
+  const toastPenalTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function onPenalidadeAplicada(penalidadeId: number, clienteId: number, nome: string) {
+    setPenalizar(null)
+    setPenalizadasNestaLive(prev => new Set(prev).add(clienteId))
+    setToastPenal({ nome, clienteId, penalidadeId })
+    if (toastPenalTimer.current) clearTimeout(toastPenalTimer.current)
+    toastPenalTimer.current = setTimeout(() => setToastPenal(null), 7000)
+    refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+  }
+
+  async function desfazerPenalidade() {
+    if (!toastPenal) return
+    setDesfazendoPenal(true)
+    try {
+      await apiPatch(`/clientes/${toastPenal.clienteId}/penalidades/${toastPenal.penalidadeId}`, {
+        motivo_remocao: "Desfeito logo após aplicar",
+      })
+      setPenalizadasNestaLive(prev => { const n = new Set(prev); n.delete(toastPenal.clienteId); return n })
+      setToastPenal(null)
+      refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
+    } catch { /* silencia */ }
+    finally { setDesfazendoPenal(false) }
+  }
 
   const [marcandoPagoId, setMarcandoPagoId] = useState<number | null>(null)
   async function marcarPago(compraId: number) {
@@ -2585,10 +2771,17 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       {/* ══ TABELA COMPRAS ══ */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4">
 
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <p className="text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
             COMPRAS DESTA LIVE
           </p>
+          {/* Legenda das penalidades — explica cada bolinha de cor */}
+          <div className="hidden md:flex items-center gap-2.5 text-[10px] font-bold" style={{ color: "var(--text-muted)" }}>
+            <span className="uppercase tracking-wider opacity-70 flex items-center gap-1"><ShieldAlert size={11}/> Penalidades:</span>
+            <span title="1 penalidade ativa">🟡 Advertida</span>
+            <span title="2 penalidades ativas">🟠 Restrita</span>
+            <span title="3+ penalidades — impede contemplação">🔴 Bloqueada</span>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-auto rounded-2xl" style={{ border: "1px solid var(--border)" }}>
@@ -2624,9 +2817,21 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
 
                         <td className="px-4 py-3.5">
-                          <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                            {c.nome_cliente}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                              {c.nome_cliente}
+                            </p>
+                            {(c.cliente_penalidades ?? 0) > 0 && (() => {
+                              const ui = PENALIDADE_UI[grauPenalidade(c.cliente_penalidades ?? 0)]
+                              return (
+                                <span title={`${ui.label} — ${c.cliente_penalidades} penalidade${(c.cliente_penalidades ?? 0) !== 1 ? "s" : ""} ativa${(c.cliente_penalidades ?? 0) !== 1 ? "s" : ""}`}
+                                  className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0"
+                                  style={{ background: `${ui.cor}18`, color: ui.cor, border: `1px solid ${ui.cor}40` }}>
+                                  {ui.emoji} {ui.label}
+                                </span>
+                              )
+                            })()}
+                          </div>
                         </td>
 
                         <td className="px-4 py-3.5">
@@ -2722,6 +2927,22 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                                 style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.25)" }}>
                                 <Pencil size={10}/> EDITAR
                               </motion.button>
+                            )}
+                            {/* Penalizar — só com cliente cadastrada vinculada */}
+                            {c.cliente_id != null ? (
+                              <motion.button onClick={() => setPenalizar(c)}
+                                whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
+                                title="Aplicar penalidade a esta cliente"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                                <Flag size={10}/> PENALIZAR
+                              </motion.button>
+                            ) : (
+                              <span title="Vincule a compra a uma cliente cadastrada para poder penalizar"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg cursor-not-allowed opacity-40"
+                                style={{ background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                                <Flag size={10}/> PENALIZAR
+                              </span>
                             )}
                             {podeVincular && (
                               <motion.button onClick={() => setModalVinculo(c)}
@@ -2842,6 +3063,30 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
+        {penalizar     && <ModalPenalizar liveId={liveId} compra={penalizar}
+          jaAplicadaNestaSessao={penalizar.cliente_id != null && penalizadasNestaLive.has(penalizar.cliente_id)}
+          onClose={() => setPenalizar(null)} onAplicado={onPenalidadeAplicada}/>}
+      </AnimatePresence>
+
+      {/* Toast de penalidade aplicada, com desfazer */}
+      <AnimatePresence>
+        {toastPenal && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.96 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
+            style={{ background: "var(--bg-card)", border: "1.5px solid rgba(239,68,68,0.3)" }}>
+            <ShieldAlert size={16} style={{ color: "#ef4444" }} />
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Penalidade aplicada a <b>{toastPenal.nome}</b>
+            </p>
+            <button onClick={desfazerPenalidade} disabled={desfazendoPenal}
+              className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ background: "var(--bg-surface)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
+              {desfazendoPenal ? <Loader2 size={12} className="animate-spin"/> : <Undo2 size={12}/>} Desfazer
+            </button>
+            <button onClick={() => setToastPenal(null)} className="ml-1"><X size={14} style={{ color: "var(--text-muted)" }}/></button>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   )

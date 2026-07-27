@@ -18,6 +18,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: compras } = await sb.from("live_compras").select("*").eq("live_id", id).order("created_at")
   const ids = (compras ?? []).map(c => c.id)
 
+  // Penalidades ativas por cliente vinculada — alimenta o selo 🟡/🟠/🔴 na tabela.
+  const clienteIds = [...new Set(
+    (compras ?? []).map(c => c.cliente_id).filter((v): v is number => typeof v === "number")
+  )]
+  const penMap: Record<number, number> = {}
+  if (clienteIds.length) {
+    const { data: penClientes } = await sb
+      .from("clientes")
+      .select("id, total_penalidades_ativas")
+      .in("id", clienteIds)
+    for (const p of penClientes ?? []) penMap[p.id] = p.total_penalidades_ativas ?? 0
+  }
+
   // Busca produtos de AMBAS as tabelas (nova + legada)
   type ProdRow = { compra_id: number; quantidade: number; estoque_baixado?: boolean }
   type ItemRow = { live_compra_id: number; [k: string]: unknown }
@@ -60,6 +73,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       total_produtos_vinculados: totalVinculados,
       total_estoque_baixado:     totalBaixados,
       status_compra:             statusFinal,
+      cliente_penalidades:       c.cliente_id != null ? (penMap[c.cliente_id] ?? 0) : 0,
       itens: itensLegados.filter(i => i.live_compra_id === c.id),
     }
   })
