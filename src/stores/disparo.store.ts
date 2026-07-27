@@ -71,7 +71,7 @@ interface DisparoState {
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string; reenvio?: boolean }) => boolean
   iniciarConsentimento: () => boolean
   iniciarGoogleSync: (clienteIds: number[]) => boolean
-  iniciarBroadcast: (p: { campanhaId: number; campanhaTitulo: string }) => boolean
+  iniciarBroadcast: (p: { campanhaId: number; campanhaTitulo: string; retomando?: boolean }) => boolean
   /** Retoma o job salvo no localStorage (continua de onde parou). */
   retomar: () => boolean
   /** Descarta o job salvo sem retomar. */
@@ -363,9 +363,10 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       return true
     },
 
-    iniciarBroadcast: ({ campanhaId, campanhaTitulo }) => {
+    iniciarBroadcast: ({ campanhaId, campanhaTitulo, retomando = false }) => {
       if (get().job?.status === "running") return false
-      salvarJob({ tipo: "broadcast", campanhaId, campanhaTitulo, savedAt: Date.now() })
+      const salvo: JobSalvo = { tipo: "broadcast", campanhaId, campanhaTitulo, savedAt: Date.now() }
+      salvarJob(salvo)
       set({ job: novoJob("broadcast", campanhaTitulo), minimized: false, jobSalvo: null })
       void (async () => {
         await rodar(
@@ -374,13 +375,21 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
               `/admin/broadcast?campanha_id=${campanhaId}`,
             )
             const itens = r.clientes ?? []
-            // Marca campanha como "enviando" com total de clientes
+            // FALHA 1 — Libera a campanha para envio. É OBRIGATÓRIO: cada envio
+            // individual é recusado (409) se o status não for "enviando". Se
+            // esse PATCH falhar, o erro sobe e o rodar() aborta o job na hora —
+            // em vez de disparar centenas de requisições fadadas ao 409 ao longo
+            // de horas e só então revelar que ninguém recebeu.
+            const patch: Record<string, unknown> = { status: "enviando" }
+            // FALHA 3 — total_clientes só no 1º disparo (a fila é a base
+            // completa). Numa retomada a fila traz só os pendentes; sobrescrever
+            // encolheria o total e bagunçaria o placar do histórico.
+            if (!retomando) patch.total_clientes = itens.length
             try {
-              await apiPatch(`/admin/campanhas?id=${campanhaId}`, {
-                status: "enviando",
-                total_clientes: itens.length,
-              })
-            } catch { /* não bloqueia */ }
+              await apiPatch(`/admin/campanhas?id=${campanhaId}`, patch)
+            } catch {
+              throw new Error("Não foi possível liberar a campanha para envio. Verifique a conexão e tente disparar novamente.")
+            }
             return { itens, aviso: "Nenhuma cliente com WhatsApp autorizado." }
           },
           async (item) => {
@@ -394,13 +403,28 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
             }
           },
         )
-        // Ao terminar (sucesso ou cancelamento), marca campanha como "enviada"
+        // FALHA 2 — Fecha a campanha conforme o desfecho REAL do job:
+        //  • done      → "enviada" (concluída de fato).
+        //  • cancelled → volta a "rascunho" e reoferece a retomada, preservando
+        //                o progresso (campanha_envios) para não reenviar a quem
+        //                já recebeu. Nunca marca "enviada" — seria mentira e as
+        //                clientes restantes ficariam sem receber, sem aviso.
+        //  • error     → não mexe: a liberação falhou, status segue "rascunho",
+        //                pronto para nova tentativa.
+        const desfecho = get().job?.status
         try {
-          await apiPatch(`/admin/campanhas?id=${campanhaId}`, {
-            status: "enviada",
-            enviado_em: new Date().toISOString(),
-          })
-        } catch { /* não bloqueia */ }
+          if (desfecho === "done") {
+            await apiPatch(`/admin/campanhas?id=${campanhaId}`, {
+              status: "enviada",
+              enviado_em: new Date().toISOString(),
+            })
+          } else if (desfecho === "cancelled") {
+            await apiPatch(`/admin/campanhas?id=${campanhaId}`, { status: "rascunho" })
+            const retomavel: JobSalvo = { ...salvo, savedAt: Date.now() }
+            salvarJob(retomavel)
+            set({ job: null, jobSalvo: retomavel })
+          }
+        } catch { /* melhor esforço: o progresso em campanha_envios segue íntegro */ }
       })()
       return true
     },
@@ -413,7 +437,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       if (salvo.tipo === "aviso")        return store.iniciarAviso({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, link: salvo.link, reenvio: salvo.reenvio })
       if (salvo.tipo === "consentimento") return store.iniciarConsentimento()
       if (salvo.tipo === "google-sync")  return store.iniciarGoogleSync(salvo.clienteIds)
-      if (salvo.tipo === "broadcast")    return store.iniciarBroadcast({ campanhaId: salvo.campanhaId, campanhaTitulo: salvo.campanhaTitulo })
+      if (salvo.tipo === "broadcast")    return store.iniciarBroadcast({ campanhaId: salvo.campanhaId, campanhaTitulo: salvo.campanhaTitulo, retomando: true })
       return false
     },
 
