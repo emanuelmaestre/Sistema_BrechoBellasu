@@ -283,7 +283,7 @@ export default function LoginPage() {
               <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.38)" }}>Acesse com suas credenciais</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
               {/* E-mail */}
               <div>

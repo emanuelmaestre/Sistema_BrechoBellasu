@@ -2665,42 +2665,43 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           </div>
         </div>
 
-        {/* Etapas — inline no centro da linha 1 em telas largas (preenche o vão
-            entre título e ícones); abaixo de lg desce para a própria linha.
-            overflow-x-auto garante que nunca corte, só role no limite. */}
-        <div className="order-last w-full lg:order-none lg:flex-1 lg:w-auto flex items-center justify-center gap-0 overflow-x-auto py-0.5">
-          {ETAPAS_LIVE.map((e, i) => {
-            const done    = e.id < etapa
-            const current = e.id === etapa
-            return (
-              <div key={e.id} className="flex items-center">
-                {i > 0 && (
-                  <motion.div className="h-px w-5"
-                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-                    transition={{ delay: i * 0.05, duration: 0.3 }}
-                    style={{ background: done ? "var(--accent)" : "var(--border)", transformOrigin: "left" }}/>
-                )}
-                <div className="flex flex-col items-center gap-0.5">
-                  <motion.div
-                    animate={current ? { scale: [1, 1.12, 1] } : { scale: 1 }}
-                    transition={{ repeat: current ? Infinity : 0, duration: 2, ease: "easeInOut" }}
-                    className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
-                    style={{
-                      background: done ? "var(--accent)" : current ? COR_LIVE : "var(--bg-surface)",
-                      border: `1.5px solid ${done ? "var(--accent)" : current ? COR_LIVE : "var(--border)"}`,
-                      color: done || current ? "#fff" : "var(--text-muted)",
-                      boxShadow: current ? `0 0 6px ${COR_LIVE}55` : "none",
-                    }}>
-                    {done ? <Check size={8}/> : e.id}
-                  </motion.div>
-                  <p className="text-[8px] font-bold uppercase tracking-wide whitespace-nowrap"
-                    style={{ color: done || current ? "var(--text-secondary)" : "var(--text-muted)" }}>
-                    {e.label}
-                  </p>
+        {/* O filho min-w-max centraliza quando cabe e ancora no inicio quando
+            transborda, deixando as duas extremidades acessiveis pelo scroll. */}
+        <div className="order-last w-full lg:order-none lg:flex-1 lg:w-auto overflow-x-auto py-0.5 px-1">
+          <div className="mx-auto flex min-w-max items-center gap-0 px-1">
+            {ETAPAS_LIVE.map((e, i) => {
+              const done    = e.id < etapa
+              const current = e.id === etapa
+              return (
+                <div key={e.id} className="flex items-center">
+                  {i > 0 && (
+                    <motion.div className="h-px w-5"
+                      initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                      transition={{ delay: i * 0.05, duration: 0.3 }}
+                      style={{ background: done ? "var(--accent)" : "var(--border)", transformOrigin: "left" }}/>
+                  )}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <motion.div
+                      animate={current ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+                      transition={{ repeat: current ? Infinity : 0, duration: 2, ease: "easeInOut" }}
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+                      style={{
+                        background: done ? "var(--accent)" : current ? COR_LIVE : "var(--bg-surface)",
+                        border: `1.5px solid ${done ? "var(--accent)" : current ? COR_LIVE : "var(--border)"}`,
+                        color: done || current ? "#fff" : "var(--text-muted)",
+                        boxShadow: current ? `0 0 6px ${COR_LIVE}55` : "none",
+                      }}>
+                      {done ? <Check size={8}/> : e.id}
+                    </motion.div>
+                    <p className="text-[8px] font-bold uppercase tracking-wide whitespace-nowrap"
+                      style={{ color: done || current ? "var(--text-secondary)" : "var(--text-muted)" }}>
+                      {e.label}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
 
         {/* Ações no topo — quebram para nova linha em vez de serem cortadas */}
