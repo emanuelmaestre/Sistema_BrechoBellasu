@@ -638,16 +638,27 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
             </div>
             {(prodRes.length > 0 || prodBusca.length >= 2) && (
               <div className="mt-1 rounded-xl overflow-hidden shadow-lg" style={{ border: "1px solid var(--border)" }}>
-                {prodRes.map((p, idx) => (
+                {prodRes.map((p, idx) => {
+                  const codigo = (p as { codigo?: string | null }).codigo
+                  return (
                   <button key={p.id} onClick={() => adicionarProduto(p)}
                     className="w-full px-3 py-2 text-left transition-colors"
                     style={{ borderBottom: "1px solid var(--border)", background: prodHi === idx ? "var(--accent-bg)" : "transparent" }}
                     onMouseEnter={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
                     onMouseLeave={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                    <p className="text-sm font-medium uppercase" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium uppercase truncate" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
+                      {codigo && (
+                        <span className="shrink-0 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: "var(--bg-surface)", color: prodHi === idx ? "var(--accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                          {codigo}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda)} · Estoque: {p.estoque_atual ?? "—"}</p>
                   </button>
-                ))}
+                  )
+                })}
                 {prodBusca.length >= 2 && (
                   <button onClick={adicionarManual}
                     className="w-full px-3 py-2 text-left text-xs font-semibold transition-colors"

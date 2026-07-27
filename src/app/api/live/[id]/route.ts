@@ -1,107 +1,232 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
-import { verifyAuth } from "@/lib/auth"
 import { calcularStatusCompra } from "@/domain/live/status-compra"
+import { verifyAuth } from "@/lib/auth"
+import { createServerClient } from "@/lib/supabase"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const LIVE_STATUSES = new Set([
+  "aberta",
+  "encerrada",
+  "disparada",
+  "agendada",
+  "ao_vivo",
+])
+
+function parseLiveId(value: string): number | null {
+  const id = Number(value)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) {
+    return NextResponse.json({ erro: "Nao autorizado." }, { status: 401 })
+  }
 
-  const { id } = await params
+  const { id: idParam } = await params
+  const id = parseLiveId(idParam)
+  if (!id) {
+    return NextResponse.json({ erro: "Live invalida." }, { status: 400 })
+  }
+
   const sb = createServerClient()
+  const { data: live, error: liveError } = await sb
+    .from("lives")
+    .select("*")
+    .eq("id", id)
+    .single()
+  if (liveError || !live) {
+    return NextResponse.json({ erro: "Live nao encontrada." }, { status: 404 })
+  }
 
-  const { data: live, error } = await sb.from("lives").select("*").eq("id", id).single()
-  if (error || !live) return NextResponse.json({ erro: "Live não encontrada." }, { status: 404 })
+  const { data: compras, error: comprasError } = await sb
+    .from("live_compras")
+    .select("*")
+    .eq("live_id", id)
+    .order("created_at")
+  if (comprasError) {
+    console.error("[live-detalhe] Falha ao carregar compras:", comprasError.message)
+    return NextResponse.json(
+      { erro: "Falha ao carregar compras da live." },
+      { status: 500 }
+    )
+  }
 
-  const { data: compras } = await sb.from("live_compras").select("*").eq("live_id", id).order("created_at")
   const ids = (compras ?? []).map(c => c.id)
-
-  // Penalidades ativas por cliente vinculada — alimenta o selo 🟡/🟠/🔴 na tabela.
   const clienteIds = [...new Set(
-    (compras ?? []).map(c => c.cliente_id).filter((v): v is number => typeof v === "number")
+    (compras ?? [])
+      .map(c => c.cliente_id)
+      .filter((value): value is number => typeof value === "number")
   )]
-  const penMap: Record<number, number> = {}
-  if (clienteIds.length) {
-    const { data: penClientes } = await sb
+  const penalidadesPorCliente: Record<number, number> = {}
+
+  if (clienteIds.length > 0) {
+    const { data: clientes, error: penalidadesError } = await sb
       .from("clientes")
       .select("id, total_penalidades_ativas")
       .in("id", clienteIds)
-    for (const p of penClientes ?? []) penMap[p.id] = p.total_penalidades_ativas ?? 0
+    if (penalidadesError) {
+      console.error(
+        "[live-detalhe] Falha ao carregar penalidades:",
+        penalidadesError.message
+      )
+      return NextResponse.json(
+        { erro: "Falha ao carregar penalidades das clientes." },
+        { status: 500 }
+      )
+    }
+
+    for (const cliente of clientes ?? []) {
+      penalidadesPorCliente[cliente.id] =
+        cliente.total_penalidades_ativas ?? 0
+    }
   }
 
-  // Busca produtos de AMBAS as tabelas (nova + legada)
-  type ProdRow = { compra_id: number; quantidade: number; estoque_baixado?: boolean }
-  type ItemRow = { live_compra_id: number; [k: string]: unknown }
-  let produtosNovos: ProdRow[] = []
+  type ProdutoRow = {
+    compra_id: number
+    quantidade: number
+    estoque_baixado?: boolean
+  }
+  type ItemRow = { live_compra_id: number; [key: string]: unknown }
+
+  let produtosNovos: ProdutoRow[] = []
   let itensLegados: ItemRow[] = []
-
-  if (ids.length) {
-    const [rNovos, rLegados] = await Promise.all([
-      sb.from("live_compra_produtos").select("compra_id, quantidade, estoque_baixado").in("compra_id", ids),
-      sb.from("live_compra_itens").select("*").in("live_compra_id", ids),
+  if (ids.length > 0) {
+    const [produtosResult, itensResult] = await Promise.all([
+      sb
+        .from("live_compra_produtos")
+        .select("compra_id, quantidade, estoque_baixado")
+        .in("compra_id", ids),
+      sb
+        .from("live_compra_itens")
+        .select("*")
+        .in("live_compra_id", ids),
     ])
-    produtosNovos = (rNovos.data ?? []) as ProdRow[]
-    itensLegados = (rLegados.data ?? []) as ItemRow[]
+
+    if (produtosResult.error || itensResult.error) {
+      console.error(
+        "[live-detalhe] Falha ao carregar itens:",
+        produtosResult.error?.message ?? itensResult.error?.message
+      )
+      return NextResponse.json(
+        { erro: "Falha ao carregar itens das compras." },
+        { status: 500 }
+      )
+    }
+
+    produtosNovos = (produtosResult.data ?? []) as ProdutoRow[]
+    itensLegados = (itensResult.data ?? []) as ItemRow[]
   }
 
-  // Agrupa produtos por compra_id
-  const prodMap: Record<number, ProdRow[]> = {}
-  for (const p of produtosNovos) {
-    if (!prodMap[p.compra_id]) prodMap[p.compra_id] = []
-    prodMap[p.compra_id].push(p)
+  const produtosPorCompra: Record<number, ProdutoRow[]> = {}
+  for (const produto of produtosNovos) {
+    if (!produtosPorCompra[produto.compra_id]) {
+      produtosPorCompra[produto.compra_id] = []
+    }
+    produtosPorCompra[produto.compra_id].push(produto)
   }
 
-  // Reconstrói compras com contagens recalculadas dinamicamente
-  const comprasComItens = (compras ?? []).map(c => {
-    const prods = prodMap[c.id] ?? []
-    const vinculos = prods.map(p => ({ quantidade: Number(p.quantidade ?? 1), estoqueBaixado: p.estoque_baixado === true }))
-    const totalVinculados = vinculos.reduce((s, v) => s + v.quantidade, 0)
-    const totalBaixados   = vinculos.filter(v => v.estoqueBaixado).reduce((s, v) => s + v.quantidade, 0)
-    const statusCalculado = calcularStatusCompra(Number(c.quantidade_itens ?? 0), vinculos)
-    // "retirada" é um estado manual pós-finalização — não é derivável do vínculo
-    // de produtos, então preserva o valor do banco enquanto a compra continuar
-    // com tudo vinculado (cálculo = "finalizada").
-    const statusFinal = c.status_compra === "retirada" && statusCalculado === "finalizada"
-      ? "retirada"
-      : statusCalculado
+  const comprasComItens = (compras ?? []).map(compra => {
+    const produtos = produtosPorCompra[compra.id] ?? []
+    const vinculos = produtos.map(produto => ({
+      quantidade: Number(produto.quantidade ?? 1),
+      estoqueBaixado: produto.estoque_baixado === true,
+    }))
+    const totalVinculados = vinculos.reduce(
+      (total, vinculo) => total + vinculo.quantidade,
+      0
+    )
+    const totalBaixados = vinculos
+      .filter(vinculo => vinculo.estoqueBaixado)
+      .reduce((total, vinculo) => total + vinculo.quantidade, 0)
+    const statusCalculado = calcularStatusCompra(
+      Number(compra.quantidade_itens ?? 0),
+      vinculos
+    )
+    const statusFinal =
+      compra.status_compra === "retirada" && statusCalculado === "finalizada"
+        ? "retirada"
+        : statusCalculado
 
     return {
-      ...c,
-      // Recalcula em tempo real — ignora valor stale do banco
+      ...compra,
       total_produtos_vinculados: totalVinculados,
-      total_estoque_baixado:     totalBaixados,
-      status_compra:             statusFinal,
-      cliente_penalidades:       c.cliente_id != null ? (penMap[c.cliente_id] ?? 0) : 0,
-      itens: itensLegados.filter(i => i.live_compra_id === c.id),
+      total_estoque_baixado: totalBaixados,
+      status_compra: statusFinal,
+      cliente_penalidades:
+        compra.cliente_id != null
+          ? (penalidadesPorCliente[compra.cliente_id] ?? 0)
+          : 0,
+      itens: itensLegados.filter(item => item.live_compra_id === compra.id),
     }
   })
 
   return NextResponse.json({ ...live, compras: comprasComItens })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) {
+    return NextResponse.json({ erro: "Nao autorizado." }, { status: 401 })
+  }
 
-  const { id } = await params
-  const { status } = await req.json()
-  if (!status) return NextResponse.json({ erro: "Status obrigatório." }, { status: 400 })
+  const { id: idParam } = await params
+  const id = parseLiveId(idParam)
+  if (!id) {
+    return NextResponse.json({ erro: "Live invalida." }, { status: 400 })
+  }
+
+  const body = await req.json().catch(() => null) as { status?: unknown } | null
+  const status = typeof body?.status === "string" ? body.status : ""
+  if (!LIVE_STATUSES.has(status)) {
+    return NextResponse.json({ erro: "Status invalido." }, { status: 400 })
+  }
 
   const sb = createServerClient()
-  const { data, error } = await sb.from("lives").update({ status }).eq("id", id).select().single()
-  if (error) return NextResponse.json({ erro: "Erro ao atualizar status." }, { status: 500 })
+  const { data, error } = await sb
+    .from("lives")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single()
+  if (error) {
+    return NextResponse.json(
+      { erro: "Erro ao atualizar status." },
+      { status: 500 }
+    )
+  }
   return NextResponse.json(data)
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const auth = verifyAuth(req)
-  if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!auth) {
+    return NextResponse.json({ erro: "Nao autorizado." }, { status: 401 })
+  }
 
-  const { id } = await params
+  const { id: idParam } = await params
+  const id = parseLiveId(idParam)
+  if (!id) {
+    return NextResponse.json({ erro: "Live invalida." }, { status: 400 })
+  }
+
   const sb = createServerClient()
   const { error } = await sb.from("lives").delete().eq("id", id)
-  if (error) return NextResponse.json({ erro: "Erro ao excluir live." }, { status: 500 })
+  if (error) {
+    return NextResponse.json(
+      { erro: "Erro ao excluir live." },
+      { status: 500 }
+    )
+  }
   return NextResponse.json({ ok: true })
 }
