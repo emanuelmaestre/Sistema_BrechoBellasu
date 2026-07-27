@@ -811,7 +811,11 @@ export function ModuleTopBar() {
   return (
     <div
       id="module-topbar"
-      className="flex items-center gap-1.5 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 shrink-0 relative z-20"
+      // z-30: acima do cabeçalho sticky das listas (z-20), senão os popups dos
+      // widgets (Calendário/Aniversariantes/Calculadora) ficam presos na camada
+      // z-20 da topbar e são cobertos pelo cabeçalho da lista. Fica abaixo dos
+      // modais de formulário (z-80/90) e overlays (z-100+), que devem cobri-la.
+      className="flex items-center gap-1.5 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 shrink-0 relative z-30"
       style={{
         background:   "var(--bg-card)",
         borderBottom: "1px solid var(--border)",
