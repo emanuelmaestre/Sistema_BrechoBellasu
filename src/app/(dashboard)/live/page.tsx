@@ -2674,25 +2674,25 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
             return (
               <div key={e.id} className="flex items-center">
                 {i > 0 && (
-                  <motion.div className="h-px w-6"
+                  <motion.div className="h-px w-5"
                     initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
                     transition={{ delay: i * 0.05, duration: 0.3 }}
                     style={{ background: done ? "var(--accent)" : "var(--border)", transformOrigin: "left" }}/>
                 )}
                 <div className="flex flex-col items-center gap-0.5">
                   <motion.div
-                    animate={current ? { scale: [1, 1.2, 1] } : { scale: 1 }}
-                    transition={{ repeat: current ? Infinity : 0, duration: 1.8, ease: "easeInOut" }}
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black"
+                    animate={current ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+                    transition={{ repeat: current ? Infinity : 0, duration: 2, ease: "easeInOut" }}
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
                     style={{
                       background: done ? "var(--accent)" : current ? COR_LIVE : "var(--bg-surface)",
                       border: `1.5px solid ${done ? "var(--accent)" : current ? COR_LIVE : "var(--border)"}`,
                       color: done || current ? "#fff" : "var(--text-muted)",
-                      boxShadow: current ? `0 0 8px ${COR_LIVE}60` : "none",
+                      boxShadow: current ? `0 0 6px ${COR_LIVE}55` : "none",
                     }}>
-                    {done ? <Check size={9}/> : e.id}
+                    {done ? <Check size={8}/> : e.id}
                   </motion.div>
-                  <p className="text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
+                  <p className="text-[8px] font-bold uppercase tracking-wide whitespace-nowrap"
                     style={{ color: done || current ? "var(--text-secondary)" : "var(--text-muted)" }}>
                     {e.label}
                   </p>
@@ -2718,57 +2718,56 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           {live.status !== "encerrada" && (
             <>
               <motion.button onClick={() => setModalCompra(true)}
-                whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.92 }}
                 title="Adicionar compra"
-                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
-                style={{ background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
-                <Plus size={14}/> <span className="hidden xl:inline">Adicionar Compra</span>
+                className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+                style={{ background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }}>
+                <Plus size={17}/>
               </motion.button>
 
               <motion.button onClick={() => setModalFoto(true)}
-                whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide whitespace-nowrap shrink-0"
-                style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid transparent" }}
-                title="Tire uma foto do caderno e o sistema identifica as compras automaticamente">
-                <CameraIcon size={14}/> <span className="hidden xl:inline">Importar Foto</span>
+                whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.92 }}
+                className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+                style={{ background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+                title="Importar por foto — o sistema identifica as compras automaticamente">
+                <CameraIcon size={16}/>
               </motion.button>
 
               {msgPendentes > 0 && (
                 <motion.button onClick={() => setModalDisp(true)}
-                  whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
+                  whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.92 }}
                   animate={{ boxShadow: ["0 0 0px #25d36600","0 0 18px #25d36655","0 0 0px #25d36600"] }}
                   transition={{ boxShadow: { repeat: Infinity, duration: 2.2 }, scale: {}, y: {} }}
-                  title="Disparar mensagens"
-                  className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide text-white whitespace-nowrap shrink-0"
+                  title={`Disparar mensagens (${msgPendentes} pendente${msgPendentes > 1 ? "s" : ""})`}
+                  className="flex items-center justify-center w-9 h-9 rounded-xl text-white shrink-0"
                   style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
-                  <Send size={14}/> <span className="hidden xl:inline">Disparar Mensagens</span>
+                  <Send size={15}/>
                 </motion.button>
               )}
 
               <span className="w-px h-6 mx-1 shrink-0" style={{ background: "var(--border)" }}/>
 
               <motion.button onClick={podeEncerrar ? encerrar : undefined} disabled={encerrando}
-                whileHover={podeEncerrar ? { scale: 1.03, y: -1 } : {}}
-                whileTap={podeEncerrar ? { scale: 0.97 } : { x: [-3,3,-3,0] }}
+                whileHover={podeEncerrar ? { scale: 1.08, y: -1 } : {}}
+                whileTap={podeEncerrar ? { scale: 0.92 } : { x: [-3,3,-3,0] }}
                 transition={podeEncerrar ? {} : { duration: 0.25 }}
-                title={podeEncerrar ? "Encerrar live" : "Finalize todas as compras para encerrar"}
-                className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-all whitespace-nowrap shrink-0"
+                title={podeEncerrar ? "Encerrar live" : "Finalize todas as compras para poder encerrar"}
+                className="flex items-center justify-center w-9 h-9 rounded-xl transition-all shrink-0"
                 style={{
                   background: podeEncerrar ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "transparent",
                   color: podeEncerrar ? "white" : "var(--text-muted)",
                   border: podeEncerrar ? "none" : "1px solid var(--border)",
                   opacity: encerrando ? 0.6 : 1,
                 }}>
-                {podeEncerrar ? <CheckCircle2 size={14}/> : <Lock size={14} className="opacity-50"/>}
-                <span className="hidden xl:inline">{encerrando ? "Encerrando..." : "Encerrar"}</span>
+                {encerrando ? <Loader2 size={15} className="animate-spin"/> : podeEncerrar ? <CheckCircle2 size={15}/> : <Lock size={14} className="opacity-50"/>}
               </motion.button>
 
               <motion.button onClick={excluir} disabled={excluindo}
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
                 title="Excluir live"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black uppercase tracking-wide transition-opacity whitespace-nowrap shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-xl transition-opacity shrink-0"
                 style={{ color: COR_LIVE, opacity: excluindo ? 0.5 : 1 }}>
-                <Trash2 size={13}/> <span className="hidden xl:inline">{excluindo ? "Excluindo..." : "Excluir"}</span>
+                {excluindo ? <Loader2 size={14} className="animate-spin"/> : <Trash2 size={15}/>}
               </motion.button>
             </>
           )}
@@ -2776,7 +2775,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       </motion.div>
 
       {/* ══ MÉTRICAS ══ */}
-      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-4 sm:px-6 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
         {[
           { label: "CLIENTES",           val: totalClientes,           cor: "#6366f1", icon: <Users size={15}/> },
           { label: "TOTAL ARRECADADO",   val: fmtBRL(totalArrecadado), cor: "#10b981", icon: <TrendingUp size={15}/> },
@@ -2786,14 +2785,14 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           <motion.div key={m.label}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 + i * 0.06, type: "spring", stiffness: 350, damping: 26 }}
-            whileHover={{ y: -3, boxShadow: `0 8px 24px ${m.cor}20` }}
-            className="rounded-2xl p-5 flex flex-col gap-2 cursor-default"
+            whileHover={{ y: -2, boxShadow: `0 6px 18px ${m.cor}20` }}
+            className="rounded-xl px-3.5 py-2.5 flex flex-col gap-0.5 cursor-default"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
+              <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{m.label}</p>
               <span style={{ color: m.cor }}>{m.icon}</span>
             </div>
-            <p className="text-3xl font-black" style={{ color: "var(--text-primary)" }}>{m.val}</p>
+            <p className="text-xl sm:text-2xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>{m.val}</p>
           </motion.div>
         ))}
       </div>
