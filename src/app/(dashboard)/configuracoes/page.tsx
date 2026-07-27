@@ -1311,15 +1311,18 @@ function CampanhaWhatsApp() {
 
     setMidiaLocalUrl(URL.createObjectURL(file))
     setMidiaTipo(isVideo ? "video" : "imagem")
-    setMidiaNome(file.name)
     setUploading(true)
     try {
       const fd = new FormData()
       fd.append("file", file)
       const res = await fetch("/api/admin/campanhas/upload", { method: "POST", body: fd })
-      const json = await res.json() as { url?: string; erro?: string }
+      const json = await res.json() as { url?: string; nome?: string; erro?: string }
       if (!res.ok || json.erro) { setErro(json.erro ?? "Falha no upload."); setMidiaLocalUrl(null); setMidiaTipo(null); return }
       setMidiaUrl(json.url ?? null)
+      // Nome REAL gerado pelo servidor (campanha_<uuid>.<ext>). Precisa ser este,
+      // não o file.name — o validador do servidor exige que o nome case com o
+      // caminho no Storage, senão o disparo é recusado com "mídia inválida".
+      setMidiaNome(json.nome ?? null)
     } catch {
       setErro("Falha de rede no upload. Verifique sua conexão e tente novamente.")
       setMidiaLocalUrl(null); setMidiaTipo(null)
