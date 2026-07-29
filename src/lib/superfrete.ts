@@ -20,11 +20,12 @@ export function sfBaseUrl(): string {
 const SF_BASE_URL = sfBaseUrl()
 
 // A API do Super Frete EXIGE o header User-Agent no formato
-// "Aplicação versão (email de contato)". Sem ele a API responde
-// 401 "Token inválida!" mesmo com o Bearer token correto.
+// "Aplicação e VERSÃO (email de contato)". Sem ele — ou fora do formato —
+// a API responde 401 "Token inválida!" mesmo com o Bearer token correto.
+// O valor anterior não trazia a versão, o que pode ser a causa do 401.
 const SF_USER_AGENT =
   process.env.SUPERFRETE_USER_AGENT ??
-  "Brecho Bellasu (bellasu.brecho@gmail.com)"
+  "Brecho Bellasu 1.0 (bellasu.brecho@gmail.com)"
 
 function getToken() {
   const t = process.env.SUPERFRETE_TOKEN
@@ -99,7 +100,7 @@ export interface SFEndereco {
   number:      string
   district:    string
   city:        string
-  state:       string   // UF — "SP", "MG" etc.
+  state_abbr:  string   // UF — "SP", "MG" etc.
   country:     string   // "BR"
   postal_code: string
 }
@@ -176,7 +177,14 @@ export async function sfCalcularFrete(params: {
       height: volume.height,
       length: volume.length,
     },
-    ...(valor_declarado ? { options: { insurance_value: valor_declarado } } : {}),
+    // "options" é obrigatório na doc — antes só era enviado quando havia
+    // valor declarado, deixando a maior parte das cotações sem o campo.
+    options: {
+      own_hand:            false,
+      receipt:             false,
+      insurance_value:     valor_declarado ?? 0,
+      use_insurance_value: !!valor_declarado,
+    },
   }
 
   const data = await sfRequest<SFCotacaoResult[] | { data?: SFCotacaoResult[] }>("POST", "/calculator", payload)
@@ -186,7 +194,12 @@ export async function sfCalcularFrete(params: {
 
 /** Adiciona etiqueta ao carrinho */
 export async function sfAdicionarCarrinho(item: SFCartItem): Promise<SFOrder> {
-  const payload = { ...item, sender_id: getSenderId() }
+  // "platform" é campo obrigatório de topo na doc do /cart (não dentro de options).
+  const payload = {
+    ...item,
+    sender_id: getSenderId(),
+    platform:  item.options?.platform ?? "Brecho Bellasu",
+  }
   const result = await sfRequest<SFOrder | { data?: SFOrder }>("POST", "/cart", payload)
   if ("data" in result && result.data) return result.data
   return result as SFOrder
@@ -203,26 +216,25 @@ export async function sfCheckout(orderIds: string[]): Promise<{ purchased: SFOrd
   }
 }
 
-/** Gera as etiquetas após checkout */
-export async function sfGerarEtiquetas(orderIds: string[]): Promise<unknown> {
-  return sfRequest("POST", "/generate", { orders: orderIds })
-}
+// Não existe "sfGerarEtiquetas" no Super Frete: o próprio /checkout já
+// finaliza o pedido E gera a etiqueta (diferente do Melhor Envio, que tem
+// um /generate separado). Chamar /generate era uma requisição inútil.
 
 /** Retorna URL do PDF para impressão */
 export async function sfImprimirEtiqueta(orderIds: string[]): Promise<{ url: string }> {
-  return sfRequest("POST", "/print", { mode: "public", orders: orderIds })
+  return sfRequest("POST", "/tag/print", { orders: orderIds })
 }
 
 /** Busca pedido pelo ID (fonte de verdade após checkout) */
 export async function sfBuscarPedido(orderId: string): Promise<SFOrder> {
-  const result = await sfRequest<SFOrder | { data?: SFOrder }>("GET", `/cart/${orderId}`)
+  const result = await sfRequest<SFOrder | { data?: SFOrder }>("GET", `/order/info/${orderId}`)
   if ("data" in result && result.data) return result.data
   return result as SFOrder
 }
 
 /** Cancela uma etiqueta */
-export async function sfCancelarEtiqueta(orderId: string): Promise<{ message: string }> {
-  return sfRequest("DELETE", `/cart/${orderId}`)
+export async function sfCancelarEtiqueta(orderId: string, motivo = "Cancelamento solicitado pelo lojista"): Promise<{ message: string }> {
+  return sfRequest("POST", "/order/cancel", { order: { id: orderId, reason: motivo } })
 }
 
 /** Rastreia pelo código de rastreio */
@@ -249,5 +261,8 @@ export async function sfSaldo(): Promise<{ balance: number }> {
 
 /** Dados do usuário (para teste de token) */
 export async function sfUsuario(): Promise<{ id: number; name: string; email: string }> {
-  return sfRequest("GET", "/user/me")
+  // Caminho correto conforme a doc oficial: GET /api/v0/user (não "/user/me").
+  // Com "/user/me" a API devolve HTTP 200 com uma página HTML em vez de JSON,
+  // o que fazia o teste de conexão falhar sempre — mesmo com token válido.
+  return sfRequest("GET", "/user")
 }

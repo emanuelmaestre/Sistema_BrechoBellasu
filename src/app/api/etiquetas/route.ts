@@ -15,7 +15,6 @@ import {
 import {
   sfAdicionarCarrinho,
   sfCheckout,
-  sfGerarEtiquetas,
   sfBuscarPedido,
   sfImprimirEtiqueta,
   sfCancelarEtiqueta,
@@ -152,7 +151,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
           number:      empresa.numero     ?? "S/N",
           district:    empresa.bairro     ?? "",
           city:        empresa.cidade     ?? "",
-          state:       empresa.estado     ?? "SP",
+          state_abbr:  empresa.estado     ?? "SP",
           country:     "BR",
           postal_code: sfCepOrigem().replace(/\D/g, ""),
         },
@@ -165,7 +164,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
           number:      destinatario.numero      ?? "S/N",
           district:    destinatario.bairro      ?? "",
           city:        destinatario.cidade      ?? "",
-          state:       destinatario.estado      ?? "SP",
+          state_abbr:  destinatario.estado      ?? "SP",
           country:     "BR",
           postal_code: String(destinatario.postal_code).replace(/\D/g, ""),
           complement:  destinatario.complemento ?? "",
@@ -210,7 +209,6 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
           }, { status: 422 })
         }
 
-        await sfGerarEtiquetas([pedidoSF.id]).catch(() => {})
         const atualizadoSF = await sfBuscarPedido(pedidoSF.id).catch(() => null)
         if (atualizadoSF) resultSF = atualizadoSF
 

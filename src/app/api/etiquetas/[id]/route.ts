@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { checkoutEtiquetas, gerarEtiquetas, buscarPedido, imprimirEtiqueta, cancelarEtiqueta } from "@/lib/melhorenvio"
-import { sfCheckout, sfGerarEtiquetas, sfBuscarPedido, sfImprimirEtiqueta, sfCancelarEtiqueta, sfConfigurado } from "@/lib/superfrete"
+import { sfCheckout, sfBuscarPedido, sfImprimirEtiqueta, sfCancelarEtiqueta, sfConfigurado } from "@/lib/superfrete"
 import { createServerClient } from "@/lib/supabase"
 
 export const dynamic = "force-dynamic"
@@ -28,7 +28,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const errStr = typeof checkout.errors[0] === "string" ? checkout.errors[0] : JSON.stringify(checkout.errors[0])
         return NextResponse.json({ erro: `Super Frete checkout: ${errStr}` }, { status: 422 })
       }
-      await sfGerarEtiquetas([id]).catch(() => {})
       const pedido = await sfBuscarPedido(id).catch(() => null)
       const printed = await sfImprimirEtiqueta([id]).catch(() => null)
       return NextResponse.json({ ...pedido, label_url: printed?.url ?? pedido?.label_url ?? null, carrier: "superfrete" })
