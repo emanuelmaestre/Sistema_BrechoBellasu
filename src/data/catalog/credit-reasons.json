@@ -1,0 +1,47 @@
+{
+  "creditReasons": [
+    {
+      "topico": "Troca", "emoji": "🔄", "cor": "#6366f1", "origem": "troca",
+      "motivos": [
+        "Diferença de valor a favor da cliente",
+        "Peça trocada por outra de menor valor",
+        "Crédito de troca sem reposição no momento",
+        "Troca não finalizada — convertida em crédito"
+      ]
+    },
+    {
+      "topico": "Devolução", "emoji": "↩️", "cor": "#f59e0b", "origem": "devolucao",
+      "motivos": [
+        "Devolução reembolsada em crédito",
+        "Produto devolvido — crédito na conta",
+        "Devolução parcial do pedido",
+        "Compra cancelada — saldo em crédito",
+        "Peça indisponível após a compra"
+      ]
+    },
+    {
+      "topico": "Cortesia", "emoji": "🎁", "cor": "#10b981", "origem": "manual",
+      "motivos": [
+        "Fidelidade / cliente antiga",
+        "Presente da loja",
+        "Bônus ou promoção",
+        "Compensação por atraso",
+        "Compensação por falha no atendimento",
+        "Desconto/acordo combinado"
+      ]
+    },
+    {
+      "topico": "Ajuste", "emoji": "⚙️", "cor": "#8b5cf6", "origem": "ajuste",
+      "motivos": [
+        "Correção de lançamento",
+        "Lançamento em duplicidade",
+        "Pagamento a maior",
+        "Pagamento em dobro / cobrança duplicada",
+        "Cancelamento administrativo",
+        "Correção de saldo",
+        "Autorizado pela gerência",
+        "Tratativa excepcional"
+      ]
+    }
+  ]
+}

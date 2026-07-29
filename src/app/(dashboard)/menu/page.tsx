@@ -11,30 +11,22 @@ import {
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { CalendarioWidget, CalculadoraWidget, AniversariantesWidget } from "@/components/layout/ModuleTopBar"
+import navigationData from "@/data/ui/navigation.json"
+import themesData from "@/data/ui/themes.json"
 
 // ─── Módulos ──────────────────────────────────────────────
-const LEFT = [
-  { href: "/vendas",     label: "Vendas",        icon: ShoppingCart, desc: "Registrar e acompanhar vendas",  color: "#10b981", glow: "rgba(16,185,129,0.15)"  },
-  { href: "/clientes",   label: "Clientes",      icon: Users,        desc: "Gestão de clientes",             color: "#3b82f6", glow: "rgba(59,130,246,0.15)"  },
-  { href: "/produtos",   label: "Produtos",      icon: Package,      desc: "Catálogo e estoque",             color: "#8b5cf6", glow: "rgba(139,92,246,0.15)"  },
-  { href: "/financeiro", label: "Financeiro",    icon: Wallet,       desc: "Contas a pagar e receber",       color: "#f59e0b", glow: "rgba(245,158,11,0.15)"  },
-  { href: "/relatorios",    label: "Relatórios",    icon: BarChart2, desc: "Análises e indicadores",   color: "#06b6d4", glow: "rgba(6,182,212,0.15)"  },
-]
-
-const RIGHT = [
-  { href: "/trocas",     label: "Trocas e Devoluções", icon: RefreshCw, desc: "Trocas e devoluções", color: "#ef4444", glow: "rgba(239,68,68,0.15)"  },
-  { href: "/live",          label: "Live",          icon: Radio,     desc: "Transmissões ao vivo",     color: "#e11d48", glow: "rgba(225,29,72,0.15)"   },
-  { href: "/etiquetas",     label: "Etiquetas",     icon: Tag,       desc: "Impressão de etiquetas",   color: "#f97316", glow: "rgba(249,115,22,0.15)"  },
-  { href: "/site",          label: "Site",          icon: Globe,     desc: "Vitrine online",           color: "#14b8a6", glow: "rgba(20,184,166,0.15)"  },
-  { href: "/configuracoes", label: "Configurações", icon: Settings,  desc: "Ajustes do sistema",       color: "#64748b", glow: "rgba(100,116,139,0.15)" },
-]
+// Textos/cores vêm do JSON; os componentes de ícone (não serializáveis)
+// ficam mapeados aqui e são unidos aos dados pelo iconKey.
+const MODULE_ICONS: Record<string, React.ElementType> = {
+  shoppingCart: ShoppingCart, users: Users, package: Package, wallet: Wallet,
+  barChart2: BarChart2, refreshCw: RefreshCw, radio: Radio, tag: Tag,
+  globe: Globe, settings: Settings,
+}
+const LEFT  = navigationData.menuCardsLeft.map(m => ({ ...m, icon: MODULE_ICONS[m.iconKey] }))
+const RIGHT = navigationData.menuCardsRight.map(m => ({ ...m, icon: MODULE_ICONS[m.iconKey] }))
 
 // ─── Temas ─────────────────────────────────────────────────
-const THEMES: { value: Theme; label: string; dot: string }[] = [
-  { value: "light", label: "Light", dot: "bg-white border-slate-300"       },
-  { value: "dark",  label: "Dark",  dot: "bg-slate-800 border-slate-600"   },
-  { value: "blue",  label: "Blue",  dot: "bg-indigo-900 border-indigo-500" },
-]
+const THEMES: { value: Theme; label: string; dot: string }[] = themesData.themes as { value: Theme; label: string; dot: string }[]
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark")  return <Moon    size={13} />

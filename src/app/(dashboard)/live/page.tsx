@@ -84,17 +84,8 @@ export interface Compra {
 }
 
 // ─── Penalidades: cor/rótulo por grau (usado no selo, legenda e modal) ───
-const PENALIDADE_UI: Record<GrauPenalidade, { label: string; cor: string; emoji: string }> = {
-  normal:    { label: "Normal",    cor: "#10b981", emoji: "🟢" },
-  advertida: { label: "Advertida", cor: "#d97706", emoji: "🟡" },
-  restrita:  { label: "Restrita",  cor: "#ea580c", emoji: "🟠" },
-  bloqueada: { label: "Bloqueada", cor: "#dc2626", emoji: "🔴" },
-}
-
-const MOTIVOS_PENALIDADE: { value: MotivoPenalidade; label: string; desc: string }[] = [
-  { value: "nao_pagou_prazo",          label: "Não pagou no prazo",       desc: "Comprou mas não pagou até o prazo combinado" },
-  { value: "desistiu_apos_contemplar", label: "Desistiu após contemplar", desc: "Foi contemplada na live e desistiu da compra" },
-]
+const PENALIDADE_UI: Record<GrauPenalidade, { label: string; cor: string; emoji: string }> = liveUiData.penaltyUi
+const MOTIVOS_PENALIDADE: { value: MotivoPenalidade; label: string; desc: string }[] = liveUiData.penaltyReasons as { value: MotivoPenalidade; label: string; desc: string }[]
 
 // Legenda discreta e expansível das cores de penalidade.
 // Fechada: só o ícone + 3 bolinhas pulsando (ocupa quase nada).

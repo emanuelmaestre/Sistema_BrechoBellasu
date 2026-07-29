@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils"
 import { useDisparoStore } from "@/stores/disparo.store"
 import businessData from "@/data/config/business.json"
 import integrationData from "@/data/ui/integrations.json"
+import emojiPickerData from "@/data/ui/emoji-picker.json"
+import automationsData from "@/data/ui/automations.json"
 
 const DEFAULTS: EmpresaConfig = businessData.defaults
 const PERFIS = businessData.profiles
@@ -1065,36 +1067,7 @@ export default function ConfiguracoesPage() {
 // Campanha WhatsApp — card completo (Escrever + Histórico)
 // ══════════════════════════════════════════════════════════
 
-const EMOJI_PICKER = [
-  {
-    icon: "⚡", label: "Rápidos",
-    emojis: ["😍","🌸","💖","✨","🛍️","💫","🎀","🌺","💌","🎉","👗","💕","🤩","🏷️","👠","💅","🌟","🥰","💎","🛒","🎊","🥳","💃","👑","🫶"],
-  },
-  {
-    icon: "😊", label: "Expressões",
-    emojis: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","😉","😊","😇","🥰","😍","🤩","😘","☺️","😋","😛","😜","🤪","🤗","🤭","🤫","🤔","😐","😏","😒","🙄","😬","😔","😪","😴","😷","😎","🤓","🥺","😢","😭","😤","😡","🥹","🫠","🤭","🥸","🤯","😵","😈","👿","🙊","🙉","🙈"],
-  },
-  {
-    icon: "❤️", label: "Amor",
-    emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","❤️‍🔥","💕","💞","💓","💗","💖","💘","💝","💟","😻","🫶","💑","👫","💏","🌹","🌷","💐","🫦","💋","😘","🥰"],
-  },
-  {
-    icon: "🎉", label: "Celebração",
-    emojis: ["🎉","🎊","🎈","🎁","🎀","🏆","🥇","🌟","⭐","✨","💫","🎆","🎇","🪄","🎂","🥂","🍾","🎶","🎵","🎤","🥳","🎸","🪅","🎭","🎪","🥁","🎺","🎻","🎹","🎠","🎡"],
-  },
-  {
-    icon: "👗", label: "Moda",
-    emojis: ["👗","👘","🥻","🩱","🩲","🩳","👙","👚","👛","👜","👝","🎒","🧣","🧤","🧥","👞","👟","🥿","👠","👡","👢","🩴","👒","🎩","💄","💅","💍","💎","🪮","✂️","🛍️","🏷️","👑","🪭","🕶️","🪬","🧴","🪞"],
-  },
-  {
-    icon: "🌸", label: "Natureza",
-    emojis: ["🌸","🌺","🌻","🌹","🌷","🪷","💐","🌿","🍃","🍀","🌱","🌲","🌳","🌴","🌵","🌾","🍁","🍂","🦋","🐝","🌙","⭐","☀️","🌈","❄️","🌊","🌼","🪻","🌬️","🌤️","🌞","🌝","🪐","🌏","🌺","🌻"],
-  },
-  {
-    icon: "💬", label: "Extras",
-    emojis: ["✅","❌","⚠️","ℹ️","🔔","📢","📣","💬","💭","📱","📸","📌","📍","💡","🔥","⚡","🎯","🔑","✍️","📝","🔗","📊","🗓️","🕐","💯","🔴","🟢","🟡","🆕","🆓","🔝","⬆️","📲","🤳","🛎️","📬","🗣️"],
-  },
-]
+const EMOJI_PICKER = emojiPickerData.categories
 
 interface Campanha {
   id: number
@@ -2087,88 +2060,22 @@ interface AutomacaoDef {
   icone: React.ReactNode
 }
 
-const AUTOMACOES: AutomacaoDef[] = [
-  {
-    id: "aniversario",
-    grupo: "Clientes",
-    nome: "Parabéns Automático",
-    frequencia: "Diário às 09h",
-    resumo: "Envia mensagem de aniversário com cupom de 15% de desconto",
-    descricao: "Todo dia às 09h o sistema verifica quais clientes fazem aniversário naquele dia e envia automaticamente uma mensagem de parabéns pelo WhatsApp com um cupom de 15% de desconto. O sistema registra o ano em que a mensagem foi enviada para não repetir.",
-    cor: "#f59e0b",
-    icone: <Cake size={18} />,
-  },
-  {
-    id: "consentimento",
-    grupo: "Clientes",
-    nome: "Pedido de Consentimento LGPD",
-    frequencia: "Ao cadastrar cliente",
-    resumo: "Envia pedido de autorização de WhatsApp para clientes novos",
-    descricao: "Quando um cliente é cadastrado sem autorização de WhatsApp, o sistema envia automaticamente uma mensagem pedindo consentimento para receber novidades e avisos. O cliente responde com 'sim' ou 'não' e o sistema registra a resposta. Respostas como 'quero', 'pode mandar', 'aceito' também são reconhecidas.",
-    cor: "#3b82f6",
-    icone: <Bell size={18} />,
-  },
-  {
-    id: "consentimento-correcao",
-    grupo: "Clientes",
-    nome: "Correção de Consentimento",
-    frequencia: "Diário às 03h",
-    resumo: "Corrige clientes que ficaram com consentimento pendente por engano",
-    descricao: "Todo dia às 03h o sistema verifica se há clientes que responderam ao pedido de consentimento mas o registro não foi atualizado corretamente. Caso encontre, corrige automaticamente o status sem precisar de ação manual.",
-    cor: "#6366f1",
-    icone: <ShieldCheck size={18} />,
-  },
-  {
-    id: "alertas",
-    grupo: "Financeiro",
-    nome: "Alertas Financeiros",
-    frequencia: "Diário (horário configurável)",
-    resumo: "Avisa sobre contas a vencer nos próximos dias",
-    descricao: "O sistema verifica diariamente as contas a pagar com vencimento próximo e envia um aviso pelo WhatsApp para os números configurados em Configurações > Alertas. Você pode configurar até 2 números para receber os alertas.",
-    cor: "#ef4444",
-    icone: <AlertCircle size={18} />,
-  },
-  {
-    id: "etiquetas-sync",
-    grupo: "Etiquetas",
-    nome: "Rastreamento de Envios",
-    frequencia: "A cada 6 horas",
-    resumo: "Atualiza o status de rastreamento das etiquetas automaticamente",
-    descricao: "A cada 6 horas o sistema consulta a Melhor Envio e o Super Frete para atualizar o status de todas as etiquetas em trânsito. Quando um pacote é entregue, o status é atualizado automaticamente na tela de Etiquetas e a cliente recebe aviso pelo WhatsApp.",
-    cor: "#f97316",
-    icone: <Tag size={18} />,
-  },
-  {
-    id: "google-alerta",
-    grupo: "Integrações",
-    nome: "Alerta de Desconexão Google",
-    frequencia: "Verificação contínua",
-    resumo: "Detecta quando o Google Contatos desconecta e avisa por WhatsApp",
-    descricao: "Quando a sincronização com o Google Contacts falha por token expirado (acontece a cada ~7 dias), o sistema envia automaticamente um aviso por WhatsApp para reconectar a conta. Basta acessar Configurações > Google e clicar em Reconectar.",
-    cor: "#4285f4",
-    icone: <GoogleLogo size={18} />,
-  },
-  {
-    id: "live-aviso",
-    grupo: "Live",
-    nome: "Disparo de Aviso de Live",
-    frequencia: "Manual (acionado na Live)",
-    resumo: "Envia aviso de live para compradoras históricas em ordem aleatória",
-    descricao: "Ao clicar em Disparar na tela de Live, o sistema envia mensagens em lote para clientes que já compraram em lives anteriores, priorizando compradoras históricas. A lista é embaralhada a cada disparo e o sistema garante que o mesmo link não seja enviado duas vezes para a mesma pessoa.",
-    cor: "#e11d48",
-    icone: <Send size={18} />,
-  },
-  {
-    id: "live-comprovante",
-    grupo: "Live",
-    nome: "Pedido de Comprovante de Pagamento",
-    frequencia: "Automático ao registrar compra",
-    resumo: "Pede comprovante de pagamento na mensagem de confirmação de compra",
-    descricao: "Quando uma compra é registrada na Live e a mensagem de confirmação é enviada para a cliente, o sistema inclui automaticamente um pedido de envio do comprovante de pagamento. O prazo de pagamento pode ser definido manualmente em dias antes de enviar.",
-    cor: "#e11d48",
-    icone: <CheckCircle2 size={18} />,
-  },
-]
+// Texto/cor vêm do JSON; os ícones (não serializáveis) ficam mapeados aqui
+// e são unidos aos dados pelo iconKey — mesmo padrão usado no menu e na live.
+const AUTOMACAO_ICONS: Record<string, React.ReactNode> = {
+  cake: <Cake size={18} />,
+  bell: <Bell size={18} />,
+  shieldCheck: <ShieldCheck size={18} />,
+  alertCircle: <AlertCircle size={18} />,
+  tag: <Tag size={18} />,
+  googleLogo: <GoogleLogo size={18} />,
+  send: <Send size={18} />,
+  checkCircle2: <CheckCircle2 size={18} />,
+}
+const AUTOMACOES: AutomacaoDef[] = automationsData.automations.map(a => ({
+  ...a,
+  icone: AUTOMACAO_ICONS[a.iconKey],
+}))
 
 const GRUPOS = [...new Set(AUTOMACOES.map(a => a.grupo))]
 

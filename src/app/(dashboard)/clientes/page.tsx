@@ -24,6 +24,8 @@ import { fmtData, cn } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
 import type { Cliente } from "@/types"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
+import creditReasonsData from "@/data/catalog/credit-reasons.json"
+import clientesUiData from "@/data/ui/clientes.json"
 
 // ─── Tipos ────────────────────────────────────────────────
 interface ClienteForm {
@@ -60,54 +62,10 @@ const EMPTY: ClienteForm = {
 
 // ─── Motivos para crédito manual ─────────────────────────────────────────────
 type MotivoCredito = { topico: string; emoji: string; cor: string; origem: string; motivos: string[] }
-const MOTIVOS_CREDITO: MotivoCredito[] = [
-  {
-    topico: "Troca", emoji: "🔄", cor: "#6366f1", origem: "troca",
-    motivos: [
-      "Diferença de valor a favor da cliente",
-      "Peça trocada por outra de menor valor",
-      "Crédito de troca sem reposição no momento",
-      "Troca não finalizada — convertida em crédito",
-    ],
-  },
-  {
-    topico: "Devolução", emoji: "↩️", cor: "#f59e0b", origem: "devolucao",
-    motivos: [
-      "Devolução reembolsada em crédito",
-      "Produto devolvido — crédito na conta",
-      "Devolução parcial do pedido",
-      "Compra cancelada — saldo em crédito",
-      "Peça indisponível após a compra",
-    ],
-  },
-  {
-    topico: "Cortesia", emoji: "🎁", cor: "#10b981", origem: "manual",
-    motivos: [
-      "Fidelidade / cliente antiga",
-      "Presente da loja",
-      "Bônus ou promoção",
-      "Compensação por atraso",
-      "Compensação por falha no atendimento",
-      "Desconto/acordo combinado",
-    ],
-  },
-  {
-    topico: "Ajuste", emoji: "⚙️", cor: "#8b5cf6", origem: "ajuste",
-    motivos: [
-      "Correção de lançamento",
-      "Lançamento em duplicidade",
-      "Pagamento a maior",
-      "Pagamento em dobro / cobrança duplicada",
-      "Cancelamento administrativo",
-      "Correção de saldo",
-      "Autorizado pela gerência",
-      "Tratativa excepcional",
-    ],
-  },
-]
+const MOTIVOS_CREDITO: MotivoCredito[] = creditReasonsData.creditReasons
 
 // ─── Confete ──────────────────────────────────────────────
-const CONFETE_CORES = ["#a78bfa","#6366f1","#34d399","#f472b6","#fbbf24","#60a5fa","#f0abfc","#4ade80"]
+const CONFETE_CORES = clientesUiData.confettiColors
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000
@@ -1237,15 +1195,7 @@ type EtiquetasResp = {
   resumo: { total_emitidas: number; ultima_emissao: string | null; ultimo_endereco: EtiquetaSnapshot | null }
 }
 
-const ET_STATUS: Record<string, { label: string; cls: string }> = {
-  pending:   { label: "Pendente",  cls: "bg-amber-500/15 text-amber-400" },
-  paid:      { label: "Paga",      cls: "bg-blue-500/15 text-blue-400" },
-  released:  { label: "Liberada",  cls: "bg-blue-500/15 text-blue-400" },
-  generated: { label: "Gerada",    cls: "bg-indigo-500/15 text-indigo-400" },
-  posted:    { label: "Postada",   cls: "bg-violet-500/15 text-violet-400" },
-  delivered: { label: "Entregue",  cls: "bg-emerald-500/15 text-emerald-400" },
-  canceled:  { label: "Cancelada", cls: "bg-red-500/15 text-red-400" },
-}
+const ET_STATUS: Record<string, { label: string; cls: string }> = clientesUiData.etiquetaStatus
 
 function enderecoStr(e?: EtiquetaSnapshot | null): string {
   if (!e) return "—"

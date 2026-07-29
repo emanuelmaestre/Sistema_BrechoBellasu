@@ -11,6 +11,10 @@ import liveMessages from "./messages/live.json"
 import clientPhotoImport from "./ai/client-photo-import.json"
 import livePhotoImport from "./ai/live-photo-import.json"
 import states from "./address/states.json"
+import creditReasons from "./catalog/credit-reasons.json"
+import clientesUi from "./ui/clientes.json"
+import emojiPicker from "./ui/emoji-picker.json"
+import automations from "./ui/automations.json"
 
 describe("dados JSON do sistema", () => {
   test("catálogo de produtos mantém tamanhos, cores e palavras-chave válidos", () => {
@@ -66,5 +70,18 @@ describe("dados JSON do sistema", () => {
     expect(Object.keys(states.nameToCode)).toHaveLength(27)
     expect(new Set(Object.values(states.nameToCode)).size).toBe(27)
     expect(states.nameToCode["SAO PAULO"]).toBe("SP")
+  })
+
+  test("motivos de crédito, status de etiqueta e penalidades da live têm dados completos", () => {
+    expect(creditReasons.creditReasons.every((t) => t.topico && t.emoji && t.cor && t.motivos.length)).toBe(true)
+    expect(Object.values(clientesUi.etiquetaStatus).every((s) => s.label && s.cls)).toBe(true)
+    expect(clientesUi.confettiColors.length).toBeGreaterThan(0)
+    expect(new Set(liveUi.penaltyReasons.map((r) => r.value)).size).toBe(liveUi.penaltyReasons.length)
+  })
+
+  test("emoji picker e automações têm chaves de ícone consistentes", () => {
+    expect(emojiPicker.categories.every((c) => c.icon && c.label && c.emojis.length)).toBe(true)
+    expect(new Set(automations.automations.map((a) => a.id)).size).toBe(automations.automations.length)
+    expect(automations.automations.every((a) => a.iconKey && a.descricao.length > 20)).toBe(true)
   })
 })

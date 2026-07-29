@@ -1,0 +1,12 @@
+{
+  "confettiColors": ["#a78bfa", "#6366f1", "#34d399", "#f472b6", "#fbbf24", "#60a5fa", "#f0abfc", "#4ade80"],
+  "etiquetaStatus": {
+    "pending":   { "label": "Pendente",  "cls": "bg-amber-500/15 text-amber-400" },
+    "paid":      { "label": "Paga",      "cls": "bg-blue-500/15 text-blue-400" },
+    "released":  { "label": "Liberada",  "cls": "bg-blue-500/15 text-blue-400" },
+    "generated": { "label": "Gerada",    "cls": "bg-indigo-500/15 text-indigo-400" },
+    "posted":    { "label": "Postada",   "cls": "bg-violet-500/15 text-violet-400" },
+    "delivered": { "label": "Entregue",  "cls": "bg-emerald-500/15 text-emerald-400" },
+    "canceled":  { "label": "Cancelada", "cls": "bg-red-500/15 text-red-400" }
+  }
+}
