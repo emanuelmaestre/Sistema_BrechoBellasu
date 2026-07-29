@@ -246,9 +246,13 @@ export async function sfBuscarPedido(orderId: string): Promise<SFOrder> {
   return result as SFOrder
 }
 
-/** Cancela uma etiqueta */
+/**
+ * Cancela uma etiqueta. O corpo exige `order.id` e `order.description` —
+ * o nome do campo de motivo é "description" (não "reason"/"motivo"), o que
+ * não consta na doc e foi descoberto testando a própria API.
+ */
 export async function sfCancelarEtiqueta(orderId: string, motivo = "Cancelamento solicitado pelo lojista"): Promise<{ message: string }> {
-  return sfRequest("POST", "/order/cancel", { order: { id: orderId, reason: motivo } })
+  return sfRequest("POST", "/order/cancel", { order: { id: orderId, description: motivo } })
 }
 
 /** Rastreia pelo código de rastreio */
