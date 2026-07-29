@@ -429,7 +429,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   const buscarProdutos = useCallback(async (val: string) => {
     setProdBusca(val)
-    if (val.length < 2) { setProdRes([]); return }
+    // 1 caractere já busca: códigos curtos (ex.: "0") precisam ser encontráveis.
+    if (!val.trim()) { setProdRes([]); return }
     try {
       const res = await apiGet<{ data: Produto[] }>(`/produtos?busca=${encodeURIComponent(val)}&limit=8`)
       setProdRes(res.data ?? [])

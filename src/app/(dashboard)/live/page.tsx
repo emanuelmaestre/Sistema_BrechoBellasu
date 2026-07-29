@@ -1155,7 +1155,8 @@ function ModalVinculo({
 
   const buscarProdutos = useCallback(async (val: string) => {
     setBusca(val)
-    if (val.length < 2) { setProdRes([]); return }
+    // 1 caractere já busca: códigos curtos (ex.: "0") precisam ser encontráveis.
+    if (!val.trim()) { setProdRes([]); return }
     try {
       const res = await apiGet<{ data: typeof prodRes }>(`/produtos?busca=${encodeURIComponent(val)}&limit=8`)
       setProdRes(res.data ?? [])

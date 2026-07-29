@@ -173,7 +173,7 @@ export default function PenalidadesPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
+    <div className="min-h-full" style={{ background: "var(--bg-base)" }}>
 
       {/* ── Header ── */}
       <motion.div

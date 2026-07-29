@@ -43,8 +43,25 @@ export class ProdutoRepositorySupabase implements IProdutoRepository {
 
     if (error) throw new Error(error.message)
 
+    let linhas = data ?? []
+
+    // Código exato vem sempre primeiro. Sem isto, buscar "0" traz antes todos
+    // os códigos que *contêm* zero (1005, 950, 930...) e o produto de código
+    // "0" nunca aparece na lista curta dos dropdowns.
+    if (filtros.busca && from === 0) {
+      const { data: exato } = await this.sb
+        .from("produtos")
+        .select("*, categorias(nome)")
+        .eq("codigo", filtros.busca.trim())
+        .limit(1)
+      const alvo = exato?.[0]
+      if (alvo) {
+        linhas = [alvo, ...linhas.filter(p => p.id !== alvo.id)].slice(0, filtros.limit)
+      }
+    }
+
     return {
-      data: (data ?? []).map((produto) => ({
+      data: linhas.map((produto) => ({
         ...produto,
         categoria_nome: (produto.categorias as { nome: string } | null)?.nome ?? null,
         categorias: undefined,

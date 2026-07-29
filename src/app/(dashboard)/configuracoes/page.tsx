@@ -843,7 +843,7 @@ export default function ConfiguracoesPage() {
   )
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-7">
       {/* Header + Tabs */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
