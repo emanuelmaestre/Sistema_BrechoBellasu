@@ -192,10 +192,26 @@ export async function sfCalcularFrete(params: {
 }
 
 /** Adiciona etiqueta ao carrinho */
+// Campos opcionais do endereço não podem ir como string vazia: o Super Frete
+// valida o formato e responde 400 (ex.: to.email "" -> "O email do
+// destinatário é inválido"). Clientes sem e-mail/telefone/CPF cadastrados
+// caíam exatamente nisso, então o campo é omitido quando não há valor.
+function limparEndereco(e: SFEndereco): SFEndereco {
+  const OPCIONAIS = ["email", "phone", "document", "complement"] as const
+  const saida: Record<string, unknown> = { ...e }
+  for (const campo of OPCIONAIS) {
+    const v = saida[campo]
+    if (typeof v !== "string" || v.trim() === "") delete saida[campo]
+  }
+  return saida as unknown as SFEndereco
+}
+
 export async function sfAdicionarCarrinho(item: SFCartItem): Promise<SFOrder> {
   // "platform" é campo obrigatório de topo na doc do /cart (não dentro de options).
   const payload = {
     ...item,
+    from: limparEndereco(item.from),
+    to:   limparEndereco(item.to),
     platform: item.options?.platform ?? "Brecho Bellasu",
   }
   const result = await sfRequest<SFOrder | { data?: SFOrder }>("POST", "/cart", payload)
