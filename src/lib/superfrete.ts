@@ -3,7 +3,6 @@
 // Docs: https://superfrete.com/api
 // Env vars necessárias:
 //   SUPERFRETE_TOKEN     — Bearer token da conta Super Frete
-//   SUPERFRETE_SENDER_ID — ID do remetente cadastrado no painel
 //   SUPERFRETE_CEP_ORIGEM (opcional) — sobrescreve MELHOR_ENVIO_CEP_ORIGEM
 // ══════════════════════════════════════════════════════════
 
@@ -36,11 +35,9 @@ function getToken() {
   return t
 }
 
-function getSenderId() {
-  const id = process.env.SUPERFRETE_SENDER_ID
-  if (!id) throw new Error("SUPERFRETE_SENDER_ID não configurado. Adicione nas variáveis de ambiente da Vercel.")
-  return id
-}
+// Não existe "sender_id" na API do Super Frete: o remetente vem do objeto
+// "from" enviado no /cart. Era mais um resquício do Melhor Envio, e exigi-lo
+// impedia a integração de sequer ser considerada configurada.
 
 export function sfCepOrigem(): string {
   return (
@@ -60,7 +57,7 @@ export function sfDefaultVolume() {
 }
 
 export function sfConfigurado(): boolean {
-  return !!(process.env.SUPERFRETE_TOKEN && process.env.SUPERFRETE_SENDER_ID)
+  return !!process.env.SUPERFRETE_TOKEN
 }
 
 async function sfRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -129,7 +126,6 @@ export interface SFCotacaoResult {
 
 export interface SFCartItem {
   service:    number
-  sender_id:  string
   from:       SFEndereco
   to:         SFEndereco
   volumes:    SFVolume[]
@@ -200,8 +196,7 @@ export async function sfAdicionarCarrinho(item: SFCartItem): Promise<SFOrder> {
   // "platform" é campo obrigatório de topo na doc do /cart (não dentro de options).
   const payload = {
     ...item,
-    sender_id: getSenderId(),
-    platform:  item.options?.platform ?? "Brecho Bellasu",
+    platform: item.options?.platform ?? "Brecho Bellasu",
   }
   const result = await sfRequest<SFOrder | { data?: SFOrder }>("POST", "/cart", payload)
   if ("data" in result && result.data) return result.data
@@ -258,8 +253,10 @@ export async function sfRastrear(tracking: string): Promise<{
 }
 
 /** Saldo da carteira */
+/** Saldo da carteira — não há endpoint /balance; vem junto do /user. */
 export async function sfSaldo(): Promise<{ balance: number }> {
-  return sfRequest("GET", "/balance")
+  const user = await sfRequest<{ balance?: number }>("GET", "/user")
+  return { balance: Number(user.balance ?? 0) }
 }
 
 /** Dados do usuário (para teste de token) */

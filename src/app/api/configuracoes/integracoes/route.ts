@@ -137,13 +137,12 @@ async function checkViaCep(): Promise<IntegracaoStatus> {
 }
 
 async function checkSuperFrete(): Promise<IntegracaoStatus> {
-  const token    = process.env.SUPERFRETE_TOKEN ?? ""
-  const senderId = process.env.SUPERFRETE_SENDER_ID ?? ""
-  if (!token || !senderId) {
+  const token = process.env.SUPERFRETE_TOKEN ?? ""
+  if (!token) {
     return {
       id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
       conectado: false, configurado: false,
-      detalhe: "SUPERFRETE_TOKEN e SUPERFRETE_SENDER_ID não configurados",
+      detalhe: "SUPERFRETE_TOKEN não configurado",
     }
   }
   const t0 = Date.now()

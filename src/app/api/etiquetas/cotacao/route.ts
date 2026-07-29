@@ -22,7 +22,7 @@ export const POST = withAuth(async (req: NextRequest) => {
     if (carrier === "superfrete") {
       if (!sfConfigurado()) {
         return NextResponse.json({
-          erro: "Super Frete não configurado. Adicione SUPERFRETE_TOKEN e SUPERFRETE_SENDER_ID nas variáveis de ambiente.",
+          erro: "Super Frete não configurado. Adicione SUPERFRETE_TOKEN nas variáveis de ambiente.",
         }, { status: 503 })
       }
 
