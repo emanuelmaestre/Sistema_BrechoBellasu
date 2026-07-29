@@ -25,7 +25,7 @@ const SF_BASE_URL = sfBaseUrl()
 // O valor anterior não trazia a versão, o que pode ser a causa do 401.
 const SF_USER_AGENT =
   process.env.SUPERFRETE_USER_AGENT ??
-  "Brecho Bellasu 1.0 (bellasu.brecho@gmail.com)"
+  "Brecho Bellasu 1.0 (sueli.maestre@gmail.com)"
 
 function getToken() {
   const t = process.env.SUPERFRETE_TOKEN
