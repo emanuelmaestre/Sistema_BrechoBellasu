@@ -19,10 +19,13 @@ export function sfBaseUrl(): string {
 
 const SF_BASE_URL = sfBaseUrl()
 
-// A API do Super Frete EXIGE o header User-Agent no formato
-// "Aplicação e VERSÃO (email de contato)". Sem ele — ou fora do formato —
-// a API responde 401 "Token inválida!" mesmo com o Bearer token correto.
-// O valor anterior não trazia a versão, o que pode ser a causa do 401.
+// A doc do Super Frete pede o User-Agent no formato
+// "Aplicação e VERSÃO (email de contato)" — por isso o valor abaixo.
+// Nota (29/07/2026): sondando /calculator com um token propositalmente
+// inválido, a resposta foi 401 "Token inválida!" idêntica COM versão, SEM
+// versão e SEM o header — ou seja, não há evidência de que o User-Agent
+// seja o que dispara o 401. O teste não descarta a exigência do header
+// com um token VÁLIDO, mas indica que o 401 atual é do token em si.
 const SF_USER_AGENT =
   process.env.SUPERFRETE_USER_AGENT ??
   "Brecho Bellasu 1.0 (sueli.maestre@gmail.com)"
