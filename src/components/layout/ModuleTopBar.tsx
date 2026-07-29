@@ -8,7 +8,7 @@ import {
   RefreshCw, BarChart2, Radio, Tag, Globe, Settings,
   Calculator, CalendarDays, ChevronLeft, ChevronRight, Cake,
 } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useSyncExternalStore } from "react"
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { apiGet } from "@/services/api"
@@ -116,10 +116,26 @@ function feriadosDoAno(ano: number): Map<string, Feriado> {
   return f
 }
 
-function useClock() {
-  const [now, setNow] = useState(new Date())
-  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id) }, [])
-  return now
+function subscribeToClock(onStoreChange: () => void): () => void {
+  const id = setInterval(onStoreChange, 1000)
+  return () => clearInterval(id)
+}
+
+function getClockSnapshot(): number | null {
+  return Math.floor(Date.now() / 1000)
+}
+
+function getServerClockSnapshot(): number | null {
+  return null
+}
+
+function useClock(): Date | null {
+  const seconds = useSyncExternalStore(
+    subscribeToClock,
+    getClockSnapshot,
+    getServerClockSnapshot,
+  )
+  return seconds === null ? null : new Date(seconds * 1000)
 }
 
 function usePopover() {
@@ -146,9 +162,12 @@ interface Aniversariante {
 
 export function CalendarioWidget() {
   const now = useClock()
+  const ready = now !== null
+  const displayNow = now ?? new Date(2000, 0, 1, 0, 0, 0)
   const { open, setOpen, ref } = usePopover()
-  const [viewYear,  setViewYear]  = useState(now.getFullYear())
-  const [viewMonth, setViewMonth] = useState(now.getMonth())
+  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number } | null>(null)
+  const viewYear = selectedMonth?.year ?? displayNow.getFullYear()
+  const viewMonth = selectedMonth?.month ?? displayNow.getMonth()
   const [dir, setDir] = useState(0)   // direção da navegação: -1 esquerda, 1 direita
   const [aniversariantes, setAniversariantes] = useState<Aniversariante[]>([])
   const feriados = feriadosDoAno(viewYear)
@@ -159,18 +178,18 @@ export function CalendarioWidget() {
       .catch(() => {})
   }, [])
 
-  const hh = now.getHours().toString().padStart(2,"0")
-  const mm = now.getMinutes().toString().padStart(2,"0")
-  const ss = now.getSeconds().toString().padStart(2,"0")
+  const hh = displayNow.getHours().toString().padStart(2,"0")
+  const mm = displayNow.getMinutes().toString().padStart(2,"0")
+  const ss = displayNow.getSeconds().toString().padStart(2,"0")
 
-  const hoje = new Date()
+  const hoje = displayNow
   const primeiroDia = new Date(viewYear, viewMonth, 1).getDay()
   const diasNoMes   = new Date(viewYear, viewMonth + 1, 0).getDate()
 
   function navMes(d: number) {
     setDir(d)
     const novo = new Date(viewYear, viewMonth + d, 1)
-    setViewYear(novo.getFullYear()); setViewMonth(novo.getMonth())
+    setSelectedMonth({ year: novo.getFullYear(), month: novo.getMonth() })
   }
 
   const cells: (number | null)[] = [
@@ -184,17 +203,20 @@ export function CalendarioWidget() {
   return (
     <div className="relative" ref={ref}>
       <motion.button onClick={() => setOpen(o => !o)}
+        aria-hidden={!ready}
+        disabled={!ready}
         whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
         className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all select-none"
         style={{
           background: open ? "var(--accent-bg)" : "var(--bg-surface)",
           border: `1px solid ${open ? "var(--accent)" : "var(--border)"}`,
           color: open ? "var(--accent)" : "var(--text-secondary)",
+          visibility: ready ? "visible" : "hidden",
         }}>
         <CalendarDays size={12} style={{ opacity: 0.7 }}/>
         <span className="text-xs font-black tabular-nums tracking-wider">{hh}:{mm}</span>
         <span className="text-[10px] font-medium hidden sm:block" style={{ color: "var(--text-muted)", opacity: 0.8 }}>
-          {DIAS_SEMANA[now.getDay()]}, {now.getDate().toString().padStart(2,"0")} {MESES_ABREV[now.getMonth()]} {now.getFullYear()}
+          {DIAS_SEMANA[displayNow.getDay()]}, {displayNow.getDate().toString().padStart(2,"0")} {MESES_ABREV[displayNow.getMonth()]} {displayNow.getFullYear()}
         </span>
         {totalAniversariantes > 0 && (
           <motion.span
@@ -225,7 +247,7 @@ export function CalendarioWidget() {
                     <span className="text-sm font-semibold ml-1" style={{ color: "var(--text-muted)" }}>:{ss}</span>
                   </motion.p>
                   <p className="text-[11px] font-semibold mt-1.5 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                    {DIAS_SEMANA_FULL[now.getDay()]}, {now.getDate()} de {MESES_FULL[now.getMonth()].toLowerCase()} de {now.getFullYear()}
+                    {DIAS_SEMANA_FULL[displayNow.getDay()]}, {displayNow.getDate()} de {MESES_FULL[displayNow.getMonth()].toLowerCase()} de {displayNow.getFullYear()}
                   </p>
                 </div>
                 <motion.div animate={{ rotate: [0, -8, 8, -4, 0] }} transition={{ duration: 1.2, delay: 0.4 }}>
@@ -285,7 +307,7 @@ export function CalendarioWidget() {
                     className="grid grid-cols-7 gap-0.5">
                     {cells.map((dia, i) => {
                       if (!dia) return <div key={`e${i}`}/>
-                      const isHoje  = dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
+                      const isHoje  = ready && dia === hoje.getDate() && viewMonth === hoje.getMonth() && viewYear === hoje.getFullYear()
                       const isSun   = (primeiroDia + dia - 1) % 7 === 0
                       const isSat   = (primeiroDia + dia - 1) % 7 === 6
                       const chave   = `${String(viewMonth + 1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`
@@ -373,7 +395,7 @@ export function CalendarioWidget() {
 
             {/* Rodapé: voltar para hoje */}
             <div className="px-4 pb-4">
-              <motion.button onClick={() => { setViewYear(hoje.getFullYear()); setViewMonth(hoje.getMonth()) }}
+              <motion.button onClick={() => setSelectedMonth(null)}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 className="w-full py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors"
                 style={{ background: "var(--accent-bg)", color: "var(--accent)", border: "1px solid var(--accent)" }}>

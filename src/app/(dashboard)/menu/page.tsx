@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -32,6 +32,19 @@ function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark")  return <Moon    size={13} />
   if (theme === "blue")  return <Palette size={13} />
   return                        <Sun     size={13} />
+}
+
+function subscribeToHour(onStoreChange: () => void): () => void {
+  const id = setInterval(onStoreChange, 60_000)
+  return () => clearInterval(id)
+}
+
+function getHourSnapshot(): number | null {
+  return new Date().getHours()
+}
+
+function getServerHourSnapshot(): number | null {
+  return null
 }
 
 // ─── Card ──────────────────────────────────────────────────
@@ -135,8 +148,12 @@ export default function MenuPage() {
   const [themeOpen, setThemeOpen] = useState(false)
   const [transitioning, setTransitioning] = useState<{ href: string; color: string } | null>(null)
 
-  const hora = new Date().getHours()
-  const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite"
+  const hora = useSyncExternalStore(
+    subscribeToHour,
+    getHourSnapshot,
+    getServerHourSnapshot,
+  )
+  const saudacao = hora === null ? "Olá" : hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite"
 
   function handleLogout() {
     logout()

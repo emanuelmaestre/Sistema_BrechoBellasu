@@ -40,12 +40,10 @@ function emitirLog(log: LogEnvio, pos?: number, total?: number): void {
   const progresso = pos != null && total != null ? `[${pos}/${total}] ` : ""
   const intervaloStr = log.intervalo_ms > 0 ? ` | ⏱ aguardou ${(log.intervalo_ms/1000).toFixed(1)}s` : ""
   const horario  = new Date(log.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-  const iconeModulo: Record<ModuloOrigem, string> = { CLIENTES: "👤", LIVE: "📺", VENDAS: "🏪" }
-  const iconeTipo:   Record<TipoMensagem, string> = { consentimento: "📋", compras_live: "🛍️", recibo_venda: "🧾" }
 
   console.log(
-    `${status} ${progresso}${iconeModulo[log.modulo]} ${log.modulo} · ` +
-    `${iconeTipo[log.tipo]} ${log.tipo} | ${log.nome} (${log.telefone})` +
+    `${status} ${progresso}${ICONE_MODULO[log.modulo]} ${log.modulo} · ` +
+    `${ICONE_TIPO[log.tipo]} ${log.tipo} | ${log.nome} (${log.telefone})` +
     `${intervaloStr} | 🕐 ${horario}` +
     (log.erro ? ` | ⚠️ ${log.erro}` : "")
   )
