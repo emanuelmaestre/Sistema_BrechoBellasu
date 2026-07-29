@@ -9,6 +9,7 @@ import {
   AlertTriangle, Send,
 } from "lucide-react"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import DatePicker from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
@@ -235,6 +236,7 @@ function WizardConta({ onClose, onSalvo }: { onClose: () => void; onSalvo: () =>
 
 export default function FinanceiroPage() {
   const qc = useQueryClient()
+  const confirmar = useConfirm()
   const [tab, setTab]     = useState<Tab>("pagar")
   const [wizard, setWizard] = useState(false)
   const [status, setStatus] = useState("")
@@ -436,7 +438,15 @@ export default function FinanceiroPage() {
                           </button>
                         )}
                         {tab === "pagar" && (
-                          <button onClick={() => { if (confirm("Excluir esta conta?")) excluir.mutate(c.id) }}
+                          <button onClick={async () => {
+                            const ok = await confirmar({
+                              titulo: "Excluir esta conta?",
+                              descricao: `${c.descricao} — ${fmtBRL(c.valor)}. Esta ação não pode ser desfeita.`,
+                              confirmar: "Excluir",
+                              perigo: true,
+                            })
+                            if (ok) excluir.mutate(c.id)
+                          }}
                             className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 import DatePicker from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
@@ -2499,6 +2500,7 @@ function ModalPenalizar({
 // ══════════════════════════════════════════════════════════
 function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }) {
   const qc = useQueryClient()
+  const confirmar = useConfirm()
   const [modalCompra, setModalCompra]   = useState(false)
   const [modalFoto, setModalFoto]       = useState(false)
   const [modalDisparar, setModalDisp]   = useState(false)
@@ -2631,7 +2633,13 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   }
 
   async function excluir() {
-    if (!confirm("Excluir esta live? Esta ação não pode ser desfeita.")) return
+    const ok = await confirmar({
+      titulo: "Excluir esta live?",
+      descricao: `${compras.length} compra${compras.length !== 1 ? "s" : ""} registrada${compras.length !== 1 ? "s" : ""} ${compras.length !== 1 ? "serão perdidas" : "será perdida"}. Esta ação não pode ser desfeita.`,
+      confirmar: "Excluir live",
+      perigo: true,
+    })
+    if (!ok) return
     setExc(true)
     try { await apiDelete(`/live/${liveId}`); qc.invalidateQueries({ queryKey: ["lives"] }); onVoltar() }
     catch { } finally { setExc(false) }

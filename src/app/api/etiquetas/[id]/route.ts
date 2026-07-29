@@ -66,16 +66,29 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const carrier = (row?.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
 
   try {
+    let result: unknown
     if (carrier === "superfrete") {
       if (!sfConfigurado()) {
         return NextResponse.json({ erro: "Super Frete não configurado." }, { status: 503 })
       }
-      const result = await sfCancelarEtiqueta(id)
-      return NextResponse.json(result)
+      result = await sfCancelarEtiqueta(id)
+    } else {
+      result = await cancelarEtiqueta(id)
     }
 
-    const result = await cancelarEtiqueta(id)
-    return NextResponse.json(result)
+    // Sem isto a etiqueta era cancelada na transportadora mas continuava
+    // aparecendo igual na lista — o banco nunca era atualizado.
+    const { error: erroUpdate } = await sb
+      .from("etiquetas")
+      .update({ status: "canceled", ultimo_status: "canceled", updated_at: new Date().toISOString() })
+      .eq("me_order_id", id)
+    if (erroUpdate) {
+      return NextResponse.json({
+        erro: `Etiqueta cancelada na transportadora, mas houve falha ao atualizar o sistema: ${erroUpdate.message}`,
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, cancelada: true, resultado: result })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro ao cancelar etiqueta."
     return NextResponse.json({ erro: msg }, { status: 500 })

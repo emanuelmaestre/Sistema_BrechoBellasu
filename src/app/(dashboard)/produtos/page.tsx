@@ -8,6 +8,7 @@ import {
   X, Check, Trash2,
 } from "lucide-react"
 import { apiGet, apiPost, apiPut, apiDelete } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { fmtBRL, cn } from "@/lib/utils"
@@ -373,6 +374,7 @@ function WizardProduto({
 // ─── Página ───────────────────────────────────────────────
 export default function ProdutosPage() {
   const qc = useQueryClient()
+  const confirmar = useConfirm()
   const [busca, setBusca]       = useState("")
   const [catFiltro, setCat]     = useState("")
   const [ordemCodigo, setOrdemCodigo] = useState<"asc" | "desc">("desc")
@@ -383,12 +385,24 @@ export default function ProdutosPage() {
   const [excluindoId, setExcluindoId] = useState<number | null>(null)
 
   async function excluirProduto(id: number) {
-    if (!confirm("Confirma exclusão deste produto? Esta ação não pode ser desfeita.")) return
+    const ok = await confirmar({
+      titulo: "Excluir este produto?",
+      descricao: "Esta ação não pode ser desfeita.",
+      confirmar: "Excluir",
+      perigo: true,
+    })
+    if (!ok) return
     setExcluindoId(id)
     try {
       await apiDelete(`/produtos/${id}`)
       qc.invalidateQueries({ queryKey: ["produtos"] })
-    } catch { alert("Erro ao excluir produto.") } finally { setExcluindoId(null) }
+    } catch {
+      await confirmar({
+        titulo: "Erro ao excluir produto",
+        descricao: "Tente novamente. Se persistir, verifique se o produto está vinculado a alguma venda.",
+        aviso: true,
+      })
+    } finally { setExcluindoId(null) }
   }
 
   const buscaDebounced = useDebounce(busca, 300)

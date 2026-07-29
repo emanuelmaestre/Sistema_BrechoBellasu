@@ -14,6 +14,7 @@ import {
   CheckCircle2, XCircle, Plus, ScanLine, Wallet,
 } from "lucide-react"
 import { apiPost } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { fmtBRL } from "@/lib/utils"
 import processingMessages from "@/data/messages/processing.json"
 
@@ -111,6 +112,7 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
   onClose: () => void
   onSalvo: () => void
 }) {
+  const confirmar = useConfirm()
   const [fase, setFase]         = useState<Fase>("captura")
   const [imagem, setImagem]     = useState<string | null>(null)
   const [erroMsg, setErroMsg]   = useState("")
@@ -123,13 +125,21 @@ export default function ImportarPorFoto({ liveId, liveData, onClose, onSalvo }: 
   const keyRef = useRef(0)
 
   // Fecha com segurança: na revisão com dados não salvos, pede confirmação
-  const fecharSeguro = useCallback(() => {
+  const fecharSeguro = useCallback(async () => {
     if (fase === "processando" || fase === "salvando") return
-    if (fase === "revisao" && compras.some(c => !c.salva)) {
-      if (!window.confirm("Descartar as compras que ainda não foram salvas?")) return
+    const naoSalvas = compras.filter(c => !c.salva).length
+    if (fase === "revisao" && naoSalvas > 0) {
+      const ok = await confirmar({
+        titulo: "Descartar compras não salvas?",
+        descricao: `${naoSalvas} compra${naoSalvas !== 1 ? "s" : ""} da foto ainda não ${naoSalvas !== 1 ? "foram salvas" : "foi salva"} e ${naoSalvas !== 1 ? "serão perdidas" : "será perdida"}.`,
+        confirmar: "Descartar",
+        cancelar: "Continuar editando",
+        perigo: true,
+      })
+      if (!ok) return
     }
     onClose()
-  }, [fase, compras, onClose])
+  }, [fase, compras, onClose, confirmar])
 
   // Esc fecha (com a mesma proteção)
   useEffect(() => {

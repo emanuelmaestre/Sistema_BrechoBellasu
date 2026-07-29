@@ -11,6 +11,7 @@ import {
   Wallet2, Copy,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
@@ -1308,6 +1309,7 @@ function ModalEnderecoEntrega({ cliente, onUsarEntrega, onInformarOutro, onCance
 // ── Página Principal ──────────────────────────────────────
 export default function EtiquetasPage() {
   const qc = useQueryClient()
+  const confirmar = useConfirm()
   const [showWizard, setWizard]       = useState(false)
   const [rastreioMeta, setRastreio] = useState<{
     orderId: string
@@ -1350,9 +1352,19 @@ export default function EtiquetasPage() {
     retry: false,
   })
 
+  // Sem onError a falha morria em silêncio e dava a impressão de que o
+  // cancelamento simplesmente não fazia nada.
+  const [erroCancelar, setErroCancelar] = useState<string | null>(null)
   const cancelar = useMutation({
     mutationFn: (id: string) => apiDelete(`/etiquetas/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["etiquetas"] }),
+    onSuccess: () => {
+      setErroCancelar(null)
+      qc.invalidateQueries({ queryKey: ["etiquetas"] })
+    },
+    onError: (err: unknown) => {
+      setErroCancelar(err instanceof Error ? err.message : "Não foi possível cancelar a etiqueta.")
+      setTimeout(() => setErroCancelar(null), 8000)
+    },
   })
 
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -1411,6 +1423,24 @@ export default function EtiquetasPage() {
           )}
         </div>
       </div>
+
+      {/* Falha ao cancelar — antes o erro era engolido silenciosamente */}
+      <AnimatePresence>
+        {erroCancelar && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            className="rounded-2xl px-5 py-3.5 flex items-center gap-3 overflow-hidden"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.28)" }}>
+            <AlertCircle size={16} className="text-red-400 shrink-0" />
+            <p className="text-sm flex-1" style={{ color: "#fca5a5" }}>{erroCancelar}</p>
+            <button onClick={() => setErroCancelar(null)} className="shrink-0" style={{ color: "var(--text-muted)" }}>
+              <X size={15} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Status das transportadoras */}
       {status && (
@@ -1590,7 +1620,16 @@ export default function EtiquetasPage() {
                         </button>
                       )}
                       {e.status === "pending" && (
-                        <button onClick={() => { if (confirm("Cancelar esta etiqueta?")) cancelar.mutate(e.id) }}
+                        <button onClick={async () => {
+                          const ok = await confirmar({
+                            titulo: "Cancelar esta etiqueta?",
+                            descricao: `${e.to?.name ?? "Destinatário"} — o cancelamento é solicitado à transportadora e não pode ser desfeito.`,
+                            confirmar: "Cancelar etiqueta",
+                            cancelar: "Voltar",
+                            perigo: true,
+                          })
+                          if (ok) cancelar.mutate(e.id)
+                        }}
                           className="p-1.5 rounded-lg transition-all" style={{ color: "var(--text-muted)" }}
                           onMouseEnter={f => { (f.currentTarget as HTMLButtonElement).style.color = "#f87171" }}
                           onMouseLeave={f => { (f.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)" }}>

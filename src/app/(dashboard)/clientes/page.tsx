@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import ImportarClientePorFoto from "@/components/clientes/ImportarClientePorFoto"
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { useDebounce } from "@/hooks/useDebounce"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
@@ -1253,6 +1254,7 @@ function enderecoStr(e?: EtiquetaSnapshot | null): string {
 }
 
 function EtiquetasTab({ cliente }: { cliente: Cliente }) {
+  const confirmar = useConfirm()
   const [q, setQ] = useState("")
   const [statusF, setStatusF] = useState("")
   const [de, setDe] = useState("")
@@ -1287,7 +1289,13 @@ function EtiquetasTab({ cliente }: { cliente: Cliente }) {
     snap ? enderecoStr(snap).toUpperCase() !== enderecoStr(enderecoAtual).toUpperCase() : false
 
   async function reimprimir(et: EtiquetaRow) {
-    if (!confirm("Reimprimir esta etiqueta? Será reaberto o mesmo PDF já gerado (não gera nova cobrança).")) return
+    const ok = await confirmar({
+      titulo: "Reimprimir esta etiqueta?",
+      descricao: "Será reaberto o mesmo PDF já gerado. Não gera nova cobrança.",
+      confirmar: "Reimprimir",
+      cancelar: "Voltar",
+    })
+    if (!ok) return
     setReimprimindo(et.id); setMsg(null)
     try {
       await apiPost(`/etiquetas/${et.id}/reimprimir`, {})

@@ -15,6 +15,7 @@ import {
   CheckCircle2, XCircle, Plus, ScanLine, UserPlus,
 } from "lucide-react"
 import { apiPost } from "@/services/api"
+import { useConfirm } from "@/components/ui/ConfirmProvider"
 import processingMessages from "@/data/messages/processing.json"
 
 const MSGS_PROCESSANDO = processingMessages.customerPhotoImport
@@ -118,6 +119,7 @@ export default function ImportarClientePorFoto({ onClose, onSalvo }: {
   onClose: () => void
   onSalvo: () => void
 }) {
+  const confirmar = useConfirm()
   const [fase, setFase]         = useState<Fase>("captura")
   const [imagens, setImagens]   = useState<string[]>([])
   const [erroMsg, setErroMsg]   = useState("")
@@ -130,13 +132,21 @@ export default function ImportarClientePorFoto({ onClose, onSalvo }: {
   const keyRef = useRef(0)
 
   // Fecha com segurança: na revisão com dados não salvos, pede confirmação
-  const fecharSeguro = useCallback(() => {
+  const fecharSeguro = useCallback(async () => {
     if (fase === "processando" || fase === "salvando") return
-    if (fase === "revisao" && clientes.some(c => !c.salva)) {
-      if (!window.confirm("Descartar os cadastros que ainda não foram salvos?")) return
+    const naoSalvos = clientes.filter(c => !c.salva).length
+    if (fase === "revisao" && naoSalvos > 0) {
+      const ok = await confirmar({
+        titulo: "Descartar cadastros não salvos?",
+        descricao: `${naoSalvos} cadastro${naoSalvos !== 1 ? "s" : ""} da foto ainda não ${naoSalvos !== 1 ? "foram salvos" : "foi salvo"} e ${naoSalvos !== 1 ? "serão perdidos" : "será perdido"}.`,
+        confirmar: "Descartar",
+        cancelar: "Continuar editando",
+        perigo: true,
+      })
+      if (!ok) return
     }
     onClose()
-  }, [fase, clientes, onClose])
+  }, [fase, clientes, onClose, confirmar])
 
   // Esc fecha (com a mesma proteção)
   useEffect(() => {
