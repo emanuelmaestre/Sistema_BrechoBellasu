@@ -1,4 +1,6 @@
 import { describe, expect, test } from "vitest"
+import { readdirSync, readFileSync } from "node:fs"
+import { join, relative } from "node:path"
 import products from "./catalog/products.json"
 import exchanges from "./catalog/exchanges.json"
 import calendar from "./ui/calendar.json"
@@ -15,6 +17,15 @@ import creditReasons from "./catalog/credit-reasons.json"
 import clientesUi from "./ui/clientes.json"
 import emojiPicker from "./ui/emoji-picker.json"
 import automations from "./ui/automations.json"
+import shipping from "./ui/shipping.json"
+import receiptExample from "./examples/receipt.json"
+
+function walkFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name)
+    return entry.isDirectory() ? walkFiles(path) : [path]
+  })
+}
 
 describe("dados JSON do sistema", () => {
   test("catálogo de produtos mantém tamanhos, cores e palavras-chave válidos", () => {
@@ -38,11 +49,29 @@ describe("dados JSON do sistema", () => {
     expect(calendar.months).toHaveLength(12)
     expect(calendar.monthsShort).toHaveLength(12)
     expect(new Set(themes.themes.map((theme) => theme.value)).size).toBe(themes.themes.length)
+    expect(themes.themes.map((theme) => theme.value)).toEqual(["light", "dark", "blue"])
+    expect(Object.keys(calendar.holidayTypes).sort()).toEqual(["E", "M", "N"])
+    expect(calendar.fixedHolidays.every((holiday) =>
+      holiday.month >= 1 && holiday.month <= 12 &&
+      holiday.day >= 1 && holiday.day <= 31 &&
+      holiday.type in calendar.holidayTypes
+    )).toBe(true)
+    expect(calendar.easterRelativeHolidays.every((holiday) =>
+      holiday.type in calendar.holidayTypes
+    )).toBe(true)
   })
 
   test("navegação, live e integrações referenciam configurações completas", () => {
     expect(navigation.sidebar).toHaveLength(10)
     expect(new Set(navigation.sidebar.map((item) => item.href)).size).toBe(navigation.sidebar.length)
+    const menuCards = [...navigation.menuCardsLeft, ...navigation.menuCardsRight]
+    expect(new Set(menuCards.map((item) => item.href))).toEqual(
+      new Set(navigation.sidebar.map((item) => item.href))
+    )
+    expect(menuCards.every((item) =>
+      ["shoppingCart", "users", "package", "wallet", "refreshCw", "barChart2", "radio", "tag", "globe", "settings"]
+        .includes(item.iconKey)
+    )).toBe(true)
     expect(liveUi.stages.map((stage) => stage.id)).toEqual([1, 2, 3, 4, 5, 6])
     expect(Object.keys(liveUi.purchaseStatuses)).toHaveLength(8)
     expect(Object.keys(integrations.serviceColors)).toContain("supabase")
@@ -69,7 +98,10 @@ describe("dados JSON do sistema", () => {
   test("mapa de estados cobre todas as unidades federativas", () => {
     expect(Object.keys(states.nameToCode)).toHaveLength(27)
     expect(new Set(Object.values(states.nameToCode)).size).toBe(27)
+    expect(Object.keys(states.officialNameToCode)).toHaveLength(27)
+    expect(new Set(Object.values(states.officialNameToCode)).size).toBe(27)
     expect(states.nameToCode["SAO PAULO"]).toBe("SP")
+    expect(states.officialNameToCode["São Paulo"]).toBe("SP")
   })
 
   test("motivos de crédito, status de etiqueta e penalidades da live têm dados completos", () => {
@@ -83,5 +115,33 @@ describe("dados JSON do sistema", () => {
     expect(emojiPicker.categories.every((c) => c.icon && c.label && c.emojis.length)).toBe(true)
     expect(new Set(automations.automations.map((a) => a.id)).size).toBe(automations.automations.length)
     expect(automations.automations.every((a) => a.iconKey && a.descricao.length > 20)).toBe(true)
+  })
+
+  test("etiquetas e recibo de exemplo preservam contratos completos", () => {
+    expect(Object.keys(shipping.statusMeta)).toContain("in transit")
+    expect(Object.values(shipping.statusMeta).every((status) =>
+      status.label && status.bg && status.text && status.dot
+    )).toBe(true)
+    expect(shipping.carrierGradients.default).toBeTruthy()
+    expect(receiptExample.itens.length).toBeGreaterThan(0)
+    expect(receiptExample.itens.reduce((total, item) => total + item.subtotal, 0)
+      - receiptExample.desconto + receiptExample.frete).toBeCloseTo(receiptExample.total)
+  })
+
+  test("todo JSON de dados é válido e possui consumidor no código", () => {
+    const sourceRoot = join(process.cwd(), "src")
+    const dataRoot = join(sourceRoot, "data")
+    const source = walkFiles(sourceRoot)
+      .filter((file) => /\.(ts|tsx)$/.test(file) && !file.endsWith("data-integrity.test.ts"))
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n")
+    const jsonFiles = walkFiles(dataRoot).filter((file) => file.endsWith(".json"))
+
+    expect(jsonFiles.length).toBeGreaterThanOrEqual(29)
+    for (const file of jsonFiles) {
+      expect(() => JSON.parse(readFileSync(file, "utf8"))).not.toThrow()
+      const importPath = `@/data/${relative(dataRoot, file).replaceAll("\\", "/")}`
+      expect(source, `${importPath} está órfão`).toContain(importPath)
+    }
   })
 })

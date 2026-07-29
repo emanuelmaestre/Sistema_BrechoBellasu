@@ -104,10 +104,46 @@
     }
   ],
   "penaltyUi": {
-    "normal":    { "label": "Normal",    "cor": "#10b981", "emoji": "🟢" },
-    "advertida": { "label": "Advertida", "cor": "#d97706", "emoji": "🟡" },
-    "restrita":  { "label": "Restrita",  "cor": "#ea580c", "emoji": "🟠" },
-    "bloqueada": { "label": "Bloqueada", "cor": "#dc2626", "emoji": "🔴" }
+    "normal": {
+      "label": "Normal",
+      "cor": "#10b981",
+      "emoji": "🟢",
+      "customerCor": "#10b981",
+      "customerBg": "rgba(16,185,129,0.1)",
+      "adminText": "text-emerald-700",
+      "adminBg": "bg-emerald-50",
+      "adminBorder": "border-emerald-200"
+    },
+    "advertida": {
+      "label": "Advertida",
+      "cor": "#d97706",
+      "emoji": "🟡",
+      "customerCor": "#f59e0b",
+      "customerBg": "rgba(245,158,11,0.1)",
+      "adminText": "text-yellow-700",
+      "adminBg": "bg-yellow-50",
+      "adminBorder": "border-yellow-200"
+    },
+    "restrita": {
+      "label": "Restrita",
+      "cor": "#ea580c",
+      "emoji": "🟠",
+      "customerCor": "#f97316",
+      "customerBg": "rgba(249,115,22,0.1)",
+      "adminText": "text-orange-700",
+      "adminBg": "bg-orange-50",
+      "adminBorder": "border-orange-200"
+    },
+    "bloqueada": {
+      "label": "Bloqueada",
+      "cor": "#dc2626",
+      "emoji": "🔴",
+      "customerCor": "#ef4444",
+      "customerBg": "rgba(239,68,68,0.1)",
+      "adminText": "text-red-700",
+      "adminBg": "bg-red-50",
+      "adminBorder": "border-red-200"
+    }
   },
   "penaltyReasons": [
     { "value": "nao_pagou_prazo", "label": "Não pagou no prazo", "desc": "Comprou mas não pagou até o prazo combinado" },

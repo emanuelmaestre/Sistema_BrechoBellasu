@@ -12,25 +12,44 @@ import { useState, useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/auth.store"
 import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { apiGet } from "@/services/api"
+import navigationData from "@/data/ui/navigation.json"
+import themeData from "@/data/ui/themes.json"
+import calendarData from "@/data/ui/calendar.json"
 
-const ROUTE_LABELS: Record<string, { label: string; Icon: React.ElementType; color: string }> = {
-  "/vendas":        { label: "Vendas",        Icon: ShoppingCart, color: "#10b981" },
-  "/clientes":      { label: "Clientes",      Icon: Users,        color: "#3b82f6" },
-  "/produtos":      { label: "Produtos",      Icon: Package,      color: "#8b5cf6" },
-  "/financeiro":    { label: "Financeiro",    Icon: Wallet,       color: "#f59e0b" },
-  "/trocas":        { label: "Trocas e Dev.", Icon: RefreshCw,    color: "#ef4444" },
-  "/relatorios":    { label: "Relatórios",    Icon: BarChart2,    color: "#06b6d4" },
-  "/live":          { label: "Live",          Icon: Radio,        color: "#e11d48" },
-  "/etiquetas":     { label: "Etiquetas",     Icon: Tag,          color: "#f97316" },
-  "/site":          { label: "Site",          Icon: Globe,        color: "#14b8a6" },
-  "/configuracoes": { label: "Configurações", Icon: Settings,     color: "#64748b" },
+const ROUTE_ICONS: Record<string, React.ElementType> = {
+  shoppingCart: ShoppingCart,
+  users: Users,
+  package: Package,
+  wallet: Wallet,
+  refreshCw: RefreshCw,
+  barChart2: BarChart2,
+  radio: Radio,
+  tag: Tag,
+  globe: Globe,
+  settings: Settings,
 }
 
-const THEMES: { value: Theme; label: string; dot: string }[] = [
-  { value: "light", label: "Light", dot: "bg-white border-slate-300"     },
-  { value: "dark",  label: "Dark",  dot: "bg-slate-800 border-slate-600" },
-  { value: "blue",  label: "Blue",  dot: "bg-indigo-900 border-indigo-500" },
-]
+const MENU_CARDS = [...navigationData.menuCardsLeft, ...navigationData.menuCardsRight]
+const ROUTE_LABELS: Record<string, { label: string; Icon: React.ElementType; color: string }> =
+  Object.fromEntries(navigationData.sidebar.map((item) => {
+    const card = MENU_CARDS.find((candidate) => candidate.href === item.href)
+    return [item.href, {
+      label: item.label,
+      Icon: ROUTE_ICONS[card?.iconKey ?? ""] ?? LayoutGrid,
+      color: card?.color ?? "#64748b",
+    }]
+  }))
+
+function isTheme(value: string): value is Theme {
+  return value === "light" || value === "dark" || value === "blue"
+}
+
+const THEMES: { value: Theme; label: string; dot: string }[] = themeData.themes.map((theme) => {
+  if (!isTheme(theme.value)) {
+    throw new Error(`Tema inválido em themes.json: ${theme.value}`)
+  }
+  return { ...theme, value: theme.value }
+})
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark")  return <Moon    size={14} />
@@ -39,10 +58,10 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 }
 
 // ── Shared: relógio ao vivo ───────────────────────────────
-const DIAS_SEMANA  = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
-const DIAS_SEMANA_FULL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]
-const MESES_ABREV  = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-const MESES_FULL   = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+const DIAS_SEMANA = calendarData.weekdaysShort
+const DIAS_SEMANA_FULL = calendarData.weekdays
+const MESES_ABREV = calendarData.monthsShort
+const MESES_FULL = calendarData.months
 
 // ── Feriados ─────────────────────────────────────────────
 function calcularPascoa(ano: number): Date {
@@ -65,16 +84,14 @@ function addDias(d: Date, n: number): Date {
 type TipoFeriado = "N" | "E" | "M"   // Nacional | Estadual-SP | Municipal-RP
 interface Feriado { nome: string; tipo: TipoFeriado }
 
-const TIPO_COR: Record<TipoFeriado, string> = {
-  N: "#dc2626",   // vermelho — Nacional
-  E: "#d97706",   // âmbar   — Estadual SP
-  M: "#7c3aed",   // roxo    — Municipal Ribeirão Preto
-}
-const TIPO_LABEL: Record<TipoFeriado, string> = {
-  N: "Nacional",
-  E: "Estadual SP",
-  M: "Municipal RP",
-}
+const TIPOS_FERIADO: Record<TipoFeriado, { label: string; color: string }> =
+  calendarData.holidayTypes
+const TIPO_COR = Object.fromEntries(
+  Object.entries(TIPOS_FERIADO).map(([type, config]) => [type, config.color])
+) as Record<TipoFeriado, string>
+const TIPO_LABEL = Object.fromEntries(
+  Object.entries(TIPOS_FERIADO).map(([type, config]) => [type, config.label])
+) as Record<TipoFeriado, string>
 
 /** Retorna mapa "MM-DD" → { nome, tipo } para o ano dado */
 function feriadosDoAno(ano: number): Map<string, Feriado> {
@@ -83,31 +100,18 @@ function feriadosDoAno(ano: number): Map<string, Feriado> {
     f.set(`${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`, { nome, tipo })
   const fmt = (d: Date) => `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
 
-  // ── Nacionais fixos ──────────────────────────────────────
-  add(1,  1,  "Ano Novo",                     "N")
-  add(4,  21, "Tiradentes",                   "N")
-  add(5,  1,  "Dia do Trabalho",              "N")
-  add(9,  7,  "Independência do Brasil",      "N")
-  add(10, 12, "Nossa Senhora Aparecida",      "N")
-  add(11, 2,  "Finados",                      "N")
-  add(11, 15, "Proclamação da República",     "N")
-  add(11, 20, "Consciência Negra",            "N")
-  add(12, 25, "Natal",                        "N")
+  for (const holiday of calendarData.fixedHolidays) {
+    add(holiday.month, holiday.day, holiday.name, holiday.type as TipoFeriado)
+  }
 
   // ── Nacionais variáveis (calculados pela Páscoa) ─────────
   const pascoa = calcularPascoa(ano)
-  f.set(fmt(addDias(pascoa, -48)), { nome: "Carnaval (segunda)", tipo: "N" })
-  f.set(fmt(addDias(pascoa, -47)), { nome: "Carnaval (terça)",   tipo: "N" })
-  f.set(fmt(addDias(pascoa,  -2)), { nome: "Sexta-feira Santa",  tipo: "N" })
-  f.set(fmt(pascoa),               { nome: "Páscoa",             tipo: "N" })
-  f.set(fmt(addDias(pascoa,  60)), { nome: "Corpus Christi",     tipo: "N" })
-
-  // ── Estaduais — São Paulo ────────────────────────────────
-  add(7,  9,  "Revolução Constitucionalista", "E")
-
-  // ── Municipais — Ribeirão Preto / SP ────────────────────
-  add(1,  20, "São Sebastião (padroeiro)",      "M")
-  add(6,  19, "Aniversário de Ribeirão Preto",  "M")
+  for (const holiday of calendarData.easterRelativeHolidays) {
+    f.set(fmt(addDias(pascoa, holiday.offsetDays)), {
+      nome: holiday.name,
+      tipo: holiday.type as TipoFeriado,
+    })
+  }
 
   return f
 }

@@ -6,8 +6,23 @@ import { motion, AnimatePresence } from "motion/react"
 import { ShieldAlert, Printer, ArrowLeft, Search, AlertTriangle, Ban, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { apiGet } from "@/services/api"
-import { GRAU_CONFIG, MOTIVO_LABEL } from "@/domain/live/penalidade"
+import type { GrauPenalidade } from "@/domain/live/penalidade"
 import { cn } from "@/lib/utils"
+import liveUiData from "@/data/ui/live.json"
+
+const GRAU_CONFIG: Record<GrauPenalidade, { label: string; cor: string; bg: string; border: string }> =
+  Object.fromEntries(Object.entries(liveUiData.penaltyUi).map(([grau, config]) => [
+    grau,
+    {
+      label: config.label,
+      cor: config.adminText,
+      bg: config.adminBg,
+      border: config.adminBorder,
+    },
+  ])) as Record<GrauPenalidade, { label: string; cor: string; bg: string; border: string }>
+const MOTIVO_LABEL = Object.fromEntries(
+  liveUiData.penaltyReasons.map((reason) => [reason.value, reason.label])
+) as Record<string, string>
 
 interface ClientePenalizado {
   id: number
@@ -23,8 +38,8 @@ interface ClientePenalizado {
 function imprimirListaPenalidades(clientes: ClientePenalizado[]) {
   const data = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
   const linhas = clientes.map((c, i) => {
-    const motivoLabel = c.ultimo_motivo ? (MOTIVO_LABEL[c.ultimo_motivo as keyof typeof MOTIVO_LABEL] ?? c.ultimo_motivo) : "—"
-    const corHex = c.grau === "bloqueada" ? "#dc2626" : c.grau === "restrita" ? "#ea580c" : "#d97706"
+    const motivoLabel = c.ultimo_motivo ? (MOTIVO_LABEL[c.ultimo_motivo] ?? c.ultimo_motivo) : "—"
+    const corHex = liveUiData.penaltyUi[c.grau as keyof typeof liveUiData.penaltyUi]?.cor ?? "#d97706"
     return `
       <tr style="border-bottom:1px solid #e5e7eb;">
         <td style="padding:10px 12px;font-size:13px;font-weight:700;color:#111;">${i + 1}. ${c.nome.toUpperCase()}${c.apelido ? ` (${c.apelido})` : ""}</td>
@@ -271,7 +286,7 @@ export default function PenalidadesPage() {
         <AnimatePresence mode="popLayout">
           {filtrados.map((c, i) => {
             const cfg = GRAU_CONFIG[c.grau as keyof typeof GRAU_CONFIG] ?? GRAU_CONFIG.advertida
-            const motivoLabel = c.ultimo_motivo ? (MOTIVO_LABEL[c.ultimo_motivo as keyof typeof MOTIVO_LABEL] ?? c.ultimo_motivo) : null
+            const motivoLabel = c.ultimo_motivo ? (MOTIVO_LABEL[c.ultimo_motivo] ?? c.ultimo_motivo) : null
             const corBorder = c.grau === "bloqueada" ? "rgba(239,68,68,0.35)" : c.grau === "restrita" ? "rgba(249,115,22,0.25)" : "rgba(245,158,11,0.2)"
             const corGlow   = c.grau === "bloqueada" ? "rgba(239,68,68,0.06)" : "transparent"
 

@@ -5,6 +5,8 @@
 // /api/enderecos/buscar quanto pelos testes.
 // ══════════════════════════════════════════════════════════════════
 
+import statesData from "@/data/address/states.json"
+
 export interface EnderecoSugestao {
   cep:        string
   logradouro: string
@@ -26,16 +28,7 @@ export interface EnderecoSugestao {
 /** Coordenadas da loja — usadas como viés geográfico na busca externa. */
 export const LOJA_COORD = { lat: -21.1775, lon: -47.8103 } // Ribeirão Preto/SP
 
-export const ESTADO_SIGLA: Record<string, string> = {
-  "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM", "Bahia": "BA",
-  "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES", "Goiás": "GO",
-  "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS",
-  "Minas Gerais": "MG", "Pará": "PA", "Paraíba": "PB", "Paraná": "PR",
-  "Pernambuco": "PE", "Piauí": "PI", "Rio de Janeiro": "RJ",
-  "Rio Grande do Norte": "RN", "Rio Grande do Sul": "RS", "Rondônia": "RO",
-  "Roraima": "RR", "Santa Catarina": "SC", "São Paulo": "SP",
-  "Sergipe": "SE", "Tocantins": "TO",
-}
+export const ESTADO_SIGLA: Record<string, string> = statesData.officialNameToCode
 
 const UFS = Object.values(ESTADO_SIGLA)
 

@@ -26,6 +26,7 @@ import type { Cliente } from "@/types"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
 import creditReasonsData from "@/data/catalog/credit-reasons.json"
 import clientesUiData from "@/data/ui/clientes.json"
+import liveUiData from "@/data/ui/live.json"
 
 // ─── Tipos ────────────────────────────────────────────────
 interface ClienteForm {
@@ -922,19 +923,13 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
         {/* Aba Penalidades */}
         {tab === "penalidades" && (() => {
           const totalAtivas = penalidadesData?.total_ativas ?? (cliente as Cliente & { total_penalidades_ativas?: number }).total_penalidades_ativas ?? 0
-          const GRAU_COR: Record<string, string> = {
-            normal: "#10b981", advertida: "#f59e0b", restrita: "#f97316", bloqueada: "#ef4444",
-          }
-          const GRAU_BG: Record<string, string> = {
-            normal: "rgba(16,185,129,0.1)", advertida: "rgba(245,158,11,0.1)", restrita: "rgba(249,115,22,0.1)", bloqueada: "rgba(239,68,68,0.1)",
-          }
-          const MOTIVO_LABEL: Record<string, string> = {
-            nao_pagou_prazo: "Não pagou no prazo",
-            desistiu_apos_contemplar: "Desistiu após contemplar",
-          }
+          const MOTIVO_LABEL = Object.fromEntries(
+            liveUiData.penaltyReasons.map((reason) => [reason.value, reason.label])
+          ) as Record<string, string>
           const grau = penalidadesData?.grau ?? (totalAtivas === 0 ? "normal" : totalAtivas === 1 ? "advertida" : totalAtivas === 2 ? "restrita" : "bloqueada")
-          const cor = GRAU_COR[grau] ?? "#94a3b8"
-          const bg  = GRAU_BG[grau]  ?? "rgba(148,163,184,0.08)"
+          const grauUi = liveUiData.penaltyUi[grau as keyof typeof liveUiData.penaltyUi]
+          const cor = grauUi?.customerCor ?? "#94a3b8"
+          const bg = grauUi?.customerBg ?? "rgba(148,163,184,0.08)"
 
           return (
             <div className="space-y-2 pb-4">
@@ -1039,7 +1034,7 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>1 — Motivo da penalidade</p>
                           <div className="space-y-2">
-                            {(["nao_pagou_prazo", "desistiu_apos_contemplar"] as const).map(m => (
+                            {liveUiData.penaltyReasons.map(({ value: m }) => (
                               <motion.button key={m} whileTap={{ scale: 0.97 }}
                                 onClick={() => setPenMotivo(m)}
                                 className="w-full flex items-center justify-between px-4 py-4 rounded-xl text-left transition-all"

@@ -3,23 +3,16 @@
 import { useState } from "react"
 import { gerarReciboPDF, type ReciboData } from "@/lib/recibo-pdf"
 import { Loader2, Download, Eye } from "lucide-react"
+import receiptExample from "@/data/examples/receipt.json"
 
-const EXEMPLO: ReciboData = {
-  numero: 42,
-  tipo: "Venda",
-  data: "01/06/2026 14:30",
-  cliente_nome: "Maria Silva Santos",
-  cliente_celular: "(16) 99999-9999",
-  itens: [
-    { nome: "Blusa Floral Vintage", cor: "Rosa",   marca: "FARM",  qtd: 1, preco_unit: 45.00, subtotal: 45.00 },
-    { nome: "Calça Jeans Slim",     cor: "Azul",   marca: "LEVI'S", qtd: 1, preco_unit: 89.90, subtotal: 89.90 },
-    { nome: "Cinto de Couro",       cor: "Marrom", marca: "AREZZO",  qtd: 2, preco_unit: 25.00, subtotal: 50.00 },
-  ],
-  forma_pagamento: "PIX",
-  frete: 0,
-  desconto: 10.00,
-  total: 174.90,
+function isReciboTipo(tipo: string): tipo is ReciboData["tipo"] {
+  return tipo === "Venda" || tipo === "Troca" || tipo === "Devolução"
 }
+
+if (!isReciboTipo(receiptExample.tipo)) {
+  throw new Error(`Tipo de recibo de exemplo inválido: ${receiptExample.tipo}`)
+}
+const EXEMPLO: ReciboData = { ...receiptExample, tipo: receiptExample.tipo }
 
 export default function ReciboPreviewPage() {
   const [gerando, setGerando] = useState(false)

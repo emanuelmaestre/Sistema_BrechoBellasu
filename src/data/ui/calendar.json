@@ -44,5 +44,40 @@
     "Outubro",
     "Novembro",
     "Dezembro"
+  ],
+  "holidayTypes": {
+    "N": {
+      "label": "Nacional",
+      "color": "#dc2626"
+    },
+    "E": {
+      "label": "Estadual SP",
+      "color": "#d97706"
+    },
+    "M": {
+      "label": "Municipal RP",
+      "color": "#7c3aed"
+    }
+  },
+  "fixedHolidays": [
+    { "month": 1, "day": 1, "name": "Ano Novo", "type": "N" },
+    { "month": 1, "day": 20, "name": "São Sebastião (padroeiro)", "type": "M" },
+    { "month": 4, "day": 21, "name": "Tiradentes", "type": "N" },
+    { "month": 5, "day": 1, "name": "Dia do Trabalho", "type": "N" },
+    { "month": 6, "day": 19, "name": "Aniversário de Ribeirão Preto", "type": "M" },
+    { "month": 7, "day": 9, "name": "Revolução Constitucionalista", "type": "E" },
+    { "month": 9, "day": 7, "name": "Independência do Brasil", "type": "N" },
+    { "month": 10, "day": 12, "name": "Nossa Senhora Aparecida", "type": "N" },
+    { "month": 11, "day": 2, "name": "Finados", "type": "N" },
+    { "month": 11, "day": 15, "name": "Proclamação da República", "type": "N" },
+    { "month": 11, "day": 20, "name": "Consciência Negra", "type": "N" },
+    { "month": 12, "day": 25, "name": "Natal", "type": "N" }
+  ],
+  "easterRelativeHolidays": [
+    { "offsetDays": -48, "name": "Carnaval (segunda)", "type": "N" },
+    { "offsetDays": -47, "name": "Carnaval (terça)", "type": "N" },
+    { "offsetDays": -2, "name": "Sexta-feira Santa", "type": "N" },
+    { "offsetDays": 0, "name": "Páscoa", "type": "N" },
+    { "offsetDays": 60, "name": "Corpus Christi", "type": "N" }
   ]
 }

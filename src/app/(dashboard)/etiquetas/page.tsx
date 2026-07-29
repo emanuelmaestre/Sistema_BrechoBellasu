@@ -18,6 +18,7 @@ import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/Ender
 import { camposFaltantesEnvio } from "@/lib/endereco-parser"
 import { fmtBRL, cn } from "@/lib/utils"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
+import shippingUiData from "@/data/ui/shipping.json"
 
 // ── Tipos ─────────────────────────────────────────────────
 interface Cliente {
@@ -89,25 +90,9 @@ const EMPTY_FORM: ShipForm = {
   valor_declarado: "", venda_id: "",
 }
 
-const STATUS_META: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  pending:      { label: "Aguardando",  bg: "bg-amber-600/10",   text: "text-amber-400",   dot: "bg-amber-400" },
-  released:     { label: "Liberada",    bg: "bg-blue-600/10",    text: "text-blue-400",    dot: "bg-blue-400" },
-  generated:    { label: "Gerada",      bg: "bg-purple-600/10",  text: "text-purple-400",  dot: "bg-purple-400" },
-  posted:       { label: "Postada",     bg: "bg-indigo-600/10",  text: "text-indigo-400",  dot: "bg-indigo-400" },
-  delivered:    { label: "Entregue",    bg: "bg-emerald-600/10", text: "text-emerald-400", dot: "bg-emerald-400" },
-  canceled:     { label: "Cancelada",   bg: "bg-red-600/10",     text: "text-red-400",     dot: "bg-red-400" },
-  "in transit": { label: "Em trânsito", bg: "bg-cyan-600/10",    text: "text-cyan-400",    dot: "bg-cyan-400" },
-}
-
-const TRANSPORTADORA_COLORS: Record<string, string> = {
-  "Correios": "from-amber-600/20 to-amber-700/10 border-amber-600/20",
-  "Jadlog":   "from-red-600/20 to-red-700/10 border-red-600/20",
-  "JadLog":   "from-red-600/20 to-red-700/10 border-red-600/20",
-  "Latam":    "from-sky-600/20 to-sky-700/10 border-sky-600/20",
-  "Azul":     "from-blue-600/20 to-blue-700/10 border-blue-600/20",
-  "Total":    "from-violet-600/20 to-violet-700/10 border-violet-600/20",
-  "default":  "from-slate-700/30 to-slate-800/20 border-white/10",
-}
+const STATUS_META: Record<string, { label: string; bg: string; text: string; dot: string }> =
+  shippingUiData.statusMeta
+const TRANSPORTADORA_COLORS: Record<string, string> = shippingUiData.carrierGradients
 
 function carrierGradient(name: string) {
   for (const [k, v] of Object.entries(TRANSPORTADORA_COLORS)) {
