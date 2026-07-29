@@ -256,23 +256,38 @@ export async function sfCancelarEtiqueta(orderId: string, motivo = "Cancelamento
 }
 
 /** Rastreia pelo código de rastreio */
-export async function sfRastrear(tracking: string): Promise<{
+/**
+ * Situação de um envio. Recebe o ID DO PEDIDO (não o código de rastreio).
+ *
+ * Não existe endpoint de rastreio no Super Frete: o antigo `/tracking/{cod}`
+ * devolvia a página HTML do site e o catch mascarava isso com lista vazia —
+ * por isso nenhuma etiqueta Super Frete jamais sincronizou. A fonte de
+ * verdade é o /order/info/{id}, que traz `status` e `tracking`.
+ */
+export async function sfRastrear(orderId: string): Promise<{
   tracking: string
+  status:   string
   events:   Array<{ description: string; date: string; location: string }>
 }> {
-  try {
-    const raw = await sfRequest<
-      Record<string, { tracking: string; events: Array<{ description: string; date: string; location: string }> }>
-    >("GET", `/tracking/${tracking}`)
-    const item = raw[tracking] ?? Object.values(raw)[0]
-    if (!item) return { tracking, events: [] }
-    return item
-  } catch {
-    return { tracking, events: [] }
+  const pedido = await sfBuscarPedido(orderId)
+  const status = String(pedido.status ?? "")
+  // O /order/info não devolve histórico de eventos; sintetizamos um evento a
+  // partir do status para o sincronizador continuar funcionando igual.
+  const DESCRICAO: Record<string, string> = {
+    pending:   "Aguardando pagamento",
+    released:  "Etiqueta postada",
+    posted:    "Objeto postado",
+    delivered: "Objeto entregue ao destinatário",
+    canceled:  "Pedido cancelado",
+  }
+  const descricao = DESCRICAO[status] ?? status
+  return {
+    tracking: pedido.tracking ?? "",
+    status,
+    events: descricao ? [{ description: descricao, date: new Date().toISOString(), location: "" }] : [],
   }
 }
 
-/** Saldo da carteira */
 /** Saldo da carteira — não há endpoint /balance; vem junto do /user. */
 export async function sfSaldo(): Promise<{ balance: number }> {
   const user = await sfRequest<{ balance?: number }>("GET", "/user")

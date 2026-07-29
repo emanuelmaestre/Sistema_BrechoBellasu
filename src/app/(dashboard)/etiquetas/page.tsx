@@ -1327,11 +1327,17 @@ export default function EtiquetasPage() {
   const superFreteConectado = status?.superfrete?.conectado ?? false
   const algumProviderConectado = melhorEnvioConectado || superFreteConectado
 
-  const { data: saldoData } = useQuery<{ saldo: number }>({
+  // Saldo das DUAS transportadoras. Antes só o Melhor Envio era consultado, e
+  // o chip único dava a impressão de ser um saldo geral.
+  const { data: saldoData } = useQuery<{
+    saldo: number
+    melhorenvio?: { ok: boolean; saldo: number; erro?: string }
+    superfrete?:  { configurado: boolean; ok: boolean; saldo: number; erro?: string }
+  }>({
     queryKey: ["etiquetas-saldo"],
     queryFn: () => apiGet("/etiquetas/saldo"),
     staleTime: 120_000,
-    enabled: melhorEnvioConectado,
+    enabled: algumProviderConectado,
     retry: false,
   })
 
@@ -1442,44 +1448,94 @@ export default function EtiquetasPage() {
         )}
       </AnimatePresence>
 
-      {/* Status das transportadoras */}
+      {/* Transportadoras — um cartão por empresa, com status e saldo próprios */}
       {status && (
-        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-          className={cn("rounded-2xl px-5 py-3.5 flex items-center gap-3",
-            algumProviderConectado ? "bg-emerald-600/8 border-emerald-600/20" : "bg-amber-600/8 border-amber-600/20")}
-          style={{ border: "1px solid" }}>
-          {algumProviderConectado
-            ? <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-            : <AlertCircle size={16} className="text-amber-400 shrink-0" />}
-          <div className="flex-1 flex flex-wrap items-center gap-x-5 gap-y-1">
-            <p className={cn("font-medium text-sm", melhorEnvioConectado ? "text-emerald-300" : "text-amber-300")}>
-              Melhor Envio {melhorEnvioConectado ? "conectado" : "indisponível"}
-            </p>
-            <p className={cn("font-medium text-sm", superFreteConectado ? "text-emerald-300" : "text-amber-300")}>
-              Super Frete {superFreteConectado
-                ? "conectado"
-                : status.superfrete?.configurado
-                  ? "indisponível"
-                  : "não configurado"}
-            </p>
-            {status.cep_origem && (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                CEP origem: <span className="font-mono">{status.cep_origem}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            {
+              nome: "Melhor Envio",
+              cor: "#6366f1",
+              conectado: melhorEnvioConectado,
+              configurado: true,
+              saldo: saldoData?.melhorenvio,
+              painel: "https://melhorenvio.com.br/painel",
+            },
+            {
+              nome: "Super Frete",
+              cor: "#10b981",
+              conectado: superFreteConectado,
+              configurado: status.superfrete?.configurado ?? false,
+              saldo: saldoData?.superfrete,
+              painel: "https://web.superfrete.com",
+            },
+          ]).map((t, i) => (
+            <motion.div key={t.nome}
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06 }}
+              whileHover={{ y: -2, boxShadow: `0 8px 24px ${t.cor}22` }}
+              className="rounded-2xl p-4 flex flex-col gap-3"
+              style={{
+                background: t.conectado ? `${t.cor}0a` : "rgba(245,158,11,0.06)",
+                border: `1px solid ${t.conectado ? `${t.cor}38` : "rgba(245,158,11,0.25)"}`,
+              }}>
+              {/* Nome + estado */}
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
+                  {t.conectado && (
+                    <motion.span className="absolute inset-0 rounded-full" style={{ background: t.cor }}
+                      animate={{ scale: [1, 2.1, 1], opacity: [0.55, 0, 0.55] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }} />
+                  )}
+                  <span className="relative w-2 h-2 rounded-full"
+                    style={{ background: t.conectado ? t.cor : "#f59e0b" }} />
+                </span>
+                <p className="font-bold text-sm flex-1" style={{ color: "var(--text-primary)" }}>{t.nome}</p>
+                {t.conectado
+                  ? <CheckCircle2 size={15} style={{ color: t.cor }} />
+                  : <AlertCircle size={15} className="text-amber-400" />}
+              </div>
+
+              <p className="text-[11px] font-semibold uppercase tracking-wide -mt-1.5"
+                style={{ color: t.conectado ? t.cor : "#fbbf24" }}>
+                {t.conectado ? "Conectado" : t.configurado ? "Indisponível" : "Não configurado"}
               </p>
-            )}
-          </div>
-          {/* Saldo chip — apenas exibe, sem modal */}
-          {melhorEnvioConectado && (
-            <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm"
-              style={{ background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.25)", color: COR }}>
-              <Wallet2 size={14} />
-              {saldoData !== undefined
-                ? <span>{fmtBRL(saldoData.saldo ?? 0)}</span>
-                : <Loader2 size={13} className="animate-spin" />}
-              <span className="text-[10px] font-bold uppercase tracking-wide opacity-60">saldo</span>
-            </div>
+
+              {/* Saldo */}
+              <div className="flex items-end justify-between gap-2 pt-1"
+                style={{ borderTop: "1px solid var(--border)" }}>
+                <div className="pt-2.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    Saldo
+                  </p>
+                  {!t.conectado ? (
+                    <p className="text-lg font-black leading-tight" style={{ color: "var(--text-muted)" }}>—</p>
+                  ) : t.saldo === undefined ? (
+                    <Loader2 size={16} className="animate-spin mt-1" style={{ color: t.cor }} />
+                  ) : t.saldo.ok ? (
+                    <p className="text-xl font-black leading-tight tabular-nums" style={{ color: "var(--text-primary)" }}>
+                      {fmtBRL(t.saldo.saldo)}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] mt-0.5" style={{ color: "#fbbf24" }} title={t.saldo.erro}>
+                      indisponível
+                    </p>
+                  )}
+                </div>
+                <a href={t.painel} target="_blank" rel="noopener noreferrer"
+                  className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors"
+                  style={{ background: `${t.cor}14`, border: `1px solid ${t.cor}33`, color: t.cor }}>
+                  <Wallet2 size={12} /> Painel
+                </a>
+              </div>
+            </motion.div>
+          ))}
+
+          {status.cep_origem && (
+            <p className="sm:col-span-2 text-xs -mt-0.5" style={{ color: "var(--text-muted)" }}>
+              CEP de origem dos envios: <span className="font-mono">{status.cep_origem}</span>
+            </p>
           )}
-        </motion.div>
+        </div>
       )}
 
 

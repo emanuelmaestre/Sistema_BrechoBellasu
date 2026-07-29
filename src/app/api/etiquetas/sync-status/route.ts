@@ -11,10 +11,11 @@ export const dynamic = "force-dynamic"
 export const POST = withAuth(async () => {
   const sb = createServerClient()
 
+  // Não exigimos me_tracking: no Super Frete o rastreio só existe depois de
+  // "released", e a consulta de situação é feita pelo ID do pedido.
   const { data: etiquetas } = await sb
     .from("etiquetas")
-    .select("id, me_tracking, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
-    .not("me_tracking", "is", null)
+    .select("id, me_order_id, me_tracking, cliente_id, ultimo_status, notificado_transito, notificado_entregue, carrier")
     .not("ultimo_status", "in", '("entregue","cancelada")')
 
   if (!etiquetas?.length) return NextResponse.json({ ok: true, atualizadas: 0 })
@@ -27,10 +28,14 @@ export const POST = withAuth(async () => {
       const carrier = (et.carrier ?? "melhorenvio") as "melhorenvio" | "superfrete"
 
       let eventos: Array<{ description: string; date: string; location: string }> = []
+      let statusSF = ""
       if (carrier === "superfrete" && sfConfigurado()) {
-        const tracking = await sfRastrear(et.me_tracking)
-        eventos = tracking.events ?? []
+        if (!et.me_order_id) continue
+        const info = await sfRastrear(et.me_order_id)
+        eventos  = info.events ?? []
+        statusSF = info.status
       } else if (carrier === "melhorenvio") {
+        if (!et.me_tracking) continue
         const tracking = await rastrearEtiqueta(et.me_tracking)
         if (!tracking) continue
         eventos = tracking.events ?? []
@@ -40,7 +45,11 @@ export const POST = withAuth(async () => {
 
       const ultimoEvento = eventos[0]?.description?.toLowerCase() ?? ""
       let novoStatus = et.ultimo_status
-      if (ultimoEvento.includes("entreg")) {
+      // Cancelado no painel da transportadora: reflete no sistema em vez de
+      // manter a etiqueta como "aguardando" para sempre.
+      if (statusSF === "canceled") {
+        novoStatus = "cancelada"
+      } else if (ultimoEvento.includes("entreg")) {
         novoStatus = "entregue"
       } else if (ultimoEvento.includes("trânsito") || ultimoEvento.includes("transito") || ultimoEvento.includes("encaminhado")) {
         novoStatus = "em_transito"
@@ -51,6 +60,10 @@ export const POST = withAuth(async () => {
       if (novoStatus === et.ultimo_status) continue
 
       const updates: Record<string, unknown> = { ultimo_status: novoStatus }
+      // A tela usa a coluna "status" para o selo e para decidir se ainda cabe
+      // cancelar; sem isto a etiqueta cancelada seguia como "aguardando".
+      if (novoStatus === "cancelada") updates.status = "canceled"
+      if (statusSF && statusSF !== "canceled") updates.status = statusSF
 
       if (et.cliente_id) {
         const { data: cliente } = await sb
