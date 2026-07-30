@@ -52,8 +52,17 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const sb = createServerClient()
 
-  // Impede produto duplicado em outra compra da mesma live
+  // Produtos sem controle de estoque (ex.: código 0) são genéricos: podem ir
+  // para quantas clientes quiser, então não valem nem duplicidade nem estoque.
+  let produto: { estoque_atual: number | null; controlar_estoque: boolean | null; nome: string | null } | null = null
   if (produto_id) {
+    const { data } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", produto_id).single()
+    produto = data
+  }
+  const controlaEstoque = produto ? produto.controlar_estoque !== false : true
+
+  // Impede produto duplicado em outra compra da mesma live
+  if (produto_id && controlaEstoque) {
     const compra = await sb.from("live_compras").select("live_id").eq("id", parseInt(compraId)).single()
     if (compra.data?.live_id) {
       const { data: jaVinculado } = await sb
@@ -78,11 +87,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   // Verifica estoque disponível (apenas se o produto controla estoque)
-  if (produto_id) {
-    const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", produto_id).single()
-    if (prod && prod.controlar_estoque !== false && (prod.estoque_atual ?? 0) < (quantidade ?? 1)) {
-      return NextResponse.json({ erro: `Estoque insuficiente para "${prod.nome}". Disponível: ${prod.estoque_atual ?? 0}` }, { status: 422 })
-    }
+  if (produto && controlaEstoque && (produto.estoque_atual ?? 0) < (quantidade ?? 1)) {
+    return NextResponse.json({ erro: `Estoque insuficiente para "${produto.nome}". Disponível: ${produto.estoque_atual ?? 0}` }, { status: 422 })
   }
 
   // Valida limites de quantidade e valor da compra
