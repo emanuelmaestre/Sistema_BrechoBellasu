@@ -119,7 +119,7 @@ test("buildFixedContent contém todos os campos obrigatórios", () => {
   expect(fixed).toContain("Valor Total:")
   expect(fixed).toContain("sexta-feira")
   expect(fixed).toContain("PIX")
-  expect(fixed).toContain("Barão do Amazonas")
+  expect(fixed).toContain("Florêncio de Abreu")
   expect(fixed.toLowerCase()).toContain("promoção")
 })
 

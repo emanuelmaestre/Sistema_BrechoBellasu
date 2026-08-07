@@ -207,6 +207,20 @@ export function buildAvisoLive(nome: string | null, link: string): string {
   return `${renderNamedTemplate(AVISO_ABERTURAS[a], nomeValido)}\n\n${AVISO_CHAMADAS[c]}\n\n${AVISO_FECHAMENTOS[f].replace("{link}", link)}`
 }
 
+// ─── Bloco de produtos ─────────────────────────────────────────────
+// Mostra só nome + valor (sem marca/cor/tamanho) e limita a quantidade de
+// itens listados para nunca estourar o CHAR_LIMIT com sacolas grandes.
+const MAX_PRODUTOS_LISTADOS = 4
+
+function buildBlocoProdutos(produtos: ProdutoMensagem[] | undefined): string {
+  if (!produtos || produtos.length === 0) return ""
+  const itens = produtos.slice(0, MAX_PRODUTOS_LISTADOS)
+  const linhas = itens.map((p, i) => `${i + 1}. ${p.nome} — ${fmtVal(p.preco)}`)
+  const resto = produtos.length - itens.length
+  if (resto > 0) linhas.push(`+ ${resto} peça${resto > 1 ? "s" : ""}`)
+  return `🧾 Peças:\n${linhas.join("\n")}\n\n`
+}
+
 // ─── Bloco fixo da mensagem de compra ────────────────────────────
 
 export function buildFixedContent(compra: CompraData, dataPrazo: string): string {
@@ -243,13 +257,13 @@ Saldo restante: R$ 0,00`
     blocoPagamento = `[ CHAVE PIX NÃO INFORMADA ]`
   }
 
-  const blocoProdutos = ""
+  const blocoProdutos = buildBlocoProdutos(compra.produtos)
 
   const dataUnificada = fmtData(compra.data_compra ?? compra.data_live)
 
   return `📅 LIVE/COMPRA: ${dataUnificada}
 🛍️ Sacola: ${num} | QT: ${qtd} ${qtdLabel}
-${blocoValor}${blocoProdutos}
+${blocoProdutos}${blocoValor}
 
 Pagamento:
 
@@ -257,7 +271,7 @@ ${blocoPagamento}
 
 ${blocoDeadline}
 
-📍 Retirada: R. Barão do Amazonas, 1035 – Centro – Rib. Preto/SP
+📍 Retirada: R. Florêncio de Abreu, 640 – Centro – Rib. Preto/SP
 🛵 Entrega: R$ 15,00 (Rib. Preto) | Outras cidades a combinar
 ⚠️ Promoção não tem troca. Obrigada! Até a próxima! 💖`
 }

@@ -83,6 +83,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // ── Produtos vinculados à compra ──
+  // produto_id nulo (item manual, sem vínculo de estoque) → join retorna produtos = null,
+  // então marca/cor/tamanho ficam null abaixo (comportamento esperado, não é erro).
   const { data: produtosRaw } = await sb
     .from("live_compra_produtos")
     .select("nome_produto, preco_live, preco_original, produtos(marca, cor, tamanho)")

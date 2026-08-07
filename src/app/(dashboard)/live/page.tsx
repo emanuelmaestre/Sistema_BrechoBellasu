@@ -1890,14 +1890,22 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
   const valorFinalEx0 = Math.max(0, valorTotalEx - parseFloat(String(ex?.desconto ?? 0)) - creditoEx)
   const pagoCreditoEx = valorFinalEx0 === 0 && creditoEx > 0
 
-  // Produtos ilustrativos para o preview (mostram o layout, não são os reais)
-  const PRODUTOS_EXEMPLO: ProdutoMensagem[] = [
-    { nome: "Blusa Floral", marca: "Farm", cor: "Rosa", tamanho: "M", preco: 35 },
-    { nome: "Calça Jeans", cor: "Azul", tamanho: "38", preco: 55 },
-    { nome: "Cinto", preco: 0 },
-  ].slice(0, Math.max(1, Math.min(ex?.quantidade_itens ?? 1, 3)))
+  // Produtos reais já vinculados à compra — mesmos que serão enviados no disparo
+  const { data: produtosEx } = useQuery({
+    queryKey: ["live-disparo-preview-produtos", liveId, ex?.id],
+    queryFn: () => apiGet<ProdutoVinculo[]>(`/live/${liveId}/compras/${ex!.id}/produtos`),
+    enabled: !!ex,
+  })
 
-  // Gera preview sempre que a compra, chave PIX, small talk ou crédito mudarem
+  const produtosMensagemEx: ProdutoMensagem[] = (produtosEx ?? []).map(p => ({
+    nome:    p.nome_produto,
+    marca:   p.marca ?? null,
+    cor:     p.cor ?? null,
+    tamanho: p.tamanho ?? null,
+    preco:   p.preco_live ?? p.preco_original,
+  }))
+
+  // Gera preview sempre que a compra, produtos, chave PIX, small talk ou crédito mudarem
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!ex) { setMsgResult(null); return }
@@ -1912,11 +1920,11 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       credito_aplicado: ex.credito_aplicado,
       pago_com_credito: pagoCreditoEx,
       chave_pix:        pagoCreditoEx ? null : (chavePix || null),
-      produtos: PRODUTOS_EXEMPLO,
+      produtos: produtosMensagemEx,
     }
     setMsgResult(buildCompleteMessage(compraData, stIdx, diasPrazo))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ex, liveData, chavePix, pagoCreditoEx, stIdx, diasPrazo])
+  }, [ex, liveData, chavePix, pagoCreditoEx, stIdx, diasPrazo, produtosEx])
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
