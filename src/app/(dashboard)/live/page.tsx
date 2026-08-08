@@ -1107,48 +1107,69 @@ function EmptyIllustration() {
   )
 }
 
-// Cor da peça: digitar é livre, mas em live clicar num chip é mais rápido.
-// A paleta inteira fica disponível — a lista rola em vez de ser cortada, e
-// os chips continuam à vista depois de escolher, para poder trocar de cor.
-function SeletorCor({ valor, onChange, onEnter }: { valor: string; onChange: (v: string) => void; onEnter?: () => void }) {
-  const busca = valor.trim().toUpperCase()
-  const sugestoes = busca ? CORES_PECA.filter(c => c.nome.includes(busca)) : CORES_PECA
-  const exata = CORES_PECA.find(c => c.nome === busca)
+// Cor da peça: seleção pura, sem campo de digitação. Em live a mão está no
+// dedo/mouse e um toque é mais rápido que teclar — e texto livre gerava três
+// grafias para a mesma cor ("salmao", "Salmão", "SALMAO").
+//
+// A paleta inteira fica visível de uma vez, sem corte: quando ela ficava numa
+// caixinha baixa e rolável parecia que o sistema só tinha 10 cores.
+function SeletorCor({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+  const atual = valor.trim().toUpperCase()
+  const naPaleta = CORES_PECA.some(c => c.nome === atual)
+  // Peça antiga pode ter cor digitada à mão, de antes da paleta. Ela entra na
+  // lista já selecionada para a edição não apagar em silêncio o que foi gravado.
+  const lista = atual && !naPaleta ? [{ nome: atual, hex: "transparent" }, ...CORES_PECA] : CORES_PECA
+  const selecionada = CORES_PECA.find(c => c.nome === atual)
 
   return (
-    <div>
-      <div className="relative">
-        {exata && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full shrink-0"
-            style={{ background: exata.hex, border: "1px solid var(--border)" }}/>
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+      {/* Barra de estado: mostra a escolha sem precisar caçar o chip aceso no
+          meio de 78, e é onde fica o limpar. */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 sticky top-0 z-10"
+        style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+        {atual ? (
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="w-4 h-4 rounded-full shrink-0"
+              style={{ background: selecionada?.hex ?? "transparent", border: "1px solid var(--border)" }}/>
+            <span className="text-xs font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>{atual}</span>
+          </span>
+        ) : (
+          <span className="text-[11px] font-bold" style={{ color: "var(--text-muted)" }}>
+            Escolha a cor · {CORES_PECA.length} disponíveis
+          </span>
         )}
-        <input value={valor}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onEnter?.() } }}
-          placeholder="Cor da peça"
-          className={cn("w-full pr-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]", exata ? "pl-9" : "pl-3")}
-          style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+        {atual && (
+          <motion.button type="button" onClick={() => onChange("")} whileTap={{ scale: 0.9 }}
+            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-lg shrink-0"
+            style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+            <X size={10}/> Limpar
+          </motion.button>
+        )}
       </div>
-      {sugestoes.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-2 max-h-32 overflow-y-auto drawer-scroll pr-1">
-          {sugestoes.map(c => {
-            const ativa = c.nome === busca
-            return (
-              <motion.button key={c.nome} type="button" onClick={() => onChange(c.nome)}
-                whileTap={{ scale: 0.92 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide shrink-0"
-                style={{
-                  background: ativa ? "var(--accent-bg)" : "var(--bg-surface)",
-                  border: `1px solid ${ativa ? "var(--accent)" : "var(--border)"}`,
-                  color: ativa ? "var(--accent)" : "var(--text-muted)",
-                }}>
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex, border: "1px solid var(--border)" }}/>
-                {c.nome}
-              </motion.button>
-            )
-          })}
-        </div>
-      )}
+
+      {/* Sem max-height: a paleta inteira aparece e o modal já rola sozinho.
+          Cortar aqui foi o que fez parecer que faltavam cores. */}
+      <div className="flex items-center gap-1.5 flex-wrap p-2.5">
+        {lista.map(c => {
+          const ativa = c.nome === atual
+          return (
+            <motion.button key={c.nome} type="button" aria-pressed={ativa}
+              onClick={() => onChange(ativa ? "" : c.nome)}
+              whileTap={{ scale: 0.9 }}
+              title={c.nome}
+              className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 transition-colors"
+              style={{
+                background: ativa ? "var(--accent)" : "var(--bg-card)",
+                border: `1px solid ${ativa ? "var(--accent)" : "var(--border)"}`,
+                color: ativa ? "#fff" : "var(--text-muted)",
+              }}>
+              <span className="w-4 h-4 rounded-full shrink-0"
+                style={{ background: c.hex, border: `1px solid ${ativa ? "rgba(255,255,255,0.5)" : "var(--border)"}` }}/>
+              {c.nome}
+            </motion.button>
+          )
+        })}
+      </div>
     </div>
   )
 }
