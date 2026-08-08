@@ -5,6 +5,16 @@ import { calcularStatusCompra } from "@/domain/live/status-compra"
 
 type Params = { params: Promise<{ id: string; compraId: string }> }
 
+// Nome e cor da linha vão para a mensagem do WhatsApp, que tem limite de
+// caracteres — por isso o corte em 60. Vazio vira null para cair no fallback
+// do produto do catálogo na leitura.
+const MAX_TEXTO = 60
+function sanitizarTexto(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const limpo = v.trim().replace(/\s+/g, " ").slice(0, MAX_TEXTO)
+  return limpo || null
+}
+
 // GET — lista produtos vinculados (tenta ambas as tabelas)
 export async function GET(req: NextRequest, { params }: Params) {
   const auth = verifyAuth(req)
@@ -26,7 +36,9 @@ export async function GET(req: NextRequest, { params }: Params) {
         ...rest,
         codigo_produto: p?.codigo ?? null,
         marca:          p?.marca   ?? null,
-        cor:            p?.cor     ?? null,
+        // A cor gravada na linha vence a do catálogo: no produto genérico o
+        // registro é compartilhado, então só o override identifica a peça.
+        cor:            rest.cor ?? p?.cor ?? null,
         tamanho:        p?.tamanho ?? null,
       }
     })
@@ -46,7 +58,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { compraId } = await params
   const body = await req.json()
-  const { produto_id, nome_produto, quantidade, preco_original, preco_live } = body
+  const { produto_id, quantidade, preco_original, preco_live } = body
+  const nome_produto = sanitizarTexto(body.nome_produto)
+  const cor          = sanitizarTexto(body.cor)
 
   if (!nome_produto) return NextResponse.json({ erro: "Nome do produto obrigatório." }, { status: 400 })
 
@@ -128,6 +142,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     compra_id: compraIdNum,
     produto_id: produto_id ?? null,
     nome_produto,
+    cor,
     quantidade: qtd,
     preco_original: precoOrig,
     preco_live: precoLv,
@@ -166,7 +181,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const itemId = parseInt(itemIdStr)
   const compraIdNum = parseInt(compraId)
 
-  const body = await req.json().catch(() => ({})) as { quantidade?: number; preco_original?: number; preco_live?: number }
+  const body = await req.json().catch(() => ({})) as {
+    quantidade?: number; preco_original?: number; preco_live?: number
+    nome_produto?: string; cor?: string
+  }
   const sb = createServerClient()
 
   const { data: item } = await sb.from("live_compra_produtos").select("*").eq("id", itemId).eq("compra_id", compraIdNum).single()
@@ -182,6 +200,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!Number.isFinite(novoOrig) || novoOrig < 0 || !Number.isFinite(novoLive) || novoLive < 0) {
     return NextResponse.json({ erro: "Valor inválido." }, { status: 400 })
   }
+
+  // Nome e cor são overrides desta linha — nunca tocam no catálogo, porque o
+  // produto genérico é o mesmo registro para todas as clientes.
+  const novoNome = "nome_produto" in body ? sanitizarTexto(body.nome_produto) : undefined
+  if (novoNome === null) {
+    return NextResponse.json({ erro: "Nome do produto não pode ficar vazio." }, { status: 400 })
+  }
+  const novaCor = "cor" in body ? sanitizarTexto(body.cor) : undefined
 
   // Valida limites de quantidade/valor da compra, excluindo o próprio item
   {
@@ -227,6 +253,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     quantidade: novaQtd,
     preco_original: novoOrig,
     preco_live: novoLive,
+    ...(novoNome !== undefined && { nome_produto: novoNome }),
+    ...(novaCor  !== undefined && { cor: novaCor }),
   }).eq("id", itemId)
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
 

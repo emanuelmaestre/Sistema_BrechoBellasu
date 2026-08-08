@@ -33,6 +33,11 @@ import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 import ImportarPorFoto from "@/components/live/ImportarPorFoto"
 import liveUiData from "@/data/ui/live.json"
+import productData from "@/data/catalog/products.json"
+
+// Mesma paleta da tela de produtos — a bolinha colorida é o que diferencia
+// peças genéricas de relance na hora de separar a sacola.
+const CORES_PECA: { nome: string; hex: string }[] = productData.colors
 
 function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000
@@ -1102,21 +1107,60 @@ function EmptyIllustration() {
   )
 }
 
+// Cor da peça: digitar é livre, mas em live clicar num chip é mais rápido.
+// Os chips filtram conforme ela digita, então a lista nunca fica comprida.
+function SeletorCor({ valor, onChange, onEnter }: { valor: string; onChange: (v: string) => void; onEnter?: () => void }) {
+  const busca = valor.trim().toUpperCase()
+  const sugestoes = (busca ? CORES_PECA.filter(c => c.nome.includes(busca)) : CORES_PECA).slice(0, 10)
+  const exata = CORES_PECA.find(c => c.nome === busca)
+
+  return (
+    <div>
+      <div className="relative">
+        {exata && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full shrink-0"
+            style={{ background: exata.hex, border: "1px solid var(--border)" }}/>
+        )}
+        <input value={valor}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onEnter?.() } }}
+          placeholder="Cor da peça"
+          className={cn("w-full pr-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]", exata ? "pl-9" : "pl-3")}
+          style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+      </div>
+      {sugestoes.length > 0 && !exata && (
+        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+          {sugestoes.map(c => (
+            <motion.button key={c.nome} type="button" onClick={() => onChange(c.nome)}
+              whileTap={{ scale: 0.92 }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex, border: "1px solid var(--border)" }}/>
+              {c.nome}
+            </motion.button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ModalVinculo({
   liveId, compra, onClose, onAtualizado,
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
   const [busca,   setBusca]   = useState("")
-  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; codigo?: string | null; preco_venda?: number; estoque_atual?: number }>>([])
-  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", codigo_produto: "", quantidade: "", preco_original: "", preco_live: "" })
+  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; codigo?: string | null; preco_venda?: number; estoque_atual?: number; cor?: string | null; controlar_estoque?: boolean | null }>>([])
+  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", nome_catalogo: "", codigo_produto: "", cor: "", quantidade: "", preco_original: "", preco_live: "", generico: false })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
   const [finalizando, setFin] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [searchFocus, setSearchFocus] = useState(false)
   const [editandoId, setEditandoId] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState({ quantidade: "", preco_live: "" })
+  const [editForm, setEditForm] = useState({ nome_produto: "", cor: "", quantidade: "", preco_live: "" })
   const [editSaving, setEditSaving] = useState(false)
   const prevPct = useRef(0)
+  const nomeRef  = useRef<HTMLInputElement>(null)
 
   const { data: produtos, refetch } = useQuery({
     queryKey: ["live-compra-produtos", compra.id],
@@ -1158,8 +1202,18 @@ function ModalVinculo({
   function selecionarProd(p: typeof prodRes[0]) {
     const precoNum = Number(p.preco_venda) || 0
     const preco = precoNum > 0 ? precoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
-    setForm({ produto_id: p.id, nome_produto: p.nome, codigo_produto: p.codigo ?? "", quantidade: "1", preco_original: preco, preco_live: "" })
+    // Peça genérica (código 0 / sem controle de estoque): o registro é o mesmo
+    // para todas as clientes, então nome e cor precisam ser digitados aqui.
+    // O código "0" também conta: se controlar_estoque vier null no banco, a
+    // comparação estrita falharia e os campos nunca apareceriam.
+    const generico = p.controlar_estoque === false || p.codigo?.trim() === "0"
+    setForm({
+      produto_id: p.id, nome_produto: p.nome, nome_catalogo: p.nome, codigo_produto: p.codigo ?? "",
+      cor: p.cor ?? "", quantidade: "1", preco_original: preco, preco_live: "", generico,
+    })
     setBusca(p.nome); setProdRes([])
+    // Nome já selecionado: ela digita por cima sem clique nem apagar nada.
+    if (generico) setTimeout(() => nomeRef.current?.select(), 60)
   }
 
   async function vincular() {
@@ -1169,12 +1223,13 @@ function ModalVinculo({
       await apiPost(`/live/${liveId}/compras/${compra.id}/produtos`, {
         produto_id: form.produto_id || undefined,
         nome_produto: form.nome_produto,
+        cor: form.cor || undefined,
         quantidade: parseInt(String(form.quantidade)) || 1,
         preco_original: parseFloat(String(form.preco_original).replace(/\./g, "").replace(",", ".")) || 0,
         preco_live: parseFloat(String(form.preco_live).replace(/\./g, "").replace(",", ".")) || 0,
       })
       setBusca(""); setProdRes([])
-      setForm({ produto_id: 0, nome_produto: "", codigo_produto: "", quantidade: "", preco_original: "", preco_live: "" })
+      setForm({ produto_id: 0, nome_produto: "", nome_catalogo: "", codigo_produto: "", cor: "", quantidade: "", preco_original: "", preco_live: "", generico: false })
       refetch(); onAtualizado()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao vincular produto.")
@@ -1191,6 +1246,8 @@ function ModalVinculo({
   function abrirEdicao(p: ProdutoVinculo) {
     setEditandoId(p.id)
     setEditForm({
+      nome_produto: p.nome_produto,
+      cor: p.cor ?? "",
       quantidade: String(p.quantidade),
       preco_live: String(p.preco_live ?? p.preco_original ?? ""),
     })
@@ -1202,6 +1259,8 @@ function ModalVinculo({
       const qtd = parseInt(editForm.quantidade) || 1
       const preco = parseFloat(editForm.preco_live.replace(",", ".")) || 0
       await apiPatch(`/live/${liveId}/compras/${compra.id}/produtos?item_id=${itemId}`, {
+        nome_produto: editForm.nome_produto,
+        cor: editForm.cor,
         quantidade: qtd,
         preco_live: preco,
       })
@@ -1221,6 +1280,9 @@ function ModalVinculo({
       setErro(e instanceof Error ? e.message : "Erro ao finalizar.")
     } finally { setFin(false) }
   }
+
+  const nomeAindaGenerico = form.generico && !!form.nome_catalogo
+    && form.nome_produto.trim().toUpperCase() === form.nome_catalogo.trim().toUpperCase()
 
   // Calcula desconto % para mostrar no badge
   function descPct(orig: number, live: number) {
@@ -1287,13 +1349,17 @@ function ModalVinculo({
           </div>
         </div>
 
-        {/* ── Body: 2 colunas ── */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* ── Body: 2 colunas no desktop, empilhado no celular ──
+            No celular o formulário vem primeiro (é o que ela usa durante a
+            live) e a página inteira rola, em vez de dois painéis espremidos. */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
 
           {/* ─── Esquerda: produtos vinculados ─── */}
-          <div className="flex-1 flex flex-col overflow-hidden" style={{ borderRight: "1px solid var(--border)" }}>
+          {/* order, e não flex-col-reverse: em column-reverse o scroll ancora
+              na base e o modal abriria já rolado até o fim da lista. */}
+          <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:overflow-hidden lg:border-r" style={{ borderColor: "var(--border)" }}>
             {/* Sub-header esquerdo */}
-            <div className="px-8 py-4 shrink-0 flex items-center justify-between"
+            <div className="px-4 sm:px-8 py-4 shrink-0 flex items-center justify-between"
               style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2">
                 <PackageCheck size={13} style={{ color: "var(--accent)" }}/>
@@ -1318,7 +1384,7 @@ function ModalVinculo({
             </div>
 
             {/* Lista */}
-            <div className="flex-1 overflow-y-auto drawer-scroll px-6 py-5 space-y-2.5">
+            <div className="flex-1 lg:overflow-y-auto drawer-scroll px-4 sm:px-6 py-5 space-y-2.5">
               <AnimatePresence initial={false}>
                 {(produtos ?? []).map((p, i) => {
                   const disc = descPct(p.preco_original, p.preco_live)
@@ -1389,9 +1455,13 @@ function ModalVinculo({
                                 </span>
                               )}
                               {p.cor && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>
-                                  <span className="opacity-60">COR:</span> {p.cor}
+                                  {/* Bolinha da cor: numa sacola de peças genéricas
+                                      é o que diferencia uma da outra de relance. */}
+                                  <span className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ background: CORES_PECA.find(c => c.nome === p.cor?.toUpperCase())?.hex ?? "transparent", border: "1px solid var(--border)" }}/>
+                                  {p.cor}
                                 </span>
                               )}
                               {p.tamanho && (
@@ -1470,8 +1540,22 @@ function ModalVinculo({
                             initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.22, ease: "easeInOut" }}
                             className="overflow-hidden">
-                            <div className="px-4 pb-3.5 pt-0 flex items-end gap-2 flex-wrap"
+                            <div className="px-4 pb-3.5 pt-3 flex items-end gap-2 flex-wrap"
                               style={{ borderTop: "1px solid var(--border)" }}>
+                              <div className="flex flex-col gap-1 w-full">
+                                <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Nome da peça</label>
+                                <input
+                                  type="text" maxLength={60}
+                                  value={editForm.nome_produto}
+                                  onChange={e => setEditForm(f => ({ ...f, nome_produto: e.target.value }))}
+                                  onFocus={e => e.target.select()}
+                                  className="w-full px-2.5 py-1.5 rounded-lg text-sm font-bold outline-none"
+                                  style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+                              </div>
+                              <div className="flex flex-col gap-1 w-full">
+                                <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Cor</label>
+                                <SeletorCor valor={editForm.cor} onChange={v => setEditForm(f => ({ ...f, cor: v }))}/>
+                              </div>
                               <div className="flex flex-col gap-1">
                                 <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Qtd</label>
                                 <input
@@ -1538,7 +1622,7 @@ function ModalVinculo({
             <AnimatePresence>
               {podeFinalizar && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  className="px-8 pb-6 shrink-0 relative">
+                  className="px-4 sm:px-8 pb-6 shrink-0 relative">
                   <motion.button onClick={finalizar} disabled={finalizando}
                     whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }}
                     animate={{ boxShadow: ["0 0 0px #10b98100","0 0 24px #10b98166","0 0 0px #10b98100"] }}
@@ -1557,15 +1641,15 @@ function ModalVinculo({
           </div>
 
           {/* ─── Direita: formulário de vínculo ─── */}
-          <div className="w-[480px] shrink-0 flex flex-col overflow-hidden" style={{ background: "var(--bg-card)" }}>
+          <div className="order-1 lg:order-2 w-full lg:w-[480px] shrink-0 flex flex-col lg:overflow-hidden" style={{ background: "var(--bg-card)" }}>
             {/* Sub-header direito */}
-            <div className="px-8 py-4 shrink-0 flex items-center gap-2"
+            <div className="px-4 sm:px-8 py-4 shrink-0 flex items-center gap-2"
               style={{ borderBottom: "1px solid var(--border)" }}>
               <Link2 size={13} style={{ color: "var(--accent)" }}/>
               <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>VINCULAR PRODUTO</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto drawer-scroll px-8 py-6 space-y-4">
+            <div className="flex-1 lg:overflow-y-auto drawer-scroll px-4 sm:px-8 py-5 sm:py-6 space-y-4">
               {/* Busca com animação de borda */}
               <div className="relative">
                 <motion.div animate={searchFocus ? { scale: 1.01 } : { scale: 1 }} transition={{ duration: 0.15 }}
@@ -1643,10 +1727,37 @@ function ModalVinculo({
                       </motion.div>
                       <div className="flex flex-col min-w-0 flex-1">
                         <p className="text-xs font-black uppercase tracking-wide truncate"
-                          style={{ color: "var(--accent)" }}>{form.nome_produto}</p>
+                          style={{ color: "var(--accent)" }}>{form.generico ? "Peça avulsa" : form.nome_produto}</p>
                         {form.codigo_produto && <p className="text-[10px] font-mono" style={{ color: "var(--accent)", opacity: 0.65 }}>{form.codigo_produto}</p>}
                       </div>
+                      {form.generico && (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0"
+                          style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
+                          GENÉRICO
+                        </span>
+                      )}
                     </div>
+
+                    {/* Nome e cor da peça — sem isto toda cliente recebe a mesma
+                        descrição genérica, inclusive na mensagem do WhatsApp. */}
+                    {form.generico && (
+                      <div className="px-4 pb-3 space-y-2.5">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>NOME DA PEÇA</p>
+                          <input ref={nomeRef} value={form.nome_produto} maxLength={60}
+                            onChange={e => setForm(prev => ({ ...prev, nome_produto: e.target.value }))}
+                            onFocus={e => e.target.select()}
+                            placeholder="Ex.: Vestido midi floral"
+                            className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
+                            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>COR</p>
+                          <SeletorCor valor={form.cor} onChange={v => setForm(prev => ({ ...prev, cor: v }))}/>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="px-4 pb-4 grid grid-cols-3 gap-2.5">
                       {/* QTD */}
                       <div>
@@ -1709,6 +1820,21 @@ function ModalVinculo({
                 )}
               </AnimatePresence>
 
+              {/* Aviso, nunca bloqueio: se a pressa vencer ela vincula assim
+                  mesmo, mas sabendo que a cliente vai ler esse nome. */}
+              <AnimatePresence>
+                {nomeAindaGenerico && (
+                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                    style={{ background: "rgba(251,191,36,0.08)", border: "1.5px solid rgba(251,191,36,0.25)" }}>
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" style={{ color: "#fbbf24" }}/>
+                    <p className="text-[11px] font-semibold leading-snug" style={{ color: "#fbbf24" }}>
+                      Nome ainda genérico — é assim que a peça vai aparecer na mensagem da cliente.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Erro */}
               <AnimatePresence>
                 {erro && (
@@ -1724,7 +1850,7 @@ function ModalVinculo({
             </div>
 
             {/* Botão vincular */}
-            <div className="px-8 pb-6 shrink-0">
+            <div className="px-4 sm:px-8 pb-6 shrink-0">
               <motion.button onClick={vincular} disabled={saving || !form.nome_produto}
                 whileHover={form.nome_produto ? { scale: 1.02, y: -2 } : {}}
                 whileTap={form.nome_produto ? { scale: 0.97 } : {}}
