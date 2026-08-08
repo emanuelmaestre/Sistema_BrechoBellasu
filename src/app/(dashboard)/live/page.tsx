@@ -1108,10 +1108,11 @@ function EmptyIllustration() {
 }
 
 // Cor da peça: digitar é livre, mas em live clicar num chip é mais rápido.
-// Os chips filtram conforme ela digita, então a lista nunca fica comprida.
+// A paleta inteira fica disponível — a lista rola em vez de ser cortada, e
+// os chips continuam à vista depois de escolher, para poder trocar de cor.
 function SeletorCor({ valor, onChange, onEnter }: { valor: string; onChange: (v: string) => void; onEnter?: () => void }) {
   const busca = valor.trim().toUpperCase()
-  const sugestoes = (busca ? CORES_PECA.filter(c => c.nome.includes(busca)) : CORES_PECA).slice(0, 10)
+  const sugestoes = busca ? CORES_PECA.filter(c => c.nome.includes(busca)) : CORES_PECA
   const exata = CORES_PECA.find(c => c.nome === busca)
 
   return (
@@ -1128,17 +1129,24 @@ function SeletorCor({ valor, onChange, onEnter }: { valor: string; onChange: (v:
           className={cn("w-full pr-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]", exata ? "pl-9" : "pl-3")}
           style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
       </div>
-      {sugestoes.length > 0 && !exata && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-2">
-          {sugestoes.map(c => (
-            <motion.button key={c.nome} type="button" onClick={() => onChange(c.nome)}
-              whileTap={{ scale: 0.92 }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide"
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex, border: "1px solid var(--border)" }}/>
-              {c.nome}
-            </motion.button>
-          ))}
+      {sugestoes.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mt-2 max-h-32 overflow-y-auto drawer-scroll pr-1">
+          {sugestoes.map(c => {
+            const ativa = c.nome === busca
+            return (
+              <motion.button key={c.nome} type="button" onClick={() => onChange(c.nome)}
+                whileTap={{ scale: 0.92 }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide shrink-0"
+                style={{
+                  background: ativa ? "var(--accent-bg)" : "var(--bg-surface)",
+                  border: `1px solid ${ativa ? "var(--accent)" : "var(--border)"}`,
+                  color: ativa ? "var(--accent)" : "var(--text-muted)",
+                }}>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex, border: "1px solid var(--border)" }}/>
+                {c.nome}
+              </motion.button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -1548,7 +1556,6 @@ function ModalVinculo({
                                   type="text" maxLength={60}
                                   value={editForm.nome_produto}
                                   onChange={e => setEditForm(f => ({ ...f, nome_produto: e.target.value }))}
-                                  onFocus={e => e.target.select()}
                                   className="w-full px-2.5 py-1.5 rounded-lg text-sm font-bold outline-none"
                                   style={{ background: "var(--bg-base)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
                               </div>
@@ -1707,9 +1714,12 @@ function ModalVinculo({
                 </AnimatePresence>
               </div>
 
-              {/* Card do produto selecionado */}
+              {/* Card do produto selecionado.
+                  Gate no produto_id, NUNCA no nome: em peça genérica o nome é
+                  justamente o campo editável, então apagá-lo para redigitar
+                  desmontava o card inteiro e a edição virava impossível. */}
               <AnimatePresence>
-                {form.nome_produto && (
+                {(form.produto_id > 0 || form.nome_produto) && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1744,9 +1754,11 @@ function ModalVinculo({
                       <div className="px-4 pb-3 space-y-2.5">
                         <div>
                           <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>NOME DA PEÇA</p>
+                          {/* Sem select-all no foco: a seleção inicial já é feita
+                              uma vez ao escolher a peça, e repeti-la a cada clique
+                              impedia posicionar o cursor para corrigir uma letra. */}
                           <input ref={nomeRef} value={form.nome_produto} maxLength={60}
                             onChange={e => setForm(prev => ({ ...prev, nome_produto: e.target.value }))}
-                            onFocus={e => e.target.select()}
                             placeholder="Ex.: Vestido midi floral"
                             className="w-full px-3 py-2.5 text-sm font-bold rounded-xl outline-none border-2 transition-all focus:border-[color:var(--accent)]"
                             style={{ background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}/>
