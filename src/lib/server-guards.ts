@@ -31,7 +31,10 @@ export function requireZapiWebhookAuth(req: Request): NextResponse | null {
 
   const token = bearerToken(req)
   const headerSecret = req.headers.get("x-zapi-webhook-secret")
-  if (token !== secret && headerSecret !== secret) return unauthorized()
+  // O painel da Z-API só permite configurar a URL do webhook (sem headers
+  // customizados), então aceitamos o segredo também via query string.
+  const querySecret = new URL(req.url).searchParams.get("secret")
+  if (token !== secret && headerSecret !== secret && querySecret !== secret) return unauthorized()
 
   return null
 }
