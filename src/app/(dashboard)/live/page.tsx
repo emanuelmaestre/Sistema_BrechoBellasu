@@ -2708,10 +2708,11 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   }
 
   const [marcandoPagoId, setMarcandoPagoId] = useState<number | null>(null)
-  async function marcarPago(compraId: number) {
+  async function togglePago(compraId: number, statusAtual: string | null | undefined) {
     setMarcandoPagoId(compraId)
     try {
-      await apiPatch(`/live/${liveId}/compras/${compraId}`, { pagamento_status: "PAGO" })
+      const novoStatus = statusAtual === "PAGO" ? "EM_ABERTO" : "PAGO"
+      await apiPatch(`/live/${liveId}/compras/${compraId}`, { pagamento_status: novoStatus })
       refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] })
     } catch { /* silencia */ }
     finally { setMarcandoPagoId(null) }
@@ -3146,15 +3147,18 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
 
                         <td className="px-4 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-2 flex-wrap">
-                            {c.pagamento_status !== "PAGO" && c.valor_total > 0 && (
+                            {c.valor_total > 0 && (
                               <motion.button
-                                onClick={() => marcarPago(c.id)}
+                                onClick={() => togglePago(c.id, c.pagamento_status)}
                                 disabled={marcandoPagoId === c.id}
+                                title={c.pagamento_status === "PAGO" ? "Clique para desfazer o pagamento" : "Marcar como pago"}
                                 whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
                                 className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
-                                style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                                style={c.pagamento_status === "PAGO"
+                                  ? { background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.35)" }
+                                  : { background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
                                 {marcandoPagoId === c.id ? <Loader2 size={10} className="animate-spin"/> : <CheckCircle2 size={10}/>}
-                                {marcandoPagoId === c.id ? "..." : "PAGO"}
+                                {marcandoPagoId === c.id ? "..." : (c.pagamento_status === "PAGO" ? "PAGO ✓" : "PAGO")}
                               </motion.button>
                             )}
                           {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
