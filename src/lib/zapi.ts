@@ -33,6 +33,7 @@ type LogTipo =
   | "consentimento_novidades"
   | "consentimento_lives"
   | "consentimento"
+  | "aviso_penalidade"
   | "aniversario"
   | "teste_conexao"
   | "alerta_google_desconectado"

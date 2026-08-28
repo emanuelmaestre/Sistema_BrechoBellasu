@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Send, Radio, ShieldCheck, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus, RefreshCw, Megaphone } from "lucide-react"
+import { Send, Radio, ShieldCheck, ShieldAlert, X, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Ban, Minus, RefreshCw, Megaphone } from "lucide-react"
 import { useDisparoStore } from "@/stores/disparo.store"
 import jobData from "@/data/ui/jobs.json"
 
@@ -24,6 +24,7 @@ const ICONE: Record<string, typeof Send> = {
   consentimento:ShieldCheck,
   "google-sync":RefreshCw,
   broadcast:    Megaphone,
+  penalidade:   ShieldAlert,
 }
 
 export default function DisparoWidget() {
@@ -48,6 +49,8 @@ export default function DisparoWidget() {
     if (job.tipo === "consentimento" || job.tipo === "google-sync") {
       qc.invalidateQueries({ queryKey: ["clientes"] })
       qc.invalidateQueries({ queryKey: ["google-sync-preview"] })
+    } else if (job.tipo === "penalidade") {
+      qc.invalidateQueries({ queryKey: ["live-penalidades"] })
     } else {
       qc.invalidateQueries({ queryKey: ["lives"] })
       if (job.liveId != null) qc.invalidateQueries({ queryKey: ["live-detalhe", job.liveId] })
@@ -67,6 +70,7 @@ export default function DisparoWidget() {
       jobSalvo.tipo === "aviso"        ? jobSalvo.liveTitulo :
       jobSalvo.tipo === "google-sync"  ? `${jobSalvo.clienteIds.length} cliente(s)` :
       jobSalvo.tipo === "broadcast"    ? jobSalvo.campanhaTitulo :
+      jobSalvo.tipo === "penalidade"   ? `${jobSalvo.itens.length} cliente(s)` :
       "Clientes sem consentimento"
 
     return (

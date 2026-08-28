@@ -10,7 +10,7 @@ export const GET = withAuth(async () => {
   const sb = createServerClient()
   const { data, error } = await sb
     .from("clientes")
-    .select("id, nome, instagram, celular, apelido, total_penalidades_ativas")
+    .select("id, nome, instagram, celular, apelido, total_penalidades_ativas, penalidade_aviso_em")
     .gt("total_penalidades_ativas", 0)
     .eq("ativo", true)
     .order("total_penalidades_ativas", { ascending: false })
@@ -26,10 +26,11 @@ export const GET = withAuth(async () => {
 
   const clienteIds = (data ?? []).map(cliente => cliente.id)
   const ultimosMotivos: Record<number, string> = {}
+  const penalidadeIdsPorCliente: Record<number, number[]> = {}
   if (clienteIds.length > 0) {
     const { data: penalidades, error: penalidadesError } = await sb
       .from("penalidades_clientes")
-      .select("cliente_id, motivo, created_at")
+      .select("id, cliente_id, motivo, created_at")
       .in("cliente_id", clienteIds)
       .eq("status", "ativa")
       .order("created_at", { ascending: false })
@@ -49,6 +50,7 @@ export const GET = withAuth(async () => {
       if (!ultimosMotivos[penalidade.cliente_id]) {
         ultimosMotivos[penalidade.cliente_id] = penalidade.motivo
       }
+      ;(penalidadeIdsPorCliente[penalidade.cliente_id] ??= []).push(penalidade.id)
     }
   }
 
@@ -56,6 +58,7 @@ export const GET = withAuth(async () => {
     ...cliente,
     grau: grauPenalidade(cliente.total_penalidades_ativas),
     ultimo_motivo: ultimosMotivos[cliente.id] ?? null,
+    penalidade_ids: penalidadeIdsPorCliente[cliente.id] ?? [],
   }))
 
   return NextResponse.json({ data: result, total: result.length })

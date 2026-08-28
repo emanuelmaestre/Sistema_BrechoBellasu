@@ -27,7 +27,7 @@ const GOOGLE_SYNC_INTERVAL = { minMs: 3_000, maxMs: 6_000, deltaMinMs: 1_000 }
 const STORAGE_KEY = "disparo_job_pendente"
 const MAX_IDADE_JOB_MS = 24 * 60 * 60 * 1_000 // descarta salvos com mais de 24h
 
-export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync" | "broadcast"
+export type JobTipo = "disparo" | "aviso" | "consentimento" | "google-sync" | "broadcast" | "penalidade"
 export type JobStatus = "running" | "done" | "cancelled" | "error"
 
 export interface JobItemResult {
@@ -61,6 +61,9 @@ export type JobSalvo =
   | { tipo: "consentimento";                                                                          savedAt: number }
   | { tipo: "google-sync";  clienteIds: number[];                                                    savedAt: number }
   | { tipo: "broadcast";    campanhaId: number; campanhaTitulo: string;                              savedAt: number }
+  | { tipo: "penalidade";   itens: PenalidadeItem[];                                                 savedAt: number }
+
+export interface PenalidadeItem { id: number; nome: string; celular: string; mensagem?: string }
 
 interface DisparoState {
   job: DisparoJob | null
@@ -72,6 +75,7 @@ interface DisparoState {
   iniciarConsentimento: () => boolean
   iniciarGoogleSync: (clienteIds: number[]) => boolean
   iniciarBroadcast: (p: { campanhaId: number; campanhaTitulo: string; retomando?: boolean }) => boolean
+  iniciarPenalidade: (itens: PenalidadeItem[]) => boolean
   /** Retoma o job salvo no localStorage (continua de onde parou). */
   retomar: () => boolean
   /** Descarta o job salvo sem retomar. */
@@ -429,6 +433,29 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       return true
     },
 
+    iniciarPenalidade: (itens) => {
+      if (get().job?.status === "running") return false
+      if (itens.length === 0) return false
+      salvarJob({ tipo: "penalidade", itens, savedAt: Date.now() })
+      set({ job: novoJob("penalidade", `${itens.length} cliente${itens.length !== 1 ? "s" : ""}`), minimized: false, jobSalvo: null })
+      void rodar(
+        async () => ({ itens: itens.map(i => ({ id: i.id, nome: i.nome })) }),
+        async (item) => {
+          const original = itens.find(i => i.id === item.id)
+          const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(
+            "/live/penalidades/avisar",
+            { cliente_id: item.id, celular: original?.celular, mensagem: original?.mensagem },
+          )
+          return {
+            id: item.id, nome: r.cliente ?? item.nome,
+            status: r.status === "enviado" ? "enviada" : "erro",
+            detalhe: r.detalhe,
+          }
+        },
+      )
+      return true
+    },
+
     retomar: () => {
       const salvo = get().jobSalvo
       if (!salvo) return false
@@ -437,6 +464,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       if (salvo.tipo === "aviso")        return store.iniciarAviso({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, link: salvo.link, reenvio: salvo.reenvio })
       if (salvo.tipo === "consentimento") return store.iniciarConsentimento()
       if (salvo.tipo === "google-sync")  return store.iniciarGoogleSync(salvo.clienteIds)
+      if (salvo.tipo === "penalidade")   return store.iniciarPenalidade(salvo.itens)
       if (salvo.tipo === "broadcast")    return store.iniciarBroadcast({ campanhaId: salvo.campanhaId, campanhaTitulo: salvo.campanhaTitulo, retomando: true })
       return false
     },

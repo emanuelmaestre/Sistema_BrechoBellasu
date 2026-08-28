@@ -148,5 +148,12 @@
   "penaltyReasons": [
     { "value": "nao_pagou_prazo", "label": "Não pagou no prazo", "desc": "Comprou mas não pagou até o prazo combinado" },
     { "value": "desistiu_apos_contemplar", "label": "Desistiu após contemplar", "desc": "Foi contemplada na live e desistiu da compra" }
+  ],
+  "penaltyRemovalReasons": [
+    { "value": "pagamento_confirmado", "label": "Pagamento confirmado", "desc": "Comprovante localizado ou pagamento identificado depois", "emoji": "💳" },
+    { "value": "prazo_renegociado", "label": "Prazo renegociado", "desc": "Pagamento combinado para uma nova data", "emoji": "💳" },
+    { "value": "retirada_cumprida", "label": "Retirada cumprida", "desc": "Retirou dentro do prazo renegociado", "emoji": "📦" },
+    { "value": "engano_sistema", "label": "Engano do sistema", "desc": "Penalidade aplicada por erro ou duplicidade", "emoji": "⚠️" },
+    { "value": "acordo_negociado", "label": "Acordo negociado", "desc": "Tratativa combinada com a cliente ou autorizada pela gerência", "emoji": "⚙️" }
   ]
 }

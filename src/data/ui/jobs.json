@@ -4,13 +4,15 @@
     "aviso": "Avisando clientes",
     "consentimento": "Enviando consentimentos",
     "google-sync": "Sincronizando Google Contatos",
-    "broadcast": "Disparando campanha"
+    "broadcast": "Disparando campanha",
+    "penalidade": "Enviando avisos de penalidade"
   },
   "colors": {
     "disparo": "#25d366",
     "aviso": "#10b981",
     "consentimento": "#7c3aed",
     "google-sync": "#4285F4",
-    "broadcast": "#25d366"
+    "broadcast": "#25d366",
+    "penalidade": "#ef4444"
   }
 }

@@ -6,6 +6,14 @@ import {
 import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 
+const GRUPOS_REMOCAO = new Set([
+  "pagamento_confirmado",
+  "prazo_renegociado",
+  "retirada_cumprida",
+  "engano_sistema",
+  "acordo_negociado",
+])
+
 export const dynamic = "force-dynamic"
 
 // PATCH /api/clientes/[id]/penalidades/[penalidade_id]
@@ -36,6 +44,9 @@ export const PATCH = withAuth(async (
       { status: 400 }
     )
   }
+  const grupoRemocao = typeof body.motivo_remocao_grupo === "string" && GRUPOS_REMOCAO.has(body.motivo_remocao_grupo)
+    ? body.motivo_remocao_grupo
+    : null
 
   const sb = createServerClient()
   const { data, error } = await sb.rpc("fn_penalidade_remover", {
@@ -57,6 +68,12 @@ export const PATCH = withAuth(async (
       { erro: "Falha ao remover penalidade." },
       { status: 500 }
     )
+  }
+
+  if (grupoRemocao) {
+    await sb.from("penalidades_clientes")
+      .update({ motivo_remocao_grupo: grupoRemocao })
+      .eq("id", penalidadeId)
   }
 
   return NextResponse.json({ id: data })
