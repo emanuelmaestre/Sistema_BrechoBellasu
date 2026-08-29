@@ -8,7 +8,7 @@ import {
   AlertCircle, ExternalLink, Tag, RefreshCw, MapPin,
   Weight, Ruler, Printer, Clock, BadgeCheck,
   Star, Info, ArrowRight, ChevronLeft, Check, Download,
-  Wallet2, Copy,
+  Wallet2, Copy, QrCode, ChevronDown,
 } from "lucide-react"
 import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { useConfirm } from "@/components/ui/ConfirmProvider"
@@ -21,6 +21,17 @@ import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 import shippingUiData from "@/data/ui/shipping.json"
 
 // ── Tipos ─────────────────────────────────────────────────
+// Recarga PIX da carteira do Melhor Envio. O copia-e-cola nem sempre vem:
+// se o gateway mudar o formato, sobra o link da página de pagamento.
+interface Recarga {
+  protocol?:    string
+  value?:       number
+  copy_paste?:  string | null
+  qr_code_url?: string | null
+  link?:        string | null
+  expires_at?:  string | null
+}
+
 interface Cliente {
   id: number; nome: string; cpf_cnpj?: string | null
   celular?: string | null; instagram?: string | null; cep?: string | null; logradouro?: string | null
@@ -1368,6 +1379,45 @@ export default function EtiquetasPage() {
     },
   })
 
+  // ── Recarga da carteira (só Melhor Envio) ──────────────────
+  // O SuperFrete não expõe carteira na API — lá o card só leva ao painel.
+  const [recargaAberta, setRecargaAberta] = useState(false)
+  const [recargaValor, setRecargaValor]   = useState("50")
+  const [recargaErro, setRecargaErro]     = useState<string | null>(null)
+  const [pixCopiado, setPixCopiado]       = useState(false)
+
+  const recarregar = useMutation({
+    mutationFn: (valor: number) => apiPost("/etiquetas/saldo", { valor }) as Promise<Recarga>,
+    onSuccess: () => setRecargaErro(null),
+    onError: (err: unknown) =>
+      setRecargaErro(err instanceof Error ? err.message : "Não foi possível gerar a recarga."),
+  })
+  const recarga = recarregar.data ?? null
+
+  function gerarRecarga() {
+    const valor = Number(String(recargaValor).replace(",", "."))
+    if (!valor || isNaN(valor) || valor < 1) {
+      setRecargaErro("Valor mínimo da recarga é R$ 1,00.")
+      return
+    }
+    setRecargaErro(null)
+    recarregar.mutate(valor)
+  }
+
+  async function copiarPix() {
+    if (!recarga?.copy_paste) return
+    await navigator.clipboard.writeText(recarga.copy_paste)
+    setPixCopiado(true)
+    setTimeout(() => setPixCopiado(false), 2000)
+  }
+
+  // Fecha e limpa, para a próxima abertura não mostrar um PIX velho.
+  function fecharRecarga() {
+    setRecargaAberta(false)
+    setRecargaErro(null)
+    recarregar.reset()
+  }
+
   const [filtroStatus, setFiltroStatus] = useState<"ativas" | "entregues" | "todas">("ativas")
   const todosItens = data?.data ?? []
   const etiquetas = filtroStatus === "ativas"
@@ -1444,6 +1494,8 @@ export default function EtiquetasPage() {
               configurado: true,
               saldo: saldoData?.melhorenvio,
               painel: "https://melhorenvio.com.br/painel",
+              // Única transportadora com endpoint de carteira na API.
+              recarregavel: true,
             },
             {
               nome: "Super Frete",
@@ -1452,6 +1504,8 @@ export default function EtiquetasPage() {
               configurado: status.superfrete?.configurado ?? false,
               saldo: saldoData?.superfrete,
               painel: "https://web.superfrete.com",
+              // A API do SuperFrete não tem rota de carteira/recarga.
+              recarregavel: false,
             },
           ]).map((t, i) => (
             <motion.div key={t.nome}
@@ -1506,12 +1560,157 @@ export default function EtiquetasPage() {
                     </p>
                   )}
                 </div>
-                <a href={t.painel} target="_blank" rel="noopener noreferrer"
-                  className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition-colors"
-                  style={{ background: `${t.cor}14`, border: `1px solid ${t.cor}33`, color: t.cor }}>
-                  <Wallet2 size={12} /> Painel
-                </a>
+                <div className="mt-2.5 flex items-center gap-1.5 shrink-0">
+                  {t.recarregavel && t.conectado && (
+                    <button onClick={() => (recargaAberta ? fecharRecarga() : setRecargaAberta(true))}
+                      aria-expanded={recargaAberta}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors"
+                      style={{ background: `${t.cor}22`, border: `1px solid ${t.cor}55`, color: t.cor }}>
+                      <QrCode size={12} /> Recarregar
+                      <motion.span animate={{ rotate: recargaAberta ? 180 : 0 }} transition={{ duration: 0.2 }}
+                        className="flex">
+                        <ChevronDown size={11} />
+                      </motion.span>
+                    </button>
+                  )}
+                  <a href={t.painel} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors"
+                    style={{ background: `${t.cor}14`, border: `1px solid ${t.cor}33`, color: t.cor }}>
+                    <Wallet2 size={12} /> Painel
+                  </a>
+                </div>
               </div>
+
+              {/* SuperFrete não tem recarga por API — deixa isso explícito em vez
+                  de simplesmente não ter botão, que pareceria bug. */}
+              {!t.recarregavel && t.conectado && (
+                <p className="text-[10px] -mt-1" style={{ color: "var(--text-muted)" }}>
+                  Recarga do SuperFrete só pelo painel — a API deles não expõe a carteira.
+                </p>
+              )}
+
+              {/* Recarga PIX — expande dentro do próprio cartão */}
+              <AnimatePresence initial={false}>
+                {t.recarregavel && recargaAberta && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="overflow-hidden">
+                    <div className="pt-3 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+
+                      {!recarga ? (
+                        <>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[20, 50, 100, 200].map(v => {
+                              const ativo = Number(String(recargaValor).replace(",", ".")) === v
+                              return (
+                                <button key={v} onClick={() => setRecargaValor(String(v))}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold tabular-nums transition-colors"
+                                  style={{
+                                    background: ativo ? `${t.cor}26` : "var(--bg-surface)",
+                                    border: `1px solid ${ativo ? `${t.cor}66` : "var(--border)"}`,
+                                    color: ativo ? t.cor : "var(--text-secondary)",
+                                  }}>
+                                  R$ {v}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-xl"
+                              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                              <span className="text-[11px] font-bold" style={{ color: "var(--text-muted)" }}>R$</span>
+                              <input
+                                value={recargaValor}
+                                onChange={e => setRecargaValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                                onKeyDown={e => { if (e.key === "Enter") gerarRecarga() }}
+                                inputMode="decimal" placeholder="0,00"
+                                className="w-full bg-transparent outline-none text-sm font-bold tabular-nums"
+                                style={{ color: "var(--text-primary)" }} />
+                            </div>
+                            <button onClick={gerarRecarga} disabled={recarregar.isPending}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition-opacity disabled:opacity-60"
+                              style={{ background: t.cor, color: "#fff" }}>
+                              {recarregar.isPending
+                                ? <><Loader2 size={12} className="animate-spin" /> Gerando…</>
+                                : <><QrCode size={12} /> Gerar PIX</>}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-2.5">
+                          <p className="text-[11px] font-bold" style={{ color: t.cor }}>
+                            PIX de {fmtBRL(recarga.value ?? 0)} gerado
+                            {recarga.protocol && (
+                              <span className="font-mono font-normal" style={{ color: "var(--text-muted)" }}> · {recarga.protocol}</span>
+                            )}
+                          </p>
+
+                          {recarga.qr_code_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={recarga.qr_code_url} alt="QR Code da recarga"
+                              className="w-32 h-32 rounded-xl bg-white p-1.5" />
+                          )}
+
+                          {recarga.copy_paste && (
+                            <button onClick={copiarPix}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-colors"
+                              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                              <span className="flex-1 text-[10px] font-mono truncate" style={{ color: "var(--text-secondary)" }}>
+                                {recarga.copy_paste}
+                              </span>
+                              {pixCopiado
+                                ? <Check size={13} style={{ color: t.cor }} />
+                                : <Copy size={13} style={{ color: "var(--text-muted)" }} />}
+                            </button>
+                          )}
+
+                          {/* Sempre disponível: serve de plano B se o copia-e-cola falhar. */}
+                          {recarga.link && (
+                            <a href={recarga.link} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold"
+                              style={{ border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                              <ExternalLink size={12} /> Abrir página de pagamento
+                            </a>
+                          )}
+
+                          {recarga.expires_at && (
+                            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              Expira em {new Date(recarga.expires_at).toLocaleString("pt-BR")}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => qc.invalidateQueries({ queryKey: ["etiquetas-saldo"] })}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold"
+                              style={{ background: `${t.cor}14`, border: `1px solid ${t.cor}33`, color: t.cor }}>
+                              <RefreshCw size={11} /> Já paguei
+                            </button>
+                            <button onClick={() => recarregar.reset()}
+                              className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold"
+                              style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                              Nova recarga
+                            </button>
+                          </div>
+
+                          {/* O crédito não entra na hora: depende da confirmação do PIX. */}
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            O saldo entra alguns instantes após a confirmação do pagamento.
+                          </p>
+                        </div>
+                      )}
+
+                      {recargaErro && (
+                        <p className="text-[11px]" style={{ color: "#fbbf24" }}>{recargaErro}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
 

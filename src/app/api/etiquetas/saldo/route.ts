@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { meSaldo, meRecarregar } from "@/lib/melhorenvio"
+import { meSaldo, meRecarregar, RECARGA_MINIMA } from "@/lib/melhorenvio"
 import { sfSaldo, sfConfigurado } from "@/lib/superfrete"
 
 export const dynamic = "force-dynamic"
@@ -54,18 +54,28 @@ export const GET = withAuth(async () => {
   })
 })
 
-// POST /api/etiquetas/saldo — cria recarga PIX
+// POST /api/etiquetas/saldo — cria recarga PIX na carteira do Melhor Envio.
+// O SuperFrete não tem endpoint de carteira na API: recarga só pelo painel deles.
 export const POST = withAuth(async (req: NextRequest) => {
   const { valor } = await req.json()
-  if (!valor || isNaN(Number(valor)) || Number(valor) < 1) {
-    return NextResponse.json({ erro: "Valor inválido. Mínimo R$ 1,00." }, { status: 400 })
+  const valorNum = Number(valor)
+
+  if (!valorNum || isNaN(valorNum)) {
+    return NextResponse.json({ erro: "Informe um valor para recarregar." }, { status: 400 })
+  }
+  if (valorNum < RECARGA_MINIMA) {
+    return NextResponse.json({ erro: `Valor mínimo da recarga é R$ ${RECARGA_MINIMA.toFixed(2).replace(".", ",")}.` }, { status: 400 })
+  }
+  if (valorNum > 5000) {
+    return NextResponse.json({ erro: "Valor máximo por recarga é R$ 5.000,00." }, { status: 400 })
   }
 
   try {
-    const data = await meRecarregar(Number(valor))
-    return NextResponse.json(data)
+    const recarga = await meRecarregar(valorNum)
+    return NextResponse.json(recarga)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Não foi possível gerar a recarga. Tente pelo Painel Melhor Envio."
-    return NextResponse.json({ erro: msg }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Não foi possível gerar a recarga. Tente pelo painel do Melhor Envio."
+    console.error("[POST /api/etiquetas/saldo]", msg)
+    return NextResponse.json({ erro: msg }, { status: 502 })
   }
 })

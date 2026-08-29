@@ -228,11 +228,101 @@ export function meSaldo() {
   return meRequest<{ balance: number; reserved?: number; debts?: number }>("GET", "/me/balance")
 }
 
-/** Cria recarga na carteira via PIX */
-export function meRecarregar(valor: number) {
-  return meRequest<{ id: string; value: string; status: string; payment: { type: string; qr_code?: string; qr_code_base64?: string; copy_paste?: string; expires_at?: string } }>(
-    "POST", "/me/wallet/recharges", { value: valor, type: "pix" }
-  )
+/** Recarga de carteira, já normalizada e sem os dados pessoais que o gateway
+ *  devolve junto (CPF, e-mail, data de nascimento do titular). */
+export interface MERecarga {
+  id?:       string
+  protocol?: string
+  status?:   string
+  value?:    number
+  /** Código PIX copia-e-cola (EMV). */
+  copy_paste?: string | null
+  /** URL da imagem do QR Code (SVG hospedado pelo gateway). */
+  qr_code_url?: string | null
+  /** Página de pagamento do gateway. */
+  link?:       string | null
+  expires_at?: string | null
+}
+
+/** Formato bruto de POST /me/balance. */
+interface MERecargaRaw {
+  error?:   string
+  message?: string
+  payment?: {
+    id?:       string
+    protocol?: string
+    status?:   string
+    /** Em reais, apesar de o exemplo da doc sugerir centavos. */
+    value?:    number
+    link?:     string | null
+    /** JSON **serializado como string** com a resposta crua do gateway. */
+    response?: string | null
+  }
+}
+
+/** Resposta do gateway (Vindi/Yapay) aninhada dentro de `payment.response`. */
+interface YapayResponse {
+  data_response?: {
+    transaction?: {
+      max_days_to_keep_waiting_payment?: string
+      payment?: {
+        url_payment?:          string
+        qrcode_path?:          string
+        /** Apesar do nome, é o copia-e-cola EMV — não um caminho. */
+        qrcode_original_path?: string
+      }
+    }
+  }
+}
+
+/** Valor mínimo aceito pelo gateway de recarga. */
+export const RECARGA_MINIMA = 1
+
+/** Cria recarga na carteira via PIX.
+ *
+ *  Contrato oficial: POST /me/balance com { gateway, slug, value }.
+ *  (O endpoint /me/wallet/recharges usado antes não existe na API.)
+ *  O gateway "yapay-transparente" é o slug público; nas mensagens de erro a
+ *  própria API o chama de "Vindi Transparente".
+ *
+ *  Duas armadilhas confirmadas contra a API de produção:
+ *  1. A rota sinaliza recusa sem status de erro — HTTP 200 com { error } ou
+ *     HTTP 204 vazio. Nenhum dos dois é sucesso.
+ *  2. O PIX não vem em campo próprio: `payment.response` é uma *string* JSON
+ *     com a resposta do gateway, e o copia-e-cola está lá dentro. */
+export async function meRecarregar(valor: number): Promise<MERecarga> {
+  const raw = await meRequest<MERecargaRaw>("POST", "/me/balance", {
+    gateway: "yapay-transparente",
+    slug:    "pix",
+    value:   valor.toFixed(2),
+  })
+
+  if (raw?.error) throw new Error(raw.error)
+  if (!raw?.payment) {
+    throw new Error("O Melhor Envio não confirmou a recarga. Tente novamente ou recarregue pelo painel.")
+  }
+
+  const pag = raw.payment
+
+  // O JSON aninhado é best-effort: se o gateway mudar o formato, ainda
+  // devolvemos protocolo e link para o operador concluir pelo navegador.
+  let gw: YapayResponse["data_response"] = undefined
+  if (typeof pag.response === "string") {
+    try { gw = (JSON.parse(pag.response) as YapayResponse).data_response } catch { /* formato inesperado */ }
+  }
+  const tx  = gw?.transaction
+  const pix = tx?.payment
+
+  return {
+    id:       pag.id,
+    protocol: pag.protocol,
+    status:   pag.status,
+    value:    typeof pag.value === "number" ? pag.value : valor,
+    copy_paste:  pix?.qrcode_original_path ?? null,
+    qr_code_url: pix?.qrcode_path ?? pag.link ?? null,
+    link:        pix?.url_payment ?? pag.link ?? null,
+    expires_at:  tx?.max_days_to_keep_waiting_payment ?? null,
+  }
 }
 
 /** Configurações padrão de embalagem vindas de .env */

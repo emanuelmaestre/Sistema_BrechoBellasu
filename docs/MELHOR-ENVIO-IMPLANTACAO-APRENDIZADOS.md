@@ -102,7 +102,35 @@ O cliente atual não possui timeout. No projeto novo, defina tempo limite, cance
 
 - Rastreamento atual usa `GET /me/shipment/tracking?orders[]=...`; o contrato oficial consultado agora documenta `POST /me/shipment/tracking` com array no corpo. O método antigo funcionou em testes históricos, mas o projeto novo deve usar o contrato atual e possuir teste de integração.
 - Cancelamento atual sempre usa `DELETE /me/cart/{id}`. Isso remove carrinho, mas não é o cancelamento correto de uma etiqueta já paga/gerada. Para estas, use `cancellable` e depois `/me/shipment/cancel`.
-- Recarga atual usa `POST /me/wallet/recharges`; a referência pública atual localizada documenta inserção de saldo em `POST /me/balance` com gateway/slug/value. Não copie o endpoint de recarga antes de confirmar o contrato disponível para a conta e o modelo de integração.
+- ~~Recarga atual usa `POST /me/wallet/recharges`~~ — **resolvido**. Ver "Recarga da carteira" abaixo.
+
+## Recarga da carteira (confirmado contra produção em 29/08/2026)
+
+`POST /api/v2/me/balance` com `{ "gateway": "yapay-transparente", "slug": "pix", "value": "50.00" }`.
+O endpoint antigo `/me/wallet/recharges` não existe. O token do painel já tem permissão de escrita
+na carteira (payload vazio devolve 422 de validação, não 401/403). Mínimo R$ 1,00.
+
+Três armadilhas confirmadas:
+
+1. **Recusa sem status de erro.** Valor abaixo do mínimo devolve HTTP 200 com
+   `{"error": "Você não pode adicionar com o Vindi Transparente o valor de R$ 0.00, pois o mínimo é R$ 1.00"}`,
+   e em outras recusas devolve HTTP 204 vazio. Tratar `error` e ausência de `payment` como falha.
+2. **O PIX não vem em campo próprio.** `payment.response` é uma *string* JSON com a resposta crua
+   do gateway. O copia-e-cola EMV está em `data_response.transaction.payment.qrcode_original_path`
+   (o nome engana: não é caminho, é o código). A imagem do QR é um **SVG hospedado** em
+   `qrcode_path`, e a página de pagamento em `url_payment`. `payment.link` aponta para o SVG,
+   `payment.method` vem `null` e `redirect` vem `null`.
+3. **`payment.value` está em reais, não em centavos** — o exemplo da doc oficial (1000 = R$ 10,00)
+   não corresponde à resposta real (`value: 1` para R$ 1,00).
+
+A expiração vem em `data_response.transaction.max_days_to_keep_waiting_payment` (~24h).
+A resposta carrega CPF, e-mail e data de nascimento do titular: normalize no servidor e nunca
+repasse o payload cru para o cliente.
+
+O crédito é assíncrono — só entra após confirmação do PIX. Não assuma saldo logo após criar a recarga.
+
+**SuperFrete não tem equivalente.** O índice oficial da API deles não lista nenhuma rota de
+carteira, saldo ou recarga; o saldo só é legível via `GET /user`. Recarga apenas pelo painel web.
 
 ## Cotação
 
@@ -327,7 +355,7 @@ Use transação local quando possível, unique constraint por order ID e idempot
 6. Separar remoção de carrinho de cancelamento de etiqueta paga/gerada.
 7. Tornar checkout, geração e impressão recuperáveis/idempotentes; não silenciar generate.
 8. Persistir carrinho/PIX antes do pagamento e confirmar pagamento server-side.
-9. Confirmar endpoint/contrato de recarga e saldo na conta real antes de reutilizar o código atual.
+9. ~~Confirmar endpoint/contrato de recarga e saldo na conta real~~ — feito, ver "Recarga da carteira".
 10. Adicionar timeout, rate limiter, retry seguro e fila de reconciliação.
 
 ## Checklist de homologação
