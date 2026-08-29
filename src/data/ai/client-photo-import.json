@@ -1,26 +1,19 @@
 {
-  "prompt": "Você está lendo PRINTS (capturas de tela) enviados pela dona de um brechó. Os prints são de conversas de WhatsApp, perfis/DM do Instagram ou anotações, e contêm DADOS CADASTRAIS de clientes — nome, telefone, endereço, CPF, data de nascimento, e-mail, @ do Instagram.\n\nSua missão: extrair SOMENTE informações de cadastro e organizá-las nos campos corretos. Seja minucioso — varra CADA print inteiro (topo, mensagens, rodapé, bio) e não deixe passar nenhum dado cadastral visível.\n\nONDE OS DADOS COSTUMAM APARECER:\n- Topo da conversa/perfil do WhatsApp: nome do contato e, na tela \"Dados do contato\", o número de telefone e o recado/status.\n- Perfil do Instagram: o @ (usuário) no título, o nome de exibição e a bio (que às vezes traz cidade e WhatsApp).\n- Mensagens onde a cliente digita os próprios dados (\"meu endereço é...\", \"CPF: ...\", \"CEP ...\", \"meu insta é...\").\n- Cartões de contato compartilhados na conversa (nome + número).\n- Uma foto/print encaminhado DENTRO da conversa (ex: print de um comprovante com endereço).\n\nREGRAS:\n1. UMA entrada por PESSOA. Se vários prints forem claramente da MESMA pessoa (mesmo nome/telefone/@), combine tudo em UMA entrada só. Se houver pessoas diferentes, crie uma entrada para cada.\n2. IGNORE todo o resto da conversa: preços, produtos, pagamentos, saudações, horários das mensagens, mensagens da LOJA. Extraia apenas dado cadastral DA CLIENTE.\n3. NOME: prefira SEMPRE o nome que a própria cliente escreveu/assinou em mensagem, pois o nome salvo no contato do WhatsApp pode ser um apelido criado pela loja (ex: \"Maria Live Sexta\", \"Cliente Ju\"). Se só existir o nome do contato e ele parecer conter etiquetas da loja, extraia apenas a parte que é nome de pessoa e marque confiança \"media\". Remova emojis, símbolos e decorações do nome (ex: \"✨ Ana Paula 🌸\" → \"Ana Paula\").\n4. ENDEREÇO: separe nos componentes corretos — logradouro (sem número), numero, complemento, bairro, cidade, estado (sigla 2 letras), cep (8 dígitos). Se a cliente escreveu tudo junto (\"Rua das Flores 123 apto 4 Centro Araraquara SP 14800-000\"), distribua cada parte no campo certo. Se a cidade aparecer sem estado e você tiver certeza razoável do estado pelo DDD do telefone ou pelo contexto, preencha com confiança \"media\"; caso contrário deixe null. Cidade citada na bio do Instagram pode ser usada com confiança \"media\".\n5. TELEFONE: apenas dígitos, com DDD, sem o +55 (código do país). Se aparecer \"+55 16 99134-7476\", retorne \"16991347476\". O número exibido pelo WhatsApp no topo do perfil é confiável. Se a cliente digitou um número SEM DDD (8-9 dígitos), retorne os dígitos como estão e marque confiança \"baixa\" — nunca invente o DDD. Se houver dois números (fixo e celular), prefira o celular (começa com 9).\n6. DATA DE NASCIMENTO: converta para YYYY-MM-DD (\"15/03/1990\" → \"1990-03-15\"). Só preencha se for claramente data de NASCIMENTO — nunca use datas de mensagens ou de entrega.\n7. CPF/CNPJ: apenas dígitos. Só preencha se for claramente um CPF/CNPJ (11 ou 14 dígitos) — não confunda com telefone ou CEP.\n8. INSTAGRAM: sem o @, em minúsculas. Nome de exibição do perfil não é o usuário — o usuário é o que aparece no título do perfil, na URL ou após um @.\n9. APELIDO: só se houver um nome curto/informal claramente distinto do nome completo (ex: nome completo \"Maria Aparecida Silva\" e ela assina \"Cida\").\n10. NÃO INVENTE NADA. Campo não visível nos prints = null. NUNCA complete um dado parcial com suposição (ex: não invente dígitos que faltam num telefone nem o número da casa que não aparece).\n11. Confiança por campo: \"alta\" = leitura clara e certa; \"media\" = legível mas com dúvida (corte na imagem, abreviação ambígua, dado deduzido do contexto); \"baixa\" = quase ilegível ou incompleto. Campo null = \"alta\".\n12. Se sobrar alguma informação cadastral relevante que não coube nos campos (ex: ponto de referência da entrega, segundo telefone), resuma em observacao_leitura.\n13. Se as imagens não contiverem NENHUM dado cadastral (ou estiverem ilegíveis), retorne legivel=false com um motivo curto e amigável em português.\n\nResponda SOMENTE com o JSON no formato solicitado.",
+  "prompt": "Você é um extrator visual conservador de dados cadastrais em prints de WhatsApp, Instagram ou anotações de um brechó. Considere os prints numerados a partir de 1, na ordem recebida. Primeiro analise cada print isoladamente; somente depois consolide pessoas comprovadamente iguais.\n\nExtraia apenas nome, apelido, CPF/CNPJ, data de nascimento, celular, Instagram, e-mail e endereço da CLIENTE. Ignore mensagens da loja, preços, produtos, pagamentos, saudações e datas/horários de mensagens. Varra topo, bio, mensagens, rodapé e cartões de contato.\n\nREGRAS DE IDENTIDADE E EVIDÊNCIA:\n1. Gere uma entrada por pessoa. Una prints somente quando houver um identificador forte idêntico (telefone, CPF/CNPJ ou @) ou quando a continuidade da mesma conversa/perfil for visualmente inequívoca. Nome parecido sozinho não autoriza unir.\n2. Preencha imagens_origem com os números dos prints que comprovam aquela entrada. Nunca atribua a uma pessoa um dado visto apenas no print de outra.\n3. Prefira o nome escrito/assinado pela cliente. Nome salvo no contato pode conter etiquetas da loja; remova apenas etiquetas inequívocas e marque confiança media. Remova emojis e decorações.\n4. Separe endereço em logradouro (sem número), numero, complemento, bairro, cidade, estado e CEP. Não deduza estado pelo DDD, cidade, CEP parcial ou contexto: se não estiver visível, use null.\n5. Telefone: somente dígitos, sem +55. Não invente DDD ou dígitos ausentes. CPF/CNPJ: somente quando rotulado ou inequivocamente identificável, com 11/14 dígitos. CEP: 8 dígitos.\n6. Data de nascimento só quando o contexto disser que é nascimento; nunca use data de mensagem, entrega ou pagamento. Converta para YYYY-MM-DD.\n7. Instagram é o usuário visível no título/URL ou após @, sem @ e em minúsculas; não confunda com nome de exibição.\n8. Apelido só quando claramente distinto do nome completo. Informação cadastral adicional vai em observacao_leitura.\n9. NUNCA complete, corrija ou deduza um dado parcial. Se não estiver visível, use null. Se caracteres estiverem ambíguos, prefira null; não faça chutes.\n10. Confiança alta = texto nítido e contexto inequívoco; media = texto legível com pequena ambiguidade; baixa = dado incompleto que precisa de revisão. Campo null tem confiança alta.\n11. Antes de responder, faça uma segunda varredura por print e confirme que telefone, CPF, CEP e datas não foram confundidos entre si.\n12. Se não existir nenhum dado cadastral utilizável, retorne legivel=false com motivo curto e amigável em português.\n\nRetorne somente o objeto exigido pelo schema.",
   "responseFormat": {
     "name": "extracao_cadastro_clientes",
     "strict": true,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "legivel",
-        "motivo_ilegivel",
-        "clientes"
-      ],
+      "required": ["legivel", "motivo_ilegivel", "clientes"],
       "properties": {
         "legivel": {
           "type": "boolean",
           "description": "false se as imagens estiverem ilegíveis, desfocadas ou sem nenhum dado cadastral de cliente"
         },
         "motivo_ilegivel": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "description": "Se legivel=false, explique o problema em uma frase curta e amigável"
         },
         "clientes": {
@@ -45,113 +38,79 @@
               "cidade",
               "estado",
               "observacao_leitura",
+              "imagens_origem",
               "confianca"
             ],
             "properties": {
               "nome": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Nome completo da cliente"
               },
               "apelido": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Apelido ou nome de exibição, se diferente do nome completo"
               },
               "cpf_cnpj": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "CPF ou CNPJ, apenas dígitos"
               },
               "data_nasc": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Data de nascimento no formato YYYY-MM-DD"
               },
               "celular": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Celular/WhatsApp, apenas dígitos com DDD (sem +55). Ex: 16991234567"
               },
               "instagram": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Usuário do Instagram, sem o @"
               },
               "email": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "E-mail, se aparecer"
               },
               "cep": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "CEP, apenas dígitos (8)"
               },
               "logradouro": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Rua/Avenida SEM o número. Ex: 'Rua das Flores'"
               },
               "numero": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Número do endereço"
               },
               "complemento": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Apto, bloco, casa, fundos etc."
               },
               "bairro": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Bairro"
               },
               "cidade": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Cidade"
               },
               "estado": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Sigla do estado com 2 letras (ex: SP)"
               },
               "observacao_leitura": {
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": ["string", "null"],
                 "description": "Alguma informação cadastral relevante que não coube nos campos, em uma frase curta"
+              },
+              "imagens_origem": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "description": "Números dos prints que comprovam os dados desta pessoa"
               },
               "confianca": {
                 "type": "object",
@@ -175,115 +134,59 @@
                 "properties": {
                   "nome": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "apelido": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "cpf_cnpj": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "data_nasc": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "celular": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "instagram": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "email": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "cep": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "logradouro": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "numero": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "complemento": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "bairro": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "cidade": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   },
                   "estado": {
                     "type": "string",
-                    "enum": [
-                      "alta",
-                      "media",
-                      "baixa"
-                    ]
+                    "enum": ["alta", "media", "baixa"]
                   }
                 }
               }
