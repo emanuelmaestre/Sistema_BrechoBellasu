@@ -221,6 +221,13 @@ function buildBlocoProdutos(produtos: ProdutoMensagem[] | undefined): string {
   return `🧾 Peças:\n${linhas.join("\n")}\n\n`
 }
 
+// ─── Retirada: mapa e horário de atendimento ──────────────────────
+// Texto fixo do rodapé. Formato em 2 linhas para caber com folga no
+// CHAR_LIMIT mesmo em sacolas de 4 peças com chave PIX longa.
+const MAPA_LINK        = "https://maps.app.goo.gl/3NkTD3itnCgvLLNQ9"
+const HORARIO_LINHA_1  = "Seg a qui: 10h–13h e 14h–18h"
+const HORARIO_LINHA_2  = "Sex: 10h–18h | Sáb: 10h–14h | Dom: fechado"
+
 // ─── Bloco fixo da mensagem de compra ────────────────────────────
 
 export function buildFixedContent(compra: CompraData, dataPrazo: string): string {
@@ -272,6 +279,9 @@ ${blocoPagamento}
 ${blocoDeadline}
 
 📍 Retirada: R. Florêncio de Abreu, 640 – Centro – Rib. Preto/SP
+🗺️ Mapa: ${MAPA_LINK}
+🕐 ${HORARIO_LINHA_1}
+${HORARIO_LINHA_2}
 🛵 Entrega: R$ 15,00 (Rib. Preto) | Outras cidades a combinar
 ⚠️ Promoção não tem troca. Obrigada! Até a próxima! 💖`
 }
