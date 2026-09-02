@@ -288,16 +288,48 @@ export async function sfRastrear(orderId: string): Promise<{
   }
 }
 
-/** Saldo da carteira — não há endpoint /balance; vem junto do /user. */
-export async function sfSaldo(): Promise<{ balance: number }> {
-  const user = await sfRequest<{ balance?: number }>("GET", "/user")
-  return { balance: Number(user.balance ?? 0) }
+/**
+ * Resposta crua do GET /user. O Super Frete não devolve um campo "name":
+ * o nome vem quebrado em `firstname`/`lastname`, e o `id` é string (o `sub`
+ * do JWT), não número. Tipar errado fazia a tela de status exibir o nome da
+ * conta como "undefined".
+ */
+interface SFUserRaw {
+  id?:        string
+  firstname?: string
+  lastname?:  string
+  email?:     string
+  phone?:     string
+  balance?:   number
+  limits?:    { shipments?: number; shipments_available?: number }
 }
 
-/** Dados do usuário (para teste de token) */
-export async function sfUsuario(): Promise<{ id: number; name: string; email: string }> {
+export interface SFUsuario {
+  id:      string
+  name:    string
+  email:   string
+  balance: number
+  /** Etiquetas ainda disponíveis no plano da conta (0 = limite atingido). */
+  envios_disponiveis: number
+}
+
+/** Dados do usuário — também é o teste de token. GET /user */
+export async function sfUsuario(): Promise<SFUsuario> {
   // Caminho correto conforme a doc oficial: GET /api/v0/user (não "/user/me").
   // Com "/user/me" a API devolve HTTP 200 com uma página HTML em vez de JSON,
   // o que fazia o teste de conexão falhar sempre — mesmo com token válido.
-  return sfRequest("GET", "/user")
+  const u = await sfRequest<SFUserRaw>("GET", "/user")
+  return {
+    id:      String(u.id ?? ""),
+    name:    `${u.firstname ?? ""} ${u.lastname ?? ""}`.trim(),
+    email:   u.email ?? "",
+    balance: Number(u.balance ?? 0),
+    envios_disponiveis: Number(u.limits?.shipments_available ?? 0),
+  }
+}
+
+/** Saldo da carteira — não há endpoint /balance; vem junto do /user. */
+export async function sfSaldo(): Promise<{ balance: number }> {
+  const { balance } = await sfUsuario()
+  return { balance }
 }

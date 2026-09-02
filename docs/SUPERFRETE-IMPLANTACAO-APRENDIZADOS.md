@@ -177,6 +177,8 @@ Neste projeto a migração adicionou `carrier` com default `melhorenvio`, índic
 | Cancelamento 400 | Corpo usava `reason`; a API exige `order.description`. | Usar o corpo correto e testar com ID inócuo. |
 | Etiquetas canceladas continuavam “aguardando” | Sync consultava `/tracking/{codigo}` e ignorava pedidos sem tracking. | Consultar `/order/info/{id}` para todos os ativos. |
 | Saldo mostrado de outro provedor | UI tinha cartão/chip único. | Estado e saldo por carrier. |
+| Nome da conta aparecia como "undefined" | `sfUsuario()` era tipado como `{ id, name, email }`, mas o `GET /user` devolve `firstname`/`lastname` e `id` string. | Normalizar a resposta no adaptador (`name` = firstname + lastname). |
+| Saldo zerado mesmo com token válido | O token é vinculado à **conta** que o gerou (`sub` do JWT). Um token de uma conta pessoal autentica (200 em `/user`) mas consulta a carteira errada, então o checkout falha por falta de saldo. | Conferir `email`/`id` no `GET /user` e usar o token da conta da loja, que é quem tem saldo. |
 
 ## Lacunas a resolver no projeto novo
 

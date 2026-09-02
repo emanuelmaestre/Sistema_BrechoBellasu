@@ -147,11 +147,14 @@ async function checkSuperFrete(): Promise<IntegracaoStatus> {
   }
   const t0 = Date.now()
   try {
-    await sfUsuario()
+    const usuario = await sfUsuario()
+    // O GET /user já traz o saldo da carteira; mostrar aqui evita ter de abrir
+    // o painel do Super Frete só para saber se dá para pagar a próxima etiqueta.
+    const saldo = usuario.balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     return {
       id: "superfrete", nome: "Super Frete", descricao: "Cálculo de fretes e etiquetas (alternativa)",
       conectado: true, configurado: true,
-      detalhe: "Conta ativa",
+      detalhe: `${usuario.name || "Conta ativa"} — saldo ${saldo}`,
       latencia: Date.now() - t0,
     }
   } catch (error) {
