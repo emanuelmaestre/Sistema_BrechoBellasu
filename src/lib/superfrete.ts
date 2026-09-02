@@ -167,9 +167,13 @@ export async function sfCalcularFrete(params: {
   const payload = {
     from:    { postal_code: cep_origem.replace(/\D/g, "") },
     to:      { postal_code: cep_destino.replace(/\D/g, "") },
-    // A API do Super Frete exige a lista de serviços a cotar.
-    // 1=PAC, 2=SEDEX, 17=Mini Envios (padrão configurável via SUPERFRETE_SERVICES).
-    services: process.env.SUPERFRETE_SERVICES ?? "1,2,17",
+    // A API do Super Frete exige a lista de serviços a cotar: só volta o que
+    // for pedido aqui. 1=PAC, 2=SEDEX, 3=JadLog Econômico, 17=Mini Envios
+    // (padrão configurável via SUPERFRETE_SERVICES). A JadLog ficava de fora
+    // das cotações só porque o 3 não constava nesta lista.
+    // O 17 só retorna para pacotes pequenos/leves; a Loggi (31) a API devolve
+    // por conta própria, mesmo sem ser pedida.
+    services: process.env.SUPERFRETE_SERVICES ?? "1,2,3,17",
     package: {
       weight: volume.weight,
       width:  volume.width,
