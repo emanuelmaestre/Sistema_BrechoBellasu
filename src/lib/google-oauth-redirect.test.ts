@@ -5,18 +5,22 @@ import { googleRedirectUri } from "./google-oauth-redirect"
 const req = (origin: string) => ({ nextUrl: { origin } }) as NextRequest
 
 const VARS = ["APP_URL", "VERCEL_PROJECT_PRODUCTION_URL", "NEXT_PUBLIC_APP_URL", "NODE_ENV"] as const
-const original = Object.fromEntries(VARS.map(v => [v, process.env[v]]))
+
+// process.env.NODE_ENV é tipada como somente-leitura; o acesso indexado
+// contorna isso sem recorrer a `any`.
+const env = process.env as Record<string, string | undefined>
+const original = Object.fromEntries(VARS.map(v => [v, env[v]]))
 
 afterEach(() => {
   for (const v of VARS) {
-    if (original[v] === undefined) delete process.env[v]
-    else process.env[v] = original[v]
+    if (original[v] === undefined) delete env[v]
+    else env[v] = original[v]
   }
 })
 
-function cenario(env: Partial<Record<(typeof VARS)[number], string | undefined>>) {
-  for (const v of VARS) delete process.env[v]
-  for (const [k, val] of Object.entries(env)) if (val !== undefined) process.env[k] = val
+function cenario(vars: Partial<Record<(typeof VARS)[number], string>>) {
+  for (const v of VARS) delete env[v]
+  for (const [k, val] of Object.entries(vars)) if (val !== undefined) env[k] = val
 }
 
 describe("googleRedirectUri", () => {
