@@ -1623,6 +1623,7 @@ function WizardCliente({
   const [cepLoading, setCepLoading] = useState(false)
   const [enderecoConfirmado, setEnderecoConfirmado] = useState(false)
   const [waStatus, setWaStatus] = useState<"idle" | "checking" | "ok" | "nok" | "erro">("idle")
+  const [waErro, setWaErro] = useState<string>("")
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nomeRef = useRef<HTMLInputElement>(null)
 
@@ -1778,15 +1779,17 @@ function WizardCliente({
                   onChange={e => {
                     set("celular", e.target.value)
                     setWaStatus("idle")
+                    setWaErro("")
                     if (waTimerRef.current) clearTimeout(waTimerRef.current)
                     const digits = e.target.value.replace(/\D/g, "")
                     if (digits.length >= 10) {
                       waTimerRef.current = setTimeout(async () => {
                         setWaStatus("checking")
                         try {
-                          const res = await apiPost<{ valido: boolean | null }>("/clientes/validar-whatsapp", { celular: e.target.value })
+                          const res = await apiPost<{ valido: boolean | null; erro?: string }>("/clientes/validar-whatsapp", { celular: e.target.value })
                           setWaStatus(res.valido === true ? "ok" : res.valido === false ? "nok" : "erro")
-                        } catch { setWaStatus("erro") }
+                          setWaErro(res.valido === null ? (res.erro ?? "Não foi possível verificar.") : "")
+                        } catch { setWaStatus("erro"); setWaErro("Falha ao consultar o WhatsApp.") }
                       }, 900)
                     }
                   }}
@@ -1799,6 +1802,16 @@ function WizardCliente({
                     {waStatus === "nok"      && <XCircle size={13} style={{ color: "#f87171" }} />}
                     {waStatus === "erro"     && <AlertCircle size={13} style={{ color: "#fbbf24" }} />}
                   </span>
+                )}
+                {waStatus === "nok" && (
+                  <p className="mt-1 text-[10px] font-medium" style={{ color: "#f87171" }}>
+                    Este número não tem WhatsApp ativo.
+                  </p>
+                )}
+                {waStatus === "erro" && (
+                  <p className="mt-1 text-[10px] font-medium" style={{ color: "#fbbf24" }}>
+                    {waErro || "Não foi possível verificar."} O número foi mantido.
+                  </p>
                 )}
               </div>
             </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 import { timingSafeEqual } from "node:crypto"
 import { withAdminAuth } from "@/lib/with-auth"
+import { googleRedirectUri } from "@/lib/google-oauth-redirect"
 
 const GOOGLE_OAUTH_STATE_COOKIE = "google-oauth-state"
 
@@ -13,12 +14,6 @@ function stateValido(recebido: string | null, esperado: string | undefined): boo
     timingSafeEqual(recebidoBuffer, esperadoBuffer)
 }
 
-// Deriva a base URL a partir do host real da requisição — deve bater
-// exatamente com o redirect_uri usado em /api/google/auth.
-function baseUrl(req: NextRequest): string {
-  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? req.nextUrl.origin
-}
-
 // GET /api/google/callback — captura o refresh_token após autorização OAuth
 export const GET = withAdminAuth(async (req: NextRequest) => {
   const code         = req.nextUrl.searchParams.get("code")
@@ -26,7 +21,7 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
   const expectedState = req.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value
   const clientId     = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  const redirectUri  = `${baseUrl(req)}/api/google/callback`
+  const redirectUri  = googleRedirectUri(req)
 
   if (!stateValido(state, expectedState)) {
     return new NextResponse("Estado OAuth inválido ou expirado. Inicie a conexão novamente.", { status: 400 })
@@ -46,7 +41,13 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     refreshToken = tokens.refresh_token
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return new NextResponse(`Falha ao trocar o código por token: ${msg}`, { status: 400 })
+    return new NextResponse(
+      `Falha ao trocar o código por token: ${msg}\n\n` +
+      `redirect_uri usado: ${redirectUri}\n` +
+      `Se o erro for redirect_uri_mismatch, registre exatamente essa URL em ` +
+      `"URIs de redirecionamento autorizados" no Google Cloud Console.`,
+      { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+    )
   }
 
   if (!refreshToken) {
