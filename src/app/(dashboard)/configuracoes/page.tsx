@@ -672,7 +672,7 @@ function AbaGoogle() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold" style={{ color: "#f87171" }}>Google desconectado</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-              A autorização expirou — por isso a sincronização falhou. Reconecte, copie o token gerado e cole em <strong>GOOGLE_REFRESH_TOKEN</strong> no Vercel (projeto <strong>brecho-bellasu-v2</strong>), depois faça o redeploy.
+              A autorização expirou — por isso a sincronização falhou. Reconecte, copie o token gerado e cole em <strong>GOOGLE_REFRESH_TOKEN</strong> no Vercel (projeto <strong>brecho-bellasu</strong>), depois faça o redeploy.
             </p>
           </div>
           <a href="/api/google/auth" target="_blank" rel="noopener noreferrer"
