@@ -28,5 +28,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|LOGO.png).*)"],
+  // Arquivos estáticos (manifest, ícones do atalho, imagens) precisam ser públicos:
+  // o celular busca esses arquivos sem o cookie de sessão ao adicionar à tela inicial.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)",
+  ],
 }
