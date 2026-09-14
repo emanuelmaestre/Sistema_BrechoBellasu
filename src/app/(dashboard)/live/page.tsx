@@ -27,6 +27,7 @@ import {
   type ProdutoMensagem,
 } from "@/lib/live-message-builder"
 import { useDisparoStore } from "@/stores/disparo.store"
+import { elegivelReenvio, podeReenviar } from "@/lib/live-reenvio"
 import { grauPenalidade, type MotivoPenalidade, type GrauPenalidade } from "@/domain/live/penalidade"
 import { regraParcelamento, corRegraParcelamento, calcularValorFinal } from "@/lib/parcelamento"
 import type { Live } from "@/types"
@@ -86,6 +87,8 @@ export interface Compra {
   total_estoque_baixado?: number
   cliente_id?: number | null
   cliente_penalidades?: number
+  msg_enviada_em?: string | null
+  msg_entrega_status?: string | null
 }
 
 // ─── Penalidades: cor/rótulo por grau (usado no selo, legenda e modal) ───
@@ -2016,26 +2019,57 @@ function ModalAvisoLive({ liveId, linkAtual, numeroEnvio, onClose, onSuccess }: 
 // ══════════════════════════════════════════════════════════
 // MODAL — Disparar Mensagens
 // ══════════════════════════════════════════════════════════
-function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSuccess }: {
+const ENTREGA_LABEL: Record<string, string> = { SENT: "enviada", RECEIVED: "entregue", READ: "lida", READ_BY_ME: "lida", PLAYED: "lida" }
+
+function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSuccess, modo = "disparo", compraInicial }: {
   liveId: number; liveTitulo: string; liveData: string
   compras: Compra[]; onClose: () => void; onSuccess: () => void
+  /** "reenvio" = reenvia a cobrança a compras já enviadas e ainda não pagas */
+  modo?: "disparo" | "reenvio"
+  /** reenvio aberto pela linha da compra: só ela vem marcada */
+  compraInicial?: number
 }) {
+  const ehReenvio = modo === "reenvio"
   const [msgResult, setMsgResult] = useState<MessageResult | null>(null)
   const [stIdx, setStIdx]       = useState<number>(() => selectSmallTalkIndex())
   const [parcOpen, setParcOpen] = useState(false)
   const [chavePix, setChavePix] = useState("")
   const [diasPrazo, setDiasPrazo] = useState(2)
+  const [prazoOriginal, setPrazoOriginal] = useState<number | null>(null)
   const iniciarDisparo = useDisparoStore(s => s.iniciarDisparo)
   const jobRodando     = useDisparoStore(s => s.job?.status === "running")
 
-  const pendentes = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
-  const ex = pendentes[0]
+  // Última chave PIX usada (salva no servidor) e prazo original desta live
+  const { data: cfgDisparo } = useQuery({
+    queryKey: ["live-config-disparo", liveId],
+    queryFn: () => apiGet<{ chave_pix: string; dias_prazo: number; prazo_da_live: number | null }>("/live/config-disparo", { live_id: liveId }),
+    staleTime: 0,
+  })
+  useEffect(() => {
+    if (!cfgDisparo) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChavePix(v => v || cfgDisparo.chave_pix || "")
+    setDiasPrazo(cfgDisparo.prazo_da_live ?? cfgDisparo.dias_prazo ?? 2)
+    setPrazoOriginal(cfgDisparo.prazo_da_live)
+  }, [cfgDisparo])
+
+  const pendentes = ehReenvio
+    ? compras.filter(c => elegivelReenvio(c))
+    : compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro")
+  const bloqueio = (c: Compra) => {
+    if (!ehReenvio) return null
+    const r = podeReenviar(c)
+    return r.ok ? null : r.motivo
+  }
 
   // Seleção de quais compras recebem o disparo. Guardamos os DESMARCADOS
   // (padrão vazio = todas marcadas), assim não precisamos reconciliar via
   // efeito quando a lista de pendentes muda — ids obsoletos aqui só não casam.
-  const [desmarcados, setDesmarcados] = useState<Set<number>>(new Set())
-  const selecionadosIds   = pendentes.filter(c => !desmarcados.has(c.id)).map(c => c.id)
+  const [desmarcados, setDesmarcados] = useState<Set<number>>(() =>
+    compraInicial != null ? new Set(pendentes.filter(c => c.id !== compraInicial).map(c => c.id)) : new Set())
+  const selecionadosIds   = pendentes.filter(c => !desmarcados.has(c.id) && !bloqueio(c)).map(c => c.id)
+  // Prévia mostra a primeira compra marcada (no reenvio individual, a própria cliente)
+  const ex = pendentes.find(c => selecionadosIds.includes(c.id)) ?? pendentes[0]
   const totalSelecionadas = selecionadosIds.length
   const todasMarcadas     = pendentes.length > 0 && totalSelecionadas === pendentes.length
   const toggleUm = (id: number) => setDesmarcados(s => {
@@ -2098,10 +2132,16 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
 
   function disparar() {
     if (!msgResult?.valida) return
-    // "todas" = deixa o servidor mandar todas as pendentes; seleção parcial = só as marcadas
-    const compraIds = todasMarcadas ? undefined : selecionadosIds
-    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix, diasPrazo, compraIds })
+    // "todas" = deixa o servidor mandar todas as pendentes; seleção parcial = só as marcadas.
+    // No reenvio sempre manda a seleção explícita.
+    const compraIds = todasMarcadas && !ehReenvio ? undefined : selecionadosIds
+    const ok = iniciarDisparo({ liveId, liveTitulo, chavePix, diasPrazo, compraIds, reenvio: ehReenvio })
     if (!ok) return
+    // Guarda a chave PIX (e, no 1º disparo, o prazo desta live) para os próximos envios
+    void apiPost("/live/config-disparo", {
+      chave_pix: chavePix,
+      ...(ehReenvio ? {} : { dias_prazo: diasPrazo, live_id: liveId }),
+    }).catch(() => {})
     onSuccess()
     onClose()
   }
@@ -2130,9 +2170,11 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
-          <span className="font-bold text-sm" style={{ color: COR_LIVE }}>Disparar Mensagens</span>
+          <span className="font-bold text-sm" style={{ color: COR_LIVE }}>{ehReenvio ? "Reenviar Cobrança" : "Disparar Mensagens"}</span>
           <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: "rgba(59,130,246,0.12)", color: "#60a5fa" }}>
-            {pendentes.length} pendente{pendentes.length !== 1 ? "s" : ""}
+            {ehReenvio
+              ? `${pendentes.length} não paga${pendentes.length !== 1 ? "s" : ""}`
+              : `${pendentes.length} pendente${pendentes.length !== 1 ? "s" : ""}`}
           </span>
         </div>
         <button onClick={onClose} className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: "var(--text-secondary)" }}>
@@ -2153,11 +2195,13 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               </span>
             </label>
             {pendentes.map(c => {
-              const marcada = !desmarcados.has(c.id)
+              const motivoBloqueio = bloqueio(c)
+              const marcada = !desmarcados.has(c.id) && !motivoBloqueio
               return (
-                <label key={c.id} className="px-4 py-3 flex items-center gap-3 cursor-pointer select-none transition-opacity"
+                <label key={c.id} title={motivoBloqueio ?? undefined}
+                  className={cn("px-4 py-3 flex items-center gap-3 select-none transition-opacity", motivoBloqueio ? "cursor-not-allowed" : "cursor-pointer")}
                   style={{ borderBottom: "1px solid var(--border)", opacity: marcada ? 1 : 0.45 }}>
-                  <input type="checkbox" checked={marcada} onChange={() => toggleUm(c.id)}
+                  <input type="checkbox" checked={marcada} disabled={!!motivoBloqueio} onChange={() => toggleUm(c.id)}
                     className="w-4 h-4 shrink-0 cursor-pointer" style={{ accentColor: COR_LIVE }} />
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                     style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
@@ -2166,6 +2210,14 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.nome_cliente}</p>
                     <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{fmtBRL(c.valor_total)}</p>
+                    {ehReenvio && (
+                      <p className="text-[10px] truncate" style={{ color: motivoBloqueio ? "#f59e0b" : "var(--text-muted)" }}>
+                        {motivoBloqueio
+                          ?? (c.msg_enviada_em
+                            ? `Último envio ${new Date(c.msg_enviada_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}${c.msg_entrega_status ? ` · ${ENTREGA_LABEL[c.msg_entrega_status] ?? c.msg_entrega_status}` : ""}`
+                            : "Envio anterior sem registro de data")}
+                      </p>
+                    )}
                   </div>
                 </label>
               )
@@ -2374,12 +2426,14 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               min={1}
               max={30}
               value={diasPrazo}
+              disabled={ehReenvio && prazoOriginal != null}
               onChange={e => setDiasPrazo(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-16 px-3 py-1.5 rounded-lg text-sm outline-none text-center"
+              className="w-16 px-3 py-1.5 rounded-lg text-sm outline-none text-center disabled:opacity-60"
               style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               até <strong>{prazoPagamento(liveData ?? null, diasPrazo)}</strong> às 23h59
+              {ehReenvio && (prazoOriginal != null ? " · prazo original do disparo" : " · confira o prazo usado no disparo original")}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 px-6 py-4">
@@ -2403,7 +2457,7 @@ function ModalDisparar({ liveId, liveTitulo, liveData, compras, onClose, onSucce
               <motion.button onClick={disparar} disabled={!podeEnviar} whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white shadow-lg disabled:opacity-40"
                 style={{ background: podeEnviar ? "#25d366" : "var(--bg-surface)" }}>
-                <Send size={15}/> Disparar Agora
+                {ehReenvio ? <><RefreshCw size={15}/> Reenviar Agora</> : <><Send size={15}/> Disparar Agora</>}
               </motion.button>
             </div>
           </div>
@@ -2662,6 +2716,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [modalCompra, setModalCompra]   = useState(false)
   const [modalFoto, setModalFoto]       = useState(false)
   const [modalDisparar, setModalDisp]   = useState(false)
+  // Reenvio da cobrança: { compraId } abre só com aquela compra marcada; {} abre todas as não pagas
+  const [modalReenvio, setModalReenvio] = useState<{ compraId?: number } | null>(null)
   const [modalAviso, setModalAviso]     = useState(false)
   const [modalVinculo, setModalVinculo] = useState<Compra | null>(null)
   const [erroEnc, setErroEnc] = useState("")
@@ -2777,6 +2833,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const totalArrecadado = compras.reduce((s, c) => s + c.valor_total, 0)
   const msgEnviadas    = compras.filter(c => c.msg_status === "enviada").length
   const msgPendentes   = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro").length
+  const naoPagasEnviadas = compras.filter(c => elegivelReenvio(c)).length
 
   const plataformaIcon = PLATAFORMAS.find(p => p.value === live.plataforma)?.icon
 
@@ -2886,6 +2943,17 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: statusCfg.cor }}/>
               {statusCfg.label}
             </motion.span>
+          )}
+
+          {/* Reenviar cobrança — vale também para live encerrada */}
+          {naoPagasEnviadas > 0 && (
+            <motion.button onClick={() => setModalReenvio({})}
+              whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.92 }}
+              title={`Reenviar cobrança (${naoPagasEnviadas} enviada${naoPagasEnviadas > 1 ? "s" : ""} e não paga${naoPagasEnviadas > 1 ? "s" : ""})`}
+              className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+              style={{ background: "rgba(37,211,102,0.12)", color: "#25d366", border: "1px solid rgba(37,211,102,0.35)" }}>
+              <RefreshCw size={15}/>
+            </motion.button>
           )}
 
           {live.status !== "encerrada" && (
@@ -3161,6 +3229,15 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                                 {marcandoPagoId === c.id ? "..." : (c.pagamento_status === "PAGO" ? "PAGO ✓" : "PAGO")}
                               </motion.button>
                             )}
+                          {elegivelReenvio(c) && (
+                              <motion.button onClick={() => setModalReenvio({ compraId: c.id })}
+                                whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
+                                title="Reenviar a mensagem de cobrança para esta cliente"
+                                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-lg"
+                                style={{ background: "rgba(37,211,102,0.1)", color: "#25d366", border: "1px solid rgba(37,211,102,0.3)" }}>
+                                <RefreshCw size={10}/> REENVIAR
+                              </motion.button>
+                            )}
                           {live.status !== "encerrada" && c.status_compra !== "finalizada" && (
                               <motion.button onClick={() => setEditCompra(c)}
                                 whileHover={{ scale: 1.06, y: -1 }} whileTap={{ scale: 0.94 }}
@@ -3294,6 +3371,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       <AnimatePresence>
         {modalCompra   && <WizardCompra  liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalCompra(false)}  onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {modalFoto     && <ImportarPorFoto liveId={liveId} liveData={live.data_live ?? ""} onClose={() => setModalFoto(false)} onSalvo={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
+        {modalReenvio && <ModalDisparar modo="reenvio" compraInicial={modalReenvio.compraId} liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalReenvio(null)} onSuccess={() => { qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
         {modalDisparar && <ModalDisparar liveId={liveId} liveTitulo={live.titulo ?? ""} liveData={live.data_live ?? ""} compras={compras} onClose={() => setModalDisp(false)} onSuccess={() => { setModalDisp(false); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); setTimeout(() => refetch(), 800) }}/>}
 
       {modalAviso && <ModalAvisoLive liveId={liveId} linkAtual={historicoAvisos.length > 0 ? historicoAvisos[historicoAvisos.length - 1].link : (live.link_live ?? "")} numeroEnvio={historicoAvisos.length} onClose={() => setModalAviso(false)} onSuccess={(enviados, link) => {

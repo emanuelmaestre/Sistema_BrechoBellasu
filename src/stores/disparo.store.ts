@@ -57,7 +57,7 @@ export interface DisparoJob {
 
 // Parâmetros mínimos para retomar cada tipo de job após queda
 export type JobSalvo =
-  | { tipo: "disparo";      liveId: number; liveTitulo: string; chavePix: string; diasPrazo: number; compraIds?: number[]; savedAt: number }
+  | { tipo: "disparo";      liveId: number; liveTitulo: string; chavePix: string; diasPrazo: number; compraIds?: number[]; reenvio?: boolean; savedAt: number }
   | { tipo: "aviso";        liveId: number; liveTitulo: string; link: string; reenvio: boolean;     savedAt: number }
   | { tipo: "consentimento";                                                                          savedAt: number }
   | { tipo: "google-sync";  clienteIds: number[];                                                    savedAt: number }
@@ -71,7 +71,8 @@ interface DisparoState {
   minimized: boolean
   /** Job interrompido detectado no localStorage — exibido no widget como prompt de retomada. */
   jobSalvo: JobSalvo | null
-  iniciarDisparo: (p: { liveId: number; liveTitulo: string; chavePix: string; diasPrazo?: number; compraIds?: number[] }) => boolean
+  /** reenvio=true → reenvia a cobrança a compras já enviadas e não pagas */
+  iniciarDisparo: (p: { liveId: number; liveTitulo: string; chavePix: string; diasPrazo?: number; compraIds?: number[]; reenvio?: boolean }) => boolean
   iniciarAviso: (p: { liveId: number; liveTitulo: string; link: string; reenvio?: boolean }) => boolean
   iniciarConsentimento: () => boolean
   iniciarGoogleSync: (clienteIds: number[]) => boolean
@@ -265,13 +266,15 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
     minimized: false,
     jobSalvo: jobSalvoInicial,
 
-    iniciarDisparo: ({ liveId, liveTitulo, chavePix, diasPrazo = 2, compraIds }) => {
+    iniciarDisparo: ({ liveId, liveTitulo, chavePix, diasPrazo = 2, compraIds, reenvio = false }) => {
       if (get().job?.status === "running") return false
-      salvarJob({ tipo: "disparo", liveId, liveTitulo, chavePix, diasPrazo, compraIds, savedAt: Date.now() })
-      set({ job: novoJob("disparo", liveTitulo, liveId), minimized: false, jobSalvo: null })
+      salvarJob({ tipo: "disparo", liveId, liveTitulo, chavePix, diasPrazo, compraIds, reenvio, savedAt: Date.now() })
+      set({ job: novoJob("disparo", reenvio ? `Reenvio · ${liveTitulo}` : liveTitulo, liveId), minimized: false, jobSalvo: null })
       void rodar(
         async () => {
-          const r = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(`/live/${liveId}/disparar`)
+          const r = await apiGet<{ pendentes: Array<{ id: number; nome: string }> }>(
+            `/live/${liveId}/disparar`, reenvio ? { reenvio: "1" } : undefined,
+          )
           let itens = r.pendentes ?? []
           if (compraIds && compraIds.length) {
             const sel = new Set(compraIds)
@@ -281,7 +284,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
         },
         async (item) => {
           const r = await apiPost<{ status: string; detalhe?: string; cliente?: string }>(
-            `/live/${liveId}/disparar`, { compra_id: item.id, chave_pix: chavePix, dias_prazo: diasPrazo },
+            `/live/${liveId}/disparar`, { compra_id: item.id, chave_pix: chavePix, dias_prazo: diasPrazo, reenvio },
           )
           return {
             id: item.id, nome: r.cliente ?? item.nome,
@@ -461,7 +464,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
       const salvo = get().jobSalvo
       if (!salvo) return false
       const store = get()
-      if (salvo.tipo === "disparo")      return store.iniciarDisparo({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, chavePix: salvo.chavePix, diasPrazo: salvo.diasPrazo, compraIds: salvo.compraIds })
+      if (salvo.tipo === "disparo")      return store.iniciarDisparo({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, chavePix: salvo.chavePix, diasPrazo: salvo.diasPrazo, compraIds: salvo.compraIds, reenvio: salvo.reenvio })
       if (salvo.tipo === "aviso")        return store.iniciarAviso({ liveId: salvo.liveId, liveTitulo: salvo.liveTitulo, link: salvo.link, reenvio: salvo.reenvio })
       if (salvo.tipo === "consentimento") return store.iniciarConsentimento()
       if (salvo.tipo === "google-sync")  return store.iniciarGoogleSync(salvo.clienteIds)

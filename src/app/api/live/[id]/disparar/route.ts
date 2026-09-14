@@ -8,6 +8,8 @@ import {
   type CompraData,
   type ProdutoMensagem,
 } from "@/lib/live-message-builder"
+import { elegivelReenvio, podeReenviar } from "@/lib/live-reenvio"
+import { lerConfigDisparo } from "@/lib/live-config-disparo"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -19,30 +21,34 @@ const TRAVA_MS = 3 * 60_000
 const PENDENTE =(c: Record<string, unknown>) =>
   !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro"
 
-// GET — lista as compras pendentes desta live (o front orquestra o disparo).
+// GET — lista as compras desta live para o front orquestrar o disparo.
+// ?reenvio=1 → compras já enviadas e ainda não pagas (reenvio da cobrança).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
   const { id } = await params
   const live_id = parseInt(id)
+  const reenvio = req.nextUrl.searchParams.get("reenvio") === "1"
   const sb = createServerClient()
 
   const { data: todas } = await sb
     .from("live_compras")
-    .select("id, nome_cliente, msg_status")
+    .select("id, nome_cliente, msg_status, pagamento_status, valor_total, desconto, credito_aplicado")
     .eq("live_id", live_id)
     .order("nome_cliente")
 
   const pendentes = (todas ?? [])
-    .filter(PENDENTE)
+    .filter((c: Record<string, unknown>) => reenvio ? elegivelReenvio(c) : PENDENTE(c))
     .map((c: Record<string, unknown>) => ({ id: c.id as number, nome: c.nome_cliente as string }))
 
   return NextResponse.json({ ok: true, total: pendentes.length, pendentes })
 }
 
-// POST body { compra_id, chave_pix } — processa UMA compra: monta a
-// mensagem com a chave PIX e envia via Z-API. Retorna o resultado individual.
+// POST body { compra_id, chave_pix, dias_prazo, reenvio? } — processa UMA
+// compra: monta a mensagem com a chave PIX e envia via Z-API.
+// reenvio=true reenvia a MESMA cobrança a uma compra já enviada e não paga,
+// com o prazo ORIGINAL da live (o dias_prazo do corpo é ignorado).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -51,12 +57,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const live_id = parseInt(id)
   const sb = createServerClient()
 
-  const body = await req.json().catch(() => ({})) as { compra_id?: number; chave_pix?: string; dias_prazo?: number }
+  const body = await req.json().catch(() => ({})) as { compra_id?: number; chave_pix?: string; dias_prazo?: number; reenvio?: boolean }
   const compraId = body.compra_id
+  const reenvio = body.reenvio === true
   const chavePix = (body.chave_pix ?? "").trim()
-  const diasPrazo = typeof body.dias_prazo === "number" && body.dias_prazo >= 1 ? body.dias_prazo : 2
+  let diasPrazo = typeof body.dias_prazo === "number" && body.dias_prazo >= 1 ? body.dias_prazo : 2
   if (!compraId) {
     return NextResponse.json({ erro: "compra_id é obrigatório." }, { status: 400 })
+  }
+  if (reenvio) {
+    const cfg = await lerConfigDisparo()
+    diasPrazo = cfg.prazo_por_live[String(live_id)] ?? diasPrazo
   }
 
   // ── Dados da live ──
@@ -68,7 +79,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from("live_compras").select("*").eq("id", compraId).eq("live_id", live_id).single()
   if (!compra) return NextResponse.json({ erro: "Compra não encontrada." }, { status: 404 })
 
-  if (!PENDENTE(compra as Record<string, unknown>)) {
+  if (reenvio) {
+    const check = podeReenviar(compra)
+    if (!check.ok) {
+      return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "ignorada", detalhe: check.motivo })
+    }
+  } else if (!PENDENTE(compra as Record<string, unknown>)) {
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "ignorada", detalhe: "já processada" })
   }
 
@@ -79,18 +95,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const agoraIso = new Date().toISOString()
   const travaExpirada = new Date(Date.now() - TRAVA_MS).toISOString()
   const livre = `or(msg_travado_em.is.null,msg_travado_em.lt."${travaExpirada}")`
-  const { data: travada } = await sb
+  let trava = sb
     .from("live_compras")
     .update({ msg_travado_em: agoraIso })
     .eq("id", compraId)
-    .or(
+  if (reenvio) {
+    // Reenvio: continua "enviada", não paga, e o último envio não mudou
+    // desde a leitura (outro aparelho que acabou de reenviar derruba esta).
+    // (pagamento_status NULL também conta como não pago)
+    trava = trava.eq("msg_status", "enviada").or(
+      `and(pagamento_status.is.null,${livre}),` +
+      `and(pagamento_status.neq.PAGO,${livre})`,
+    )
+    trava = compra.msg_enviada_em ? trava.eq("msg_enviada_em", compra.msg_enviada_em) : trava.is("msg_enviada_em", null)
+  } else {
+    trava = trava.or(
       `and(msg_status.is.null,${livre}),` +
       `and(msg_status.in.(pendente,erro),${livre})`,
     )
-    .select("id")
+  }
+  const { data: travada } = await trava.select("id")
   if (!travada?.length) {
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "ignorada", detalhe: "já está sendo enviada em outro aparelho" })
   }
+  // Falha no reenvio não pode rebaixar a compra para "erro": a cobrança
+  // original já foi entregue antes. Só solta a trava.
+  const marcarFalha = reenvio ? { msg_travado_em: null } : { msg_status: "erro", msg_travado_em: null }
 
   // ── Dados do cliente ──
   let nomeCadastro: string | null = null
@@ -128,7 +158,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
   if (!numero) {
-    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
+    await sb.from("live_compras").update(marcarFalha).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
   }
 
@@ -159,7 +189,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const msgResult = buildCompleteMessage(compraData, undefined, diasPrazo)
   if (!msgResult.valida) {
-    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
+    await sb.from("live_compras").update(marcarFalha).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })
   }
 
@@ -172,7 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (!resultadoZap.ok) {
-    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
+    await sb.from("live_compras").update(marcarFalha).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultadoZap.erro ?? "Falha Z-API" })
   }
 
@@ -197,7 +227,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await sb.from("live_compras").update(essencial).eq("id", compraId)
   }
 
-  await verificarLiveFinalizada(sb, live_id)
+  // Reenvio não mexe no status da live (ela pode já estar encerrada).
+  if (!reenvio) await verificarLiveFinalizada(sb, live_id)
 
   return NextResponse.json({
     id: compraId,
