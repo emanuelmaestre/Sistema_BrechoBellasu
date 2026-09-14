@@ -3,17 +3,15 @@
 import { useRouter, usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
-  LayoutGrid, LogOut, Sun, Moon, Palette,
+  LayoutGrid, LogOut,
   ShoppingCart, Users, Package, Wallet,
   RefreshCw, BarChart2, Radio, Tag, Globe, Settings,
   Calculator, CalendarDays, ChevronLeft, ChevronRight, Cake,
 } from "lucide-react"
 import { useState, useEffect, useRef, useSyncExternalStore } from "react"
 import { useAuthStore } from "@/stores/auth.store"
-import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { apiGet } from "@/services/api"
 import navigationData from "@/data/ui/navigation.json"
-import themeData from "@/data/ui/themes.json"
 import calendarData from "@/data/ui/calendar.json"
 
 const ROUTE_ICONS: Record<string, React.ElementType> = {
@@ -39,23 +37,6 @@ const ROUTE_LABELS: Record<string, { label: string; Icon: React.ElementType; col
       color: card?.color ?? "#64748b",
     }]
   }))
-
-function isTheme(value: string): value is Theme {
-  return value === "light" || value === "dark" || value === "blue"
-}
-
-const THEMES: { value: Theme; label: string; dot: string }[] = themeData.themes.map((theme) => {
-  if (!isTheme(theme.value)) {
-    throw new Error(`Tema inválido em themes.json: ${theme.value}`)
-  }
-  return { ...theme, value: theme.value }
-})
-
-function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "dark")  return <Moon    size={14} />
-  if (theme === "blue")  return <Palette size={14} />
-  return                        <Sun     size={14} />
-}
 
 // ── Shared: relógio ao vivo ───────────────────────────────
 const DIAS_SEMANA = calendarData.weekdaysShort
@@ -818,8 +799,6 @@ export function ModuleTopBar() {
   const pathname = usePathname()
   const logout   = useAuthStore(s => s.logout)
   const usuario  = useAuthStore(s => s.usuario)
-  const { theme, setTheme } = useThemeStore()
-  const [themeOpen, setThemeOpen] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
 
   const basePath = "/" + (pathname.split("/")[1] ?? "")
@@ -923,63 +902,6 @@ export function ModuleTopBar() {
         <span className="text-xs font-medium hidden lg:block" style={{ color: "var(--text-secondary)" }}>
           {(usuario?.nome ?? "—").toUpperCase()}
         </span>
-      </div>
-
-      {/* Theme toggle — só sm+ */}
-      <div className="relative hidden sm:block">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setThemeOpen(o => !o)}
-          title="Tema"
-          className="p-2 rounded-lg transition-colors"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--accent)" }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)" }}
-        >
-          <ThemeIcon theme={theme} />
-        </motion.button>
-
-        <AnimatePresence>
-          {themeOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setThemeOpen(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden min-w-[140px]"
-                style={{
-                  background:  "var(--bg-card)",
-                  border:      "1px solid var(--border)",
-                  boxShadow:   "var(--shadow-lg)",
-                }}
-              >
-                <div className="p-1">
-                  {THEMES.map(t => {
-                    const active = theme === t.value
-                    return (
-                      <button key={t.value}
-                        onClick={() => { setTheme(t.value); setThemeOpen(false) }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all"
-                        style={{
-                          background: active ? "var(--accent-bg)" : "transparent",
-                          color:      active ? "var(--accent)"    : "var(--text-secondary)",
-                        }}
-                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--bg-hover)" }}
-                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent" }}>
-                        <span className={`w-3 h-3 rounded-full border flex-shrink-0 ${t.dot}`} />
-                        <span className="font-medium flex-1 text-left">{t.label}</span>
-                        {active && <span style={{ color: "var(--accent)", fontSize: 11 }}>✓</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Logout */}

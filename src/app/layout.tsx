@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { DM_Sans, DM_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
@@ -34,9 +34,15 @@ export const metadata: Metadata = {
   },
 }
 
+// Sistema só tem tema escuro: pinta a barra do navegador/celular na cor do fundo.
+export const viewport: Viewport = {
+  themeColor: "#0a0f1e",
+  colorScheme: "dark",
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${dmSans.variable} ${dmMono.variable} h-full`}>
+    <html lang="pt-BR" data-theme="dark" className={`${dmSans.variable} ${dmMono.variable} h-full`}>
       <body className="font-sans antialiased min-h-full">
         <Providers>{children}</Providers>
       </body>

@@ -6,13 +6,11 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   ShoppingCart, Users, Package, Wallet, RefreshCw,
   BarChart2, Radio, Tag, Globe, Settings,
-  LogOut, Sun, Moon, Palette, ArrowRight,
+  LogOut, ArrowRight,
 } from "lucide-react"
 import { useAuthStore } from "@/stores/auth.store"
-import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { CalendarioWidget, CalculadoraWidget, AniversariantesWidget } from "@/components/layout/ModuleTopBar"
 import navigationData from "@/data/ui/navigation.json"
-import themesData from "@/data/ui/themes.json"
 
 // ─── Módulos ──────────────────────────────────────────────
 // Textos/cores vêm do JSON; os componentes de ícone (não serializáveis)
@@ -24,15 +22,6 @@ const MODULE_ICONS: Record<string, React.ElementType> = {
 }
 const LEFT  = navigationData.menuCardsLeft.map(m => ({ ...m, icon: MODULE_ICONS[m.iconKey] }))
 const RIGHT = navigationData.menuCardsRight.map(m => ({ ...m, icon: MODULE_ICONS[m.iconKey] }))
-
-// ─── Temas ─────────────────────────────────────────────────
-const THEMES: { value: Theme; label: string; dot: string }[] = themesData.themes as { value: Theme; label: string; dot: string }[]
-
-function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "dark")  return <Moon    size={13} />
-  if (theme === "blue")  return <Palette size={13} />
-  return                        <Sun     size={13} />
-}
 
 function subscribeToHour(onStoreChange: () => void): () => void {
   const id = setInterval(onStoreChange, 60_000)
@@ -144,8 +133,6 @@ export default function MenuPage() {
   const router  = useRouter()
   const logout  = useAuthStore(s => s.logout)
   const usuario = useAuthStore(s => s.usuario)
-  const { theme, setTheme } = useThemeStore()
-  const [themeOpen, setThemeOpen] = useState(false)
   const [transitioning, setTransitioning] = useState<{ href: string; color: string } | null>(null)
 
   const hora = useSyncExternalStore(
@@ -229,50 +216,6 @@ export default function MenuPage() {
           <span className="text-[10px] font-bold uppercase" style={{ color: "var(--accent)" }}>
             {usuario?.nome?.[0] ?? "U"}
           </span>
-        </div>
-
-        {/* Theme */}
-        <div className="relative">
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            onClick={() => setThemeOpen(o => !o)}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--text-muted)" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--accent)" }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)" }}>
-            <ThemeIcon theme={theme} />
-          </motion.button>
-          <AnimatePresence>
-            {themeOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setThemeOpen(false)} />
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                  transition={{ duration: 0.14 }}
-                  className="absolute right-0 top-full mt-1.5 z-50 rounded-2xl overflow-hidden min-w-[130px]"
-                  style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-lg)" }}>
-                  <div className="p-1">
-                    {THEMES.map(t => {
-                      const active = theme === t.value
-                      return (
-                        <button key={t.value}
-                          onClick={() => { setTheme(t.value); setThemeOpen(false) }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all"
-                          style={{ background: active ? "var(--accent-bg)" : "transparent", color: active ? "var(--accent)" : "var(--text-secondary)" }}
-                          onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--bg-hover)" }}
-                          onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent" }}>
-                          <span className={`w-3 h-3 rounded-full border flex-shrink-0 ${t.dot}`} />
-                          <span className="font-medium flex-1 text-left">{t.label}</span>
-                          {active && <span style={{ color: "var(--accent)", fontSize: 11 }}>✓</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Logout */}

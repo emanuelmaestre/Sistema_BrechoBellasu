@@ -10,128 +10,52 @@ input::-ms-clear {
    DESIGN SYSTEM — Brechó Bellasu V2
    ════════════════════════════════════════════════════════════ */
 
-/* ── Tema: Dark (padrão) ─────────────────────────────────── */
-:root,
-[data-theme="dark"] {
-  /* Backgrounds */
+/* ── Tema único: Dark ───────────────────────────────────────
+   O sistema só tem tema escuro. Contraste medido pela WCAG sobre
+   o fundo (base / card): texto normal pede no mínimo 4.5:1.
+     primary   17.4 / 15.3   secondary 8.8 / 7.7   muted 5.4 / 4.8
+   ─────────────────────────────────────────────────────────── */
+:root {
+  /* Controles nativos (date picker, select, scrollbar, autofill) no escuro */
+  color-scheme: dark;
+
+  /* Backgrounds — base < surface (campos) < card */
   --bg-base:      #0a0f1e;
   --bg-surface:   #111827;
   --bg-card:      #161d2e;
-  --bg-hover:     rgba(255,255,255,0.05);
+  --bg-hover:     rgba(255,255,255,0.06);
 
-  /* Borders */
-  --border:       rgba(255,255,255,0.08);
-  --border-hover: rgba(255,255,255,0.18);
+  /* Borders — um pouco mais visíveis para separar cards e linhas */
+  --border:       rgba(255,255,255,0.10);
+  --border-hover: rgba(255,255,255,0.20);
 
-  /* Text */
+  /* Text — muted era #475569 (contraste 2.2:1, ilegível) */
   --text-primary:   #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
+  --text-secondary: #a3b1c6;
+  --text-muted:     #7c8aa0;
 
-  /* Accent — blue elétrico */
+  /* Accent — azul da marca (texto azul sobre card: 4.6:1) */
   --accent:       #3b82f6;
   --accent-hover: #60a5fa;
-  --accent-bg:    rgba(59,130,246,0.12);
+  --accent-bg:    rgba(59,130,246,0.14);
 
   /* Sidebar */
   --sidebar-bg:          #0a0f1e;
-  --sidebar-border:      rgba(255,255,255,0.07);
-  --sidebar-text:        rgba(255,255,255,0.75);
-  --sidebar-muted:       rgba(255,255,255,0.35);
-  --sidebar-active-bg:   rgba(59,130,246,0.15);
+  --sidebar-border:      rgba(255,255,255,0.08);
+  --sidebar-text:        rgba(255,255,255,0.80);
+  --sidebar-muted:       rgba(255,255,255,0.50);
+  --sidebar-active-bg:   rgba(59,130,246,0.16);
   --sidebar-active-text: #60a5fa;
   --sidebar-hover-bg:    rgba(255,255,255,0.06);
 
   /* Misc */
   --topbar-bg:    rgba(10,15,30,0.92);
-  --scrollbar:    rgba(255,255,255,0.08);
+  --scrollbar:    rgba(255,255,255,0.12);
   --shadow-sm:    0 1px 3px rgba(0,0,0,0.4);
   --shadow-md:    0 4px 16px rgba(0,0,0,0.5);
   --shadow-lg:    0 8px 32px rgba(0,0,0,0.6);
   --shadow-xl:    0 20px 60px rgba(0,0,0,0.7);
-  --ring:         rgba(59,130,246,0.4);
-}
-
-/* ── Tema: Light Royal ───────────────────────────────────── */
-[data-theme="light"] {
-  /* Backgrounds */
-  --bg-base:    #f0f4fb;
-  --bg-surface: #ffffff;
-  --bg-card:    #ffffff;
-  --bg-hover:   rgba(26,86,219,0.05);
-
-  /* Borders */
-  --border:       rgba(26,86,219,0.10);
-  --border-hover: rgba(26,86,219,0.25);
-
-  /* Text */
-  --text-primary:   #0d1b4b;
-  --text-secondary: #3d5a99;
-  --text-muted:     #7a94c1;
-
-  /* Accent */
-  --accent:       #1a56db;
-  --accent-hover: #1e40af;
-  --accent-bg:    rgba(26,86,219,0.09);
-
-  /* Sidebar — azul royal escuro */
-  --sidebar-bg:          #132f8a;
-  --sidebar-border:      rgba(255,255,255,0.08);
-  --sidebar-text:        rgba(255,255,255,0.88);
-  --sidebar-muted:       rgba(255,255,255,0.45);
-  --sidebar-active-bg:   rgba(255,255,255,0.18);
-  --sidebar-active-text: #ffffff;
-  --sidebar-hover-bg:    rgba(255,255,255,0.10);
-
-  /* Misc */
-  --topbar-bg:  rgba(255,255,255,0.96);
-  --scrollbar:  rgba(26,86,219,0.14);
-  --shadow-sm:  0 1px 3px rgba(13,27,75,0.08);
-  --shadow-md:  0 4px 16px rgba(13,27,75,0.12);
-  --shadow-lg:  0 8px 32px rgba(13,27,75,0.16);
-  --shadow-xl:  0 20px 60px rgba(13,27,75,0.22);
-  --ring:       rgba(26,86,219,0.35);
-}
-
-/* ── Tema: Blue Galaxy ───────────────────────────────────── */
-[data-theme="blue"] {
-  /* Backgrounds */
-  --bg-base:    #05081a;
-  --bg-surface: #0b1030;
-  --bg-card:    #0f1640;
-  --bg-hover:   rgba(99,102,241,0.08);
-
-  /* Borders */
-  --border:       rgba(99,102,241,0.14);
-  --border-hover: rgba(99,102,241,0.30);
-
-  /* Text */
-  --text-primary:   #e8eeff;
-  --text-secondary: #8da4ef;
-  --text-muted:     #4a5f9e;
-
-  /* Accent — indigo vibrante */
-  --accent:       #6366f1;
-  --accent-hover: #818cf8;
-  --accent-bg:    rgba(99,102,241,0.16);
-
-  /* Sidebar */
-  --sidebar-bg:          #04071a;
-  --sidebar-border:      rgba(99,102,241,0.12);
-  --sidebar-text:        rgba(232,238,255,0.80);
-  --sidebar-muted:       rgba(232,238,255,0.35);
-  --sidebar-active-bg:   rgba(99,102,241,0.20);
-  --sidebar-active-text: #a5b4fc;
-  --sidebar-hover-bg:    rgba(99,102,241,0.09);
-
-  /* Misc */
-  --topbar-bg:  rgba(5,8,26,0.93);
-  --scrollbar:  rgba(99,102,241,0.12);
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.5);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.6);
-  --shadow-lg:  0 8px 32px rgba(0,0,0,0.7);
-  --shadow-xl:  0 20px 60px rgba(0,0,0,0.8);
-  --ring:       rgba(99,102,241,0.45);
+  --ring:         rgba(59,130,246,0.45);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -184,7 +108,7 @@ body {
    SELECTION
    ════════════════════════════════════════════════════════════ */
 ::selection {
-  background: var(--accent-bg);
+  background: rgba(59,130,246,0.35);
   color: var(--text-primary);
 }
 

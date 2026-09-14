@@ -4,8 +4,8 @@
   "description": "Sistema de gestão do Brechó Bellasu",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#0f0f0f",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
   "orientation": "portrait",
   "icons": [
     {

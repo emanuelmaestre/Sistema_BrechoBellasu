@@ -6,17 +6,13 @@ import { motion, AnimatePresence } from "motion/react"
 import {
   ShoppingCart, Users, Package, Wallet, RefreshCw,
   BarChart2, Radio, Globe, Settings, LogOut,
-  ChevronLeft, Menu, Tag, Sun, Moon, Palette,
+  ChevronLeft, Menu, Tag,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuthStore } from "@/stores/auth.store"
-import { useThemeStore, type Theme } from "@/stores/theme.store"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import themeData from "@/data/ui/themes.json"
 import navigationData from "@/data/ui/navigation.json"
-
-const THEMES = themeData.themes as Array<{ value: Theme; label: string; dot: string }>
 
 const NAV_ICONS: Record<string, React.ElementType> = {
   "/vendas": ShoppingCart,
@@ -35,20 +31,12 @@ const NAV_ITEMS = navigationData.sidebar.map((item) => ({
   icon: NAV_ICONS[item.href],
 }))
 
-function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "dark")  return <Moon    size={14} />
-  if (theme === "blue")  return <Palette size={14} />
-  return                        <Sun     size={14} />
-}
-
 export function Sidebar() {
   const pathname  = usePathname()
   const router    = useRouter()
   const logout    = useAuthStore((s) => s.logout)
   const usuario   = useAuthStore((s) => s.usuario)
-  const { theme, setTheme } = useThemeStore()
   const [collapsed, setCollapsed] = useState(false)
-  const [themeOpen, setThemeOpen] = useState(false)
   const [navFocusIdx, setNavFocusIdx] = useState(-1)
 
   useEffect(() => {
@@ -256,62 +244,6 @@ export function Sidebar() {
         className="p-2 relative"
         style={{ borderTop: "1px solid var(--sidebar-border, var(--border))" }}
       >
-        {/* Theme picker popup */}
-        <AnimatePresence>
-          {themeOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setThemeOpen(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
-                className="absolute left-2 bottom-full mb-2 z-50 rounded-2xl overflow-hidden min-w-[148px]"
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow-lg)",
-                }}
-              >
-                <div className="p-1">
-                  {THEMES.map((t) => {
-                    const isActive = theme === t.value
-                    return (
-                      <button
-                        key={t.value}
-                        onClick={() => { setTheme(t.value); setThemeOpen(false) }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all"
-                        style={{
-                          background: isActive ? "var(--accent-bg)" : "transparent",
-                          color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                        }}
-                        onMouseEnter={e => {
-                          if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"
-                        }}
-                        onMouseLeave={e => {
-                          if (!isActive) e.currentTarget.style.background = "transparent"
-                        }}
-                      >
-                        <span className={cn("w-3 h-3 rounded-full border flex-shrink-0", t.dot)} />
-                        <span className="font-medium flex-1 text-left">{t.label}</span>
-                        {isActive && (
-                          <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            style={{ color: "var(--accent)", fontSize: 11 }}
-                          >
-                            ✓
-                          </motion.span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
         <div className={cn(
           "flex items-center gap-2 px-1 py-1",
           collapsed && "flex-col gap-2 justify-center"
@@ -352,26 +284,6 @@ export function Sidebar() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Theme toggle */}
-          <motion.button
-            onClick={() => setThemeOpen(o => !o)}
-            title="Tema"
-            className="p-1.5 rounded-lg shrink-0"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            style={{ color: "var(--sidebar-muted, var(--text-muted))" }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "var(--sidebar-hover-bg, var(--bg-hover))"
-              e.currentTarget.style.color = "var(--accent)"
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "transparent"
-              e.currentTarget.style.color = "var(--sidebar-muted, var(--text-muted))"
-            }}
-          >
-            <ThemeIcon theme={theme} />
-          </motion.button>
 
           {/* Logout */}
           <motion.button

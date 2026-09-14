@@ -35,9 +35,10 @@ export function ConfirmDialog({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
         transition={{ duration: 0.15 }}
-        className="rounded-md border border-gray-200 bg-white p-4 shadow-md"
+        className="rounded-md p-4"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
       >
-        <p className="mb-3 text-sm text-gray-700">{message}</p>
+        <p className="mb-3 text-sm" style={{ color: "var(--text-primary)" }}>{message}</p>
         <div className="flex gap-2">
           <button
             onClick={onConfirm}
@@ -50,7 +51,8 @@ export function ConfirmDialog({
           <button
             onClick={onCancel}
             disabled={loading}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="rounded px-3 py-1.5 text-sm hover:bg-white/5 disabled:opacity-60"
+            style={{ border: "1px solid var(--border-hover)", color: "var(--text-secondary)" }}
           >
             {cancelLabel}
           </button>

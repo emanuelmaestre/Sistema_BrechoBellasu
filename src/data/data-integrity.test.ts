@@ -4,7 +4,6 @@ import { join, relative } from "node:path"
 import products from "./catalog/products.json"
 import exchanges from "./catalog/exchanges.json"
 import calendar from "./ui/calendar.json"
-import themes from "./ui/themes.json"
 import liveUi from "./ui/live.json"
 import navigation from "./ui/navigation.json"
 import integrations from "./ui/integrations.json"
@@ -43,13 +42,11 @@ describe("dados JSON do sistema", () => {
     expect(groups.every((group) => group.topico && group.emoji && group.cor && group.motivos.length)).toBe(true)
   })
 
-  test("calendário e temas têm conjuntos completos e únicos", () => {
+  test("calendário tem conjuntos completos e únicos", () => {
     expect(calendar.weekdays).toHaveLength(7)
     expect(calendar.weekdaysShort).toHaveLength(7)
     expect(calendar.months).toHaveLength(12)
     expect(calendar.monthsShort).toHaveLength(12)
-    expect(new Set(themes.themes.map((theme) => theme.value)).size).toBe(themes.themes.length)
-    expect(themes.themes.map((theme) => theme.value)).toEqual(["light", "dark", "blue"])
     expect(Object.keys(calendar.holidayTypes).sort()).toEqual(["E", "M", "N"])
     expect(calendar.fixedHolidays.every((holiday) =>
       holiday.month >= 1 && holiday.month <= 12 &&
@@ -137,7 +134,7 @@ describe("dados JSON do sistema", () => {
       .join("\n")
     const jsonFiles = walkFiles(dataRoot).filter((file) => file.endsWith(".json"))
 
-    expect(jsonFiles.length).toBeGreaterThanOrEqual(29)
+    expect(jsonFiles.length).toBeGreaterThanOrEqual(28)
     for (const file of jsonFiles) {
       expect(() => JSON.parse(readFileSync(file, "utf8"))).not.toThrow()
       const importPath = `@/data/${relative(dataRoot, file).replaceAll("\\", "/")}`
