@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { classificarResposta } from "@/lib/consentimento-resposta"
 import { requireZapiWebhookAuth } from "@/lib/server-guards"
+import { normalizarStatusEntrega, statusAvanca, marcosEntrega } from "@/lib/entrega-status"
 
 export const dynamic = "force-dynamic"
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic"
 interface ZAPIMessageEvent {
   instanceId?: string
   messageId?:  string
+  ids?:        string[]
   phone?:      string
   fromMe?:     boolean
   momment?:    number
@@ -77,6 +79,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: ZAPIMessageEvent = await req.json()
+
+    // Status de entrega/leitura das mensagens que enviamos
+    if (body.type === "MessageStatusCallback") {
+      await registrarStatusEntrega(body)
+      return NextResponse.json({ ok: true })
+    }
 
     // Ignora mensagens enviadas por nós
     if (body.fromMe) return NextResponse.json({ ok: true })
@@ -165,25 +173,51 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ─── PUT — confirmação de entrega/envio ───────────────────
+// ─── Status de entrega (MessageStatusCallback) ────────────
+// A Z-API manda { type: "MessageStatusCallback", status, ids: [...] }.
+// Grava só em entrega_status / msg_entrega_status — NUNCA em msg_status,
+// que controla a fila de disparo (sobrescrever com "read" tirava a compra
+// da lógica de pendentes).
+async function registrarStatusEntrega(body: ZAPIMessageEvent): Promise<void> {
+  const status = normalizarStatusEntrega(body.status)
+  const ids = [...(body.ids ?? []), ...(body.messageId ? [body.messageId] : [])].filter(Boolean)
+  if (!status || ids.length === 0) return
+
+  const sb = createServerClient()
+  const momento = body.momment ? new Date(body.momment).toISOString() : new Date().toISOString()
+  const { entregue, lida } = marcosEntrega(status, momento)
+
+  const { data: logs } = await sb
+    .from("whatsapp_log").select("id, entrega_status, entregue_em, lida_em").in("message_id", ids)
+  for (const l of logs ?? []) {
+    if (!statusAvanca(l.entrega_status, status)) continue
+    await sb.from("whatsapp_log").update({
+      entrega_status: status,
+      entregue_em: l.entregue_em ?? entregue ?? null,
+      lida_em: l.lida_em ?? lida ?? null,
+    }).eq("id", l.id)
+  }
+
+  const { data: compras } = await sb
+    .from("live_compras").select("id, msg_entrega_status, msg_entregue_em, msg_lida_em").in("msg_zapi_id", ids)
+  for (const c of compras ?? []) {
+    if (!statusAvanca(c.msg_entrega_status, status)) continue
+    await sb.from("live_compras").update({
+      msg_entrega_status: status,
+      msg_entregue_em: c.msg_entregue_em ?? entregue ?? null,
+      msg_lida_em: c.msg_lida_em ?? lida ?? null,
+    }).eq("id", c.id)
+  }
+}
+
+// ─── PUT — compatibilidade com a configuração antiga ──────
 export async function PUT(req: NextRequest) {
   const authError = requireZapiWebhookAuth(req)
   if (authError) return authError
 
   try {
     const body: ZAPIMessageEvent = await req.json()
-
-    if (body.messageId && body.status) {
-      const sb = createServerClient()
-      try {
-        await sb.from("live_compras")
-          .update({ msg_status: body.status === "DELIVERED" ? "enviada" : body.status?.toLowerCase() })
-          .eq("msg_zapi_id", body.messageId)
-      } catch { /* silencia */ }
-    }
-
-    return NextResponse.json({ ok: true })
-  } catch {
-    return NextResponse.json({ ok: true })
-  }
+    await registrarStatusEntrega(body)
+  } catch { /* webhook nunca devolve erro para a Z-API */ }
+  return NextResponse.json({ ok: true })
 }

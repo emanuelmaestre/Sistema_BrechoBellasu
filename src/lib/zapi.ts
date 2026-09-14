@@ -83,28 +83,30 @@ function formatarTelefone(tel: string): string {
  *
  * - exists:true  → retorna { ok:true, phone: <normalizado> }
  * - exists:false → retorna { ok:false } (número inválido / sem WhatsApp)
- * - falha de rede → fail-open: { ok:true, phone: <bruto> } para não travar envios
+ * - falha de rede / resposta inesperada → tenta de novo; se persistir,
+ *   NÃO envia ({ ok:false }). Antes o envio seguia com o número bruto e,
+ *   se faltasse o 9º dígito, era marcado "enviado" sem nunca chegar. Com
+ *   erro, a compra fica pendente e entra de novo numa retomada.
  */
 async function resolverNumeroWhatsApp(telefone: string): Promise<{ ok: boolean; phone: string; erro?: string }> {
   const bruto = formatarTelefone(telefone)
-  try {
-    const res = await fetch(`${BASE()}/phone-exists/${bruto}`, {
-      headers: { "Client-Token": CLIENT_TOKEN() },
-      signal: AbortSignal.timeout(10000),
-    })
-    const json = await res.json().catch(() => ({})) as { exists?: boolean; phone?: string | null }
-    if (json.exists === true && typeof json.phone === "string" && json.phone) {
-      return { ok: true, phone: json.phone.replace(/\D/g, "") }
-    }
-    if (json.exists === false) {
-      return { ok: false, phone: bruto, erro: "Número sem WhatsApp ativo ou mal formatado — verifique o cadastro" }
-    }
-    // Resposta inesperada → não bloqueia, usa número bruto
-    return { ok: true, phone: bruto }
-  } catch {
-    // Instabilidade de rede não deve impedir o envio
-    return { ok: true, phone: bruto }
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      const res = await fetch(`${BASE()}/phone-exists/${bruto}`, {
+        headers: { "Client-Token": CLIENT_TOKEN() },
+        signal: AbortSignal.timeout(10000),
+      })
+      const json = await res.json().catch(() => ({})) as { exists?: boolean; phone?: string | null }
+      if (json.exists === true && typeof json.phone === "string" && json.phone) {
+        return { ok: true, phone: json.phone.replace(/\D/g, "") }
+      }
+      if (json.exists === false) {
+        return { ok: false, phone: bruto, erro: "Número sem WhatsApp ativo ou mal formatado — verifique o cadastro" }
+      }
+    } catch { /* tenta de novo */ }
+    if (tentativa === 1) await new Promise((r) => setTimeout(r, 1500))
   }
+  return { ok: false, phone: bruto, erro: "Não foi possível validar o número na Z-API (instabilidade) — tente novamente" }
 }
 
 // ── API pública ──────────────────────────────────────────────

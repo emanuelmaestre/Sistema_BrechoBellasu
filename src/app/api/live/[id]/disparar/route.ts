@@ -12,7 +12,11 @@ import {
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const PENDENTE = (c: Record<string, unknown>) =>
+// Tempo máximo que uma compra fica travada (envio em andamento). Passado
+// isso, uma trava órfã (aba fechada no meio do envio) é liberada.
+const TRAVA_MS = 3 * 60_000
+
+const PENDENTE =(c: Record<string, unknown>) =>
   !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro"
 
 // GET — lista as compras pendentes desta live (o front orquestra o disparo).
@@ -65,7 +69,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!compra) return NextResponse.json({ erro: "Compra não encontrada." }, { status: 404 })
 
   if (!PENDENTE(compra as Record<string, unknown>)) {
-    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "enviada", detalhe: "já processada" })
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "ignorada", detalhe: "já processada" })
+  }
+
+  // ── Trava: só um disparo por compra por vez ──
+  // Update condicional e atômico no banco. Se outra aba/aparelho já pegou
+  // esta compra nos últimos TRAVA_MS, nenhuma linha volta e não enviamos —
+  // evita a cliente receber a mesma mensagem duas vezes.
+  const agoraIso = new Date().toISOString()
+  const travaExpirada = new Date(Date.now() - TRAVA_MS).toISOString()
+  const livre = `or(msg_travado_em.is.null,msg_travado_em.lt."${travaExpirada}")`
+  const { data: travada } = await sb
+    .from("live_compras")
+    .update({ msg_travado_em: agoraIso })
+    .eq("id", compraId)
+    .or(
+      `and(msg_status.is.null,${livre}),` +
+      `and(msg_status.in.(pendente,erro),${livre})`,
+    )
+    .select("id")
+  if (!travada?.length) {
+    return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, status: "ignorada", detalhe: "já está sendo enviada em outro aparelho" })
   }
 
   // ── Dados do cliente ──
@@ -104,7 +128,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const numero = ((celularCadastro || compra.whatsapp || "") as string).replace(/\D/g, "")
   if (!numero) {
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero: "", status: "erro", detalhe: "Sem WhatsApp" })
   }
 
@@ -135,7 +159,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const msgResult = buildCompleteMessage(compraData, undefined, diasPrazo)
   if (!msgResult.valida) {
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: msgResult.erro })
   }
 
@@ -148,21 +172,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (!resultadoZap.ok) {
-    await sb.from("live_compras").update({ msg_status: "erro" }).eq("id", compraId)
+    await sb.from("live_compras").update({ msg_status: "erro", msg_travado_em: null }).eq("id", compraId)
     return NextResponse.json({ id: compraId, cliente: compra.nome_cliente, numero, status: "erro", detalhe: resultadoZap.erro ?? "Falha Z-API" })
   }
 
   // ── Marca enviada ── (quando o crédito quitou tudo, a compra já está paga)
-  const updateEnviada: Record<string, unknown> = { msg_status: "enviada" }
+  // Um único update: msg_zapi_id liga a compra ao webhook de entrega.
+  const updateEnviada: Record<string, unknown> = {
+    msg_status: "enviada",
+    msg_enviada_em: new Date().toISOString(),
+    msg_texto: msgResult.mensagem,
+    msg_zapi_id: resultadoZap.messageId ?? null,
+    msg_entrega_status: "SENT",
+    msg_travado_em: null,
+  }
   if (pagoCreditoTotal) updateEnviada.pagamento_status = "PAGO"
-  await sb.from("live_compras").update(updateEnviada).eq("id", compraId)
-  try {
-    await sb.from("live_compras").update({
-      msg_enviada_em: new Date().toISOString(),
-      msg_texto: msgResult.mensagem,
-      msg_zapi_id: resultadoZap.messageId ?? null,
-    }).eq("id", compraId)
-  } catch { /* campos opcionais */ }
+  const { error: erroUpdate } = await sb.from("live_compras").update(updateEnviada).eq("id", compraId)
+  if (erroUpdate) {
+    // A mensagem JÁ saiu: não pode voltar para pendente (reenviaria).
+    // Marca só o essencial e registra o problema no log do servidor.
+    console.error(`[disparar] compra ${compraId}: falha ao gravar rastreio —`, erroUpdate.message)
+    const essencial: Record<string, unknown> = { msg_status: "enviada" }
+    if (pagoCreditoTotal) essencial.pagamento_status = "PAGO"
+    await sb.from("live_compras").update(essencial).eq("id", compraId)
+  }
 
   await verificarLiveFinalizada(sb, live_id)
 

@@ -33,7 +33,8 @@ export type JobStatus = "running" | "done" | "cancelled" | "error"
 export interface JobItemResult {
   id: number
   nome: string
-  status: "enviada" | "erro"
+  /** "ignorada" = já enviada antes ou em envio em outro aparelho (não conta no placar) */
+  status: "enviada" | "erro" | "ignorada"
   detalhe?: string
 }
 
@@ -284,7 +285,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
           )
           return {
             id: item.id, nome: r.cliente ?? item.nome,
-            status: r.status === "enviada" ? "enviada" : "erro",
+            status: r.status === "enviada" ? "enviada" : r.status === "ignorada" ? "ignorada" : "erro",
             detalhe: r.detalhe,
           }
         },
@@ -309,7 +310,7 @@ export const useDisparoStore = create<DisparoState>()((set, get) => {
           )
           return {
             id: item.id, nome: item.nome,
-            status: r.status === "enviado" ? "enviada" : "erro",
+            status: r.status === "enviado" ? "enviada" : r.status === "ignorada" ? "ignorada" : "erro",
             detalhe: r.detalhe,
           }
         },

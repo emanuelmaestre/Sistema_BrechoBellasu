@@ -65,8 +65,8 @@
       "grupo": "Live",
       "nome": "Disparo de Aviso de Live",
       "frequencia": "Manual (acionado na Live)",
-      "resumo": "Envia aviso de live para compradoras históricas em ordem aleatória",
-      "descricao": "Ao clicar em Disparar na tela de Live, o sistema envia mensagens em lote para clientes que já compraram em lives anteriores, priorizando compradoras históricas. A lista é embaralhada a cada disparo e o sistema garante que o mesmo link não seja enviado duas vezes para a mesma pessoa.",
+      "resumo": "Envia aviso de live para todas as clientes que autorizaram, compradoras primeiro",
+      "descricao": "Ao clicar em Disparar na tela de Live, o sistema envia mensagens em lote para todas as clientes ativas que autorizaram receber avisos (responderam SIM). Quem já comprou em lives anteriores vem primeiro; quem recusou nunca recebe. A lista é embaralhada a cada disparo e o sistema garante que o mesmo link não seja enviado duas vezes para a mesma pessoa, mesmo com dois aparelhos disparando.",
       "cor": "#e11d48",
       "iconKey": "send"
     },
