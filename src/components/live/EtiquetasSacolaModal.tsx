@@ -22,7 +22,8 @@ import {
   excedeEtiquetaInteira, montarEtiquetas, resumirLote,
   type SacolaEtiqueta,
 } from "@/lib/etiqueta-sacola"
-import EtiquetaSacola, { type LojaEtiqueta } from "./EtiquetaSacola"
+import ImpressoraUsb from "./ImpressoraUsb"
+import EtiquetaSacola,{ type LojaEtiqueta } from "./EtiquetaSacola"
 import { useEscClose } from "@/lib/useEscClose"
 
 interface SacolaResposta extends SacolaEtiqueta {
@@ -249,6 +250,7 @@ export default function EtiquetasSacolaModal({
                 <Ruler size={13}/> Margem de segurança
               </button>
             </div>
+            <ImpressoraUsb nosDaFolha={nosDaFolha} onImpresso={() => setConfirmando(true)}/>
           </div>
 
           {/* ── AVISOS ── */}

@@ -383,7 +383,8 @@ export function montarEtiquetas(sacolas: SacolaEtiqueta[]): EtiquetaMontada[] {
     const atual = fila[i]
     const proxima = fila[i + 1]
 
-    if (proxima && cabemJuntas(atual, proxima)) {
+    // Parte de sacola dividida ("1/2") tem etiqueta própria, inteira.
+    if (proxima && !atual.parte && !proxima.parte && cabemJuntas(atual, proxima)) {
       etiquetas.push({
         indice: etiquetas.length + 1,
         modo: "duplo",

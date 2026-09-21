@@ -14,6 +14,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import {
+  CORTE_MM,
   ETIQUETA_MM,
   MARGEM_MM,
   RESERVA_MM,
@@ -219,35 +220,38 @@ export default function EtiquetaSacola({
         }}/>
       )}
 
+      {/* A linha de corte é desenhada por cima, no centro exato da etiqueta:
+          não pertence a nenhuma metade, então as duas ficam com a mesma altura. */}
+      {duplo && (
+        <div style={{
+          position: "absolute", left: mm(MARGEM_MM), right: mm(MARGEM_MM), top: "50%",
+          height: mm(CORTE_MM), transform: "translateY(-50%)",
+          display: "flex", alignItems: "center", justifyContent: "flex-end",
+        }}>
+          <div style={{
+            position: "absolute", left: 0, right: 0, top: "50%",
+            borderTop: `${mm(.4)} dashed #000`,
+          }}/>
+          <span style={{ position: "relative", background: "#fff", padding: `0 ${mm(1.5)}`, fontSize: mm(3.4) }}>
+            &#9986;
+          </span>
+        </div>
+      )}
+
       {etiqueta.blocos.map((sacola, i) => (
         <div
           key={sacola.compraId}
           style={{
             display: "flex", flexDirection: "column",
-            // O bloco de cima ocupa só o que precisa; o de baixo fica com
-            // a sobra. É o que faz o corte cair onde a divisão realmente
-            // é, em vez de sempre no meio da etiqueta.
-            // Metades iguais no modo duplo: flex-basis 0 ignora o conteúdo.
+            // Metades iguais no modo duplo: flex-basis 0 ignora o conteúdo, e
+            // metade do espaço do corte sai de cada lado.
             flex: "1 1 0",
             minHeight: 0,
+            paddingBottom: duplo && i === 0 ? mm(CORTE_MM / 2) : undefined,
+            paddingTop: duplo && i === 1 ? mm(CORTE_MM / 2) : undefined,
           }}
         >
-          {i > 0 && (
-            <div style={{
-              position: "relative", height: mm(6), display: "flex",
-              alignItems: "center", justifyContent: "flex-end", flex: "0 0 auto",
-              marginBottom: mm(1),
-            }}>
-              <div style={{
-                position: "absolute", left: 0, right: 0, top: "50%",
-                borderTop: `${mm(.4)} dashed #000`,
-              }}/>
-              <span style={{ position: "relative", background: "#fff", padding: `0 ${mm(1.5)}`, fontSize: mm(3.4) }}>
-                &#9986;
-              </span>
-            </div>
-          )}
-          <Bloco sacola={sacola} loja={loja} modo={etiqueta.modo} preencher={!duplo || i === 1}/>
+          <Bloco sacola={sacola} loja={loja} modo={etiqueta.modo} preencher/>
         </div>
       ))}
     </div>

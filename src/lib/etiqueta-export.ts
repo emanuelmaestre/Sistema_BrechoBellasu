@@ -99,6 +99,27 @@ function normalizar(bruto: HTMLCanvasElement): HTMLCanvasElement {
   return exato
 }
 
+/**
+ * Etiqueta em 1 bit por ponto, 800 × 1176, pronta para a impressora.
+ * `preto[y * largura + x]` é true onde a cabeça deve queimar. O limiar
+ * de 160 mantém o texto fino de 2,5 mm sem engrossar.
+ */
+export async function etiquetaParaPontos(
+  etiqueta: HTMLElement,
+): Promise<{ largura: number; altura: number; preto: Uint8Array }> {
+  const canvas = await rasterizar(etiqueta)
+  const { width, height } = canvas
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("Não foi possível ler a etiqueta renderizada.")
+  const rgba = ctx.getImageData(0, 0, width, height).data
+  const preto = new Uint8Array(width * height)
+  for (let i = 0; i < preto.length; i++) {
+    const luz = (rgba[i * 4] * 299 + rgba[i * 4 + 1] * 587 + rgba[i * 4 + 2] * 114) / 1000
+    preto[i] = luz < 160 ? 1 : 0
+  }
+  return { largura: width, altura: height, preto }
+}
+
 function baixarBlob(blob: Blob, nomeArquivo: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
