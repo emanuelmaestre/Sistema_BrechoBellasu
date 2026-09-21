@@ -52,10 +52,11 @@ const LINHA_ITEM_MM = { duplo: 4.2, solo: 5.1 } as const
 const LINHA_ENDERECO_MM = { duplo: 3.3, solo: 3.7 } as const
 
 /**
- * Altura máxima de um bloco numa etiqueta dividida. Acima disso a outra
- * metade fica um talão pequeno demais para ser útil.
+ * Altura de cada metade numa etiqueta dividida. As duas metades são
+ * IGUAIS, independente de quantas peças cada cliente tem: se uma das
+ * sacolas passa disso, nenhuma divide etiqueta e cada uma vira inteira.
  */
-export const ALTURA_MAX_BLOCO_MM = 92
+export const ALTURA_MAX_BLOCO_MM = (ALTURA_UTIL_MM - CORTE_MM) / 2 // 66,5
 
 /** Caracteres que cabem numa linha de produto, por modo. */
 const CHARS_ITEM = { duplo: 33, solo: 30 } as const
@@ -96,6 +97,8 @@ export interface SacolaEtiqueta {
   endereco: EnderecoBruto
   /** Retirada na loja dispensa endereço — a linha vira um aviso. */
   retirada?: boolean
+  /** Sacola grande demais para uma etiqueta: "1/2", "2/2"... */
+  parte?: { atual: number; total: number }
 }
 
 export type ModoEtiqueta = "duplo" | "solo"
@@ -323,7 +326,34 @@ export function cabemJuntas(a: SacolaEtiqueta, b: SacolaEtiqueta): boolean {
   const alturaA = alturaBlocoMm(a, "duplo")
   const alturaB = alturaBlocoMm(b, "duplo")
   if (alturaA > ALTURA_MAX_BLOCO_MM || alturaB > ALTURA_MAX_BLOCO_MM) return false
-  return alturaA + alturaB + CORTE_MM <= ALTURA_UTIL_MM
+  return true
+}
+
+/**
+ * Sacola que não cabe numa etiqueta inteira é repartida em várias,
+ * cada uma com o máximo de itens que cabe ("1/2", "2/2"). O total só
+ * aparece na última parte.
+ */
+export function dividirSacolaExcedente(sacola: SacolaEtiqueta): SacolaEtiqueta[] {
+  if (!excedeEtiquetaInteira(sacola)) return [sacola]
+
+  const grupos: ProdutoEtiqueta[][] = []
+  let atual: ProdutoEtiqueta[] = []
+  for (const p of sacola.produtos) {
+    const teste = { ...sacola, produtos: [...atual, p] }
+    if (atual.length > 0 && alturaBlocoMm(teste, "solo") > ALTURA_UTIL_MM) {
+      grupos.push(atual)
+      atual = []
+    }
+    atual.push(p)
+  }
+  if (atual.length > 0) grupos.push(atual)
+
+  return grupos.map((produtos, i) => ({
+    ...sacola,
+    produtos,
+    parte: { atual: i + 1, total: grupos.length },
+  }))
 }
 
 // ─── Emparelhamento ──────────────────────────────────────────────
@@ -343,7 +373,9 @@ function ordemSacola(s: SacolaEtiqueta): number {
  * sozinha e a seguinte tenta par com a próxima.
  */
 export function montarEtiquetas(sacolas: SacolaEtiqueta[]): EtiquetaMontada[] {
-  const fila = [...sacolas].sort((a, b) => ordemSacola(a) - ordemSacola(b))
+  const fila = [...sacolas]
+    .sort((a, b) => ordemSacola(a) - ordemSacola(b))
+    .flatMap(dividirSacolaExcedente)
   const etiquetas: EtiquetaMontada[] = []
 
   let i = 0

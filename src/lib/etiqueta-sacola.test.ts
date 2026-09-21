@@ -164,7 +164,10 @@ describe("encaixarEndereco", () => {
 
 describe("cabemJuntas", () => {
   it("empareelha duas sacolas pequenas", () => {
-    expect(cabemJuntas(sacola("12", 7), sacola("13", 4))).toBe(true)
+    expect(cabemJuntas(sacola("12", 5), sacola("13", 2))).toBe(true)
+  })
+  it("uma sacola acima da metade vira etiqueta inteira, mesmo com vizinha pequena", () => {
+    expect(cabemJuntas(sacola("12", 7), sacola("13", 1))).toBe(false)
   })
   it("recusa quando a soma estoura a altura útil", () => {
     expect(cabemJuntas(sacola("12", 12), sacola("13", 12))).toBe(false)

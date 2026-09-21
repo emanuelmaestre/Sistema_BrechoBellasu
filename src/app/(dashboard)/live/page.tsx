@@ -9,7 +9,7 @@ import {
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2, ChevronDown,
-  Tag, Printer,
+  Printer,
 } from "lucide-react"
 import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
@@ -2854,6 +2854,33 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
     (live.status === "disparada" || live.status === "encerrada" || msgEnviadas > 0)
   const etiquetasPendentes = compras.filter(c => !c.etiqueta_impressa_em).length
 
+  // Botão da barra de ações: substitui o antigo card de faixa inteira.
+  // O selo mostra quantas etiquetas ainda faltam imprimir.
+  const botaoEtiquetas = etiquetasLiberadas && (
+    <motion.button onClick={() => setModalEtiquetas(true)}
+      whileHover={{ scale: 1.08, y: -1 }} whileTap={{ scale: 0.92 }}
+      title={
+        etiquetasPendentes > 0
+          ? `Imprimir etiquetas das sacolas (${etiquetasPendentes} pendente${etiquetasPendentes === 1 ? "" : "s"})`
+          : "Etiquetas das sacolas — todas impressas (clique para reimprimir)"
+      }
+      aria-label="Etiquetas das sacolas"
+      className="relative flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+      style={
+        etiquetasPendentes > 0
+          ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
+          : { background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
+      }>
+      <Printer size={16}/>
+      {etiquetasPendentes > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-black leading-none"
+          style={{ background: "#ef4444", color: "#fff", border: "2px solid var(--bg-card)" }}>
+          {etiquetasPendentes}
+        </span>
+      )}
+    </motion.button>
+  )
+
   const plataformaIcon = PLATAFORMAS.find(p => p.value === live.plataforma)?.icon
 
   async function encerrar() {
@@ -3015,6 +3042,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
                 </motion.button>
               )}
 
+              {botaoEtiquetas}
+
               <span className="w-px h-6 mx-1 shrink-0" style={{ background: "var(--border)" }}/>
 
               <motion.button onClick={podeEncerrar ? encerrar : undefined} disabled={encerrando}
@@ -3041,6 +3070,8 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
               </motion.button>
             </>
           )}
+
+          {live.status === "encerrada" && botaoEtiquetas}
         </div>
       </motion.div>
 
@@ -3066,51 +3097,6 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           </motion.div>
         ))}
       </div>
-
-      {/* ══ ETIQUETAS DAS SACOLAS ══
-          Aparece assim que a live é disparada e não some mais: é o ponto
-          de retorno para quem fechou a aba depois do disparo. */}
-      {etiquetasLiberadas && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 320, damping: 28 }}
-          className="shrink-0 mx-4 sm:mx-6 my-3 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <motion.span
-              animate={etiquetasPendentes > 0 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-              transition={{ repeat: etiquetasPendentes > 0 ? Infinity : 0, duration: 2.4, ease: "easeInOut" }}
-              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
-              style={{ background: "var(--bg-surface)", color: "var(--accent)", border: "1px solid var(--border)" }}>
-              <Tag size={15}/>
-            </motion.span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                Etiquetas das sacolas
-              </p>
-              <p className="text-[12.5px] font-semibold" style={{ color: "var(--text-secondary)" }}>
-                {compras.length} sacola{compras.length === 1 ? "" : "s"}
-                {etiquetasPendentes === 0
-                  ? " · todas impressas"
-                  : ` · ${etiquetasPendentes} pendente${etiquetasPendentes === 1 ? "" : "s"}`}
-              </p>
-            </div>
-          </div>
-
-          <motion.button
-            onClick={() => setModalEtiquetas(true)}
-            whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: .96 }}
-            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg text-[12.5px] font-bold shrink-0"
-            style={
-              etiquetasPendentes > 0
-                ? { background: "var(--accent)", color: "#fff" }
-                : { background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }
-            }>
-            <Printer size={14}/>
-            {etiquetasPendentes > 0 ? "Imprimir etiquetas" : "Abrir etiquetas"}
-          </motion.button>
-        </motion.div>
-      )}
 
       {/* ══ CARD AVISOS DE LIVE ══ */}
       {live.status === "aberta" && (

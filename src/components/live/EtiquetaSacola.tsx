@@ -73,6 +73,7 @@ function Bloco({
     sacola.instagram,
     dataLive ? `Live ${dataLive}` : null,
     `${totalItens} ${totalItens === 1 ? "item" : "itens"}`,
+    sacola.parte ? `Etiqueta ${sacola.parte.atual}/${sacola.parte.total}` : null,
   ].filter(Boolean).join(" · ")
 
   return (
@@ -155,7 +156,9 @@ function Bloco({
         {/* Sacola quitada com crédito não pode sair com valor: cobraria de
             novo quem já pagou com o saldo dela. */}
         <span>
-          {sacola.pagoComCredito
+          {sacola.parte && sacola.parte.atual < sacola.parte.total
+            ? "Continua na próxima"
+            : sacola.pagoComCredito
             ? "Pago com crédito"
             : `R$ ${sacola.total.toFixed(2).replace(".", ",")}`}
         </span>
@@ -224,7 +227,8 @@ export default function EtiquetaSacola({
             // O bloco de cima ocupa só o que precisa; o de baixo fica com
             // a sobra. É o que faz o corte cair onde a divisão realmente
             // é, em vez de sempre no meio da etiqueta.
-            flex: duplo ? (i === 0 ? "0 0 auto" : "1 1 auto") : 1,
+            // Metades iguais no modo duplo: flex-basis 0 ignora o conteúdo.
+            flex: "1 1 0",
             minHeight: 0,
           }}
         >

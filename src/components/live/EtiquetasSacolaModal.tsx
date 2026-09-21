@@ -264,7 +264,7 @@ export default function EtiquetasSacolaModal({
               <Aviso
                 chave="excedentes"
                 texto={`${excedentes.length} sacola${excedentes.length === 1 ? "" : "s"} com itens demais para uma etiqueta.`}
-                detalhe={`Sacola${excedentes.length === 1 ? "" : "s"} ${excedentes.map(s => s.numeroSacola ?? "?").join(", ")} — a lista vai passar do papel. Vale conferir antes de imprimir.`}
+                detalhe={`Sacola${excedentes.length === 1 ? "" : "s"} ${excedentes.map(s => s.numeroSacola ?? "?").join(", ")} — a lista foi dividida em mais de uma etiqueta (1/2, 2/2).`}
               />
             )}
             {!isLoading && divergentes.length > 0 && (
