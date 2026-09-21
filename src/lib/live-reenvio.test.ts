@@ -39,3 +39,19 @@ describe("elegivelReenvio / valorAPagar", () => {
     expect(elegivelReenvio({ ...base, pagamento_status: "PAGO" })).toBe(false)
   })
 })
+
+describe("trava de intervalo quando o envio não registrou a data", () => {
+  // 140 compras em produção estão com msg_status='enviada' e
+  // msg_enviada_em nulo — herança de quando a coluna de rastreio ainda
+  // não existia. Sem data não dá para medir o intervalo, então o reenvio
+  // é liberado. É aceitável (o primeiro reenvio grava a data e a trava
+  // passa a valer), mas precisa estar registrado como decisão.
+  it("libera o reenvio quando não há data de envio", () => {
+    const semData = { ...base, msg_enviada_em: null }
+    expect(podeReenviar(semData, agora).ok).toBe(true)
+  })
+  it("uma vez gravada a data, a trava volta a valer", () => {
+    const recem = { ...base, msg_enviada_em: new Date(agora - 60_000).toISOString() }
+    expect(podeReenviar(recem, agora).ok).toBe(false)
+  })
+})

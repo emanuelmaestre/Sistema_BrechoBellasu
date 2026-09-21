@@ -91,6 +91,8 @@ export interface SacolaEtiqueta {
   dataLive?: string | null
   produtos: ProdutoEtiqueta[]
   total: number
+  /** Quitada com crédito da cliente: a etiqueta diz isso no lugar do valor. */
+  pagoComCredito?: boolean
   endereco: EnderecoBruto
   /** Retirada na loja dispensa endereço — a linha vira um aviso. */
   retirada?: boolean
@@ -109,6 +111,9 @@ export interface EtiquetaMontada {
 
 // ─── Normalização de texto ───────────────────────────────────────
 
+/** Numerais romanos usados em nome de bairro e conjunto habitacional. */
+const ROMANO = /^(i{1,3}|iv|vi{0,3}|ix|xi{0,2})$/
+
 /** Preposições e artigos que ficam em minúscula no meio do nome próprio. */
 const MINUSCULAS = new Set([
   "de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "em", "no", "na",
@@ -126,6 +131,10 @@ export function capitalizarNome(texto: string): string {
   const palavras = limpo.toLocaleLowerCase("pt-BR").split(" ")
   return palavras
     .map((palavra, i) => {
+      // Numeral romano de bairro ("Quintino Facci II") vira "Ii" se for
+      // tratado como palavra comum.
+      if (ROMANO.test(palavra)) return palavra.toUpperCase()
+
       // "Bl. A" e "Qd. E" são identificadores, não artigos: letra solta
       // e palavra logo depois de abreviação ficam em maiúscula.
       const ehConectivo =
@@ -134,7 +143,10 @@ export function capitalizarNome(texto: string): string {
         palavra.length > 1 &&
         !palavras[i - 1].endsWith(".")
       if (ehConectivo) return palavra
-      return palavra.replace(/^([a-zà-ÿ])/, (c) => c.toLocaleUpperCase("pt-BR"))
+
+      // A primeira LETRA, não o primeiro caractere: bairro entre
+      // parênteses saía como "(dona Amália)".
+      return palavra.replace(/[a-zà-ÿ]/, (c) => c.toLocaleUpperCase("pt-BR"))
     })
     .join(" ")
 }
@@ -197,23 +209,48 @@ export function somarProdutos(produtos: ProdutoEtiqueta[]): number {
 }
 
 /**
- * Total impresso na etiqueta.
+ * O que a cliente ainda deve, e por quê.
  *
- * O valor da compra manda. Mas existem compras gravadas com valor_total
- * zerado e produtos vinculados com preço — nesse caso imprimir "R$ 0,00"
- * embaixo de uma lista de peças que somam oitenta reais engana a cliente
- * na cara dela. Quando o líquido é zero e os itens não são, vale a soma
- * dos itens, e a tela avisa a divergência.
+ * Líquido zero quase sempre significa QUITADO, não erro de cadastro: a
+ * loja aplica crédito da cliente na compra, e aí `valor_total` continua
+ * cheio enquanto `credito_aplicado` cobre tudo. Imprimir a soma das
+ * peças nesse caso cobra de novo quem já pagou — o oposto do que a
+ * etiqueta serve para fazer.
+ *
+ * Só existe um caso em que vale recorrer à soma das peças: a compra
+ * nasceu com `valor_total` zerado, sem desconto e sem crédito que
+ * explique o zero, mas com peças que têm preço. Aí o zero é buraco de
+ * cadastro e a tela avisa.
  */
-export function totalDaSacola(liquido: number, produtos: ProdutoEtiqueta[]): number {
-  if (liquido > 0) return liquido
-  return somarProdutos(produtos)
+export interface ValoresCompra {
+  valorTotal: number
+  desconto: number
+  creditoAplicado: number
 }
 
-/** Total da compra e soma dos itens discordam? A tela precisa avisar. */
-export function totalDivergente(liquido: number, produtos: ProdutoEtiqueta[]): boolean {
+export interface TotalSacola {
+  /** Valor impresso em "Total". */
+  valor: number
+  /** Quitado com crédito da cliente — a etiqueta diz isso em vez do valor. */
+  pagoComCredito: boolean
+  /** Zero sem explicação, com peças que têm preço. A tela precisa avisar. */
+  divergente: boolean
+}
+
+export function totalDaSacola(v: ValoresCompra, produtos: ProdutoEtiqueta[]): TotalSacola {
+  const liquido = Math.max(0, v.valorTotal - v.desconto - v.creditoAplicado)
+  if (liquido > 0) return { valor: liquido, pagoComCredito: false, divergente: false }
+
+  if (v.creditoAplicado > 0) {
+    return { valor: 0, pagoComCredito: true, divergente: false }
+  }
+
+  // Desconto que zerou a compra é intencional: cortesia, brinde, troca.
+  if (v.desconto > 0) return { valor: 0, pagoComCredito: false, divergente: false }
+
   const soma = somarProdutos(produtos)
-  return soma > 0 && liquido <= 0
+  if (soma > 0) return { valor: soma, pagoComCredito: false, divergente: true }
+  return { valor: 0, pagoComCredito: false, divergente: false }
 }
 
 /** Descrição do produto como sai na etiqueta: peça, cor e tamanho. */

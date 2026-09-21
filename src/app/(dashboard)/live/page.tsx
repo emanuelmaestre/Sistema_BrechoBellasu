@@ -2870,14 +2870,24 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   async function excluir() {
     const ok = await confirmar({
       titulo: "Excluir esta live?",
-      descricao: `${compras.length} compra${compras.length !== 1 ? "s" : ""} registrada${compras.length !== 1 ? "s" : ""} ${compras.length !== 1 ? "serão perdidas" : "será perdida"}. Esta ação não pode ser desfeita.`,
+      descricao:
+        `${compras.length} compra${compras.length !== 1 ? "s" : ""} ${compras.length !== 1 ? "serão excluídas" : "será excluída"}. ` +
+        `O crédito usado pelas clientes volta para o saldo delas e as peças voltam para o estoque. ` +
+        `Esta ação não pode ser desfeita.`,
       confirmar: "Excluir live",
       perigo: true,
     })
     if (!ok) return
-    setExc(true)
-    try { await apiDelete(`/live/${liveId}`); qc.invalidateQueries({ queryKey: ["lives"] }); onVoltar() }
-    catch { } finally { setExc(false) }
+    setExc(true); setErroEnc("")
+    try {
+      await apiDelete(`/live/${liveId}`)
+      qc.invalidateQueries({ queryKey: ["lives"] })
+      onVoltar()
+    } catch (e: unknown) {
+      // Engolir esta falha deixava a pessoa achando que a live sumiu:
+      // o spinner parava, nada mudava na tela e nenhum aviso aparecia.
+      setErroEnc(e instanceof Error ? e.message : "Erro ao excluir a live.")
+    } finally { setExc(false) }
   }
 
   const podeEncerrar = live.status !== "encerrada" && compras.length > 0 && compras.every(c => c.status_compra === "finalizada" || c.status_compra === "retirada")

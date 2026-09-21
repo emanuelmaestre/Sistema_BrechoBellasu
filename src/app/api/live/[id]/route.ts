@@ -221,12 +221,17 @@ export async function DELETE(
   }
 
   const sb = createServerClient()
-  const { error } = await sb.from("lives").delete().eq("id", id)
+  // Não é um DELETE simples: as compras somem por CASCADE e levariam
+  // junto o crédito que as clientes gastaram e o estoque já baixado.
+  // A função devolve as duas coisas e apaga tudo na mesma transação.
+  const { data, error } = await sb.rpc("fn_excluir_live", { p_live_id: id })
   if (error) {
+    console.error("[DELETE live] falha ao excluir:", error.message)
+    const naoEncontrada = error.message.includes("LIVE_NAO_ENCONTRADA")
     return NextResponse.json(
-      { erro: "Erro ao excluir live." },
-      { status: 500 }
+      { erro: naoEncontrada ? "Live não encontrada." : "Erro ao excluir live." },
+      { status: naoEncontrada ? 404 : 500 }
     )
   }
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, ...(data as Record<string, unknown> ?? {}) })
 }

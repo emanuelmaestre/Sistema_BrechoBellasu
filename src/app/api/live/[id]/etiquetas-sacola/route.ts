@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { createServerClient } from "@/lib/supabase"
 import {
-  formatarInstagram, totalDaSacola, totalDivergente, capitalizarNome,
+  formatarInstagram, totalDaSacola, capitalizarNome,
   type ProdutoEtiqueta,
 } from "@/lib/etiqueta-sacola"
 
@@ -114,6 +114,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const valorTotal = parseFloat(String(c.valor_total ?? 0))
     const desconto = parseFloat(String(c.desconto ?? 0))
     const credito = parseFloat(String(c.credito_aplicado ?? 0))
+    const total = totalDaSacola({ valorTotal, desconto, creditoAplicado: credito }, produtos)
     return {
       compraId: c.id as number,
       numeroSacola: (c.numero_sacola ?? null) as string | null,
@@ -121,8 +122,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       instagram: formatarInstagram(cliente?.instagram as string | null),
       dataLive: (live.data_live ?? null) as string | null,
       produtos,
-      total: totalDaSacola(Math.max(0, valorTotal - desconto - credito), produtos),
-      totalDivergente: totalDivergente(Math.max(0, valorTotal - desconto - credito), produtos),
+      total: total.valor,
+      pagoComCredito: total.pagoComCredito,
+      totalDivergente: total.divergente,
       endereco: enderecoDoCliente(cliente),
       impressaEm: (c.etiqueta_impressa_em ?? null) as string | null,
     }

@@ -222,7 +222,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // A mensagem JÁ saiu: não pode voltar para pendente (reenviaria).
     // Marca só o essencial e registra o problema no log do servidor.
     console.error(`[disparar] compra ${compraId}: falha ao gravar rastreio —`, erroUpdate.message)
-    const essencial: Record<string, unknown> = { msg_status: "enviada" }
+    // msg_enviada_em entra aqui junto com o status, e não é opcional: é
+    // dele que `podeReenviar` tira o intervalo mínimo entre cobranças.
+    // Gravar "enviada" sem a data desliga essa trava em silêncio, e a
+    // cliente pode levar a mesma cobrança várias vezes seguidas.
+    const essencial: Record<string, unknown> = {
+      msg_status: "enviada",
+      msg_enviada_em: updateEnviada.msg_enviada_em,
+    }
     if (pagoCreditoTotal) essencial.pagamento_status = "PAGO"
     await sb.from("live_compras").update(essencial).eq("id", compraId)
   }

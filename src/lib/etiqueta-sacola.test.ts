@@ -12,7 +12,7 @@ import {
   excedeEtiquetaInteira,
   formatarInstagram,
   totalDaSacola,
-  totalDivergente,
+
   linhasDosProdutos,
   montarEnderecoCliente,
   montarEtiquetas,
@@ -272,21 +272,60 @@ describe("totalDaSacola", () => {
     { nome: "Vestido", preco: 50, quantidade: 1 },
     { nome: "Vestido Rosa", preco: 35, quantidade: 1 },
   ]
-  it("usa o valor da compra quando ele existe", () => {
-    expect(totalDaSacola(85, itens)).toBe(85)
+  const zerado = { valorTotal: 0, desconto: 0, creditoAplicado: 0 }
+
+  it("usa o valor da compra quando há saldo a pagar", () => {
+    expect(totalDaSacola({ ...zerado, valorTotal: 85 }, itens))
+      .toEqual({ valor: 85, pagoComCredito: false, divergente: false })
   })
-  it("cai na soma das peças quando a compra está zerada", () => {
-    expect(totalDaSacola(0, itens)).toBe(85)
+
+  it("desconta o desconto e o crédito do valor impresso", () => {
+    expect(totalDaSacola({ valorTotal: 100, desconto: 10, creditoAplicado: 5 }, itens).valor).toBe(85)
   })
-  it("multiplica pela quantidade", () => {
-    expect(totalDaSacola(0, [{ nome: "Body", preco: 39.9, quantidade: 2 }])).toBe(79.8)
+
+  it("compra quitada com crédito não sai com valor — diria que ela deve de novo", () => {
+    // O caso real: valor_total 85, crédito 85. A cliente não deve nada.
+    const r = totalDaSacola({ valorTotal: 85, desconto: 0, creditoAplicado: 85 }, itens)
+    expect(r).toEqual({ valor: 0, pagoComCredito: true, divergente: false })
+    expect(r.valor).not.toBe(85)
   })
-  it("zero continua zero quando não há peça com preço", () => {
-    expect(totalDaSacola(0, [{ nome: "Brinde", preco: 0 }])).toBe(0)
+
+  it("desconto que zerou a compra é intencional, não buraco de cadastro", () => {
+    expect(totalDaSacola({ valorTotal: 85, desconto: 85, creditoAplicado: 0 }, itens))
+      .toEqual({ valor: 0, pagoComCredito: false, divergente: false })
   })
-  it("sinaliza a divergência para a tela avisar", () => {
-    expect(totalDivergente(0, itens)).toBe(true)
-    expect(totalDivergente(85, itens)).toBe(false)
-    expect(totalDivergente(0, [])).toBe(false)
+
+  it("zero sem crédito nem desconto, com peças que têm preço, é buraco de cadastro", () => {
+    expect(totalDaSacola(zerado, itens))
+      .toEqual({ valor: 85, pagoComCredito: false, divergente: true })
+  })
+
+  it("multiplica pela quantidade ao recorrer à soma das peças", () => {
+    expect(totalDaSacola(zerado, [{ nome: "Body", preco: 39.9, quantidade: 2 }]).valor).toBe(79.8)
+  })
+
+  it("sacola sem peça com preço fica em zero, sem alarme", () => {
+    expect(totalDaSacola(zerado, [{ nome: "Brinde", preco: 0 }]))
+      .toEqual({ valor: 0, pagoComCredito: false, divergente: false })
+  })
+
+  it("crédito parcial não marca como quitada", () => {
+    expect(totalDaSacola({ valorTotal: 100, desconto: 0, creditoAplicado: 40 }, itens))
+      .toEqual({ valor: 60, pagoComCredito: false, divergente: false })
+  })
+})
+
+describe("capitalizarNome — defeitos vistos nos endereços reais", () => {
+  it("não transforma numeral romano de bairro em palavra", () => {
+    // O bairro é "Quintino Facci II"; saía "Quintino Facci Ii".
+    expect(capitalizarNome("QUINTINO FACCI II")).toBe("Quintino Facci II")
+    expect(capitalizarNome("conjunto habitacional iv")).toBe("Conjunto Habitacional IV")
+  })
+  it("capitaliza a primeira LETRA, não o primeiro caractere", () => {
+    // Saía "(dona Amália)" porque o parêntese vinha antes da letra.
+    expect(capitalizarNome("JD. MARIA LOPES (DONA AMÁLIA)")).toBe("Jd. Maria Lopes (Dona Amália)")
+  })
+  it("não confunde a preposição 'vi' de nome com romano", () => {
+    expect(capitalizarNome("rua ix de julho")).toBe("Rua IX de Julho")
   })
 })

@@ -152,7 +152,13 @@ function Bloco({
         fontSize: mm(duplo ? 3.9 : 4.6),
       }}>
         <span>Total</span>
-        <span>R$ {sacola.total.toFixed(2).replace(".", ",")}</span>
+        {/* Sacola quitada com crédito não pode sair com valor: cobraria de
+            novo quem já pagou com o saldo dela. */}
+        <span>
+          {sacola.pagoComCredito
+            ? "Pago com crédito"
+            : `R$ ${sacola.total.toFixed(2).replace(".", ",")}`}
+        </span>
       </div>
 
       {/* ── ZONA 4 · REMETENTE ── */}
