@@ -9,6 +9,7 @@ import {
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2, ChevronDown,
+  Tag, Printer,
 } from "lucide-react"
 import Link from "next/link"
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
@@ -33,6 +34,7 @@ import { regraParcelamento, corRegraParcelamento, calcularValorFinal } from "@/l
 import type { Live } from "@/types"
 import BuscaClienteGlobal from "@/components/live/BuscaClienteGlobal"
 import ImportarPorFoto from "@/components/live/ImportarPorFoto"
+import EtiquetasSacolaModal from "@/components/live/EtiquetasSacolaModal"
 import liveUiData from "@/data/ui/live.json"
 import productData from "@/data/catalog/products.json"
 
@@ -79,6 +81,8 @@ export interface Compra {
   credito_aplicado?: number
   msg_status?: string
   data_compra?: string
+  /** Quando a etiqueta da sacola foi confirmada como impressa. */
+  etiqueta_impressa_em?: string | null
   link_pagamento?: string
   pagamento_status?: string
   status_compra?: string
@@ -2720,6 +2724,9 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const [modalReenvio, setModalReenvio] = useState<{ compraId?: number } | null>(null)
   const [modalAviso, setModalAviso]     = useState(false)
   const [modalVinculo, setModalVinculo] = useState<Compra | null>(null)
+  // Etiquetas das sacolas — o lote é remontado a partir das compras toda
+  // vez que abre, então fechar a aba sem querer não perde nada.
+  const [modalEtiquetas, setModalEtiquetas] = useState(false)
   const [erroEnc, setErroEnc] = useState("")
   const [encerrando, setEnc]  = useState(false)
   const [excluindo, setExc]   = useState(false)
@@ -2834,6 +2841,13 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
   const msgEnviadas    = compras.filter(c => c.msg_status === "enviada").length
   const msgPendentes   = compras.filter(c => !c.msg_status || c.msg_status === "pendente" || c.msg_status === "erro").length
   const naoPagasEnviadas = compras.filter(c => elegivelReenvio(c)).length
+
+  // O disparo é o que congela os dados da compra: antes dele o valor
+  // ainda muda e a etiqueta impressa viraria papel no lixo.
+  const etiquetasLiberadas =
+    compras.length > 0 &&
+    (live.status === "disparada" || live.status === "encerrada" || msgEnviadas > 0)
+  const etiquetasPendentes = compras.filter(c => !c.etiqueta_impressa_em).length
 
   const plataformaIcon = PLATAFORMAS.find(p => p.value === live.plataforma)?.icon
 
@@ -3037,6 +3051,51 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
           </motion.div>
         ))}
       </div>
+
+      {/* ══ ETIQUETAS DAS SACOLAS ══
+          Aparece assim que a live é disparada e não some mais: é o ponto
+          de retorno para quem fechou a aba depois do disparo. */}
+      {etiquetasLiberadas && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 320, damping: 28 }}
+          className="shrink-0 mx-4 sm:mx-6 my-3 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <motion.span
+              animate={etiquetasPendentes > 0 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+              transition={{ repeat: etiquetasPendentes > 0 ? Infinity : 0, duration: 2.4, ease: "easeInOut" }}
+              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+              style={{ background: "var(--bg-surface)", color: "var(--accent)", border: "1px solid var(--border)" }}>
+              <Tag size={15}/>
+            </motion.span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                Etiquetas das sacolas
+              </p>
+              <p className="text-[12.5px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                {compras.length} sacola{compras.length === 1 ? "" : "s"}
+                {etiquetasPendentes === 0
+                  ? " · todas impressas"
+                  : ` · ${etiquetasPendentes} pendente${etiquetasPendentes === 1 ? "" : "s"}`}
+              </p>
+            </div>
+          </div>
+
+          <motion.button
+            onClick={() => setModalEtiquetas(true)}
+            whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: .96 }}
+            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg text-[12.5px] font-bold shrink-0"
+            style={
+              etiquetasPendentes > 0
+                ? { background: "var(--accent)", color: "#fff" }
+                : { background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }
+            }>
+            <Printer size={14}/>
+            {etiquetasPendentes > 0 ? "Imprimir etiquetas" : "Abrir etiquetas"}
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* ══ CARD AVISOS DE LIVE ══ */}
       {live.status === "aberta" && (
@@ -3380,6 +3439,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
         setModalAviso(false)
         qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }); refetch()
       }}/>}
+        {modalEtiquetas && <EtiquetasSacolaModal liveId={liveId} onFechar={() => { setModalEtiquetas(false); refetch() }}/>}
         {modalVinculo  && <ModalVinculo  liveId={liveId} compra={modalVinculo} onClose={() => setModalVinculo(null)} onAtualizado={() => { refetch(); qc.invalidateQueries({ queryKey: ["live-detalhe", liveId] }) }}/>}
         {editCompra    && <ModalEditarCompra liveId={liveId} compra={editCompra} onClose={() => setEditCompra(null)} onSalvo={() => { setEditCompra(null); refetch() }}/>}
         {penalizar     && <ModalPenalizar liveId={liveId} compra={penalizar}

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { DM_Sans, DM_Mono } from "next/font/google"
+import { DM_Sans, DM_Mono, Inter } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 
@@ -12,6 +12,16 @@ const dmMono = DM_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-dm-mono",
+})
+
+// Inter é a fonte da ETIQUETA DE SACOLA, não da interface. A 203 dpi ela
+// segura melhor o texto de 2,5 mm: aberturas largas que não fecham quando
+// o calor da impressora térmica espalha. Auto-hospedada pelo next/font,
+// então a etiqueta imprime igual mesmo sem internet.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-inter",
 })
 
 export const metadata: Metadata = {
@@ -42,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" data-theme="dark" className={`${dmSans.variable} ${dmMono.variable} h-full`}>
+    <html lang="pt-BR" data-theme="dark" className={`${dmSans.variable} ${dmMono.variable} ${inter.variable} h-full`}>
       <body className="font-sans antialiased min-h-full">
         <Providers>{children}</Providers>
       </body>

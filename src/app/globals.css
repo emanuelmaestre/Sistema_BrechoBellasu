@@ -258,3 +258,62 @@ button:active:not(:disabled) {
    NUMBER / MONO
    ════════════════════════════════════════════════════════════ */
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* ════════════════════════════════════════════════════════════
+   ETIQUETA DE SACOLA — impressão na BY-480BT (100 × 147 mm)
+
+   A folha de impressão fica fora da tela enquanto a pessoa navega e
+   só aparece na hora de imprimir, quando todo o resto some. Sem isso
+   o navegador imprimiria a interface inteira junto.
+
+   Atenção na configuração da impressora: margens ZERO e cabeçalho/
+   rodapé do navegador DESLIGADOS — senão o Chrome carimba a URL e a
+   data por cima da etiqueta.
+   ════════════════════════════════════════════════════════════ */
+.folha-impressao {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  z-index: -1;
+}
+
+@media print {
+  @page {
+    size: 100mm 147mm;
+    margin: 0;
+  }
+
+  html, body {
+    background: #fff !important;
+    width: 100mm;
+    height: auto;
+  }
+
+  /* Só a folha de etiquetas vai para o papel. */
+  body > *:not(.folha-impressao) { display: none !important; }
+
+  .folha-impressao {
+    position: static !important;
+    left: auto !important;
+    z-index: auto !important;
+    display: block !important;
+  }
+
+  /* Uma etiqueta por página, sem quebra no meio de nenhuma. */
+  .folha-impressao .etiqueta-folha {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-after: page;
+    page-break-after: always;
+  }
+  .folha-impressao .etiqueta-folha:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Fundo preto do número da sacola precisa sair chapado. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
