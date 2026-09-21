@@ -13,6 +13,8 @@ import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import PecaForm, { PECA_FORM_VAZIO, type PecaFormValores } from "@/components/live/PecaForm"
+import { parsePrecoBR, nomeComCor } from "@/lib/peca"
 import type { Cliente } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF, imprimirRecibo } from "@/lib/recibo-pdf"
@@ -393,8 +395,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   // Produtos
   const [itens, setItens]     = useState<WizItem[]>([])
-  const [prodNome, setProdNome]   = useState("")
-  const [prodPreco, setProdPreco] = useState("")
+  const [peca, setPeca]     = useState<PecaFormValores>(PECA_FORM_VAZIO)
 
   // Pagamento
   const [formas, setFormas]   = useState<string[]>(["Dinheiro"])
@@ -434,13 +435,20 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
     setCliBusca(c.nome); setCliRes([])
   }
 
-  // Sem catálogo: a peça é digitada na hora do lançamento (produto_id nulo).
+  // Sem catálogo: a peça é cadastrada na hora, no mesmo formulário da live
+  // (produto_id nulo). A cor não tem coluna própria na venda, então vai no nome.
   function adicionarProduto() {
-    const nome = prodNome.trim()
-    if (!nome) return
-    const preco = parseFloat(prodPreco.replace(/\./g, "").replace(",", ".")) || 0
-    setItens(prev => [...prev, { produto_id: null, nome_produto: nome, quantidade: 1, preco_unitario: preco }])
-    setProdNome(""); setProdPreco("")
+    if (!peca.nome_produto.trim()) { setErro("Digite o nome da peça"); return }
+    const preco = parsePrecoBR(peca.preco_live)
+    if (preco <= 0) { setErro("Informe o preço da peça"); return }
+    setErro("")
+    setItens(prev => [...prev, {
+      produto_id: null,
+      nome_produto: nomeComCor(peca.nome_produto, peca.cor),
+      quantidade: Math.max(1, parseInt(peca.quantidade) || 1),
+      preco_unitario: preco,
+    }])
+    setPeca(PECA_FORM_VAZIO)
     setTimeout(() => prodRef.current?.focus(), 50)
   }
 
@@ -616,27 +624,14 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
           {/* Produtos */}
           <div className="flex flex-col lg:flex-1 lg:min-h-0">
             <label className={lSt} style={lCol}>Produtos *</label>
-            <div className="flex gap-2">
-              <input ref={prodRef} value={prodNome}
-                onChange={e => setProdNome(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); adicionarProduto() } }}
-                placeholder="Nome da peça"
-                className={cn(iBase, "flex-1 min-w-0")} style={iSt} autoComplete="off" />
-              <div className="relative shrink-0">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] pointer-events-none" style={{ color: "var(--text-muted)" }}>R$</span>
-                <input value={prodPreco}
-                  onChange={e => setProdPreco(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); adicionarProduto() } }}
-                  placeholder="0,00" inputMode="decimal"
-                  className={cn(iBase, "w-24 pl-8")} style={iSt} autoComplete="off" />
-              </div>
-              <button type="button" onClick={adicionarProduto} disabled={!prodNome.trim()}
-                title="Adicionar peça"
-                className="shrink-0 px-3 rounded-xl text-white disabled:opacity-40 transition-opacity"
-                style={{ background: COR }}>
-                <Plus size={16} />
-              </button>
-            </div>
+            <PecaForm form={peca} nomeRef={prodRef} rotuloPreco="VENDA"
+              onChange={patch => setPeca(prev => ({ ...prev, ...patch }))}
+              onEnter={adicionarProduto} />
+            <button type="button" onClick={adicionarProduto} disabled={!peca.nome_produto.trim()}
+              className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-opacity"
+              style={{ background: COR }}>
+              <Plus size={15} /> Adicionar à venda
+            </button>
             {/* Items list */}
             <div className="mt-2 space-y-1.5 overflow-y-auto max-h-[45vh] lg:max-h-none lg:flex-1 lg:min-h-0">
               {itens.length === 0 && (
