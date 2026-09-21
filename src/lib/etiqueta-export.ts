@@ -8,23 +8,33 @@
 
 import { ETIQUETA_MM } from "./etiqueta-sacola"
 
-/** Resolução da BY-480BT. A 203 dpi são exatamente 8 pontos por mm. */
-export const DPI_IMPRESSORA = 203
+/**
+ * Densidade real da cabeça térmica: **8 pontos por milímetro**.
+ *
+ * A caixa anuncia "203 dpi", que é 8 pt/mm arredondado (8 × 25,4 = 203,2).
+ * Calcular por 203 cravado erra por fração e o arquivo sai 799 × 1175 —
+ * um pixel a menos em cada eixo já obriga a impressora a reamostrar, que
+ * é justamente o que não pode acontecer com texto de 2,5 mm.
+ */
+export const PONTOS_POR_MM = 8
+
+/** dpi nominal correspondente, para exibir na tela. */
+export const DPI_IMPRESSORA = Math.round(PONTOS_POR_MM * 25.4) // 203
 
 /** CSS assume 96 dpi — é a referência para converter mm em pixel na tela. */
 const DPI_CSS = 96
 
 /**
  * 800 × 1176 px: um pixel do arquivo vira um ponto da impressora, sem
- * reamostragem. Se o tamanho não for exato, a impressora interpola e o
- * texto de 2,5 mm embola.
+ * reamostragem.
  */
 export const PNG_PX = {
-  largura: Math.round((ETIQUETA_MM.largura / 25.4) * DPI_IMPRESSORA), // 800
-  altura: Math.round((ETIQUETA_MM.altura / 25.4) * DPI_IMPRESSORA), // 1176
+  largura: ETIQUETA_MM.largura * PONTOS_POR_MM, // 800
+  altura: ETIQUETA_MM.altura * PONTOS_POR_MM, // 1176
 } as const
 
-const ESCALA = DPI_IMPRESSORA / DPI_CSS // ≈ 2,1146
+/** 1 mm na tela tem 96/25,4 px; na impressora tem 8 pontos. */
+const ESCALA = (PONTOS_POR_MM * 25.4) / DPI_CSS // ≈ 2,1167
 
 /** Espera as fontes do documento antes de rasterizar. */
 async function aguardarFontes(): Promise<void> {
@@ -55,15 +65,38 @@ async function rasterizar(etiqueta: HTMLElement): Promise<HTMLCanvasElement> {
   document.body.appendChild(palco)
 
   try {
-    return await html2canvas(clone, {
+    const bruto = await html2canvas(clone, {
       scale: ESCALA,
       backgroundColor: "#ffffff",
       logging: false,
       useCORS: true,
     })
+    return normalizar(bruto)
   } finally {
     document.body.removeChild(palco)
   }
+}
+
+/**
+ * Força o canvas para exatamente 800 × 1176.
+ *
+ * O navegador arredonda 100 mm para 377,9375 px em vez dos 377,953 px
+ * exatos, e o canvas sai com 799,97 — que vira 799 ou 800 dependendo de
+ * como a biblioteca arredonda. Fração de pixel aqui é reamostragem na
+ * impressora, então o tamanho final é fixado à mão.
+ */
+function normalizar(bruto: HTMLCanvasElement): HTMLCanvasElement {
+  if (bruto.width === PNG_PX.largura && bruto.height === PNG_PX.altura) return bruto
+
+  const exato = document.createElement("canvas")
+  exato.width = PNG_PX.largura
+  exato.height = PNG_PX.altura
+  const ctx = exato.getContext("2d")
+  if (!ctx) return bruto
+  ctx.fillStyle = "#ffffff"
+  ctx.fillRect(0, 0, exato.width, exato.height)
+  ctx.drawImage(bruto, 0, 0, exato.width, exato.height)
+  return exato
 }
 
 function baixarBlob(blob: Blob, nomeArquivo: string): void {

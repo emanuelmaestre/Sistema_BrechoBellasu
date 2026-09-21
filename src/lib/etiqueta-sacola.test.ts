@@ -10,6 +10,9 @@ import {
   descreverProduto,
   encaixarEndereco,
   excedeEtiquetaInteira,
+  formatarInstagram,
+  totalDaSacola,
+  totalDivergente,
   linhasDosProdutos,
   montarEnderecoCliente,
   montarEtiquetas,
@@ -242,5 +245,48 @@ describe("resumirLote", () => {
   it("retirada na loja não conta como sem endereço", () => {
     const sacolas = [sacola("12", 4, { endereco: {}, retirada: true })]
     expect(resumirLote(montarEtiquetas(sacolas), sacolas).semEndereco).toBe(0)
+  })
+})
+
+// ── Regressões encontradas testando com os dados reais da loja ──
+
+describe("formatarInstagram", () => {
+  it("prefixa a arroba que falta no cadastro", () => {
+    expect(formatarInstagram("brecho.pri24")).toBe("@brecho.pri24")
+  })
+  it("baixa a caixa do cadastro gritado", () => {
+    expect(formatarInstagram("MOREIRAMINEIRA")).toBe("@moreiramineira")
+  })
+  it("não duplica arroba já existente", () => {
+    expect(formatarInstagram("@ju.prado")).toBe("@ju.prado")
+    expect(formatarInstagram("@@ju")).toBe("@ju")
+  })
+  it("devolve nulo quando não há instagram", () => {
+    expect(formatarInstagram(null)).toBeNull()
+    expect(formatarInstagram("   ")).toBeNull()
+  })
+})
+
+describe("totalDaSacola", () => {
+  const itens = [
+    { nome: "Vestido", preco: 50, quantidade: 1 },
+    { nome: "Vestido Rosa", preco: 35, quantidade: 1 },
+  ]
+  it("usa o valor da compra quando ele existe", () => {
+    expect(totalDaSacola(85, itens)).toBe(85)
+  })
+  it("cai na soma das peças quando a compra está zerada", () => {
+    expect(totalDaSacola(0, itens)).toBe(85)
+  })
+  it("multiplica pela quantidade", () => {
+    expect(totalDaSacola(0, [{ nome: "Body", preco: 39.9, quantidade: 2 }])).toBe(79.8)
+  })
+  it("zero continua zero quando não há peça com preço", () => {
+    expect(totalDaSacola(0, [{ nome: "Brinde", preco: 0 }])).toBe(0)
+  })
+  it("sinaliza a divergência para a tela avisar", () => {
+    expect(totalDivergente(0, itens)).toBe(true)
+    expect(totalDivergente(85, itens)).toBe(false)
+    expect(totalDivergente(0, [])).toBe(false)
   })
 })

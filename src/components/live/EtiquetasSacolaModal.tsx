@@ -27,6 +27,8 @@ import { useEscClose } from "@/lib/useEscClose"
 
 interface SacolaResposta extends SacolaEtiqueta {
   impressaEm: string | null
+  /** Compra gravada com total zerado apesar de ter itens com preço. */
+  totalDivergente?: boolean
 }
 
 interface RespostaEtiquetas {
@@ -73,6 +75,16 @@ export default function EtiquetasSacolaModal({
 
   const jaImpressas = (data?.sacolas ?? []).filter((s) => s.impressaEm).length
   const excedentes = useMemo(() => sacolas.filter(excedeEtiquetaInteira), [sacolas])
+  const divergentes = useMemo(() => sacolas.filter(s => s.totalDivergente), [sacolas])
+  // Dois blocos com o mesmo numerão na bancada é confusão garantida.
+  const numerosRepetidos = useMemo(() => {
+    const contagem = new Map<string, number>()
+    for (const s of sacolas) {
+      if (!s.numeroSacola) continue
+      contagem.set(s.numeroSacola, (contagem.get(s.numeroSacola) ?? 0) + 1)
+    }
+    return [...contagem.entries()].filter(([, n]) => n > 1).map(([n]) => n)
+  }, [sacolas])
 
   const marcar = useMutation({
     mutationFn: (ids: number[]) =>
@@ -253,6 +265,20 @@ export default function EtiquetasSacolaModal({
                 chave="excedentes"
                 texto={`${excedentes.length} sacola${excedentes.length === 1 ? "" : "s"} com itens demais para uma etiqueta.`}
                 detalhe={`Sacola${excedentes.length === 1 ? "" : "s"} ${excedentes.map(s => s.numeroSacola ?? "?").join(", ")} — a lista vai passar do papel. Vale conferir antes de imprimir.`}
+              />
+            )}
+            {!isLoading && divergentes.length > 0 && (
+              <Aviso
+                chave="divergentes"
+                texto={`${divergentes.length} sacola${divergentes.length === 1 ? "" : "s"} com o total da compra zerado.`}
+                detalhe={`Sacola${divergentes.length === 1 ? "" : "s"} ${divergentes.map(s => s.numeroSacola ?? "?").join(", ")} — a etiqueta está imprimindo a soma das peças para não sair "R$ 0,00" embaixo de uma lista com preço. Vale conferir o valor da compra.`}
+              />
+            )}
+            {!isLoading && numerosRepetidos.length > 0 && (
+              <Aviso
+                chave="repetidos"
+                texto={`Número de sacola repetido: ${numerosRepetidos.join(", ")}.`}
+                detalhe="Duas sacolas diferentes vão sair com o mesmo número grande, e na bancada não tem como diferenciar. Vale renumerar antes de imprimir."
               />
             )}
             {erroExport && (

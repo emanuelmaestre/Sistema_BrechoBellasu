@@ -178,6 +178,44 @@ export function montarEnderecoCliente(e: EnderecoBruto): string {
   return partes.filter(Boolean).join(" - ")
 }
 
+/**
+ * Arroba da cliente como sai na etiqueta.
+ *
+ * O cadastro guarda o usuário cru e em caixa variada ("MOREIRAMINEIRA",
+ * "brecho.pri24"). Na etiqueta ele precisa do @ para se distinguir do
+ * resto da linha, e em minúscula porque arroba do Instagram não tem
+ * caixa — impressa em maiúscula vira grito.
+ */
+export function formatarInstagram(bruto?: string | null): string | null {
+  const limpo = (bruto ?? "").trim().replace(/^@+/, "")
+  return limpo ? `@${limpo.toLocaleLowerCase("pt-BR")}` : null
+}
+
+/** Soma dos produtos da sacola, usada quando o total da compra não bate. */
+export function somarProdutos(produtos: ProdutoEtiqueta[]): number {
+  return produtos.reduce((s, p) => s + (p.preco ?? 0) * (p.quantidade ?? 1), 0)
+}
+
+/**
+ * Total impresso na etiqueta.
+ *
+ * O valor da compra manda. Mas existem compras gravadas com valor_total
+ * zerado e produtos vinculados com preço — nesse caso imprimir "R$ 0,00"
+ * embaixo de uma lista de peças que somam oitenta reais engana a cliente
+ * na cara dela. Quando o líquido é zero e os itens não são, vale a soma
+ * dos itens, e a tela avisa a divergência.
+ */
+export function totalDaSacola(liquido: number, produtos: ProdutoEtiqueta[]): number {
+  if (liquido > 0) return liquido
+  return somarProdutos(produtos)
+}
+
+/** Total da compra e soma dos itens discordam? A tela precisa avisar. */
+export function totalDivergente(liquido: number, produtos: ProdutoEtiqueta[]): boolean {
+  const soma = somarProdutos(produtos)
+  return soma > 0 && liquido <= 0
+}
+
 /** Descrição do produto como sai na etiqueta: peça, cor e tamanho. */
 export function descreverProduto(p: ProdutoEtiqueta): string {
   const detalhes = [p.cor, p.tamanho].map((d) => (d ?? "").trim()).filter(Boolean)

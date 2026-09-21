@@ -10,6 +10,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyAuth } from "@/lib/auth"
 import { createServerClient } from "@/lib/supabase"
+import {
+  formatarInstagram, totalDaSacola, totalDivergente, capitalizarNome,
+  type ProdutoEtiqueta,
+} from "@/lib/etiqueta-sacola"
 
 export const dynamic = "force-dynamic"
 
@@ -75,11 +79,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .in("compra_id", compraIds)
     .order("id")
 
-  const produtosPorCompra = new Map<number, Array<Record<string, unknown>>>()
+  const produtosPorCompra = new Map<number, ProdutoEtiqueta[]>()
   for (const p of produtosRaw ?? []) {
     const chave = p.compra_id as number
     const prod = p.produtos as { cor?: string | null; tamanho?: string | null } | null
-    const linha = {
+    const linha: ProdutoEtiqueta = {
       nome: String(p.nome_produto ?? ""),
       cor: (p.cor ?? prod?.cor ?? null) as string | null,
       tamanho: (prod?.tamanho ?? null) as string | null,
@@ -106,6 +110,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const sacolas = lista.map((c) => {
     const cliente = typeof c.cliente_id === "number" ? clientesPorId.get(c.cliente_id) ?? null : null
+    const produtos = produtosPorCompra.get(c.id as number) ?? []
     const valorTotal = parseFloat(String(c.valor_total ?? 0))
     const desconto = parseFloat(String(c.desconto ?? 0))
     const credito = parseFloat(String(c.credito_aplicado ?? 0))
@@ -113,10 +118,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       compraId: c.id as number,
       numeroSacola: (c.numero_sacola ?? null) as string | null,
       nomeCliente: ((cliente?.nome as string | null) ?? c.nome_cliente ?? "") as string,
-      instagram: (cliente?.instagram ?? null) as string | null,
+      instagram: formatarInstagram(cliente?.instagram as string | null),
       dataLive: (live.data_live ?? null) as string | null,
-      produtos: produtosPorCompra.get(c.id as number) ?? [],
-      total: Math.max(0, valorTotal - desconto - credito),
+      produtos,
+      total: totalDaSacola(Math.max(0, valorTotal - desconto - credito), produtos),
+      totalDivergente: totalDivergente(Math.max(0, valorTotal - desconto - credito), produtos),
       endereco: enderecoDoCliente(cliente),
       impressaEm: (c.etiqueta_impressa_em ?? null) as string | null,
     }
@@ -130,13 +136,16 @@ async function lerLoja(sb: ReturnType<typeof createServerClient>) {
   const { data } = await sb
     .from("configuracoes").select("valor").eq("chave", "empresa").maybeSingle()
   const v = (data?.valor ?? {}) as Record<string, string | undefined>
+  // A configuração guarda o nome em `nome_fantasia`, e o endereço todo
+  // em caixa alta ("R. BARÃO DO AMAZONAS"). Na etiqueta isso vira grito
+  // e come largura — normaliza igual ao endereço da cliente.
   return {
-    nome: v.nome ?? "Brechó Bellasu",
-    logradouro: v.logradouro ?? "",
-    numero: v.numero ?? "",
-    bairro: v.bairro ?? "",
-    cidade: v.cidade ?? "",
-    estado: v.estado ?? "",
+    nome: capitalizarNome(v.nome_fantasia ?? v.nome ?? v.razao_social ?? "Brechó Bellasu"),
+    logradouro: capitalizarNome(v.logradouro ?? ""),
+    numero: (v.numero ?? "").trim(),
+    bairro: capitalizarNome(v.bairro ?? ""),
+    cidade: capitalizarNome(v.cidade ?? ""),
+    estado: (v.estado ?? "").trim().toUpperCase(),
   }
 }
 
