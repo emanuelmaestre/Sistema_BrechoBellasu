@@ -153,9 +153,9 @@ function ModalUsuario({
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { label: "Vendas",      ok: ["admin","operador","vendedor"] },
-                { label: "Clientes",    ok: ["admin","operador","vendedor"] },
-                { label: "Produtos",    ok: ["admin","operador"] },
+                { label: "Vendas",      ok: ["admin","operador","vendedor","caixa"] },
+                { label: "Clientes",    ok: ["admin","operador","vendedor","caixa"] },
+                { label: "Produtos",    ok: ["admin","operador","estoque"] },
                 { label: "Financeiro",  ok: ["admin"] },
                 { label: "Relatórios",  ok: ["admin"] },
                 { label: "Etiquetas",   ok: ["admin","operador"] },
