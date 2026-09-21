@@ -93,7 +93,8 @@ export async function DELETE(
   const creditoAplicado = parseFloat(String(compra.credito_aplicado ?? 0))
   if (creditoAplicado > 0 && compra.cliente_id) {
     try {
-      await sb.rpc("fn_credito_entrada", {
+      // O supabase-js não lança: a falha vem em { error }.
+      const { error: errRpc } = await sb.rpc("fn_credito_entrada", {
         p_cliente_id: compra.cliente_id,
         p_valor:      creditoAplicado,
         p_origem:     "ajuste",
@@ -102,6 +103,7 @@ export async function DELETE(
         p_op_tipo:    "venda",
         p_user_id:    null,
       })
+      if (errRpc) throw errRpc
     } catch (errCredito) {
       console.error("[DELETE compra] erro ao estornar crédito:", errCredito)
       return NextResponse.json({ erro: "Não foi possível estornar o crédito da cliente. Compra não excluída." }, { status: 500 })
@@ -118,9 +120,13 @@ export async function DELETE(
     if (!item.produto_id || !item.estoque_baixado) continue
     const { data: prod } = await sb.from("produtos").select("estoque_atual").eq("id", item.produto_id).single()
     if (prod) {
-      await sb.from("produtos").update({
+      const { error: errEstoque } = await sb.from("produtos").update({
         estoque_atual: (prod.estoque_atual ?? 0) + (item.quantidade ?? 1),
       }).eq("id", item.produto_id)
+      if (errEstoque) {
+        console.error("[DELETE compra] erro ao devolver estoque:", errEstoque)
+        return NextResponse.json({ erro: "Não foi possível devolver o estoque dos produtos. Compra não excluída." }, { status: 500 })
+      }
     }
   }
 

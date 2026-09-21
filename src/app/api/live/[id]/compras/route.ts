@@ -25,6 +25,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json()
 
     const sb = createServerClient()
+
+    const liveId = parseInt(id)
+    if (!Number.isInteger(liveId) || liveId <= 0) {
+      return NextResponse.json({ erro: "Live inválida." }, { status: 400 })
+    }
+    const { data: live } = await sb.from("lives").select("id").eq("id", liveId).maybeSingle()
+    if (!live) return NextResponse.json({ erro: "Live não encontrada." }, { status: 404 })
+
     const useCase = new RegistrarCompraLiveUseCase(
       new LiveCompraRepositorySupabase(sb),
     )
@@ -69,7 +77,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Deduz crédito do saldo da cliente atomicamente (após persistir a compra)
     if (creditoAplicado > 0 && clienteId) {
       try {
-        await sb.rpc("fn_credito_saida", {
+        // O supabase-js não lança: a falha vem em { error }.
+        const { error: errRpc } = await sb.rpc("fn_credito_saida", {
           p_cliente_id: clienteId,
           p_valor:      creditoAplicado,
           p_origem:     "venda",
@@ -78,6 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           p_op_tipo:    "venda",
           p_user_id:    null,
         })
+        if (errRpc) throw errRpc
       } catch (errCredito) {
         // Log mas não reverte a compra — o crédito pode ser ajustado manualmente
         console.error("[compras] erro ao deduzir crédito:", errCredito)

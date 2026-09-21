@@ -17,8 +17,7 @@
   "profiles": [
     "admin",
     "operador",
-    "caixa",
-    "estoque"
+    "vendedor"
   ],
   "taxRegimes": [
     "MEI",

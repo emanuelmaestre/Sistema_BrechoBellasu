@@ -2,8 +2,11 @@
 import { createServerClient } from "@/lib/supabase"
 import { withAdminAuth } from "@/lib/with-auth"
 import bcrypt from "bcryptjs"
+import businessData from "@/data/config/business.json"
 
 export const dynamic = "force-dynamic"
+
+const PERFIS_VALIDOS: string[] = businessData.profiles
 
 export const GET = withAdminAuth(async () => {
   const sb = createServerClient()
@@ -17,11 +20,14 @@ export const GET = withAdminAuth(async () => {
 })
 
 export const POST = withAdminAuth(async (req: NextRequest) => {
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { nome, email, senha, perfil = "operador" } = body
 
   if (!nome || !email || !senha) {
     return NextResponse.json({ erro: "Nome, e-mail e senha são obrigatórios." }, { status: 400 })
+  }
+  if (!PERFIS_VALIDOS.includes(perfil)) {
+    return NextResponse.json({ erro: `Perfil inválido. Use: ${PERFIS_VALIDOS.join(", ")}.` }, { status: 400 })
   }
 
   const hash = await bcrypt.hash(senha, 10)
