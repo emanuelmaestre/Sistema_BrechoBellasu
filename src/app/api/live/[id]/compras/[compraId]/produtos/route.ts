@@ -58,52 +58,13 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { compraId } = await params
   const body = await req.json()
-  const { produto_id, quantidade, preco_original, preco_live } = body
+  const { quantidade, preco_original, preco_live } = body
   const nome_produto = sanitizarTexto(body.nome_produto)
   const cor          = sanitizarTexto(body.cor)
 
   if (!nome_produto) return NextResponse.json({ erro: "Nome do produto obrigatório." }, { status: 400 })
 
   const sb = createServerClient()
-
-  // Produtos sem controle de estoque (ex.: código 0) são genéricos: podem ir
-  // para quantas clientes quiser, então não valem nem duplicidade nem estoque.
-  let produto: { estoque_atual: number | null; controlar_estoque: boolean | null; nome: string | null } | null = null
-  if (produto_id) {
-    const { data } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", produto_id).single()
-    produto = data
-  }
-  const controlaEstoque = produto ? produto.controlar_estoque !== false : true
-
-  // Impede produto duplicado em outra compra da mesma live
-  if (produto_id && controlaEstoque) {
-    const compra = await sb.from("live_compras").select("live_id").eq("id", parseInt(compraId)).single()
-    if (compra.data?.live_id) {
-      const { data: jaVinculado } = await sb
-        .from("live_compra_produtos")
-        .select("id, compra_id")
-        .eq("produto_id", produto_id)
-        .neq("compra_id", parseInt(compraId))
-
-      if (jaVinculado && jaVinculado.length > 0) {
-        // verifica se está na mesma live
-        const compraIds = jaVinculado.map(r => r.compra_id)
-        const { data: comprasLive } = await sb
-          .from("live_compras")
-          .select("id")
-          .eq("live_id", compra.data.live_id)
-          .in("id", compraIds)
-        if (comprasLive && comprasLive.length > 0) {
-          return NextResponse.json({ erro: "Este produto já está vinculado em outra compra desta live." }, { status: 409 })
-        }
-      }
-    }
-  }
-
-  // Verifica estoque disponível (apenas se o produto controla estoque)
-  if (produto && controlaEstoque && (produto.estoque_atual ?? 0) < (quantidade ?? 1)) {
-    return NextResponse.json({ erro: `Estoque insuficiente para "${produto.nome}". Disponível: ${produto.estoque_atual ?? 0}` }, { status: 422 })
-  }
 
   // Valida limites de quantidade e valor da compra
   {
@@ -140,27 +101,20 @@ export async function POST(req: NextRequest, { params }: Params) {
   const precoLv = preco_live ?? preco_original ?? 0
   const { data: item, error } = await sb.from("live_compra_produtos").insert({
     compra_id: compraIdNum,
-    produto_id: produto_id ?? null,
+    produto_id: null,
     nome_produto,
     cor,
     quantidade: qtd,
     preco_original: precoOrig,
     preco_live: precoLv,
+    // Sem controle de estoque: a peça já nasce "conferida", senão a compra
+    // nunca chegaria a finalizada (status e finalização exigem esse flag).
+    estoque_baixado: true,
   }).select().single()
 
   if (error) {
     console.error("[POST produtos]", error.message)
     return NextResponse.json({ erro: `Erro ao vincular produto: ${error.message}` }, { status: 500 })
-  }
-
-  // Baixa no estoque (atualização manual em estoque_atual)
-  if (produto_id) {
-    const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque").eq("id", produto_id).single()
-    if (prod && prod.controlar_estoque !== false) {
-      await sb.from("produtos").update({ estoque_atual: Math.max(0, (prod.estoque_atual ?? 0) - (quantidade ?? 1)) }).eq("id", produto_id)
-    }
-    // Marca estoque baixado
-    await sb.from("live_compra_produtos").update({ estoque_baixado: true }).eq("id", item.id)
   }
 
   // Atualiza status_compra da compra
@@ -234,21 +188,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
-  // Ajusta estoque pela diferença de quantidade (só se este item já baixou estoque)
-  if (item.produto_id && item.estoque_baixado) {
-    const delta = novaQtd - Number(item.quantidade ?? 1)  // > 0 = precisa baixar mais; < 0 = devolve
-    if (delta !== 0) {
-      const { data: prod } = await sb.from("produtos").select("estoque_atual, controlar_estoque, nome").eq("id", item.produto_id).single()
-      if (prod && prod.controlar_estoque !== false) {
-        const novoEstoque = (prod.estoque_atual ?? 0) - delta
-        if (novoEstoque < 0) {
-          return NextResponse.json({ erro: `Estoque insuficiente para "${prod.nome}". Disponível: ${prod.estoque_atual ?? 0}` }, { status: 422 })
-        }
-        await sb.from("produtos").update({ estoque_atual: novoEstoque }).eq("id", item.produto_id)
-      }
-    }
-  }
-
   const { error } = await sb.from("live_compra_produtos").update({
     quantidade: novaQtd,
     preco_original: novoOrig,
@@ -273,15 +212,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (!produtoItemId) return NextResponse.json({ erro: "item_id obrigatório" }, { status: 400 })
 
   const sb = createServerClient()
-
-  // Reverte estoque
-  const { data: item } = await sb.from("live_compra_produtos").select("*").eq("id", parseInt(produtoItemId)).single()
-  if (item?.produto_id && item.estoque_baixado) {
-    const { data: prod } = await sb.from("produtos").select("estoque_atual").eq("id", item.produto_id).single()
-    if (prod) {
-      await sb.from("produtos").update({ estoque_atual: (prod.estoque_atual ?? 0) + (item.quantidade ?? 1) }).eq("id", item.produto_id)
-    }
-  }
 
   const { error } = await sb.from("live_compra_produtos").delete().eq("id", parseInt(produtoItemId))
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })

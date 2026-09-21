@@ -4,8 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
-  ShoppingCart, Users, Package, Wallet, RefreshCw,
-  BarChart2, Radio, Globe, Settings, LogOut,
+  ShoppingCart, Users, Radio, Globe, Settings, LogOut,
   ChevronLeft, Menu, Tag,
 } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -17,10 +16,6 @@ import navigationData from "@/data/ui/navigation.json"
 const NAV_ICONS: Record<string, React.ElementType> = {
   "/vendas": ShoppingCart,
   "/clientes": Users,
-  "/produtos": Package,
-  "/financeiro": Wallet,
-  "/trocas": RefreshCw,
-  "/relatorios": BarChart2,
   "/live": Radio,
   "/etiquetas": Tag,
   "/site": Globe,

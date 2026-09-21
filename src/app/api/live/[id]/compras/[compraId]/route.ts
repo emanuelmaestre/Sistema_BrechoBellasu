@@ -110,26 +110,6 @@ export async function DELETE(
     }
   }
 
-  // Estorna o estoque dos produtos vinculados antes de excluir a compra.
-  // A FK live_compra_produtos.compra_id tem ON DELETE CASCADE — os vínculos
-  // seriam apagados pelo banco silenciosamente, sem devolver o estoque.
-  const { data: itensVinculados } = await sb.from("live_compra_produtos")
-    .select("produto_id, quantidade, estoque_baixado")
-    .eq("compra_id", parseInt(compraId))
-  for (const item of itensVinculados ?? []) {
-    if (!item.produto_id || !item.estoque_baixado) continue
-    const { data: prod } = await sb.from("produtos").select("estoque_atual").eq("id", item.produto_id).single()
-    if (prod) {
-      const { error: errEstoque } = await sb.from("produtos").update({
-        estoque_atual: (prod.estoque_atual ?? 0) + (item.quantidade ?? 1),
-      }).eq("id", item.produto_id)
-      if (errEstoque) {
-        console.error("[DELETE compra] erro ao devolver estoque:", errEstoque)
-        return NextResponse.json({ erro: "Não foi possível devolver o estoque dos produtos. Compra não excluída." }, { status: 500 })
-      }
-    }
-  }
-
   const { error } = await sb.from("live_compras").delete().eq("id", parseInt(compraId))
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

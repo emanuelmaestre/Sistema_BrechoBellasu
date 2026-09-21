@@ -10,11 +10,11 @@ describe("calcularStatusCompra", () => {
   it("vinculo_parcial quando vinculou menos que o esperado", () => {
     expect(calcularStatusCompra(3, [v(1, true)])).toBe("vinculo_parcial")
   })
-  it("finalizada quando vinculou tudo e baixou tudo (auto-finaliza)", () => {
+  it("finalizada quando vinculou tudo (auto-finaliza)", () => {
     expect(calcularStatusCompra(2, [v(1, true), v(1, true)])).toBe("finalizada")
   })
-  it("vinculo_parcial quando vinculou mas não baixou tudo", () => {
-    expect(calcularStatusCompra(2, [v(2, false)])).toBe("vinculo_parcial")
+  it("finalizada mesmo sem baixa de estoque (estoque não é mais controlado)", () => {
+    expect(calcularStatusCompra(2, [v(2, false)])).toBe("finalizada")
   })
 })
 
@@ -30,7 +30,7 @@ describe("validarFinalizacao", () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error.code).toBe("FINALIZACAO_INVALIDA")
   })
-  it("recusa quando nem tudo foi baixado", () => {
-    expect(validarFinalizacao(2, [v(2, false)]).ok).toBe(false)
+  it("aceita sem baixa de estoque (estoque não é mais controlado)", () => {
+    expect(validarFinalizacao(2, [v(2, false)]).ok).toBe(true)
   })
 })

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { CriarVendaUseCase } from "./criar-venda.use-case"
-import type { IVendaRepository, EstoqueReader, VendaPersistida } from "./ports"
+import type { IVendaRepository, VendaPersistida } from "./ports"
 import type { Venda } from "@/domain/vendas/venda"
 
 // ── Fakes in-memory: provam que o use case é testável sem banco ──
@@ -16,21 +16,14 @@ class FakeVendaRepository implements IVendaRepository {
   }
 }
 
-class FakeEstoqueReader implements EstoqueReader {
-  constructor(private readonly mapa: Record<number, number | null>) {}
-  async disponivel(produtoId: number): Promise<number | null> {
-    return produtoId in this.mapa ? this.mapa[produtoId] : null
-  }
-}
-
 describe("CriarVendaUseCase", () => {
-  it("cria a venda quando há estoque suficiente", async () => {
+  it("cria a venda com os itens digitados", async () => {
     const repo = new FakeVendaRepository()
-    const uc = new CriarVendaUseCase(repo, new FakeEstoqueReader({ 1: 10 }))
+    const uc = new CriarVendaUseCase(repo)
 
     const r = await uc.execute({
       vendedorId: 1,
-      itens: [{ produtoId: 1, nome: "Camiseta", quantidade: 2, precoUnitario: 19.9 }],
+      itens: [{ produtoId: null, nome: "Camiseta", quantidade: 2, precoUnitario: 19.9 }],
     })
 
     expect(r.ok).toBe(true)
@@ -41,35 +34,9 @@ describe("CriarVendaUseCase", () => {
     expect(repo.ultimaVenda).not.toBeNull()
   })
 
-  it("bloqueia quando o estoque é insuficiente (e não persiste)", async () => {
-    const repo = new FakeVendaRepository()
-    const uc = new CriarVendaUseCase(repo, new FakeEstoqueReader({ 1: 1 }))
-
-    const r = await uc.execute({
-      vendedorId: 1,
-      itens: [{ produtoId: 1, nome: "Camiseta", quantidade: 5, precoUnitario: 19.9 }],
-    })
-
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error.code).toBe("ESTOQUE_INSUFICIENTE")
-    expect(repo.ultimaVenda).toBeNull()
-  })
-
-  it("não valida estoque de item sem produtoId (produto avulso)", async () => {
-    const repo = new FakeVendaRepository()
-    const uc = new CriarVendaUseCase(repo, new FakeEstoqueReader({}))
-
-    const r = await uc.execute({
-      vendedorId: 1,
-      itens: [{ produtoId: null, nome: "Avulso", quantidade: 99, precoUnitario: 5 }],
-    })
-
-    expect(r.ok).toBe(true)
-  })
-
   it("propaga erro de domínio sem chamar o repositório", async () => {
     const repo = new FakeVendaRepository()
-    const uc = new CriarVendaUseCase(repo, new FakeEstoqueReader({}))
+    const uc = new CriarVendaUseCase(repo)
 
     const r = await uc.execute({ vendedorId: 1, itens: [] })
 

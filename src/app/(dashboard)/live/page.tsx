@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import {
   Plus, Loader2, X, ChevronLeft, ArrowRight, Radio, Send,
-  Check, Search, ShoppingBag, Package,
+  Check, ShoppingBag, Package,
   AlertTriangle, AlertCircle, CheckCircle2, Link2, Trash2, ChevronRight,
   Clock, Circle, Ban, RefreshCw, TrendingUp, Users,
   MessageSquare, PackageCheck, Lock, Pencil, Save, MessageCircle, Camera as CameraIcon, ShieldAlert, Flag, Undo2, ChevronDown,
@@ -38,7 +38,7 @@ import EtiquetasSacolaModal from "@/components/live/EtiquetasSacolaModal"
 import liveUiData from "@/data/ui/live.json"
 import productData from "@/data/catalog/products.json"
 
-// Mesma paleta da tela de produtos — a bolinha colorida é o que diferencia
+// Paleta de cores das peças — a bolinha colorida é o que diferencia
 // peças genéricas de relance na hora de separar a sacola.
 const CORES_PECA: { nome: string; hex: string }[] = productData.colors
 
@@ -238,7 +238,7 @@ const STATUS_COMPRA: Record<string, { label: string; cor: string; bg: string; ic
 const ETAPAS_LIVE = liveUiData.stages
 
 function calcEtapa(live: LiveDetalhe): number {
-  // Etapas visuais: 1=CRIADA 2=COMPRAS 3=MENSAGENS 4=PRODUTOS 5=ESTOQUE 6=ENCERRADA
+  // Etapas visuais: 1=CRIADA 2=COMPRAS 3=MENSAGENS 4=PRODUTOS 5=FINALIZAÇÃO 6=ENCERRADA
   if (live.status === "encerrada") return 6
   const compras = live.compras ?? []
   if (!compras.length) return 2                                                          // sem compras → ir para COMPRAS
@@ -247,7 +247,7 @@ function calcEtapa(live: LiveDetalhe): number {
   const todasVinculadas = compras.every(c => c.status_compra === "vinculada" || c.status_compra === "finalizada" || c.status_compra === "retirada")
   if (!todasVinculadas) return 4                                                         // msgs ok → ir para PRODUTOS
   const todasFinalizadas = compras.every(c => c.status_compra === "finalizada" || c.status_compra === "retirada")
-  if (!todasFinalizadas) return 5                                                        // vinculadas → ir para ESTOQUE
+  if (!todasFinalizadas) return 5                                                        // vinculadas → ir para FINALIZAÇÃO
   return 5                                                                               // tudo ok → pronto para encerrar
 }
 
@@ -1189,14 +1189,11 @@ function SeletorCor({ valor, onChange }: { valor: string; onChange: (v: string) 
 function ModalVinculo({
   liveId, compra, onClose, onAtualizado,
 }: { liveId: number; compra: Compra; onClose: () => void; onAtualizado: () => void }) {
-  const [busca,   setBusca]   = useState("")
-  const [prodRes, setProdRes] = useState<Array<{ id: number; nome: string; codigo?: string | null; preco_venda?: number; estoque_atual?: number; cor?: string | null; controlar_estoque?: boolean | null }>>([])
-  const [form,    setForm]    = useState({ produto_id: 0, nome_produto: "", nome_catalogo: "", codigo_produto: "", cor: "", quantidade: "", preco_original: "", preco_live: "", generico: false })
+  const [form,    setForm]    = useState({ nome_produto: "", cor: "", quantidade: "1", preco_original: "", preco_live: "" })
   const [saving,  setSaving]  = useState(false)
   const [erro,    setErro]    = useState("")
   const [finalizando, setFin] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [searchFocus, setSearchFocus] = useState(false)
   const [editandoId, setEditandoId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({ nome_produto: "", cor: "", quantidade: "", preco_live: "" })
   const [editSaving, setEditSaving] = useState(false)
@@ -1213,7 +1210,7 @@ function ModalVinculo({
   const totalVinculado = (produtos ?? []).reduce((s, p) => s + p.quantidade, 0)
   const qtdEsperada = compra.quantidade_itens ?? 0
   const progresso = qtdEsperada > 0 ? Math.min(100, (totalVinculado / qtdEsperada) * 100) : 0
-  const podeFinalizar = totalVinculado >= qtdEsperada && (produtos ?? []).every(p => p.estoque_baixado)
+  const podeFinalizar = totalVinculado >= qtdEsperada
 
   // Dispara confete ao atingir 100%
   useEffect(() => {
@@ -1230,47 +1227,21 @@ function ModalVinculo({
     document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn)
   }, [onClose])
 
-  const buscarProdutos = useCallback(async (val: string) => {
-    setBusca(val)
-    // 1 caractere já busca: códigos curtos (ex.: "0") precisam ser encontráveis.
-    if (!val.trim()) { setProdRes([]); return }
-    try {
-      const res = await apiGet<{ data: typeof prodRes }>(`/produtos?busca=${encodeURIComponent(val)}&limit=8`)
-      setProdRes(res.data ?? [])
-    } catch { setProdRes([]) }
-  }, [])
-
-  function selecionarProd(p: typeof prodRes[0]) {
-    const precoNum = Number(p.preco_venda) || 0
-    const preco = precoNum > 0 ? precoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""
-    // Peça genérica (código 0 / sem controle de estoque): o registro é o mesmo
-    // para todas as clientes, então nome e cor precisam ser digitados aqui.
-    // O código "0" também conta: se controlar_estoque vier null no banco, a
-    // comparação estrita falharia e os campos nunca apareceriam.
-    const generico = p.controlar_estoque === false || p.codigo?.trim() === "0"
-    setForm({
-      produto_id: p.id, nome_produto: p.nome, nome_catalogo: p.nome, codigo_produto: p.codigo ?? "",
-      cor: p.cor ?? "", quantidade: "1", preco_original: preco, preco_live: "", generico,
-    })
-    setBusca(p.nome); setProdRes([])
-    // Nome já selecionado: ela digita por cima sem clique nem apagar nada.
-    if (generico) setTimeout(() => nomeRef.current?.select(), 60)
-  }
+  useEffect(() => { nomeRef.current?.focus() }, [])
 
   async function vincular() {
-    if (!form.nome_produto) { setErro("Selecione um produto"); return }
+    if (!form.nome_produto.trim()) { setErro("Digite o nome da peça"); return }
     setSaving(true); setErro("")
     try {
       await apiPost(`/live/${liveId}/compras/${compra.id}/produtos`, {
-        produto_id: form.produto_id || undefined,
         nome_produto: form.nome_produto,
         cor: form.cor || undefined,
         quantidade: parseInt(String(form.quantidade)) || 1,
         preco_original: parseFloat(String(form.preco_original).replace(/\./g, "").replace(",", ".")) || 0,
         preco_live: parseFloat(String(form.preco_live).replace(/\./g, "").replace(",", ".")) || 0,
       })
-      setBusca(""); setProdRes([])
-      setForm({ produto_id: 0, nome_produto: "", nome_catalogo: "", codigo_produto: "", cor: "", quantidade: "", preco_original: "", preco_live: "", generico: false })
+      setForm({ nome_produto: "", cor: "", quantidade: "1", preco_original: "", preco_live: "" })
+      nomeRef.current?.focus()
       refetch(); onAtualizado()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao vincular produto.")
@@ -1321,9 +1292,6 @@ function ModalVinculo({
       setErro(e instanceof Error ? e.message : "Erro ao finalizar.")
     } finally { setFin(false) }
   }
-
-  const nomeAindaGenerico = form.generico && !!form.nome_catalogo
-    && form.nome_produto.trim().toUpperCase() === form.nome_catalogo.trim().toUpperCase()
 
   // Calcula desconto % para mostrar no badge
   function descPct(orig: number, live: number) {
@@ -1651,7 +1619,7 @@ function ModalVinculo({
                       Nenhum produto vinculado
                     </p>
                     <p className="text-[10px] font-medium mt-1" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
-                      Busque e vincule produtos ao lado →
+                      Digite as peças ao lado →
                     </p>
                   </div>
                 </motion.div>
@@ -1686,77 +1654,14 @@ function ModalVinculo({
             <div className="px-4 sm:px-8 py-4 shrink-0 flex items-center gap-2"
               style={{ borderBottom: "1px solid var(--border)" }}>
               <Link2 size={13} style={{ color: "var(--accent)" }}/>
-              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>VINCULAR PRODUTO</p>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>ADICIONAR PEÇA</p>
             </div>
 
             <div className="flex-1 lg:overflow-y-auto drawer-scroll px-4 sm:px-8 py-5 sm:py-6 space-y-4">
-              {/* Busca com animação de borda */}
-              <div className="relative">
-                <motion.div animate={searchFocus ? { scale: 1.01 } : { scale: 1 }} transition={{ duration: 0.15 }}
-                  className="relative">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
-                    style={{ color: searchFocus ? "var(--accent)" : "var(--text-muted)", transition: "color 0.2s" }}/>
-                  <input value={busca} onChange={e => buscarProdutos(e.target.value)}
-                    onFocus={() => setSearchFocus(true)}
-                    onBlur={() => setSearchFocus(false)}
-                    placeholder="Buscar produto..."
-                    className="w-full pl-10 pr-4 py-3.5 text-sm font-semibold rounded-xl outline-none transition-all"
-                    style={{
-                      background: "var(--bg-surface)",
-                      border: `2px solid ${searchFocus ? "var(--accent)" : "var(--border)"}`,
-                      color: "var(--text-primary)",
-                      boxShadow: searchFocus ? "0 0 0 4px var(--accent-bg)" : "none",
-                    }}/>
-                </motion.div>
-                {/* Dropdown de resultados */}
-                <AnimatePresence>
-                  {prodRes.length > 0 && (
-                    <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-full left-0 right-0 mt-1.5 rounded-xl shadow-2xl z-10 overflow-hidden"
-                      style={{ background: "var(--bg-card)", border: "1.5px solid var(--border)" }}>
-                      {prodRes.map((p, i) => (
-                        <motion.button key={p.id} onClick={() => selecionarProd(p)}
-                          initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.04 }}
-                          className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 transition-colors hover:bg-[var(--bg-hover)] group"
-                          style={{ borderBottom: i < prodRes.length - 1 ? "1px solid var(--border)" : "none" }}>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                              style={{ background: "var(--accent-bg)" }}>
-                              <Package size={13} style={{ color: "var(--accent)" }}/>
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-sm font-black uppercase tracking-wide truncate" style={{ color: "var(--text-primary)" }}>{p.nome.toUpperCase()}</span>
-                              {p.codigo && <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{p.codigo}</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[11px] font-bold" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda ?? 0)}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase"
-                              style={{ background: (p.estoque_atual ?? 0) > 0 ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.08)",
-                                color: (p.estoque_atual ?? 0) > 0 ? "#10b981" : "#f87171" }}>
-                              EST {p.estoque_atual ?? 0}
-                            </span>
-                          </div>
-                        </motion.button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Card do produto selecionado.
-                  Gate no produto_id, NUNCA no nome: em peça genérica o nome é
-                  justamente o campo editável, então apagá-lo para redigitar
-                  desmontava o card inteiro e a edição virava impossível. */}
-              <AnimatePresence>
-                {(form.produto_id > 0 || form.nome_produto) && (
-                  <motion.div
+              {/* Formulário da peça — digitada na hora, sem catálogo. */}
+              <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
                     transition={{ type: "spring", stiffness: 380, damping: 28 }}
                     className="rounded-2xl overflow-hidden"
                     style={{ border: "1.5px solid var(--accent)", background: "var(--accent-bg)" }}>
@@ -1770,26 +1675,15 @@ function ModalVinculo({
                       </motion.div>
                       <div className="flex flex-col min-w-0 flex-1">
                         <p className="text-xs font-black uppercase tracking-wide truncate"
-                          style={{ color: "var(--accent)" }}>{form.generico ? "Peça avulsa" : form.nome_produto}</p>
-                        {form.codigo_produto && <p className="text-[10px] font-mono" style={{ color: "var(--accent)", opacity: 0.65 }}>{form.codigo_produto}</p>}
+                          style={{ color: "var(--accent)" }}>Nova peça</p>
                       </div>
-                      {form.generico && (
-                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0"
-                          style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
-                          GENÉRICO
-                        </span>
-                      )}
                     </div>
 
                     {/* Nome e cor da peça — sem isto toda cliente recebe a mesma
                         descrição genérica, inclusive na mensagem do WhatsApp. */}
-                    {form.generico && (
-                      <div className="px-4 pb-3 space-y-2.5">
+                    <div className="px-4 pb-3 space-y-2.5">
                         <div>
                           <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>NOME DA PEÇA</p>
-                          {/* Sem select-all no foco: a seleção inicial já é feita
-                              uma vez ao escolher a peça, e repeti-la a cada clique
-                              impedia posicionar o cursor para corrigir uma letra. */}
                           <input ref={nomeRef} value={form.nome_produto} maxLength={60}
                             onChange={e => setForm(prev => ({ ...prev, nome_produto: e.target.value }))}
                             placeholder="Ex.: Vestido midi floral"
@@ -1800,8 +1694,7 @@ function ModalVinculo({
                           <p className="text-[9px] font-black uppercase tracking-widest mb-1.5" style={{ color: "var(--text-muted)" }}>COR</p>
                           <SeletorCor valor={form.cor} onChange={v => setForm(prev => ({ ...prev, cor: v }))}/>
                         </div>
-                      </div>
-                    )}
+                    </div>
 
                     <div className="px-4 pb-4 grid grid-cols-3 gap-2.5">
                       {/* QTD */}
@@ -1861,24 +1754,7 @@ function ModalVinculo({
                         </motion.div>
                       )
                     })()}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Aviso, nunca bloqueio: se a pressa vencer ela vincula assim
-                  mesmo, mas sabendo que a cliente vai ler esse nome. */}
-              <AnimatePresence>
-                {nomeAindaGenerico && (
-                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="flex items-start gap-3 px-4 py-3 rounded-xl"
-                    style={{ background: "rgba(251,191,36,0.08)", border: "1.5px solid rgba(251,191,36,0.25)" }}>
-                    <AlertCircle size={14} className="shrink-0 mt-0.5" style={{ color: "#fbbf24" }}/>
-                    <p className="text-[11px] font-semibold leading-snug" style={{ color: "#fbbf24" }}>
-                      Nome ainda genérico — é assim que a peça vai aparecer na mensagem da cliente.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              </motion.div>
 
               {/* Erro */}
               <AnimatePresence>
@@ -1911,7 +1787,7 @@ function ModalVinculo({
                       <Link2 size={16}/>
                     </motion.span>
                 }
-                {saving ? "VINCULANDO..." : "VINCULAR PRODUTO"}
+                {saving ? "ADICIONANDO..." : "ADICIONAR PEÇA"}
               </motion.button>
             </div>
           </div>
@@ -2899,7 +2775,7 @@ function TelaLive({ liveId, onVoltar }: { liveId: number; onVoltar: () => void }
       titulo: "Excluir esta live?",
       descricao:
         `${compras.length} compra${compras.length !== 1 ? "s" : ""} ${compras.length !== 1 ? "serão excluídas" : "será excluída"}. ` +
-        `O crédito usado pelas clientes volta para o saldo delas e as peças voltam para o estoque. ` +
+        `O crédito usado pelas clientes volta para o saldo delas. ` +
         `Esta ação não pode ser desfeita.`,
       confirmar: "Excluir live",
       perigo: true,

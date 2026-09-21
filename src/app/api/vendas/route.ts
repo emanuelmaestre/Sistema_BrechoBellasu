@@ -3,7 +3,6 @@ import { createServerClient } from "@/lib/supabase"
 import { withAuth } from "@/lib/with-auth"
 import { CriarVendaUseCase } from "@/application/vendas/criar-venda.use-case"
 import { VendaRepositorySupabase } from "@/infrastructure/repositories/venda.repository"
-import { EstoqueReaderSupabase } from "@/infrastructure/repositories/estoque.reader"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
 
 export const dynamic = "force-dynamic"
@@ -94,10 +93,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
     const itens = (body.itens as ItemInput[] | undefined) ?? []
 
     const sb = createServerClient()
-    const useCase = new CriarVendaUseCase(
-      new VendaRepositorySupabase(sb),
-      new EstoqueReaderSupabase(sb),
-    )
+    const useCase = new CriarVendaUseCase(new VendaRepositorySupabase(sb))
 
     const resultado = await useCase.execute({
       clienteId: body.cliente_id ?? null,

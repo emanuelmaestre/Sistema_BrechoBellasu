@@ -155,9 +155,6 @@ function ModalUsuario({
               {[
                 { label: "Vendas",      ok: ["admin","operador","vendedor","caixa"] },
                 { label: "Clientes",    ok: ["admin","operador","vendedor","caixa"] },
-                { label: "Produtos",    ok: ["admin","operador","estoque"] },
-                { label: "Financeiro",  ok: ["admin"] },
-                { label: "Relatórios",  ok: ["admin"] },
                 { label: "Etiquetas",   ok: ["admin","operador"] },
                 { label: "Configurações",ok:["admin"] },
                 { label: "Usuários",    ok: ["admin"] },
@@ -1876,10 +1873,10 @@ function AbaAlertas() {
       <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">
           <AlertCircle size={16} style={{ color: "#f59e0b" }} />
-          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Alertas Financeiros</h3>
+          <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Alertas do Sistema</h3>
         </div>
         <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-          Números que recebem alertas de contas a vencer via WhatsApp (todo dia às 8h).
+          Números que recebem os avisos do sistema via WhatsApp (ex.: Google desconectado), verificados todo dia às 8h.
         </p>
         <div className="space-y-3">
           <div>

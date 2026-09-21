@@ -4,8 +4,7 @@ import { useState, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
-  ShoppingCart, Users, Package, Wallet, RefreshCw,
-  BarChart2, Radio, Tag, Globe, Settings,
+  ShoppingCart, Users, Radio, Tag, Globe, Settings,
   LogOut, ArrowRight,
 } from "lucide-react"
 import { useAuthStore } from "@/stores/auth.store"
@@ -16,8 +15,7 @@ import navigationData from "@/data/ui/navigation.json"
 // Textos/cores vêm do JSON; os componentes de ícone (não serializáveis)
 // ficam mapeados aqui e são unidos aos dados pelo iconKey.
 const MODULE_ICONS: Record<string, React.ElementType> = {
-  shoppingCart: ShoppingCart, users: Users, package: Package, wallet: Wallet,
-  barChart2: BarChart2, refreshCw: RefreshCw, radio: Radio, tag: Tag,
+  shoppingCart: ShoppingCart, users: Users, radio: Radio, tag: Tag,
   globe: Globe, settings: Settings,
 }
 const LEFT  = navigationData.menuCardsLeft.map(m => ({ ...m, icon: MODULE_ICONS[m.iconKey] }))
@@ -235,18 +233,18 @@ export default function MenuPage() {
                       sm:px-4 sm:py-3 sm:gap-2.5
                       lg:px-6 lg:py-4 lg:gap-3">
 
-        {/* 2 colunas × 5 linhas — flex-1 + min-h-0 garante que preenche sem overflow */}
+        {/* 2 colunas × 3 linhas — flex-1 + min-h-0 garante que preenche sem overflow */}
         <div className="flex-1 min-h-0 grid grid-cols-2 gap-2 sm:gap-2.5 lg:gap-3">
 
           {/* Esquerda */}
-          <div className="grid grid-rows-5 gap-2 sm:gap-2.5 lg:gap-3 min-h-0">
+          <div className="grid grid-rows-3 gap-2 sm:gap-2.5 lg:gap-3 min-h-0">
             {LEFT.map((m, i) => (
               <ModuleCard key={m.href} {...m} delay={0.06 + i * 0.05} onNavigate={handleNavigate} />
             ))}
           </div>
 
           {/* Direita */}
-          <div className="grid grid-rows-5 gap-2 sm:gap-2.5 lg:gap-3 min-h-0">
+          <div className="grid grid-rows-3 gap-2 sm:gap-2.5 lg:gap-3 min-h-0">
             {RIGHT.map((m, i) => (
               <ModuleCard key={m.href} {...m} delay={0.09 + i * 0.05} onNavigate={handleNavigate} />
             ))}

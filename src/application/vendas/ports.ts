@@ -10,16 +10,8 @@ export interface VendaPersistida {
 }
 
 export interface IVendaRepository {
-  /** Persiste a venda atomicamente (venda + itens + baixa de estoque). */
+  /** Persiste a venda atomicamente (venda + itens). */
   criar(venda: Venda): Promise<VendaPersistida>
-  /** Cancela a venda e estorna o estoque. */
+  /** Cancela a venda. */
   cancelar(id: number): Promise<void>
-}
-
-export interface EstoqueReader {
-  /**
-   * Estoque disponível do produto, ou `null` quando o produto não
-   * controla estoque ou não existe (nesse caso não há validação).
-   */
-  disponivel(produtoId: number): Promise<number | null>
 }

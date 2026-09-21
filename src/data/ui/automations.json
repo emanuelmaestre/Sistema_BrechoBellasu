@@ -32,11 +32,11 @@
     },
     {
       "id": "alertas",
-      "grupo": "Financeiro",
-      "nome": "Alertas Financeiros",
+      "grupo": "Sistema",
+      "nome": "Alertas do Sistema",
       "frequencia": "Diário (horário configurável)",
-      "resumo": "Avisa sobre contas a vencer nos próximos dias",
-      "descricao": "O sistema verifica diariamente as contas a pagar com vencimento próximo e envia um aviso pelo WhatsApp para os números configurados em Configurações > Alertas. Você pode configurar até 2 números para receber os alertas.",
+      "resumo": "Avisa por WhatsApp quando a integração com o Google desconecta",
+      "descricao": "O sistema verifica diariamente se a integração com o Google Contatos continua conectada e, se caiu, envia um aviso pelo WhatsApp para os números configurados em Configurações > Alertas. Você pode configurar até 2 números para receber os alertas.",
       "cor": "#ef4444",
       "iconKey": "alertCircle"
     },

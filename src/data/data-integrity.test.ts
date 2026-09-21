@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest"
 import { readdirSync, readFileSync } from "node:fs"
 import { join, relative } from "node:path"
 import products from "./catalog/products.json"
-import exchanges from "./catalog/exchanges.json"
 import calendar from "./ui/calendar.json"
 import liveUi from "./ui/live.json"
 import navigation from "./ui/navigation.json"
@@ -36,12 +35,6 @@ describe("dados JSON do sistema", () => {
     expect(products.categoryKeywords.every((entry) => entry.keywords.length && entry.categories.length)).toBe(true)
   })
 
-  test("motivos de troca e devolução têm tópicos e opções", () => {
-    const groups = [...exchanges.exchangeReasons, ...exchanges.returnReasons]
-    expect(groups.length).toBeGreaterThan(0)
-    expect(groups.every((group) => group.topico && group.emoji && group.cor && group.motivos.length)).toBe(true)
-  })
-
   test("calendário tem conjuntos completos e únicos", () => {
     expect(calendar.weekdays).toHaveLength(7)
     expect(calendar.weekdaysShort).toHaveLength(7)
@@ -59,14 +52,14 @@ describe("dados JSON do sistema", () => {
   })
 
   test("navegação, live e integrações referenciam configurações completas", () => {
-    expect(navigation.sidebar).toHaveLength(10)
+    expect(navigation.sidebar).toHaveLength(6)
     expect(new Set(navigation.sidebar.map((item) => item.href)).size).toBe(navigation.sidebar.length)
     const menuCards = [...navigation.menuCardsLeft, ...navigation.menuCardsRight]
     expect(new Set(menuCards.map((item) => item.href))).toEqual(
       new Set(navigation.sidebar.map((item) => item.href))
     )
     expect(menuCards.every((item) =>
-      ["shoppingCart", "users", "package", "wallet", "refreshCw", "barChart2", "radio", "tag", "globe", "settings"]
+      ["shoppingCart", "users", "radio", "tag", "globe", "settings"]
         .includes(item.iconKey)
     )).toBe(true)
     expect(liveUi.stages.map((stage) => stage.id)).toEqual([1, 2, 3, 4, 5, 6])
@@ -134,7 +127,7 @@ describe("dados JSON do sistema", () => {
       .join("\n")
     const jsonFiles = walkFiles(dataRoot).filter((file) => file.endsWith(".json"))
 
-    expect(jsonFiles.length).toBeGreaterThanOrEqual(28)
+    expect(jsonFiles.length).toBeGreaterThanOrEqual(26)
     for (const file of jsonFiles) {
       expect(() => JSON.parse(readFileSync(file, "utf8"))).not.toThrow()
       const importPath = `@/data/${relative(dataRoot, file).replaceAll("\\", "/")}`

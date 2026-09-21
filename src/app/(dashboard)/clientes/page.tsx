@@ -128,7 +128,6 @@ type CreditoMov = {
 }
 type HistoricoData = {
   vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
-  trocas: { id: number; tipo: string; status: string; motivo: string; created_at: string }[]
   envios: { id: number; created_at: string; rastreio: string; ultimo_status: string }[]
   live_compras: {
     id: number; created_at: string; numero_sacola: number | null
@@ -547,39 +546,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
                 </div>
               )}
 
-              {/* ── TROCAS E DEVOLUÇÕES ── */}
-              {(historico?.trocas ?? []).length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 px-1">
-                    <div className="flex items-center justify-center w-5 h-5 rounded-md" style={{ background: "rgba(251,191,36,0.15)" }}>
-                      <RefreshCw size={11} style={{ color: "#fbbf24" }} />
-                    </div>
-                    <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: "#fbbf24" }}>TROCAS E DEVOLUÇÕES</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>
-                      {historico!.trocas.length}
-                    </span>
-                  </div>
-                  {historico!.trocas.map((t, i) => (
-                    <motion.div key={t.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                      className="flex items-center justify-between px-4 py-3 rounded-xl"
-                      style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.18)" }}>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[11px] font-black uppercase tracking-wide" style={{ color: "#fbbf24" }}>
-                          {t.tipo === "troca" ? "TROCA" : "DEVOLUÇÃO"} #{t.id}
-                        </span>
-                        {t.motivo && <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{t.motivo.toUpperCase()}</span>}
-                        <span className="text-[10px] font-bold" style={{ color: "var(--text-muted)" }}>{new Date(t.created_at).toLocaleDateString("pt-BR")}</span>
-                      </div>
-                      <span className={cn("text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider",
-                        t.status === "concluida" ? "bg-emerald-500/15 text-emerald-400" :
-                        t.status === "cancelada" ? "bg-red-500/15 text-red-400" :
-                        "bg-amber-500/15 text-amber-400"
-                      )}>{t.status.toUpperCase()}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-
               {/* ── ENVIOS ── */}
               {(historico?.envios ?? []).length > 0 && (
                 <div className="flex flex-col gap-2">
@@ -613,7 +579,6 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
               {/* Vazio total */}
               {(historico?.vendas ?? []).length === 0 &&
                (historico?.live_compras ?? []).length === 0 &&
-               (historico?.trocas ?? []).length === 0 &&
                (historico?.envios ?? []).length === 0 && (
                 <p className="text-sm py-8 text-center uppercase font-bold tracking-widest" style={{ color: "var(--text-muted)" }}>NENHUMA MOVIMENTAÇÃO REGISTRADA</p>
               )}

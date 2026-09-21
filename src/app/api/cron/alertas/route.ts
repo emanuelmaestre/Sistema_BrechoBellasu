@@ -20,52 +20,12 @@ export async function GET(req: NextRequest) {
   const authError = requireCronAuth(req)
   if (authError) return authError
 
-  const [financeiro, consentimentoFollowup, google] = await Promise.all([
-    processarAlertasFinanceiros(),
+  const [consentimentoFollowup, google] = await Promise.all([
     processarFollowupConsentimento(),
     verificarConexaoGoogle(),
   ])
 
-  return NextResponse.json({ ok: true, financeiro, consentimento_followup: consentimentoFollowup, google })
-}
-
-async function processarAlertasFinanceiros() {
-  const sb = createServerClient()
-  const hoje = new Date()
-  const em3dias = new Date(hoje)
-  em3dias.setDate(hoje.getDate() + 3)
-  const em3diasStr = em3dias.toISOString().split("T")[0]
-
-  const { data: pagar } = await sb
-    .from("contas_pagar")
-    .select("descricao, valor, vencimento")
-    .eq("status", "pendente")
-    .lte("vencimento", em3diasStr)
-    .order("vencimento")
-
-  if (!pagar?.length) return { contas: 0, numeros: 0, mensagem: "Nenhuma conta a vencer." }
-
-  const { data: configs } = await sb
-    .from("config_alertas")
-    .select("chave, valor")
-    .in("chave", ["alerta_numero_1", "alerta_numero_2"])
-
-  const numeros = (configs ?? []).map(c => c.valor?.trim()).filter(Boolean)
-  if (numeros.length === 0) return { contas: pagar.length, numeros: 0, mensagem: "Sem números de alerta configurados." }
-
-  const lista = pagar.map(c => {
-    const dt = new Date(c.vencimento + "T12:00:00").toLocaleDateString("pt-BR")
-    const val = Number(c.valor).toFixed(2).replace(".", ",")
-    return `  • ${c.descricao} — vence ${dt} — R$ ${val}`
-  }).join("\n")
-
-  const msg = `⚠️ *Alerta Brechó Bellasu*\n\nVocê tem *${pagar.length} conta(s)* vencendo nos próximos 3 dias:\n\n${lista}\n\n📅 ${hoje.toLocaleDateString("pt-BR")}`
-
-  await Promise.allSettled(
-    numeros.map(n => enviarTexto(n, msg, "alerta_financeiro"))
-  )
-
-  return { contas: pagar.length, numeros: numeros.length }
+  return NextResponse.json({ ok: true, consentimento_followup: consentimentoFollowup, google })
 }
 
 async function carregarConfigFollowup(): Promise<ConfigFollowup> {

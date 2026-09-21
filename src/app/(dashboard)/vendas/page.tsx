@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
-import type { Cliente, Produto } from "@/types"
+import type { Cliente } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF, imprimirRecibo } from "@/lib/recibo-pdf"
 import { gerarPixPayload } from "@/lib/pix"
@@ -393,8 +393,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
 
   // Produtos
   const [itens, setItens]     = useState<WizItem[]>([])
-  const [prodBusca, setProdBusca] = useState("")
-  const [prodRes, setProdRes]     = useState<Produto[]>([])
+  const [prodNome, setProdNome]   = useState("")
+  const [prodPreco, setProdPreco] = useState("")
 
   // Pagamento
   const [formas, setFormas]   = useState<string[]>(["Dinheiro"])
@@ -427,16 +427,6 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
     } catch { setCliRes([]) }
   }, [])
 
-  const buscarProdutos = useCallback(async (val: string) => {
-    setProdBusca(val)
-    // 1 caractere já busca: códigos curtos (ex.: "0") precisam ser encontráveis.
-    if (!val.trim()) { setProdRes([]); return }
-    try {
-      const res = await apiGet<{ data: Produto[] }>(`/produtos?busca=${encodeURIComponent(val)}&limit=8`)
-      setProdRes(res.data ?? [])
-    } catch { setProdRes([]) }
-  }, [])
-
   function selecionarCliente(c: Cliente) {
     setClienteId(c.id); setClienteNome(c.nome)
     setClienteCelular((c as Cliente & { celular?: string | null }).celular ?? null)
@@ -444,16 +434,14 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
     setCliBusca(c.nome); setCliRes([])
   }
 
-  function adicionarProduto(p: Produto) {
-    setItens(prev => [...prev, { produto_id: p.id, nome_produto: p.nome, codigo_produto: (p as { codigo?: string | null }).codigo ?? null, quantidade: 1, preco_unitario: p.preco_venda ?? 0, marca: (p as { marca?: string }).marca ?? null }])
-    setProdBusca(""); setProdRes([])
+  // Sem catálogo: a peça é digitada na hora do lançamento (produto_id nulo).
+  function adicionarProduto() {
+    const nome = prodNome.trim()
+    if (!nome) return
+    const preco = parseFloat(prodPreco.replace(/\./g, "").replace(",", ".")) || 0
+    setItens(prev => [...prev, { produto_id: null, nome_produto: nome, quantidade: 1, preco_unitario: preco }])
+    setProdNome(""); setProdPreco("")
     setTimeout(() => prodRef.current?.focus(), 50)
-  }
-
-  function adicionarManual() {
-    if (!prodBusca.trim()) return
-    setItens(prev => [...prev, { produto_id: null, nome_produto: prodBusca.trim(), quantidade: 1, preco_unitario: 0 }])
-    setProdBusca(""); setProdRes([])
   }
 
   function removerItem(i: number) { setItens(prev => prev.filter((_, idx) => idx !== i)) }
@@ -463,7 +451,6 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
   }
 
   const { hi: cliHi, onKeyDown: cliDropKeyDown, reset: resetCliHi } = useDropdownKeyNav(cliRes, selecionarCliente)
-  const { hi: prodHi, onKeyDown: prodDropKeyDown, reset: resetProdHi } = useDropdownKeyNav(prodRes, adicionarProduto)
 
   const descontoVal = parseFloat(desconto.replace(",", ".")) || 0
   const totalBruto  = itens.reduce((s, it) => s + it.preco_unitario * it.quantidade, 0)
@@ -629,48 +616,27 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
           {/* Produtos */}
           <div className="flex flex-col lg:flex-1 lg:min-h-0">
             <label className={lSt} style={lCol}>Produtos *</label>
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-              <input ref={prodRef} value={prodBusca}
-                onChange={e => { buscarProdutos(e.target.value); resetProdHi() }}
-                onKeyDown={prodDropKeyDown}
-                placeholder="Buscar produto por nome"
-                className={cn(iBase, "pl-8")} style={iSt} autoComplete="off" />
-            </div>
-            {(prodRes.length > 0 || prodBusca.length >= 2) && (
-              <div className="mt-1 rounded-xl overflow-hidden shadow-lg" style={{ border: "1px solid var(--border)" }}>
-                {prodRes.map((p, idx) => {
-                  const codigo = (p as { codigo?: string | null }).codigo
-                  return (
-                  <button key={p.id} onClick={() => adicionarProduto(p)}
-                    className="w-full px-3 py-2 text-left transition-colors"
-                    style={{ borderBottom: "1px solid var(--border)", background: prodHi === idx ? "var(--accent-bg)" : "transparent" }}
-                    onMouseEnter={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                    onMouseLeave={e => { if (prodHi !== idx) (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium uppercase truncate" style={{ color: prodHi === idx ? "var(--accent)" : "var(--text-primary)" }}>{p.nome}</p>
-                      {codigo && (
-                        <span className="shrink-0 text-[11px] font-mono font-black px-1.5 py-0.5 rounded-md"
-                          style={{ background: "var(--bg-card)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
-                          {codigo}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{fmtBRL(p.preco_venda)} · Estoque: {p.estoque_atual ?? "—"}</p>
-                  </button>
-                  )
-                })}
-                {prodBusca.length >= 2 && (
-                  <button onClick={adicionarManual}
-                    className="w-full px-3 py-2 text-left text-xs font-semibold transition-colors"
-                    style={{ color: COR }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)" }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
-                    + Adicionar &ldquo;{prodBusca}&rdquo; manualmente
-                  </button>
-                )}
+            <div className="flex gap-2">
+              <input ref={prodRef} value={prodNome}
+                onChange={e => setProdNome(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); adicionarProduto() } }}
+                placeholder="Nome da peça"
+                className={cn(iBase, "flex-1 min-w-0")} style={iSt} autoComplete="off" />
+              <div className="relative shrink-0">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] pointer-events-none" style={{ color: "var(--text-muted)" }}>R$</span>
+                <input value={prodPreco}
+                  onChange={e => setProdPreco(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); adicionarProduto() } }}
+                  placeholder="0,00" inputMode="decimal"
+                  className={cn(iBase, "w-24 pl-8")} style={iSt} autoComplete="off" />
               </div>
-            )}
+              <button type="button" onClick={adicionarProduto} disabled={!prodNome.trim()}
+                title="Adicionar peça"
+                className="shrink-0 px-3 rounded-xl text-white disabled:opacity-40 transition-opacity"
+                style={{ background: COR }}>
+                <Plus size={16} />
+              </button>
+            </div>
             {/* Items list */}
             <div className="mt-2 space-y-1.5 overflow-y-auto max-h-[45vh] lg:max-h-none lg:flex-1 lg:min-h-0">
               {itens.length === 0 && (

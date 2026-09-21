@@ -24,9 +24,6 @@ export interface ZAPIResult {
 
 type LogTipo =
   | "recibo_venda"
-  | "troca_aprovada"
-  | "troca_recusada"
-  | "alerta_financeiro"
   | "aviso_live"
   | "rastreio_envio"
   | "status_envio"

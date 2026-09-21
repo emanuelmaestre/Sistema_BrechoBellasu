@@ -4,7 +4,7 @@ import { verifyAuth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-// GET /api/clientes/[id]/historico — Histórico completo: vendas, lives, trocas e envios
+// GET /api/clientes/[id]/historico — Histórico completo: vendas, lives e envios
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = verifyAuth(req)
   if (!auth) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -13,16 +13,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const clienteId = parseInt(id)
   const sb = createServerClient()
 
-  const [vendasRes, trocasRes, enviosRes, liveComprasRes] = await Promise.all([
+  const [vendasRes, enviosRes, liveComprasRes] = await Promise.all([
     // Vendas PDV
     sb.from("vendas")
       .select("id, created_at, total, forma_pagamento, status, desconto, obs")
-      .eq("cliente_id", clienteId)
-      .order("created_at", { ascending: false }),
-
-    // Trocas / devoluções
-    sb.from("trocas")
-      .select("id, tipo, status, motivo, created_at, venda_id")
       .eq("cliente_id", clienteId)
       .order("created_at", { ascending: false }),
 
@@ -45,7 +39,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   ])
 
   const vendas = vendasRes.data ?? []
-  const trocas = trocasRes.data ?? []
   const envios = (enviosRes.data ?? []).map(e => ({
     id: e.id,
     created_at: e.created_at,
@@ -119,7 +112,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({
     vendas: vendasFormatadas,
-    trocas,
     envios,
     live_compras: liveCompras,
     total_gasto: totalVendas + totalLives,
