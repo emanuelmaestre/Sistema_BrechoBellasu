@@ -16,10 +16,3 @@ export function descontoPct(original: number, praticado: number): number {
   if (!original || !praticado || praticado >= original) return 0
   return Math.round((1 - praticado / original) * 100)
 }
-
-/** Nome que vai para a venda/recibo: "VESTIDO MIDI - AZUL" quando há cor. */
-export function nomeComCor(nome: string, cor: string): string {
-  const n = nome.trim().replace(/\s+/g, " ")
-  const c = cor.trim().toUpperCase()
-  return c ? `${n} - ${c}` : n
-}

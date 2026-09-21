@@ -13,8 +13,8 @@ import { apiGet, apiPost, apiDelete } from "@/services/api"
 import { SuccessOverlay } from "@/components/SuccessOverlay"
 import { DatePickerCompact } from "@/components/DatePicker"
 import { fmtBRL, fmtData, cn } from "@/lib/utils"
-import PecaForm, { PECA_FORM_VAZIO, type PecaFormValores } from "@/components/live/PecaForm"
-import { parsePrecoBR, nomeComCor } from "@/lib/peca"
+import PecaForm, { CorTag, PECA_FORM_VAZIO, type PecaFormValores } from "@/components/live/PecaForm"
+import { parsePrecoBR } from "@/lib/peca"
 import type { Cliente } from "@/types"
 import { useTableKeyNav, useDropdownKeyNav } from "@/hooks/useKeyNav"
 import { gerarReciboPDF, imprimirRecibo } from "@/lib/recibo-pdf"
@@ -36,10 +36,11 @@ interface VendaListItem {
 interface VendaDetalhe extends VendaListItem {
   desconto: number; observacoes: string | null
   cliente_celular?: string | null
-  itens: { nome_produto: string; codigo_produto?: string | null; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
+  itens: { nome_produto: string; cor?: string | null; codigo_produto?: string | null; quantidade: number; preco_unitario: number; subtotal: number; marca?: string | null }[]
 }
 interface WizItem {
   produto_id: number | null; nome_produto: string
+  cor?: string | null
   codigo_produto?: string | null
   quantidade: number; preco_unitario: number
   marca?: string | null
@@ -106,6 +107,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
         cliente_celular: venda.cliente_celular ?? "",
         itens: venda.itens.map(it => ({
           nome: it.nome_produto,
+          cor: it.cor ?? null,
           qtd: it.quantidade,
           preco_unit: it.preco_unitario,
           subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
@@ -182,6 +184,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                     <div>
                       <p className="text-sm font-medium uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {it.cor && <span className="mr-1.5"><CorTag cor={it.cor} /></span>}
                         {it.codigo_produto && <span className="font-mono mr-1.5">{it.codigo_produto}</span>}
                         {it.quantidade}x · {fmtBRL(it.preco_unitario)}
                       </p>
@@ -208,6 +211,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                     cliente_celular: venda.cliente_celular ?? "",
                     itens: venda.itens.map(it => ({
                       nome: it.nome_produto,
+                      cor: it.cor ?? null,
                       qtd: it.quantidade,
                       preco_unit: it.preco_unitario,
                       subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
@@ -236,6 +240,7 @@ function ModalDetalhe({ id, onClose }: { id: number; onClose: () => void }) {
                   cliente_celular: venda.cliente_celular ?? "",
                   itens: venda.itens.map(it => ({
                     nome: it.nome_produto,
+                    cor: it.cor ?? null,
                     qtd: it.quantidade,
                     preco_unit: it.preco_unitario,
                     subtotal: it.subtotal ?? it.quantidade * it.preco_unitario,
@@ -436,7 +441,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
   }
 
   // Sem catálogo: a peça é cadastrada na hora, no mesmo formulário da live
-  // (produto_id nulo). A cor não tem coluna própria na venda, então vai no nome.
+  // (produto_id nulo). A cor escolhida na paleta é guardada em campo próprio.
   function adicionarProduto() {
     if (!peca.nome_produto.trim()) { setErro("Digite o nome da peça"); return }
     const preco = parsePrecoBR(peca.preco_live)
@@ -444,7 +449,8 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
     setErro("")
     setItens(prev => [...prev, {
       produto_id: null,
-      nome_produto: nomeComCor(peca.nome_produto, peca.cor),
+      nome_produto: peca.nome_produto.trim().replace(/ +/g, " "),
+      cor: peca.cor.trim() || null,
       quantidade: Math.max(1, parseInt(peca.quantidade) || 1),
       preco_unitario: preco,
     }])
@@ -501,7 +507,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
             data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
             cliente_nome: clienteNome || "Cliente",
             cliente_celular: clienteCelular ?? "",
-            itens: itens.map(it => ({ nome: it.nome_produto, qtd: it.quantidade, preco_unit: it.preco_unitario, subtotal: it.preco_unitario * it.quantidade, marca: it.marca ?? null })),
+            itens: itens.map(it => ({ nome: it.nome_produto, cor: it.cor ?? null, qtd: it.quantidade, preco_unit: it.preco_unitario, subtotal: it.preco_unitario * it.quantidade, marca: it.marca ?? null })),
             forma_pagamento: formas.join(" + "),
             desconto: descontoVal,
             total: totalFinal,
@@ -649,6 +655,7 @@ function WizardNovaVenda({ onClose, onSalvo, initialCliente }: { onClose: () => 
                         </span>
                       )}
                       <p className="text-sm font-semibold truncate uppercase" style={{ color: "var(--text-primary)" }}>{it.nome_produto}</p>
+                      <CorTag cor={it.cor} />
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Qtd</span>

@@ -10,6 +10,8 @@ import { Quantidade } from "../shared/quantidade"
 export interface VendaItemInput {
   produtoId?: number | null
   nome: string
+  /** Cor da peça, escolhida na paleta (opcional). */
+  cor?: string | null
   quantidade: number
   precoUnitario: number // em reais
   /** Se o produto controla estoque (default: true quando há produtoId). */
@@ -20,6 +22,7 @@ export class VendaItem {
   private constructor(
     readonly produtoId: number | null,
     readonly nome: string,
+    readonly cor: string | null,
     readonly quantidade: Quantidade,
     readonly precoUnitario: Money,
     readonly controlarEstoque: boolean,
@@ -38,10 +41,11 @@ export class VendaItem {
       return err(new ValidacaoError("Preço unitário não pode ser negativo."))
     }
 
+    const cor = (input.cor ?? "").trim().toUpperCase().slice(0, 60) || null
     const produtoId = input.produtoId ?? null
     const controlarEstoque = produtoId !== null && input.controlarEstoque !== false
 
-    return ok(new VendaItem(produtoId, nome, qtd.value, preco.value, controlarEstoque))
+    return ok(new VendaItem(produtoId, nome, cor, qtd.value, preco.value, controlarEstoque))
   }
 
   get subtotal(): Money {

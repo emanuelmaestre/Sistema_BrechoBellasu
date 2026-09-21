@@ -48,15 +48,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // Itens das vendas
   const vendaIds = vendas.map(v => v.id)
-  const itensMap: Record<number, { nome: string; qtd: number; preco_unit: number; subtotal: number }[]> = {}
+  const itensMap: Record<number, { nome: string; cor: string | null; qtd: number; preco_unit: number; subtotal: number }[]> = {}
   if (vendaIds.length > 0) {
     const { data: itens } = await sb
       .from("venda_itens")
-      .select("venda_id, nome, qtd, preco_unit, subtotal")
+      .select("venda_id, nome, cor, qtd, preco_unit, subtotal")
       .in("venda_id", vendaIds)
-    for (const it of (itens ?? []) as { venda_id: number; nome: string; qtd: number; preco_unit: number; subtotal: number }[]) {
+    for (const it of (itens ?? []) as { venda_id: number; nome: string; cor: string | null; qtd: number; preco_unit: number; subtotal: number }[]) {
       if (!itensMap[it.venda_id]) itensMap[it.venda_id] = []
-      itensMap[it.venda_id].push({ nome: it.nome, qtd: it.qtd, preco_unit: it.preco_unit, subtotal: it.subtotal })
+      itensMap[it.venda_id].push({ nome: it.nome, cor: it.cor, qtd: it.qtd, preco_unit: it.preco_unit, subtotal: it.subtotal })
     }
   }
 

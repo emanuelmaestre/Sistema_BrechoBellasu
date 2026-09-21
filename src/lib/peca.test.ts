@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parsePrecoBR, formatarPrecoBR, descontoPct, nomeComCor } from "./peca"
+import { parsePrecoBR, formatarPrecoBR, descontoPct } from "./peca"
 
 describe("parsePrecoBR", () => {
   it("lê valores no formato brasileiro", () => {
@@ -29,14 +29,5 @@ describe("descontoPct", () => {
     expect(descontoPct(0, 50)).toBe(0)
     expect(descontoPct(50, 0)).toBe(0)
     expect(descontoPct(50, 60)).toBe(0)
-  })
-})
-
-describe("nomeComCor", () => {
-  it("junta nome e cor", () => {
-    expect(nomeComCor("  Vestido   midi ", "azul")).toBe("Vestido midi - AZUL")
-  })
-  it("sem cor mantém só o nome", () => {
-    expect(nomeComCor("Blusa", "")).toBe("Blusa")
   })
 })

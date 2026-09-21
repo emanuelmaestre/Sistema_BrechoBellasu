@@ -81,6 +81,7 @@ type ItemInput = {
   produto_id?: number | null
   nome_produto?: string
   nome?: string
+  cor?: string | null
   quantidade?: number
   qtd?: number
   preco_unitario?: number
@@ -104,6 +105,7 @@ export const POST = withAuth(async (req: NextRequest, _ctx: unknown, auth: { id:
       itens: itens.map((it) => ({
         produtoId: it.produto_id ?? null,
         nome: it.nome_produto ?? it.nome ?? "",
+        cor: it.cor ?? null,
         quantidade: it.quantidade ?? it.qtd ?? 1,
         precoUnitario: it.preco_unitario ?? it.preco_unit ?? 0,
       })),

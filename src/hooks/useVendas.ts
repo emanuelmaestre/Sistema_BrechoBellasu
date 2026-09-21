@@ -23,6 +23,7 @@ export interface VendaDetalheItem {
   produto_id?: number | null
   produto_nome?: string | null
   nome?: string | null
+  cor?: string | null
   quantidade: number
   preco_unitario: number
   subtotal: number
@@ -87,6 +88,7 @@ export function useCreateVenda() {
       itens: Array<{
         produto_id?: number | null
         nome_produto?: string
+        cor?: string | null
         quantidade: number
         preco_unitario: number
       }>

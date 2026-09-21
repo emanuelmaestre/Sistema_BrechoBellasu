@@ -16,6 +16,7 @@ export class VendaRepositorySupabase implements IVendaRepository {
     const itens = venda.itens.map((it) => ({
       produto_id: it.produtoId,
       nome: it.nome,
+      cor: it.cor,
       preco_unit: it.precoUnitario.reais,
       qtd: it.quantidade.valor,
     }))

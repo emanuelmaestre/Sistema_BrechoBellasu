@@ -33,6 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Mapear itens para o formato esperado pelo frontend
   const itens = (itensRaw ?? []).map((it: Record<string, unknown>) => ({
     nome_produto:    it.nome,
+    cor:             (it.cor as string | null) ?? null,
     codigo_produto:  (it.produtos as { codigo?: string | null } | null)?.codigo ?? null,
     quantidade:      it.qtd,
     preco_unitario:  it.preco_unit,

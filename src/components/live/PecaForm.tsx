@@ -14,6 +14,20 @@ import { parsePrecoBR, formatarPrecoBR, descontoPct } from "@/lib/peca"
 // peças genéricas de relance na hora de separar a sacola.
 export const CORES_PECA: { nome: string; hex: string }[] = productData.colors
 
+/** Bolinha da cor + nome, para exibir a cor escolhida na paleta em listas. */
+export function CorTag({ cor }: { cor?: string | null }) {
+  const nome = (cor ?? "").trim().toUpperCase()
+  if (!nome) return null
+  const hex = CORES_PECA.find(c => c.nome === nome)?.hex ?? "transparent"
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide align-middle"
+      style={{ color: "var(--text-muted)" }}>
+      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: hex, border: "1px solid var(--border)" }}/>
+      {nome}
+    </span>
+  )
+}
+
 export interface PecaFormValores {
   nome_produto: string
   cor: string

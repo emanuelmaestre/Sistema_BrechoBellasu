@@ -127,7 +127,7 @@ type CreditoMov = {
   usuarios: { nome: string } | null
 }
 type HistoricoData = {
-  vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; qtd: number; subtotal: number }[] }[]
+  vendas: { id: number; data: string; total: number; forma_pagamento: string; status: string; itens: { nome: string; cor?: string | null; qtd: number; subtotal: number }[] }[]
   envios: { id: number; created_at: string; rastreio: string; ultimo_status: string }[]
   live_compras: {
     id: number; created_at: string; numero_sacola: number | null
@@ -531,7 +531,7 @@ function DrawerContent({ cliente, info, onEditarCampo, initialTab }: { cliente: 
                       <div className="space-y-1 mb-2">
                         {v.itens.map((it, j) => (
                           <p key={j} className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-secondary)" }}>
-                            {it.qtd}× {it.nome.toUpperCase()} — R$ {Number(it.subtotal).toFixed(2).replace(".", ",")}
+                            {it.qtd}× {it.nome.toUpperCase()}{it.cor ? ` (${it.cor})` : ""} — R$ {Number(it.subtotal).toFixed(2).replace(".", ",")}
                           </p>
                         ))}
                       </div>
