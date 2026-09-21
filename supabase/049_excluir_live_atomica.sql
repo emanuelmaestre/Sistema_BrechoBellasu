@@ -22,7 +22,11 @@
 CREATE OR REPLACE FUNCTION fn_excluir_live(p_live_id BIGINT)
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER
+-- INVOKER, como todas as outras funções do sistema: DEFINER faria a
+-- função rodar como dona do banco, furando RLS e permissões de tabela.
+-- Combinado com o EXECUTE que o Postgres dá a PUBLIC por padrão, uma
+-- chamada anônima com a chave pública apagaria qualquer live.
+SECURITY INVOKER
 SET search_path = public
 AS $$
 DECLARE
@@ -90,4 +94,6 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION fn_excluir_live(BIGINT) FROM anon;
+-- Revogar só de `anon` não basta: ele herda o EXECUTE concedido a PUBLIC.
+REVOKE ALL ON FUNCTION public.fn_excluir_live(BIGINT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_excluir_live(BIGINT) TO service_role;
