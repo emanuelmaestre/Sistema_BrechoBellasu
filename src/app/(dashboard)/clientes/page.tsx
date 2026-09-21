@@ -20,7 +20,7 @@ import { EtiquetaPDFModal } from "@/components/EtiquetaPDFModal"
 import DatePicker from "@/components/DatePicker"
 import { camposFaltantesEnvio } from "@/lib/endereco-parser"
 import { EnderecoAutocomplete, type EnderecoEscolhido } from "@/components/EnderecoAutocomplete"
-import { fmtData, cn } from "@/lib/utils"
+import { fmtData, cn, hojeISO } from "@/lib/utils"
 import { CpfCnpj } from "@/domain/shared/cpf-cnpj"
 import type { Cliente } from "@/types"
 import { useTableKeyNav } from "@/hooks/useKeyNav"
@@ -1765,7 +1765,7 @@ function WizardCliente({
               <label className={lSt} style={lCol}>Nascimento</label>
               <DatePicker value={form.data_nasc} onChange={v => set("data_nasc", v)}
                 inputClassName={iBase}
-                max={new Date().toISOString().split("T")[0]}
+                max={hojeISO()}
                 textFirst />
             </div>
           </div>

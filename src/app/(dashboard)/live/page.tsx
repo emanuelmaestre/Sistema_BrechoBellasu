@@ -16,7 +16,7 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/services/api"
 import { useConfirm } from "@/components/ui/ConfirmProvider"
 import { useDropdownKeyNav } from "@/hooks/useKeyNav"
 import DatePicker from "@/components/DatePicker"
-import { fmtBRL, fmtData, cn } from "@/lib/utils"
+import { fmtBRL, fmtData, cn, hojeISO } from "@/lib/utils"
 import {
   buildCompleteMessage,
   selectSmallTalkIndex,
@@ -204,8 +204,10 @@ interface CompraForm {
   link_pagamento: string
 }
 
-const hoje = new Date().toISOString().split("T")[0]
-const EMPTY_LIVE: LiveForm = { data_live: hoje, titulo: "", plataforma: "instagram", tipo: "novidades", link_live: "" }
+// `data_live` nasce vazio de propósito: quem preenche é o formulário, na
+// hora em que abre. Guardar a data aqui congelaria o valor no momento em
+// que o módulo carregou — e o sistema fica dias aberto como PWA.
+const EMPTY_LIVE: LiveForm = { data_live: "", titulo: "", plataforma: "instagram", tipo: "novidades", link_live: "" }
 const EMPTY_COMPRA: CompraForm = {
   cliente_id: null, nome_cliente: "", whatsapp: "",
   numero_sacola: "",
@@ -309,7 +311,10 @@ function WizardLive({ onClose, onSalvo }: { onClose: () => void; onSalvo: (id: n
   const qc = useQueryClient()
   const [step, setStep]     = useState(1)
   const [dir, setDir]       = useState(1)
-  const [form, setForm]     = useState<LiveForm>(EMPTY_LIVE)
+  // A data padrão é calculada quando o wizard abre, não quando o módulo
+  // carrega: é isso que garante "hoje de verdade" num app que fica dias
+  // aberto sem recarregar.
+  const [form, setForm]     = useState<LiveForm>(() => ({ ...EMPTY_LIVE, data_live: hojeISO() }))
   const [erro, setErro]     = useState("")
   const [platIdx, setPlatIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)

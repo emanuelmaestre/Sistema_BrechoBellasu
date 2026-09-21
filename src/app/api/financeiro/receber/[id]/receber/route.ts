@@ -4,13 +4,16 @@ import { withAdminAuth } from "@/lib/with-auth"
 import { ReceberContaUseCase } from "@/application/financeiro/contas-receber.use-cases"
 import { ContaReceberRepositorySupabase } from "@/infrastructure/repositories/conta-receber.repository"
 import { apresentarErro } from "@/infrastructure/http/error-presenter"
+import { hojeISO } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
 export const PATCH = withAdminAuth(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params
-    const hoje = new Date().toISOString().split("T")[0]
+    // Pelo fuso da loja, nao pelo UTC do servidor: baixa dada as 21h em
+    // Ribeirao Preto cairia no dia seguinte.
+    const hoje = hojeISO()
     const sb = createServerClient()
     const useCase = new ReceberContaUseCase(new ContaReceberRepositorySupabase(sb))
 

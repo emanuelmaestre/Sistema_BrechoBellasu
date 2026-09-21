@@ -6,6 +6,7 @@
 import { type Result, ok, err } from "../shared/result"
 import { ValidacaoError } from "../shared/domain-error"
 import { Money } from "../shared/money"
+import { hojeISO } from "@/lib/utils"
 
 export interface LiveCompraInput {
   liveId: number
@@ -75,7 +76,9 @@ export class LiveCompra {
         input.clienteId ?? null,
         norm(input.nomeCliente),
         norm(input.whatsapp),
-        norm(input.dataCompra) ?? new Date().toISOString().split("T")[0],
+        // Fuso da loja: compra lancada as 22h de uma live cairia no dia
+        // seguinte se fosse pelo UTC do servidor.
+        norm(input.dataCompra) ?? hojeISO(),
         norm(input.numeroSacola),
         qtd,
         valorTotal.value,
