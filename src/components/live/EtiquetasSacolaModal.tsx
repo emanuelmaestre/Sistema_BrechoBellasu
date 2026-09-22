@@ -310,6 +310,9 @@ export default function EtiquetasSacolaModal({
               {etiquetas.map((et, i) => {
                 const impressa = et.blocos.every(b => (b as SacolaResposta).impressaEm)
                 const numeros = et.blocos.map(b => b.numeroSacola ?? "?").join(" + ")
+                // Prefixo com zero à esquerda: no seletor de arquivo do celular,
+                // a ordem alfabética fica igual à ordem de impressão.
+                const nomeArquivo = `${String(et.indice).padStart(2, "0")}-sacola-${numeros.replaceAll(" + ", "-")}`
                 return (
                   <motion.div
                     key={et.indice}
@@ -349,13 +352,13 @@ export default function EtiquetasSacolaModal({
                         <BotaoMini
                           carregando={exportando === `pdf-${et.indice}`}
                           onClick={() => exportar(`pdf-${et.indice}`, () =>
-                            baixarEtiquetasPDF([nosDaFolha()[i]], `etiqueta-${numeros.replaceAll(" + ", "-")}.pdf`))}
+                            baixarEtiquetasPDF([nosDaFolha()[i]], `${nomeArquivo}.pdf`))}
                           icone={<FileText size={11}/>} rotulo="PDF"
                         />
                         <BotaoMini
                           carregando={exportando === `png-${et.indice}`}
                           onClick={() => exportar(`png-${et.indice}`, () =>
-                            baixarEtiquetaPNG(nosDaFolha()[i], `etiqueta-${numeros.replaceAll(" + ", "-")}.png`))}
+                            baixarEtiquetaPNG(nosDaFolha()[i], `${nomeArquivo}.png`))}
                           icone={<ImageIcon size={11}/>} rotulo="PNG"
                         />
                       </div>
@@ -379,8 +382,10 @@ export default function EtiquetasSacolaModal({
           )}
 
           <p className="text-[11.5px] mt-5 text-center" style={{ color: "var(--text-muted)" }}>
-            Etiqueta 100 × 147 mm · BY-480BT a 203 dpi · PNG exportado em {PNG_PX.largura} × {PNG_PX.altura} px,
-            um pixel por ponto da impressora.
+            Etiqueta 100 × 147 mm · BY-480BT a 203 dpi · PNG exportado em {PNG_PX.largura} × {PNG_PX.altura} px
+            com a resolução gravada no arquivo, um pixel por ponto da impressora.
+            <br/>
+            Sem driver no tablet: baixe o PNG de cada etiqueta e importe no app Label Expert, da própria Aiyin.
           </p>
         </motion.div>
       </motion.div>

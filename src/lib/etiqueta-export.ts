@@ -120,6 +120,65 @@ export async function etiquetaParaPontos(
   return { largura: width, altura: height, preto }
 }
 
+// ─── Metadado de resolução física ─────────────────────────────────
+//
+// O PNG do canvas sai sem informar quantos pontos por milímetro tem.
+// Um app que importa a etiqueta e a redimensiona pela DPI, em vez de
+// deixar digitar o tamanho em mm, imprimiria do tamanho errado sem essa
+// informação. O chunk `pHYs` do PNG resolve isso, e nenhuma biblioteca
+// nova precisa entrar no projeto para escrever 21 bytes.
+
+/** CRC32 padrão do PNG (zlib) — usado no chunk que a gente insere. */
+function crc32(bytes: Uint8Array): number {
+  let crc = ~0
+  for (const byte of bytes) {
+    crc ^= byte
+    for (let i = 0; i < 8; i++) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1))
+    }
+  }
+  return ~crc >>> 0
+}
+
+const PONTOS_POR_METRO = PONTOS_POR_MM * 1000
+
+/**
+ * Insere o chunk `pHYs` logo depois do `IHDR` — posição fixa, porque o
+ * PNG exige que `IHDR` seja sempre o primeiro chunk e ele tem tamanho
+ * fixo (13 bytes de dados). Declara 8 pontos/mm nos dois eixos: a
+ * mesma densidade da BY-480BT, então um app que lê o metadado calcula
+ * o tamanho físico certo sem precisar perguntar.
+ */
+function comResolucaoFisica(png: Uint8Array): Uint8Array<ArrayBuffer> {
+  const FIM_DO_IHDR = 33 // 8 (assinatura) + 4+4+13+4 (IHDR completo)
+
+  const tipo = new TextEncoder().encode("pHYs")
+  const dados = new Uint8Array(9)
+  const vista = new DataView(dados.buffer)
+  vista.setUint32(0, PONTOS_POR_METRO) // pixels por metro, eixo X
+  vista.setUint32(4, PONTOS_POR_METRO) // pixels por metro, eixo Y
+  dados[8] = 1 // unidade: metro
+
+  const chunk = new Uint8Array(4 + 4 + 9 + 4)
+  const vistaChunk = new DataView(chunk.buffer)
+  vistaChunk.setUint32(0, 9) // tamanho dos dados
+  chunk.set(tipo, 4)
+  chunk.set(dados, 8)
+  vistaChunk.setUint32(17, crc32(chunk.slice(4, 17)))
+
+  const saida: Uint8Array<ArrayBuffer> = new Uint8Array(png.length + chunk.length)
+  saida.set(png.slice(0, FIM_DO_IHDR))
+  saida.set(chunk, FIM_DO_IHDR)
+  saida.set(png.slice(FIM_DO_IHDR), FIM_DO_IHDR + chunk.length)
+  return saida
+}
+
+/** Mesmo PNG, com o chunk `pHYs` de 203 dpi embutido. */
+export async function pngComResolucaoFisica(blob: Blob): Promise<Blob> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  return new Blob([comResolucaoFisica(bytes)], { type: "image/png" })
+}
+
 function baixarBlob(blob: Blob, nomeArquivo: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
@@ -135,9 +194,9 @@ function baixarBlob(blob: Blob, nomeArquivo: string): void {
 /** Baixa uma etiqueta como PNG na resolução nativa da impressora. */
 export async function baixarEtiquetaPNG(etiqueta: HTMLElement, nomeArquivo: string): Promise<void> {
   const canvas = await rasterizar(etiqueta)
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
-  if (!blob) throw new Error("Não foi possível gerar o PNG da etiqueta.")
-  baixarBlob(blob, nomeArquivo)
+  const bruto = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
+  if (!bruto) throw new Error("Não foi possível gerar o PNG da etiqueta.")
+  baixarBlob(await pngComResolucaoFisica(bruto), nomeArquivo)
 }
 
 /**
