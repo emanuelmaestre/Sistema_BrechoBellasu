@@ -48,12 +48,18 @@ async function aguardarFontes(): Promise<void> {
 /**
  * Rasteriza uma etiqueta já renderizada na tela.
  *
+ * Usa `html-to-image`, que entrega o HTML ao próprio navegador (via SVG)
+ * para desenhar. O `html2canvas` refazia o layout do texto por conta
+ * própria e deslocava tudo para baixo: o número branco da sacola saía
+ * do quadrado preto e sumia, o TOTAL encostava na régua e o remetente
+ * era cortado na borda.
+ *
  * O elemento é clonado num contêiner fora da vista em escala 1:1 — se
  * rasterizássemos o que está na grade, a redução visual dos cartões
  * entraria no arquivo.
  */
 async function rasterizar(etiqueta: HTMLElement): Promise<HTMLCanvasElement> {
-  const { default: html2canvas } = await import("html2canvas")
+  const { toCanvas } = await import("html-to-image")
   await aguardarFontes()
 
   const palco = document.createElement("div")
@@ -65,11 +71,12 @@ async function rasterizar(etiqueta: HTMLElement): Promise<HTMLCanvasElement> {
   document.body.appendChild(palco)
 
   try {
-    const bruto = await html2canvas(clone, {
-      scale: ESCALA,
+    const bruto = await toCanvas(clone, {
+      pixelRatio: ESCALA,
       backgroundColor: "#ffffff",
-      logging: false,
-      useCORS: true,
+      // O tamanho físico vem do CSS em mm; nada de redimensionar pelo viewport.
+      width: clone.offsetWidth,
+      height: clone.offsetHeight,
     })
     return normalizar(bruto)
   } finally {
@@ -221,11 +228,15 @@ export async function baixarEtiquetasPDF(
     if (i > 0) doc.addPage([ETIQUETA_MM.largura, ETIQUETA_MM.altura], "portrait")
     // PNG, não JPEG: a etiqueta é preto no branco, e o JPEG suja as
     // bordas das letras pequenas com artefato de compressão.
+    // Compressão sem perda: sem ela o jsPDF grava a imagem crua, e um lote
+    // de 8 etiquetas chegava a 21 MB — pesado para importar no celular.
     doc.addImage(
       canvas.toDataURL("image/png"),
       "PNG",
       0, 0,
       ETIQUETA_MM.largura, ETIQUETA_MM.altura,
+      undefined,
+      "FAST",
     )
   }
 
