@@ -2,6 +2,7 @@
 import { createServerClient } from "@/lib/supabase"
 import { withAdminAuth } from "@/lib/with-auth"
 import { verificarTokenGoogle } from "@/lib/google-contacts"
+import { obterGoogleRefreshToken } from "@/lib/google-refresh-token"
 import { sfUsuario } from "@/lib/superfrete"
 
 export const dynamic = "force-dynamic"
@@ -167,7 +168,7 @@ async function checkSuperFrete(): Promise<IntegracaoStatus> {
 }
 
 async function checkGoogle(): Promise<IntegracaoStatus> {
-  if (!process.env.GOOGLE_REFRESH_TOKEN) {
+  if (!(await obterGoogleRefreshToken())) {
     return { id: "google", nome: "Google Contatos", descricao: "Sincronização de clientes com Google Contacts", conectado: false, configurado: false, detalhe: "Conta Google não conectada" }
   }
   const conectado = await verificarTokenGoogle()

@@ -1,5 +1,6 @@
 import { google, people_v1 } from "googleapis"
 import { montarNomeContato, normalizarTelefone } from "./google-contact-nome"
+import { obterGoogleRefreshToken } from "./google-refresh-token"
 
 // ── Auth ──────────────────────────────────────────────────────────
 
@@ -10,9 +11,9 @@ function criarOAuth2() {
   )
 }
 
-function criarPeopleClient() {
+async function criarPeopleClient(refreshToken: string) {
   const auth = criarOAuth2()
-  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+  auth.setCredentials({ refresh_token: refreshToken })
   return google.people({ version: "v1", auth })
 }
 
@@ -92,10 +93,11 @@ async function buscarPorTelefone(
  * Retorna true se conectado, false se o token expirou/foi revogado.
  */
 export async function verificarTokenGoogle(): Promise<boolean> {
-  if (!process.env.GOOGLE_REFRESH_TOKEN) return false
+  const refreshToken = await obterGoogleRefreshToken()
+  if (!refreshToken) return false
   try {
     const auth = criarOAuth2()
-    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+    auth.setCredentials({ refresh_token: refreshToken })
     // getAccessToken() força uma troca do refresh token → revela invalid_grant
     await auth.getAccessToken()
     return true
@@ -112,7 +114,8 @@ export async function verificarTokenGoogle(): Promise<boolean> {
  * Sempre retorna resultado — nunca lança exceção.
  */
 export async function sincronizarContato(params: SincronizarParams): Promise<SincronizarResult> {
-  if (!process.env.GOOGLE_REFRESH_TOKEN) {
+  const refreshToken = await obterGoogleRefreshToken()
+  if (!refreshToken) {
     return { ok: false, acao: "erro", authError: true, erro: MSG_GOOGLE_DESCONECTADO }
   }
 
@@ -133,7 +136,7 @@ export async function sincronizarContato(params: SincronizarParams): Promise<Sin
   const telefoneNorm = telResult.valor
 
   try {
-    const client  = criarPeopleClient()
+    const client  = await criarPeopleClient(refreshToken)
     const resource = buildResource(nomeMontado, telefoneNorm)
 
     // 1. Tenta pelo ID salvo no banco

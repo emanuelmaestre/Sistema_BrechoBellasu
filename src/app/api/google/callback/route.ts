@@ -3,6 +3,7 @@ import { google } from "googleapis"
 import { timingSafeEqual } from "node:crypto"
 import { withAdminAuth } from "@/lib/with-auth"
 import { googleRedirectUri } from "@/lib/google-oauth-redirect"
+import { salvarGoogleRefreshToken } from "@/lib/google-refresh-token"
 
 const GOOGLE_OAUTH_STATE_COOKIE = "google-oauth-state"
 
@@ -57,17 +58,21 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     )
   }
 
-  // Exibe o token para o operador copiar — nunca é logado em produção
+  try {
+    await salvarGoogleRefreshToken(refreshToken)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return new NextResponse(`Autorização recebida, mas falhou ao salvar: ${msg}`, { status: 500 })
+  }
+
+  // Token já salvo no banco — a aba só confirma e fecha sozinha, sem passo manual.
   const response = new NextResponse(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Google OAuth — Brechó Bellasu</title>
-    <style>body{font-family:monospace;background:#111;color:#eee;padding:2rem}
-    .box{background:#1e1e1e;border:1px solid #444;border-radius:8px;padding:1.5rem;margin-top:1rem}
-    .token{word-break:break-all;color:#4ade80;font-size:0.9rem}
-    h2{color:#facc15}p{color:#aaa}</style></head><body>
-    <h2>✅ Autorização concluída!</h2>
-    <p>Copie o token abaixo e salve como <code>GOOGLE_REFRESH_TOKEN</code> no <code>.env.local</code> e nas variáveis do Vercel:</p>
-    <div class="box"><div class="token">${refreshToken}</div></div>
-    <p style="margin-top:1.5rem;color:#f87171">⚠️ Não compartilhe este token. Feche esta aba após copiar.</p>
+    <style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;padding:2rem;text-align:center}
+    h2{color:#4ade80}p{color:#aaa}</style></head><body>
+    <h2>✅ Google reconectado!</h2>
+    <p>O token já foi salvo automaticamente. Esta aba fecha sozinha em instantes.</p>
+    <script>setTimeout(() => { window.close(); if (window.opener) window.opener.location.reload() }, 1500)</script>
     </body></html>`,
     { headers: {
       "Content-Type": "text/html",
